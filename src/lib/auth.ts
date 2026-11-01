@@ -8,6 +8,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db, schema } from "@/db";
+import { type Actor, toActor } from "@/domain/actor";
 import { env, googleEnabled } from "@/lib/env";
 import { log } from "@/lib/log";
 import { sendMail } from "@/lib/mail";
@@ -19,6 +20,9 @@ import { sendMail } from "@/lib/mail";
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
+  // Admins own people's names: a self-chosen name would reach approvers' inboxes and
+  // emails, where it could impersonate a coworker or pose as instructions.
+  disabledPaths: ["/update-user"],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -108,4 +112,14 @@ export async function requireUser() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session || session.user.isActive === false) redirect("/sign-in");
   return session.user;
+}
+
+/**
+ * The signed-in user plus the `Actor` that services act for. `actor` is `null` while
+ * the user is not attached to a company; such a user can sign in but not act.
+ * Redirects to /sign-in when there is no active session.
+ */
+export async function requireActor(): Promise<{ user: Session["user"]; actor: Actor | null }> {
+  const user = await requireUser();
+  return { user, actor: toActor(user) };
 }

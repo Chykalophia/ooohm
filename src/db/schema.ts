@@ -256,6 +256,10 @@ export const leaveRequests = pgTable(
     index("leave_requests_user_idx").on(t.userId),
     index("leave_requests_company_dates_idx").on(t.companyId, t.startDate, t.endDate),
     index("leave_requests_status_idx").on(t.status),
+    // Approvals inbox: requests assigned to one approver, and every pending request
+    // in a company for admins. Also backs the approver_id foreign key.
+    index("leave_requests_approver_status_idx").on(t.approverId, t.status),
+    index("leave_requests_company_status_idx").on(t.companyId, t.status),
     check("leave_requests_dates_ordered", sql`${t.endDate} >= ${t.startDate}`),
     check("leave_requests_days_positive", sql`${t.days} > 0`),
     // A half day consumes exactly 0.5; a full-day request consumes whole days.
@@ -284,7 +288,8 @@ export const auditLog = pgTable(
     entityId: text("entity_id").notNull(),
     before: jsonb("before"),
     after: jsonb("after"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // clock_timestamp(), not now(): rows written in one transaction keep their write order.
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   },
   (t) => [index("audit_log_entity_idx").on(t.entityType, t.entityId)],
 );
@@ -302,7 +307,8 @@ export const eventsOutbox = pgTable(
     payload: jsonb("payload").notNull(),
     attempts: integer("attempts").notNull().default(0),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // clock_timestamp(), not now(): rows written in one transaction keep their write order.
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   },
   (t) => [index("events_outbox_pending_idx").on(t.deliveredAt, t.createdAt)],
 );

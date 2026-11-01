@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { yearInTimeZone } from "../src/lib/dates.ts";
+import { yearInTimeZone } from "../../src/lib/dates.ts";
 
 // 2026-12-31 20:00 in Chicago (CST, UTC-6) is 2027-01-01 02:00 UTC.
 const newYearsEveChicago = new Date("2027-01-01T02:00:00Z");

@@ -32,7 +32,35 @@ export type DomainErrorCode =
   /** The record changed underneath the caller (e.g. a concurrent decision won). */
   | "conflict"
   /** The actor did this too often in a short window; they can retry later. */
-  | "rate_limited";
+  | "rate_limited"
+  /**
+   * A tracked leave type's balance cannot cover the request in some year (pending
+   * requests count as spent). Carries {@link BalanceShortfallDetails}.
+   */
+  | "insufficient_balance"
+  /**
+   * The company's `allowance_policy` names no known policy. A configuration fault, not
+   * a user mistake: the presentation layer logs it as well as showing a message.
+   */
+  | "policy_unavailable";
+
+/**
+ * Facts behind an `insufficient_balance` error, so the presentation layer can say
+ * exactly what is left without parsing a message.
+ */
+export interface BalanceShortfallDetails {
+  /** The calendar year whose balance falls short. */
+  readonly year: number;
+  /** Days the request costs in that year. */
+  readonly requested: number;
+  /** Days left in that year before this request (may be 0 or negative). */
+  readonly remaining: number;
+  /** How many calendar years the request spans (1 or 2). */
+  readonly yearsSpanned: number;
+}
+
+/** Structured facts attached to some codes; see each code's documentation. */
+export type DomainErrorDetails = BalanceShortfallDetails;
 
 /**
  * An expected, user-correctable failure. Anything that is not a `DomainError` is a
@@ -40,11 +68,14 @@ export type DomainErrorCode =
  */
 export class DomainError extends Error {
   readonly code: DomainErrorCode;
+  /** Structured facts for wording the user message; present for `insufficient_balance`. */
+  readonly details?: DomainErrorDetails;
 
-  constructor(code: DomainErrorCode, message?: string) {
+  constructor(code: DomainErrorCode, message?: string, details?: DomainErrorDetails) {
     super(message ?? code);
     this.name = "DomainError";
     this.code = code;
+    this.details = details;
   }
 }
 

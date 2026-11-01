@@ -26,6 +26,7 @@ pnpm lint
 pnpm db:generate    # after editing src/db/schema.ts — commit the generated SQL in drizzle/
 pnpm db:migrate
 pnpm db:seed        # idempotent; uses SEED_ADMIN_EMAIL
+pnpm job:rollover   # idempotent year rollover (carryover + new-year allowances)
 pnpm test           # unit tests (no database)
 pnpm test:integration  # service tests; set TEST_DATABASE_URL (see docs/architecture.md#testing)
 docker compose up   # full stack: db, migrate+seed, app, mailpit (http://localhost:8025)
@@ -41,9 +42,9 @@ Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
 - `src/domain/**`: pure rules (approval rule, day counting, status machine, permissions, `DomainError`). No I/O, Next, Drizzle or env.
 - `src/server/context.ts` / `src/server/runtime.ts`: the injected `ServiceContext` type and the app's composition root.
 - `src/db/schema.ts`: every table. Better Auth's tables (`user`, `session`, `account`, `verification`) live here too.
-- `src/lib/auth.ts`: Better Auth config, `requireUser()` and `requireActor()`, the entry points for pages and actions.
+- `src/lib/auth.ts`: Better Auth config, `requireUser()` and `requireActor()`, the entry points for pages and actions (`currentUser()` for route handlers, which answer 401 instead of redirecting).
 - `src/lib/env.ts`: validated env vars. Add new ones here, in `.env.example`, and in `docker-compose.yml`.
-- `scripts/*.mts`: migrate and seed, run by the `migrate` compose service.
+- `scripts/*.mts`: migrate, seed and the year rollover (`pnpm job:rollover`), run in that order by the `migrate` compose service.
 - `tests/unit/**` (`pnpm test`) and `tests/integration/**` (`pnpm test:integration`, needs `TEST_DATABASE_URL`; fresh database per file). Both run under `--conditions=react-server` so `server-only` modules load.
 
 ## License

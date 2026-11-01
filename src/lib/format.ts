@@ -4,6 +4,8 @@
  * Dates are formatted in UTC from their `YYYY-MM-DD` parts, so the printed day is the
  * stored day whatever the server's or browser's time zone.
  */
+import type { Balance, RequestCost } from "@/domain/allowance-policy";
+import type { BalanceShortfallDetails } from "@/domain/errors";
 
 const dayFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
@@ -37,6 +39,53 @@ export function formatLeaveDates(startDate: string, endDate: string, dayPortion:
 /** "1 day", "0.5 days", "3 days". */
 export function formatDays(days: number): string {
   return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+/**
+ * The live preview line for a draft request, e.g. "This is 3 days. You'll have 12 days
+ * left for 2026." A request over New Year says what each year is charged and what
+ * each tracked year keeps. Untracked types get only the first sentence.
+ */
+export function formatRequestCost(cost: RequestCost): string {
+  const split = cost.years.length > 1 ? `: ${cost.years.map((y) => `${y.days} in ${y.year}`).join(", ")}` : "";
+  const left = cost.years
+    .filter((y): y is typeof y & { remainingAfter: number } => y.remainingAfter !== null)
+    .map((y) => `${formatDays(y.remainingAfter)} left for ${y.year}`);
+  const after = left.length > 0 ? ` You'll have ${left.join(" and ")}.` : "";
+  return `This is ${formatDays(cost.days)}${split}.${after}`;
+}
+
+/** Why a request was refused for lack of balance, saying exactly what is left. */
+export function formatShortfall(s: BalanceShortfallDetails): string {
+  const asked = `That's ${formatDays(s.requested)}${s.yearsSpanned > 1 ? ` in ${s.year}` : ""}`;
+  const left = s.remaining > 0 ? `you only have ${formatDays(s.remaining)} left for ${s.year}` : `you have no days left for ${s.year}`;
+  return `${asked}, but ${left}.`;
+}
+
+/**
+ * What a tracked balance is out of: "of 15 days" when that is just the allowance,
+ * otherwise with the parts that make it up, so the numbers reconcile, e.g.
+ * "of 18 days (15 + 3 carried over)" or "of 13.5 days (15 - 1.5 adjusted)".
+ */
+export function formatBalanceTotal(b: Extract<Balance, { tracked: true }>): string {
+  const parts: string[] = [];
+  if (b.carriedOver !== 0) parts.push(`${b.carriedOver < 0 ? "-" : "+"} ${Math.abs(b.carriedOver)} carried over`);
+  if (b.adjustment !== 0) parts.push(`${b.adjustment < 0 ? "-" : "+"} ${Math.abs(b.adjustment)} adjusted`);
+  const total = `of ${formatDays(b.total)}`;
+  return parts.length === 0 ? total : `${total} (${b.allowance} ${parts.join(" ")})`;
+}
+
+/**
+ * The quiet line under a balance: "2 used · 1 pending", plus "5 carried into 2027"
+ * when the rollover moved days out of `year`. Whatever is zero is left out; empty
+ * when everything is.
+ */
+export function formatBalanceUsage(b: Balance, year: number): string {
+  const parts: string[] = [];
+  if (b.used > 0) parts.push(`${b.used} used`);
+  if (b.pending > 0) parts.push(`${b.pending} pending`);
+  if (b.tracked && b.carriedOut > 0) parts.push(`${b.carriedOut} carried into ${year + 1}`);
+  return parts.join(" · ");
 }
 
 export const STATUS_LABEL = {

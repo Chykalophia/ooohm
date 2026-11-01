@@ -29,6 +29,13 @@
       "when": 1793564722048,
       "tag": "0003_m2_inbox_indexes_event_order",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793567735242,
+      "tag": "0004_m3_leave_request_days",
+      "breakpoints": true
     }
   ]
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { requestLeaveAction } from "./actions";
 import { type FormState, IDLE, nextFormKey } from "./form-state";
+import type { LeavePreviewResponse } from "./leave-input";
 
 type LeaveTypeOption = { id: string; name: string; color: string };
 type Portion = "full" | "am" | "pm";
@@ -13,6 +14,10 @@ const PORTIONS: { value: Portion; label: string }[] = [
   { value: "am", label: "Morning" },
   { value: "pm", label: "Afternoon" },
 ];
+
+/** How long the form waits after the last change before asking for a preview. */
+const PREVIEW_DELAY_MS = 300;
+const PREVIEW_ID = "leave-preview";
 
 const field =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20";
@@ -40,6 +45,7 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
           <button
             type="submit"
             disabled={pending}
+            aria-describedby={PREVIEW_ID}
             className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
           >
             {pending ? "Sending…" : "Request time off"}
@@ -65,6 +71,7 @@ function Fields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; de
   const [dayPortion, setDayPortion] = useState<Portion>("full");
   const [note, setNote] = useState("");
   const singleDay = startDate === endDate;
+  const preview = useLeavePreview({ leaveTypeId, startDate, endDate, dayPortion });
 
   function changeStart(value: string) {
     // The end date follows the start until someone picks a later end on purpose.
@@ -152,6 +159,55 @@ function Fields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; de
           className={`${field} resize-y`}
         />
       </label>
+
+      {/* Staleness is shown with the muted colour token, never opacity, which would take
+          the red error line below AA contrast. aria-busy tells screen readers. */}
+      <p
+        id={PREVIEW_ID}
+        aria-live="polite"
+        aria-busy={!preview.current}
+        className={`min-h-5 text-sm ${
+          !preview.ok ? "text-red-700 dark:text-red-400" : preview.current ? "text-foreground" : "text-muted"
+        }`}
+      >
+        {preview.message}
+      </p>
     </>
   );
+}
+
+type Draft = { leaveTypeId: string; startDate: string; endDate: string; dayPortion: Portion };
+type Preview = { query: string; ok: boolean; message: string };
+
+/**
+ * Asks the server what the draft would cost and leave ("This is 3 days. You'll have 12
+ * days left for 2026."), or why it can't be requested, using the same computation as
+ * submit. Debounced; a newer draft aborts the older request, so answers never arrive
+ * out of order. While a newer answer is on its way, the last one stays, marked busy.
+ */
+function useLeavePreview(draft: Draft): { message: string; ok: boolean; current: boolean } {
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const complete = draft.leaveTypeId !== "" && draft.startDate !== "";
+  const query = new URLSearchParams(draft).toString();
+
+  useEffect(() => {
+    if (!complete) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/leave-preview?${query}`, { signal: controller.signal, cache: "no-store" });
+        const body = (await res.json()) as LeavePreviewResponse;
+        setPreview({ query, ok: body.ok, message: body.message });
+      } catch {
+        if (!controller.signal.aborted) setPreview({ query, ok: false, message: "The preview isn't available right now." });
+      }
+    }, PREVIEW_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [complete, query]);
+
+  if (!complete || !preview) return { message: "", ok: true, current: true };
+  return { message: preview.message, ok: preview.ok, current: preview.query === query };
 }

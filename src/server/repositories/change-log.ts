@@ -4,7 +4,8 @@ import type { Transaction } from "@/db/types";
 /** One `audit_log` row: who changed which entity, and its state before and after. */
 export interface AuditEntry {
   companyId: string;
-  actorId: string;
+  /** The person who made the change; `null` for a system job (e.g. the year rollover). */
+  actorId: string | null;
   /** Dotted verb, e.g. `leave_request.approved`. */
   action: string;
   entityType: string;

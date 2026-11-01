@@ -28,15 +28,37 @@ docker compose up
 
 Then open http://localhost:3000. Outgoing email lands in Mailpit at http://localhost:8025.
 
+### Year rollover
+
+Balances reset on Jan 1. Carryover (off by default, set per leave type) is applied by the year rollover job,
+which also creates each person's allowance rows for the new year. It is idempotent: `docker compose up` runs
+it every time after migrations, and you can run it by hand. Without regular restarts, run it daily from cron
+(not just on Jan 1), so late cancellations of last year's leave still update the carryover:
+
+```bash
+docker compose run --rm migrate pnpm job:rollover        # closes last year
+docker compose run --rm migrate pnpm job:rollover 2026   # closes a specific year
+```
+
+```cron
+# The company's time zone; cron otherwise uses the host's.
+CRON_TZ=America/Chicago
+15 3 * * * cd /srv/ooohm && docker compose run --rm migrate pnpm job:rollover
+```
+
+The rollover owns each allowance's carried-over days and recomputes them on every run; correct a balance with
+an adjustment instead. See [docs/architecture.md](docs/architecture.md#year-rollover) for the exact rules.
+
 ## Develop
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm test
 TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:integration
+pnpm job:rollover [year]   # year rollover against DATABASE_URL
 ```
 
-How the code is organized, and how requests, approvals, the audit log and the events outbox work, is in
-[docs/architecture.md](docs/architecture.md).
+How the code is organized, and how requests, approvals, balances, the year rollover, the audit log and the
+events outbox work, is in [docs/architecture.md](docs/architecture.md).
 
 ## License
 

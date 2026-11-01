@@ -57,3 +57,37 @@ export function leaveEventPayload(request: LeaveEventSource, actorId: string): L
 export function leaveAuditAction(event: "requested" | LeaveStatus): string {
   return `leave_request.${event}`;
 }
+
+/** Balance event types written to `events_outbox`. Public contract; never rename one. */
+export const BALANCE_EVENT_TYPES = {
+  adjusted: "balance.adjusted",
+} as const;
+
+/**
+ * Why an allowance row changed.
+ *
+ * - `carryover`: the year rollover set `carriedOverDays` from the previous year.
+ * - `allowance_created`: a row was created from the leave type's default, or copied
+ *   from the person's latest row for a type without a default.
+ */
+export type BalanceChangeReason = "carryover" | "allowance_created";
+
+/** Version 1 payload of `balance.adjusted`: the allowance row after the change. */
+export interface BalanceAdjustedPayload {
+  allowanceId: string;
+  userId: string;
+  leaveTypeId: string;
+  year: number;
+  days: number;
+  carriedOverDays: number;
+  adjustmentDays: number;
+  reason: BalanceChangeReason;
+  /** Who made the change; `null` for a system job such as the year rollover. */
+  actorId: string | null;
+}
+
+/** Audit log `action` for each allowance change. */
+export const ALLOWANCE_AUDIT_ACTIONS: Readonly<Record<BalanceChangeReason, string>> = {
+  carryover: "allowance.carried_over",
+  allowance_created: "allowance.created",
+};

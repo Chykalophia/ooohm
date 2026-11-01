@@ -10,6 +10,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -269,6 +270,27 @@ export const leaveRequests = pgTable(
     ),
     // Half days (am/pm) only make sense on a single-day request.
     check("leave_requests_half_day_single", sql`${t.dayPortion} = 'full' OR ${t.startDate} = ${t.endDate}`),
+  ],
+);
+
+/**
+ * What a leave request costs in each calendar year, fixed at submit time. A request
+ * over New Year has one row per year; every other request has one row. Balances read
+ * these rows, never recount days, so editing holidays later cannot change a past
+ * balance. The rows for a request always add up to `leave_requests.days`.
+ */
+export const leaveRequestDays = pgTable(
+  "leave_request_days",
+  {
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => leaveRequests.id, { onDelete: "cascade" }),
+    year: integer("year").notNull(),
+    days: numeric("days", { precision: 5, scale: 1, mode: "number" }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.requestId, t.year] }),
+    check("leave_request_days_days_positive", sql`${t.days} > 0`),
   ],
 );
 

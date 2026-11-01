@@ -5,6 +5,7 @@ import { serviceContext } from "@/server/runtime";
 import { getApprovalNav } from "@/server/services/approvals";
 import { getDashboard } from "@/server/services/leave-requests";
 import { AppHeader } from "./app-header";
+import { BalanceSummary } from "./balance-summary";
 import { CancelRequestButton } from "./cancel-request-button";
 import { RequestLeaveForm } from "./request-leave-form";
 import { StatusBadge } from "./status-badge";
@@ -40,6 +41,8 @@ export default async function HomePage() {
         ) : (
           <RequestLeaveForm leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
         )}
+
+        <BalanceSummary summary={dashboard.balances} />
 
         <section aria-labelledby={REQUESTS_HEADING_ID} className="space-y-4">
           {/* Focus lands here after a cancel, when the cancel button itself disappears. */}

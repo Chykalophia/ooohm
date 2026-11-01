@@ -56,6 +56,12 @@ Expected failures throw `DomainError` with a stable `code` (`src/domain/errors.t
 service calls through `runAction` (`src/app/run-action.ts`), which maps each code to a calm message and logs
 anything else as `<event>_failed`, returning a generic retry message. Stack traces never reach the browser.
 
+Some codes carry structured `details` so the message can be specific without parsing text:
+`insufficient_balance` carries the year, the days requested in it and the days left, and `messageForError`
+words it ("That's 5 days, but you only have 2 days left for 2026."). Codes that mean the deployment is
+misconfigured rather than that the person erred (`policy_unavailable`) are also logged as
+`<event>_misconfigured`.
+
 The logger (`src/lib/log.ts`) redacts errors before writing them: a Drizzle query error keeps its SQL and the
 driver's code and message but not its bound parameters (notes, reasons, audit JSON), and an SMTP error keeps
 its codes and command but not the server's reply, which quotes the recipient's address.
@@ -78,6 +84,17 @@ Leave events (`src/domain/events.ts`) are a public contract for webhooks and ada
 
 Payload (v1): `requestId, userId, leaveTypeId, startDate, endDate, dayPortion, days, status, actorId`. Add
 fields; never rename or remove one.
+
+Balance events (M3):
+
+| Event | When | Audit `action` |
+| --- | --- | --- |
+| `balance.adjusted` | The year rollover sets a carried-over amount (`reason: "carryover"`) | `allowance.carried_over` |
+| `balance.adjusted` | The year rollover creates an allowance row from the leave type default, or copies it from the person's latest row for a type without a default (`reason: "allowance_created"`) | `allowance.created` |
+
+Payload (v1): `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId`,
+the row after the change. A system job has no actor: `actorId` is `null` in both the payload and
+`audit_log.actor_id`.
 
 ### Dates
 
@@ -109,16 +126,20 @@ address, and never fail the user's action.
    people who approve each other submitting at once would deadlock. Under the same lock, a person who has
    created 10 requests (any status) in the last 10 minutes is refused with `rate_limited`, which also caps
    the review and cancellation email one person can cause.
-3. Requires an active, non-archived leave type of the actor's company.
-4. Counts days server-side: working days (company `working_days`, ISO weekdays) from start to end inclusive,
-   minus company holidays; a half day is 0.5. A request worth 0 days is refused.
-5. Refuses an overlap with the requester's own pending or approved requests. A morning and an afternoon
-   half day on the same date do not overlap.
-6. Resolves the approver with `ManagerApprovalRule` and stores `approver_id`.
-7. Inserts as `pending` and records `leave.requested`. If the rule says self-approve, it immediately moves to
-   `approved` (`decided_at` = now, approver = requester) and records `leave.approved`.
-
-Balances are not checked yet; that arrives with the policy engine in M3.
+3. Runs `assessLeaveRequest` (`src/server/services/balances.ts`), the same function the live preview runs:
+   1. Requires an active, non-archived leave type of the actor's company, and resolves the company's
+      allowance policy.
+   2. Counts days server-side, split by calendar year: working days (company `working_days`, ISO weekdays)
+      from start to end inclusive, minus company holidays; a half day is 0.5. A request worth 0 days is
+      refused.
+   3. Refuses an overlap with the requester's own pending or approved requests. A morning and an afternoon
+      half day on the same date do not overlap.
+   4. Refuses (`insufficient_balance`) when a tracked leave type's balance cannot cover the request in any
+      year it touches. See [Balances](#balances-m3).
+4. Resolves the approver with `ManagerApprovalRule` and stores `approver_id`.
+5. Inserts as `pending` with `days` = the total, stores the per-year split in `leave_request_days`, and records
+   `leave.requested`. If the rule says self-approve, it immediately moves to `approved` (`decided_at` = now,
+   approver = requester) and records `leave.approved`. Self-approved requests are held to the same balance.
 
 ### Approval rule
 
@@ -160,8 +181,8 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 
 ### Screens
 
-- `/` (dashboard): the request form (the one primary action) and the person's own requests with a two-step
-  cancel. A decision note shows under approved and declined requests. Defaults: first active leave type by
+- `/` (dashboard): the request form (the one primary action) with its live preview, the person's balance per
+  active leave type for the current year, and their own requests with a two-step cancel. A decision note shows under approved and declined requests. Defaults: first active leave type by
   sort order, the first working day (not a holiday) from today in the company's time zone (`nextWorkingDay`),
   end = start, full day.
 - `/approvals`: pending requests the person can decide (assigned to them; admins see every pending request
@@ -170,11 +191,140 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   count when there are more. The header links here for managers, admins, and anyone with something
   currently assigned to them.
 
+## Balances (M3)
+
+### Policy engine
+
+`AllowancePolicy` (`src/domain/allowance-policy.ts`) is pure and pluggable. `companies.allowance_policy` names
+the policy and `resolveAllowancePolicy(key)` looks it up; an unknown key throws `policy_unavailable` rather
+than falling back, because a fallback would quietly compute wrong balances. A policy answers three questions:
+which periods a request draws from and what it costs in each (`periodsFor`), what a balance is (`balance`),
+and what carries into the next period (`carryover`). Periods are identified by a year number.
+
+v1 ships `AnnualCalendarYearPolicy` (`annual_calendar_year`), per person, leave type and calendar year:
+
+| Value | Rule |
+| --- | --- |
+| allowance | `allowances.days` when the person has a row for the year, else `leave_types.default_allowance_days`, else (no default) the `days` of the person's latest row for an earlier year |
+| total | allowance + `carried_over_days` + `adjustment_days` (both 0 without a row) |
+| used | approved days in the year |
+| pending | pending days in the year, shown apart |
+| carried out | next year's `carried_over_days`: what the rollover already moved out of this year |
+| remaining | total − used − pending − carried out (negative only if an allowance was lowered after booking) |
+
+Carried-out days count as spent in the year they left. Otherwise, once the rollover had carried a year's
+remaining forward, leave booked late into that closed year (dates in the past are allowed) could spend the same
+days again. Carryover itself is computed from what was left *before* carrying (remaining + carried out), so
+re-running the rollover over an earlier carry gives the same answer.
+
+A type is **untracked** (unlimited) when `counts_against_allowance` is false, or when it has no default and the
+person has never had a row for it in that year or any earlier one. Untracked balances report used and pending,
+have no remaining, and never block. Once a person has a row for a type without a default, every later year
+without its own row inherits that row's `days` (with no carryover or adjustment), so the type stays limited for
+them before the rollover has made next year's row: booking ahead, and the January part of a request over New
+Year, are checked against it. All balance reads load it in the same query as the year's rows (`listAllowances`
+also returns each person and type's latest row before the earliest year asked for). Amounts add in tenths (`addDays`), matching the `numeric(5,1)` columns.
+
+### Year split, fixed at submit
+
+`splitLeaveDaysByYear` (`src/domain/leave-days.ts`) counts a request's working days per calendar year: Thu
+Dec 31 to Mon Jan 4 (Jan 1 a holiday) is 1 day in the first year and 1 in the next. Submit stores the split in
+`leave_request_days (request_id, year, days)` in the same transaction as the request; the rows always add up
+to `leave_requests.days`, which stays the total. Balances only ever read these rows, so editing holidays or
+working days later never changes a past balance. Rejected and cancelled requests drop out because balances
+sum only `pending` and `approved` requests.
+
+Migration `0004` backfills existing requests: one row at the stored total for a request inside one year; for
+one over New Year, the working days counted at migration time up to Dec 31 (capped at the stored total) go to
+the first year and the rest of the stored total to the second.
+
+### Enforcement and locking
+
+A request is refused when, in any year it touches, its days in that year exceed that year's remaining.
+Pending requests count as spent, so two pending requests cannot promise the same days, and so do days already
+carried into the next year, so carryover cannot be spent twice. The check runs inside
+the submit transaction under the requester's member lock (`lockMember`, `FOR NO KEY UPDATE`), so concurrent
+submits by one person run one after another and each sees the days the previous one booked. **Every writer of
+a person's balance inputs takes that lock first**: submit and the year rollover do; admin allowance edits (M5)
+must too. Approving never changes remaining (pending and approved both count), and rejecting or cancelling only
+frees days, so neither needs it.
+
+### Live preview
+
+The request form asks `GET /api/leave-preview?leaveTypeId=&startDate=&endDate=&dayPortion=` 300 ms after the
+last change, and shows the answer in an `aria-live="polite"` line that the submit button also references
+(`aria-describedby`): "This is 3 days. You'll have 12 days left for 2026.", or the exact message submit would
+give ("That's 5 days, but you only have 2 days left for 2026.", "Those dates are all weekends or holidays...").
+The route handler calls `previewLeaveRequest`, which runs `assessLeaveRequest` without writing; the client
+does no day counting. A newer draft aborts the previous request, so answers never arrive out of order. It is
+a route handler rather than a server action because Next.js runs a client's server actions one at a time,
+and a preview must never queue in front of a submit. Responses are `Cache-Control: private, no-store`;
+without a session it answers 401. It allows 60 previews per person per minute (an in-memory fixed window,
+`src/lib/rate-limit.ts`; 429 beyond that), far above what the debounced form sends, so a script cannot hammer
+the database or, with a misconfigured policy, flood the error log. While a newer answer is on its way the last
+one stays on screen in the muted colour with `aria-busy`, never with opacity, which would take the red error
+text below AA contrast.
+
+### Dashboard summary
+
+`getBalanceSummary` returns every active leave type's balance for the current year in the company's time
+zone: four queries whatever the number of types or requests (settings and types, then allowance rows and a SQL
+`sum ... filter (where status = ...)` over `leave_request_days`, each pair in parallel). The dashboard
+(`getDashboard`) reads settings and types once for both the form and the balances (`summarizeBalances`), so it
+is a fixed six queries: settings, types and the person's requests, then allowance rows, booked-day sums and the
+look-ahead holidays. `balances.test.ts` pins that number. Each card shows what is left, then what it is out of,
+broken down when it is more than the allowance ("of 18 days (15 + 3 carried over)"), then used and pending.
+If the policy is unknown, the dashboard logs `allowance_policy_unavailable` and shows a calm "ask an admin"
+line in place of balances; everything else still renders.
+
+### Year rollover
+
+`runYearRollover(ctx, fromYear?)` (`src/server/services/rollover.ts`) closes a year. For every company, active
+member and active leave type that counts against allowance with `carryover_enabled`, next year's
+`carried_over_days` becomes `clamp(remaining(fromYear) + carried out, 0, carryover_max_days)`, i.e. what was
+left before any earlier carry (no upper bound when the max is null). A missing next-year row is created from
+the type's default. Members created after the closing year carry nothing. For every counting type without a
+default, **carryover on or off**, anyone with a row in or before the closing year gets a missing next-year row
+copied from their latest one (`days`), even when nothing carries. Balances would inherit that row anyway (see
+above); the copy makes next year's allowance an explicit row an admin can see and edit. Nobody who never had a
+row for such a type gets one.
+Then every active member gets a current-year row from the default for each tracked type that has one;
+existing rows are never overwritten.
+Carryover is off by default, so out of the box nothing carries: the job only creates missing rows.
+
+It **sets** values rather than adding to them, so it is idempotent: a second run over the same data changes
+and records nothing. If closing-year leave is cancelled later, the next run recomputes the carryover and
+records the change. Each member runs in its own transaction under their member lock, and every created or
+changed row writes `audit_log` + `balance.adjusted` in that transaction. It refuses (`invalid_input`) to close
+a year that has not ended in a company's time zone, and resolves every company's policy before changing
+anything.
+
+**The rollover owns `carried_over_days`.** Every run recomputes it from the closing year, so a hand edit there
+is overwritten (and audited with actor `null`) by the next run or restart. Balance corrections, including the
+M5 allowance editor, go in `adjustment_days`, which the rollover never touches.
+
+Run it with `pnpm job:rollover [year]` (default: the previous year in each company's time zone; needs only
+`DATABASE_URL`). The compose `migrate` service runs it after the seed on every start; a failure there is
+printed but does not stop the app, since balances work without it and only carryover waits.
+
+Without restarts, schedule it **daily** from a host cron. Running only on Jan 1 is not enough: the carryover
+must be recomputed when December leave that was still pending is rejected or cancelled in January, and cron
+fires in the host's time zone, so on a UTC host 00:15 on Jan 1 is still Dec 31 for a company in the Americas;
+the job would close the year before last (a no-op) and skip the year that just ended. A daily run is
+idempotent, quiet when nothing changed, and catches both: even in the wrong zone, the next day's run closes the
+year. Set `CRON_TZ` to the company's zone where your cron supports it (cronie does) so it closes on Jan 1
+itself:
+
+```cron
+CRON_TZ=America/Chicago
+15 3 * * * cd /srv/ooohm && docker compose run --rm migrate pnpm job:rollover
+```
+
 ## Testing
 
 | Command | What | Needs |
 | --- | --- | --- |
-| `pnpm test` | Unit tests in `tests/unit/` (domain rules, email templates, formatting) | nothing |
+| `pnpm test` | Unit tests in `tests/unit/` (domain rules, allowance policy, year split, email templates, formatting) | nothing |
 | `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres | `TEST_DATABASE_URL` |
 
 Both run with Node's test runner through `tsx --conditions=react-server`. The `react-server` condition makes
@@ -195,3 +345,8 @@ docker stop ooohm-test
 Tests build a `ServiceContext` whose mailer records messages and whose `defer` queue runs only on
 `ctx.settle()`, mirroring `after()`: emails are asserted after commit, not before. Tests assert outcomes
 (rows, events, recipients, which request won a race) rather than the presence of guards.
+
+A data migration is tested by migrating a copy of `drizzle/` that stops before it, inserting rows, then
+applying the rest (`tests/integration/migrations.test.ts`, via `createTestDatabase({ migrationsFolder })`).
+The rollover runs across every company in its database, so `rollover.test.ts` keeps to its own file and
+database.

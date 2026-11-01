@@ -47,6 +47,15 @@ export async function listActiveAdmins(ex: Executor, companyId: string) {
     .orderBy(asc(user.createdAt), asc(user.id));
 }
 
+/** Active members of a company, oldest first. */
+export async function listActiveMembers(ex: Executor, companyId: string) {
+  return ex
+    .select({ id: user.id, createdAt: user.createdAt })
+    .from(user)
+    .where(and(eq(user.companyId, companyId), eq(user.isActive, true)))
+    .orderBy(asc(user.createdAt), asc(user.id));
+}
+
 /** Name and email for notification recipients, limited to one company. */
 export async function findContacts(ex: Executor, companyId: string, ids: readonly string[]) {
   if (ids.length === 0) return [];

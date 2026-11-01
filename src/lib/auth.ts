@@ -107,11 +107,18 @@ export const auth = betterAuth({
 
 export type Session = typeof auth.$Infer.Session;
 
+/** The signed-in, active user, or `null`. For route handlers, which answer 401 rather than redirect. */
+export async function currentUser(): Promise<Session["user"] | null> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session || session.user.isActive === false) return null;
+  return session.user;
+}
+
 /** Data access layer entry point: the signed-in user, or a redirect to /sign-in. */
 export async function requireUser() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session || session.user.isActive === false) redirect("/sign-in");
-  return session.user;
+  const user = await currentUser();
+  if (!user) redirect("/sign-in");
+  return user;
 }
 
 /**

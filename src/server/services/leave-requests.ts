@@ -1,42 +1,33 @@
 import type { Actor } from "@/domain/actor";
 import { type ApprovalRule, ManagerApprovalRule } from "@/domain/approval-rule";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
-import { nextWorkingDay, requireLeaveDays, WORKING_DAY_LOOKAHEAD } from "@/domain/leave-days";
+import { DomainError, isDomainError } from "@/domain/errors";
+import { isUuid } from "@/domain/ids";
+import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/domain/leave-days";
 import { canCancel } from "@/domain/leave-permissions";
-import {
-  assertValidRange,
-  type DayPortion,
-  type LeaveRange,
-  normalizeNote,
-  rangesOverlap,
-} from "@/domain/leave-request";
+import { assertValidRange, normalizeNote } from "@/domain/leave-request";
 import { assertTransition } from "@/domain/request-status";
-import { todayInTimeZone } from "@/lib/dates";
+import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
+import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
+import { insertRequestDays } from "@/server/repositories/balances";
 import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
 import {
   countRecentRequests,
   findLeaveRequest,
   insertLeaveRequest,
   type LeaveRequestRow,
-  listActiveRequestsInRange,
   listRequestsForUser,
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
-import { findActiveLeaveType, findLeaveType, listActiveLeaveTypes } from "@/server/repositories/leave-types";
+import { findLeaveType, listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findMember, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify, type Outgoing } from "./notify";
 
 /** What a person fills in to ask for time off. */
-export interface SubmitLeaveInput {
-  leaveTypeId: string;
-  startDate: string;
-  /** Defaults to `startDate` when empty. */
-  endDate?: string | null;
-  dayPortion: DayPortion;
+export interface SubmitLeaveInput extends LeaveDraft {
   note?: string | null;
 }
 
@@ -55,16 +46,22 @@ export const SUBMIT_WINDOW_MINUTES = 10;
  * Submits a leave request for the actor and routes it for approval.
  *
  * Days are counted here from the company's working days and holidays, never taken
- * from input. The request is approved on the spot when the approval rule says so
- * (self-approval); otherwise it waits for the approver it was routed to. Every
- * transition writes `audit_log` and `events_outbox` rows in the same transaction, and
- * emails go out only after commit.
+ * from input, by {@link assessLeaveRequest}: the same function the live preview runs,
+ * so submit decides exactly what the preview showed. A tracked leave type's balance
+ * must cover the request in every calendar year it touches, self-approved or not.
+ * The requester's row lock serialises their submits, so two sent at once cannot
+ * spend the same days. What the request costs per year is stored with it
+ * (`leave_request_days`), so later holiday edits never change a past balance.
+ *
+ * The request is approved on the spot when the approval rule says so (self-approval);
+ * otherwise it waits for the approver it was routed to. Every transition writes
+ * `audit_log` and `events_outbox` rows in the same transaction, and emails go out only
+ * after commit.
  *
  * @returns The stored request in its final state (`pending` or `approved`).
- * @throws DomainError `invalid_input`, `invalid_date_range`, `range_too_long`,
- *   `half_day_multi_day`, `zero_days`, `leave_type_unavailable`,
- *   `overlapping_request`, `no_approver`, `rate_limited` (more than {@link SUBMIT_LIMIT}
- *   in {@link SUBMIT_WINDOW_MINUTES} minutes), or `forbidden` for an inactive requester.
+ * @throws DomainError as {@link assessLeaveRequest} (including `insufficient_balance`),
+ *   plus `no_approver`, `rate_limited` (more than {@link SUBMIT_LIMIT} in
+ *   {@link SUBMIT_WINDOW_MINUTES} minutes), or `forbidden` for an inactive requester.
  */
 export async function submitLeaveRequest(
   ctx: ServiceContext,
@@ -72,12 +69,8 @@ export async function submitLeaveRequest(
   input: SubmitLeaveInput,
   rule: ApprovalRule = new ManagerApprovalRule(),
 ): Promise<LeaveRequestRow> {
-  const range: LeaveRange = {
-    startDate: input.startDate,
-    endDate: input.endDate || input.startDate,
-    dayPortion: input.dayPortion,
-  };
-  assertValidRange(range);
+  // Cheap checks first, so malformed input never opens a transaction.
+  assertValidRange(draftRange(input));
   const note = normalizeNote(input.note);
   if (!isUuid(input.leaveTypeId)) throw new DomainError("leave_type_unavailable");
 
@@ -89,16 +82,8 @@ export async function submitLeaveRequest(
       throw new DomainError("rate_limited");
     }
 
-    const leaveType = await findActiveLeaveType(tx, actor.companyId, input.leaveTypeId);
-    if (!leaveType) throw new DomainError("leave_type_unavailable");
-
-    const settings = await findCompanySettings(tx, actor.companyId);
-    if (!settings) throw new DomainError("no_company");
-    const holidays = await listHolidayDates(tx, actor.companyId, range.startDate, range.endDate);
-    const days = requireLeaveDays(range, { workingDays: settings.workingDays, holidays });
-
-    const existing = await listActiveRequestsInRange(tx, actor.id, range.startDate, range.endDate);
-    if (existing.some((other) => rangesOverlap(range, other))) throw new DomainError("overlapping_request");
+    const assessment = await assessLeaveRequest(tx, actor, input);
+    const { leaveType } = assessment;
 
     const manager =
       requester.managerId && requester.managerId !== requester.id
@@ -111,12 +96,13 @@ export async function submitLeaveRequest(
       companyId: actor.companyId,
       userId: actor.id,
       leaveTypeId: leaveType.id,
-      ...range,
-      days,
+      ...assessment.range,
+      days: assessment.days,
       note,
       status: "pending",
       approverId: decision.approverId,
     });
+    await insertRequestDays(tx, created.id, assessment.charges);
     await recordLeaveChange(tx, { event: "requested", before: null, after: created, actorId: actor.id });
 
     let final = created;
@@ -200,23 +186,50 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
   });
 }
 
-/** Everything the dashboard renders for the actor, in one call. */
+/**
+ * Everything the dashboard renders for the actor, in one call, in six queries
+ * whatever the number of types or requests:
+ * company settings, active leave types and the actor's requests in parallel; then
+ * the balances' allowance rows and booked-day sums, and the look-ahead holidays, in
+ * parallel. The form's leave types and the balances share the one leave-type read.
+ *
+ * `balances` is `null` when the company's allowance policy is unknown. That is logged
+ * as `allowance_policy_unavailable` and the rest of the dashboard still renders;
+ * submitting and previewing refuse with `policy_unavailable` instead.
+ *
+ * @throws DomainError `no_company` when the actor's company is missing.
+ */
 export async function getDashboard(ctx: ServiceContext, actor: Actor) {
-  const [settings, leaveTypes, requests] = await Promise.all([
+  const [settings, types, requests] = await Promise.all([
     findCompanySettings(ctx.db, actor.companyId),
-    listActiveLeaveTypes(ctx.db, actor.companyId),
+    listActiveLeaveTypesWithAllowance(ctx.db, actor.companyId),
     listRequestsForUser(ctx.db, actor.companyId, actor.id, DASHBOARD_REQUEST_LIMIT),
   ]);
-  const today = todayInTimeZone(settings?.timezone ?? "UTC", ctx.now());
+  if (!settings) throw new DomainError("no_company");
+  const now = ctx.now();
+  const today = todayInTimeZone(settings.timezone, now);
   const lookaheadEnd = fromEpochDay(toEpochDay(today) + WORKING_DAY_LOOKAHEAD - 1);
-  const holidays = await listHolidayDates(ctx.db, actor.companyId, today, lookaheadEnd);
+  const [balances, holidays] = await Promise.all([
+    summarizeBalances(ctx.db, actor, {
+      allowancePolicy: settings.allowancePolicy,
+      types,
+      year: yearInTimeZone(settings.timezone, now),
+    }).catch((err: unknown) => {
+      if (!isDomainError(err, "policy_unavailable")) throw err;
+      log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");
+      return null;
+    }),
+    listHolidayDates(ctx.db, actor.companyId, today, lookaheadEnd),
+  ]);
   return {
     /**
      * The form's default start date: the first working day from today (in the
      * company's time zone), so the pre-filled request is never worth zero days.
      */
-    defaultDate: nextWorkingDay(today, { workingDays: settings?.workingDays ?? [], holidays }),
-    leaveTypes,
+    defaultDate: nextWorkingDay(today, { workingDays: settings.workingDays, holidays }),
+    /** Active leave types in display order; the first is the form's default. */
+    leaveTypes: types.map(({ id, name, code, color }) => ({ id, name, code, color })),
     requests,
+    balances,
   };
 }

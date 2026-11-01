@@ -34,13 +34,19 @@ services:
       timeout: 3s
       retries: 20
 
-  # Runs migrations and the first-run seed, then exits.
+  # Runs migrations, the first-run seed and the (idempotent) year rollover, then exits.
+  # A failed rollover is reported but does not stop the app from starting: balances
+  # still work without it, only carryover waits. Re-run it with
+  # `docker compose run --rm migrate pnpm job:rollover [year]`.
   migrate:
     build:
       context: .
       target: builder
-    command: ["sh", "-c", "pnpm db:migrate && pnpm db:seed"]
-    # Only what migrations and the seed need; no auth secret or OAuth credentials.
+    command:
+      - sh
+      - -c
+      - pnpm db:migrate && pnpm db:seed && { pnpm job:rollover || echo "Year rollover failed (see above); the app starts anyway." >&2; }
+    # Only what migrations, the seed and the rollover need; no auth secret or OAuth credentials.
     environment:
       DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}

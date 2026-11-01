@@ -1,0 +1,237 @@
+import type { Executor } from "@/db/types";
+import type { Actor } from "@/domain/actor";
+import {
+  type AllowancePolicy,
+  type AllowanceRecord,
+  assertCovered,
+  type Balance,
+  type BookedDays,
+  type LeaveTypeAllowanceSettings,
+  type PeriodCharge,
+  type RequestCost,
+  remainingAfter,
+  resolveAllowancePolicy,
+} from "@/domain/allowance-policy";
+import { DomainError } from "@/domain/errors";
+import { isUuid } from "@/domain/ids";
+import { assertValidRange, type DayPortion, type LeaveRange, rangesOverlap } from "@/domain/leave-request";
+import { yearInTimeZone } from "@/lib/dates";
+import type { ServiceContext } from "@/server/context";
+import { type AllowanceRow, listAllowances, sumBookedDays } from "@/server/repositories/balances";
+import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
+import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
+import { findActiveLeaveType, listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+
+/** The date and type part of a leave request, before it is stored. */
+export interface LeaveDraft {
+  leaveTypeId: string;
+  startDate: string;
+  /** Defaults to `startDate` when empty. */
+  endDate?: string | null;
+  dayPortion: DayPortion;
+}
+
+export function draftRange(draft: LeaveDraft): LeaveRange {
+  return { startDate: draft.startDate, endDate: draft.endDate || draft.startDate, dayPortion: draft.dayPortion };
+}
+
+const NOTHING_BOOKED: BookedDays = { approved: 0, pending: 0 };
+
+/** The allowance years to load for balances of `years`: each year and the one after it. */
+export function allowanceYearsFor(years: readonly number[]): number[] {
+  return [...new Set(years.flatMap((y) => [y, y + 1]))];
+}
+
+/**
+ * Indexes allowance rows and booked-day sums by person, leave type and year, so many
+ * balances can be computed from two queries.
+ *
+ * A year's balance counts the next year's `carried_over_days` as carried out of it,
+ * and a type without a default inherits the person's latest earlier row. So
+ * `allowanceRows` must come from {@link listAllowances} over each balance year and the
+ * year after it (see {@link allowanceYearsFor}), which also returns the latest row
+ * before them; a missing next-year row reads as nothing carried out.
+ */
+export function balanceInputs(
+  allowanceRows: readonly AllowanceRow[],
+  bookedRows: readonly ({ userId: string; leaveTypeId: string; year: number } & BookedDays)[],
+) {
+  const key = (userId: string, leaveTypeId: string, year: number) => `${userId}|${leaveTypeId}|${year}`;
+  const allowance = new Map(allowanceRows.map((r) => [key(r.userId, r.leaveTypeId, r.year), r]));
+  const booked = new Map(bookedRows.map((r) => [key(r.userId, r.leaveTypeId, r.year), r]));
+  const history = Map.groupBy(
+    [...allowanceRows].sort((a, b) => b.year - a.year),
+    (r) => `${r.userId}|${r.leaveTypeId}`,
+  );
+  /** The person's latest row for the type in `year` or before it. */
+  const latestRow = (userId: string, leaveTypeId: string, year: number) =>
+    history.get(`${userId}|${leaveTypeId}`)?.find((r) => r.year <= year);
+  return {
+    allowanceRow: (userId: string, leaveTypeId: string, year: number) => allowance.get(key(userId, leaveTypeId, year)),
+    latestRow,
+    balance(policy: AllowancePolicy, leaveType: LeaveTypeAllowanceSettings & { id: string }, userId: string, year: number): Balance {
+      const row = allowance.get(key(userId, leaveType.id, year));
+      const record: AllowanceRecord | null = row
+        ? { days: row.days, carriedOverDays: row.carriedOverDays, adjustmentDays: row.adjustmentDays }
+        : null;
+      const sums = booked.get(key(userId, leaveType.id, year)) ?? NOTHING_BOOKED;
+      const carriedOut = allowance.get(key(userId, leaveType.id, year + 1))?.carriedOverDays ?? 0;
+      return policy.balance({
+        leaveType,
+        allowance: record,
+        inheritedDays: latestRow(userId, leaveType.id, year - 1)?.days ?? null,
+        booked: { approved: sums.approved, pending: sums.pending },
+        carriedOut,
+      });
+    },
+  };
+}
+
+/** A leave request checked against the calendar, the actor's other requests and their balance. */
+export interface LeaveAssessment {
+  range: LeaveRange;
+  leaveType: { id: string; name: string };
+  /** Total working days (half day = 0.5); always > 0. */
+  days: number;
+  /** Per calendar year, in order: the days charged and the balance before this request. */
+  charges: PeriodCharge[];
+}
+
+/**
+ * The single computation behind both the live preview and submitting a request, so
+ * what the person is shown is exactly what submit will decide.
+ *
+ * In order: validates the range; requires an active leave type of the actor's
+ * company; resolves the company's allowance policy; counts working days per year
+ * (company working days, minus holidays); refuses a request worth nothing, one that
+ * overlaps the actor's pending or approved time, and one a tracked balance cannot
+ * cover in any year (pending requests, and days already carried into the next year,
+ * count as spent).
+ *
+ * Read-only. Submit calls it inside its transaction after locking the requester, so
+ * concurrent submits by one person see each other's days.
+ *
+ * @throws DomainError `invalid_input`, `invalid_date_range`, `range_too_long`,
+ *   `half_day_multi_day`, `leave_type_unavailable`, `no_company`,
+ *   `policy_unavailable`, `zero_days`, `overlapping_request` or
+ *   `insufficient_balance` (with {@link BalanceShortfallDetails}).
+ */
+export async function assessLeaveRequest(ex: Executor, actor: Actor, draft: LeaveDraft): Promise<LeaveAssessment> {
+  const range = draftRange(draft);
+  assertValidRange(range);
+  if (!isUuid(draft.leaveTypeId)) throw new DomainError("leave_type_unavailable");
+
+  // Independent reads, fetched together; the checks below keep their order.
+  const [leaveType, settings, holidays, existing] = await Promise.all([
+    findActiveLeaveType(ex, actor.companyId, draft.leaveTypeId),
+    findCompanySettings(ex, actor.companyId),
+    listHolidayDates(ex, actor.companyId, range.startDate, range.endDate),
+    listActiveRequestsInRange(ex, actor.id, range.startDate, range.endDate),
+  ]);
+  if (!leaveType) throw new DomainError("leave_type_unavailable");
+  if (!settings) throw new DomainError("no_company");
+  const policy = resolveAllowancePolicy(settings.allowancePolicy);
+
+  const split = policy.periodsFor(range, { workingDays: settings.workingDays, holidays });
+  if (split.length === 0) throw new DomainError("zero_days");
+  if (existing.some((other) => rangesOverlap(range, other))) throw new DomainError("overlapping_request");
+
+  const years = split.map((s) => s.year);
+  const [allowanceRows, bookedRows] = await Promise.all([
+    listAllowances(ex, { userIds: [actor.id], years: allowanceYearsFor(years), leaveTypeIds: [leaveType.id] }),
+    sumBookedDays(ex, { userIds: [actor.id], years, leaveTypeIds: [leaveType.id] }),
+  ]);
+  const inputs = balanceInputs(allowanceRows, bookedRows);
+  const charges = split.map(({ year, days }) => ({ year, days, before: inputs.balance(policy, leaveType, actor.id, year) }));
+  assertCovered(charges);
+
+  return {
+    range,
+    leaveType: { id: leaveType.id, name: leaveType.name },
+    days: split.reduce((sum, s) => sum + s.days, 0),
+    charges,
+  };
+}
+
+/**
+ * What a draft request would cost and leave, for the live preview. Runs exactly the
+ * checks submit runs ({@link assessLeaveRequest}), without writing anything.
+ *
+ * @throws DomainError as {@link assessLeaveRequest}; the preview shows the message.
+ */
+export async function previewLeaveRequest(ctx: ServiceContext, actor: Actor, draft: LeaveDraft): Promise<RequestCost> {
+  const assessment = await assessLeaveRequest(ctx.db, actor, draft);
+  return {
+    days: assessment.days,
+    years: assessment.charges.map(({ year, days, before }) => ({ year, days, remainingAfter: remainingAfter(before, days) })),
+  };
+}
+
+/** One leave type's balance, as the dashboard shows it. */
+export interface BalanceSummaryItem {
+  leaveTypeId: string;
+  name: string;
+  color: string;
+  balance: Balance;
+}
+
+export interface BalanceSummary {
+  year: number;
+  items: BalanceSummaryItem[];
+}
+
+/** Active leave types with their allowance settings, as {@link summarizeBalances} takes them. */
+export type LeaveTypeWithAllowance = Awaited<ReturnType<typeof listActiveLeaveTypesWithAllowance>>[number];
+
+/**
+ * {@link getBalanceSummary} for a caller that already loaded the company's settings
+ * and active leave types (the dashboard): two queries, allowance rows and booked-day
+ * sums (aggregated in SQL), in parallel, whatever the number of types or requests.
+ *
+ * @throws DomainError `policy_unavailable`, before any query, when the policy is unknown.
+ */
+export async function summarizeBalances(
+  ex: Executor,
+  actor: Actor,
+  loaded: { allowancePolicy: string; types: readonly LeaveTypeWithAllowance[]; year: number },
+): Promise<BalanceSummary> {
+  const policy = resolveAllowancePolicy(loaded.allowancePolicy);
+  const { year } = loaded;
+  const [allowanceRows, bookedRows] = await Promise.all([
+    listAllowances(ex, { userIds: [actor.id], years: allowanceYearsFor([year]) }),
+    sumBookedDays(ex, { userIds: [actor.id], years: [year] }),
+  ]);
+  const inputs = balanceInputs(allowanceRows, bookedRows);
+  return {
+    year,
+    items: loaded.types.map((t) => ({
+      leaveTypeId: t.id,
+      name: t.name,
+      color: t.color,
+      balance: inputs.balance(policy, t, actor.id, year),
+    })),
+  };
+}
+
+/**
+ * The actor's balance for every active leave type in one year: by default the
+ * current year in the company's time zone.
+ *
+ * Four queries whatever the number of types or requests: company settings and leave
+ * types, then allowance rows and booked-day sums, each pair in parallel.
+ *
+ * @throws DomainError `no_company`, or `policy_unavailable` when the company's policy
+ *   is unknown.
+ */
+export async function getBalanceSummary(ctx: ServiceContext, actor: Actor, year?: number): Promise<BalanceSummary> {
+  const [settings, types] = await Promise.all([
+    findCompanySettings(ctx.db, actor.companyId),
+    listActiveLeaveTypesWithAllowance(ctx.db, actor.companyId),
+  ]);
+  if (!settings) throw new DomainError("no_company");
+  return summarizeBalances(ctx.db, actor, {
+    allowancePolicy: settings.allowancePolicy,
+    types,
+    year: year ?? yearInTimeZone(settings.timezone, ctx.now()),
+  });
+}

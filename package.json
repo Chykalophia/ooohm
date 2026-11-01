@@ -11,6 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.mts",
     "db:seed": "tsx --env-file-if-exists=.env scripts/seed.mts",
+    "job:rollover": "tsx --conditions=react-server --env-file-if-exists=.env scripts/rollover.mts",
     "test": "tsx --conditions=react-server --test \"tests/unit/**/*.test.ts\"",
     "test:integration": "tsx --conditions=react-server --test \"tests/integration/**/*.test.ts\""
   },

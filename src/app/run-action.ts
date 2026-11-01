@@ -1,6 +1,6 @@
 import "server-only";
-import type { DomainErrorCode } from "@/domain/errors";
-import { isDomainError } from "@/domain/errors";
+import { type DomainError, type DomainErrorCode, isDomainError } from "@/domain/errors";
+import { formatShortfall } from "@/lib/format";
 import { log } from "@/lib/log";
 import type { FormState } from "./form-state";
 
@@ -20,10 +20,30 @@ const MESSAGES: Record<DomainErrorCode, string> = {
   invalid_transition: "That request has already been decided or cancelled.",
   conflict: "Someone else just updated that request. Refresh to see the latest.",
   rate_limited: "That's a lot of requests in a few minutes. Wait a little, then try again.",
+  insufficient_balance: "There aren't enough days left for that.",
+  policy_unavailable: "Balances aren't set up correctly yet. Ask an admin to check the company's allowance policy.",
 };
+
+/**
+ * Codes that mean the deployment is misconfigured rather than that the person made a
+ * mistake. They still get a calm message, and an operator gets an error log line.
+ */
+const MISCONFIGURATION: ReadonlySet<DomainErrorCode> = new Set(["policy_unavailable"]);
 
 export function messageFor(code: DomainErrorCode): string {
   return MESSAGES[code];
+}
+
+/**
+ * The calm message for an expected failure, worded from its details when it has
+ * them (e.g. how many days are left), and logged when it signals misconfiguration.
+ *
+ * @param event Log event prefix, e.g. `leave_request_submit`.
+ */
+export function messageForError(err: DomainError, event: string): string {
+  if (MISCONFIGURATION.has(err.code)) log.error({ err }, `${event}_misconfigured`);
+  if (err.code === "insufficient_balance" && err.details) return formatShortfall(err.details);
+  return messageFor(err.code);
 }
 
 /**
@@ -36,7 +56,7 @@ export async function runAction(event: string, work: () => Promise<{ message: st
     const { message, id } = await work();
     return { status: "success", message, id };
   } catch (err) {
-    if (isDomainError(err)) return { status: "error", message: messageFor(err.code) };
+    if (isDomainError(err)) return { status: "error", message: messageForError(err, event) };
     log.error({ err }, `${event}_failed`);
     return { status: "error", message: "Something went wrong. Try again in a moment." };
   }

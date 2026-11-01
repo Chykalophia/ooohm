@@ -25,10 +25,19 @@ export const skip: string | false = baseUrl
 
 export interface TestDatabase {
   db: Database;
+  /** The underlying connection pool, e.g. to build a second, instrumented `db` on it. */
+  client: postgres.Sql;
   drop(): Promise<void>;
 }
 
-export async function createTestDatabase(): Promise<TestDatabase> {
+/** Where the app's migrations live; npm scripts run from the repository root. */
+export const MIGRATIONS_FOLDER = path.resolve(process.cwd(), "drizzle");
+
+/**
+ * @param options.migrationsFolder Migrations to apply; defaults to the app's. Tests of a
+ *   data migration pass a copy holding only the earlier ones, then apply the rest.
+ */
+export async function createTestDatabase(options: { migrationsFolder?: string } = {}): Promise<TestDatabase> {
   if (!baseUrl) throw new Error("TEST_DATABASE_URL is not set");
   const name = `ooohm_test_${randomUUID().replaceAll("-", "")}`;
   const admin = postgres(baseUrl, { max: 1, onnotice: () => {} });
@@ -38,11 +47,11 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   url.pathname = `/${name}`;
   const client = postgres(url.toString(), { max: 10, onnotice: () => {} });
   const db = drizzle(client, { schema, casing: "snake_case" });
-  // npm scripts run from the repository root, where the migrations live.
-  await migrate(db, { migrationsFolder: path.resolve(process.cwd(), "drizzle") });
+  await migrate(db, { migrationsFolder: options.migrationsFolder ?? MIGRATIONS_FOLDER });
 
   return {
     db,
+    client,
     async drop() {
       await client.end();
       await admin.unsafe(`drop database if exists "${name}" with (force)`);

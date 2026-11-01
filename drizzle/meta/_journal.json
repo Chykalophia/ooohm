@@ -12,8 +12,15 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1793553117895,
-      "tag": "0001_serious_white_queen",
+      "when": 1793551312601,
+      "tag": "0001_sticky_daredevil",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793563790276,
+      "tag": "0002_majestic_silver_samurai",
       "breakpoints": true
     }
   ]

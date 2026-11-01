@@ -1,0 +1,1 @@
+ALTER TABLE "leave_requests" ADD CONSTRAINT "leave_requests_days_match_portion" CHECK (("leave_requests"."day_portion" = 'full' AND "leave_requests"."days" = trunc("leave_requests"."days")) OR ("leave_requests"."day_portion" <> 'full' AND "leave_requests"."days" = 0.5));

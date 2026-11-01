@@ -38,6 +38,10 @@ function load() {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`);
     throw new Error(`Invalid environment configuration:\n${issues.join("\n")}`);
   }
+  // Defense in depth: the build placeholder must never sign real sessions.
+  if (!isBuild && parsed.data.BETTER_AUTH_SECRET === buildPlaceholders.BETTER_AUTH_SECRET) {
+    throw new Error("BETTER_AUTH_SECRET is still the build placeholder. Set a real secret.");
+  }
   return parsed.data;
 }
 

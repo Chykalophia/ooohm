@@ -35,8 +35,9 @@ services:
       context: .
       target: builder
     command: ["sh", "-c", "pnpm db:migrate && pnpm db:seed"]
+    # Only what migrations and the seed need; no auth secret or OAuth credentials.
     environment:
-      <<: *app-env
+      DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
       SEED_COMPANY_NAME: ${SEED_COMPANY_NAME:-}
@@ -59,7 +60,7 @@ services:
   # Catches every outgoing email in development. Open http://localhost:8025
   # Remove this service in production and point SMTP_* at a real mail server.
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.32.0
     restart: unless-stopped
     ports:
       - "8025:8025"

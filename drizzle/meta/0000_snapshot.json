@@ -1,5 +1,5 @@
 {
-  "id": "b67cbad1-856b-4ced-bc22-d71eae65de99",
+  "id": "9d2949dc-e1b7-45a5-8a99-f12493ed2a8f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1302,6 +1302,19 @@
           "tableTo": "departments",
           "columnsFrom": [
             "department_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "user_manager_id_user_id_fk": {
+          "name": "user_manager_id_user_id_fk",
+          "tableFrom": "user",
+          "tableTo": "user",
+          "columnsFrom": [
+            "manager_id"
           ],
           "columnsTo": [
             "id"

@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -83,7 +84,7 @@ export const user = pgTable(
     departmentId: uuid("department_id").references(() => departments.id, {
       onDelete: "set null",
     }),
-    managerId: text("manager_id"),
+    managerId: text("manager_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
     role: roleEnum("role").notNull().default("employee"),
     /** When true, this user's own requests are approved automatically. */
     canSelfApprove: boolean("can_self_approve").notNull().default(false),

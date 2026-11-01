@@ -64,12 +64,18 @@ export const auth = betterAuth({
           .where(eq(schema.user.email, email.toLowerCase()));
         if (!existing?.isActive) return;
 
-        await sendMail({
-          to: email,
-          subject: "Your OOOhm sign-in link",
-          text: `Sign in to OOOhm:\n\n${url}\n\nThis link expires in 15 minutes. If you didn't ask for it, you can ignore this email.`,
-          html: `<p>Sign in to OOOhm:</p><p><a href="${url}">Sign in</a></p><p style="color:#6b7280">This link expires in 15 minutes. If you didn't ask for it, you can ignore this email.</p>`,
-        });
+        // Swallow send failures so the response is the same for every address
+        // (a 500 only for real users would reveal who has an account).
+        try {
+          await sendMail({
+            to: email,
+            subject: "Your OOOhm sign-in link",
+            text: `Sign in to OOOhm:\n\n${url}\n\nThis link expires in 15 minutes. If you didn't ask for it, you can ignore this email.`,
+            html: `<p>Sign in to OOOhm:</p><p><a href="${url}">Sign in</a></p><p style="color:#6b7280">This link expires in 15 minutes. If you didn't ask for it, you can ignore this email.</p>`,
+          });
+        } catch (err) {
+          console.error("Failed to send magic-link email:", err);
+        }
       },
     }),
     nextCookies(), // must stay last

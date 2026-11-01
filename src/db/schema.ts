@@ -270,6 +270,9 @@ export const leaveRequests = pgTable(
     ),
     // Half days (am/pm) only make sense on a single-day request.
     check("leave_requests_half_day_single", sql`${t.dayPortion} = 'full' OR ${t.startDate} = ${t.endDate}`),
+    // At most MAX_REQUEST_SPAN_DAYS (366) calendar days, as submit enforces. Calendar
+    // range queries rely on it to bound their index scan from below.
+    check("leave_requests_span_max", sql`${t.endDate} - ${t.startDate} < 366`),
   ],
 );
 
@@ -291,6 +294,42 @@ export const leaveRequestDays = pgTable(
   (t) => [
     primaryKey({ columns: [t.requestId, t.year] }),
     check("leave_request_days_days_positive", sql`${t.days} > 0`),
+  ],
+);
+
+/* ------------------------------------------------------------------ */
+/* Calendar feeds                                                     */
+/* ------------------------------------------------------------------ */
+
+/** Which calendar a feed serves: the owner's own leave, or the whole company's. */
+export const calendarFeedKindEnum = pgEnum("calendar_feed_kind", ["personal", "team"]);
+
+/**
+ * Revocable ICS feed links. The token itself is never stored: only its SHA-256 (hex),
+ * so a leaked database cannot be turned back into working links. A person has at most
+ * one live (unrevoked) link per kind.
+ */
+export const calendarFeedTokens = pgTable(
+  "calendar_feed_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: calendarFeedKindEnum("kind").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Last time a calendar app fetched the feed; updated at most hourly. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("calendar_feed_tokens_hash_uq").on(t.tokenHash),
+    uniqueIndex("calendar_feed_tokens_live_uq").on(t.userId, t.kind).where(sql`${t.revokedAt} is null`),
+    check("calendar_feed_tokens_hash_format", sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`),
   ],
 );
 

@@ -46,18 +46,37 @@ export function messageForError(err: DomainError, event: string): string {
   return messageFor(err.code);
 }
 
+/** What a failed server action returns: a calm message, never internals. */
+export type ActionError = { status: "error"; message: string };
+
+const GENERIC_FAILURE = "Something went wrong. Try again in a moment.";
+
 /**
- * Runs a service call for a server action and maps the outcome to a `FormState`.
- * Expected failures become their calm message; anything else is logged and shown as
- * a generic retry message, so internals never reach the browser.
+ * Runs a service call for a server action. Expected failures become their calm
+ * message; anything else is logged as `<event>_failed` and shown as a generic retry
+ * message, so internals never reach the browser.
+ *
+ * @param messages Wording for codes whose default message would not fit this action
+ *   (e.g. `forbidden` talks about requests).
  */
-export async function runAction(event: string, work: () => Promise<{ message: string; id: string }>): Promise<FormState> {
+export async function runActionWith<S>(
+  event: string,
+  work: () => Promise<S>,
+  messages: Partial<Record<DomainErrorCode, string>> = {},
+): Promise<S | ActionError> {
   try {
-    const { message, id } = await work();
-    return { status: "success", message, id };
+    return await work();
   } catch (err) {
-    if (isDomainError(err)) return { status: "error", message: messageForError(err, event) };
+    if (isDomainError(err)) return { status: "error", message: messages[err.code] ?? messageForError(err, event) };
     log.error({ err }, `${event}_failed`);
-    return { status: "error", message: "Something went wrong. Try again in a moment." };
+    return { status: "error", message: GENERIC_FAILURE };
   }
+}
+
+/** {@link runActionWith} for forms whose success is a message and a fresh form key. */
+export async function runAction(event: string, work: () => Promise<{ message: string; id: string }>): Promise<FormState> {
+  return runActionWith(event, async () => {
+    const { message, id } = await work();
+    return { status: "success", message, id } as const;
+  });
 }

@@ -96,6 +96,16 @@ Payload (v1): `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, ad
 the row after the change. A system job has no actor: `actorId` is `null` in both the payload and
 `audit_log.actor_id`.
 
+Calendar feed events (M4):
+
+| Event | When | Audit `action` |
+| --- | --- | --- |
+| `calendar_feed.issued` | A person creates a feed link, or gets a new one | `calendar_feed.issued` |
+| `calendar_feed.revoked` | A person gets a new link (`reason: "regenerated"`, written before the `issued` for the new one) or turns the feed off (`reason: "turned_off"`) | `calendar_feed.revoked` |
+
+Payload (v1): `feedId, userId, kind, reason, actorId` (`reason` is `null` on `issued`). Neither the payload nor
+the audit row (`kind, createdAt, revokedAt`) ever holds the token or its hash.
+
 ### Dates
 
 Leave dates are `YYYY-MM-DD` strings end to end (`date` columns in `mode: "string"`). Arithmetic runs on UTC
@@ -320,11 +330,138 @@ CRON_TZ=America/Chicago
 15 3 * * * cd /srv/ooohm && docker compose run --rm migrate pnpm job:rollover
 ```
 
+## Calendar (M4)
+
+### Screens
+
+- `/calendar?month=YYYY-MM`: the person's own month. A Monday-first grid (ISO weeks, matching the company's ISO
+  working days) at `md` and wider, an agenda list below that. Approved leave is a solid chip in the leave
+  type's colour (black or white text, whichever reads better: `readableTextColor`); pending leave is a dashed
+  outline whose label says "pending", so the difference never rests on colour. Half days read "PTO (AM)" /
+  "PTO (PM)". Rejected and cancelled leave never shows. This month's working days are plain; its weekends
+  (non-working days) and holidays (named) are hatched; the neighbouring months' days have no fill and a faded
+  number, so the three never look alike. A request shows only on the days it costs: not on a weekend or holiday
+  inside its range. The agenda follows the same rule: it lists a request only if it costs at least one day of
+  the month. Previous, Today and Next are plain links. The month is parsed with zod; anything malformed
+  or outside 1900 to 2999 falls back to the current month in the company's time zone.
+- `/team?month=YYYY-MM&department=<id>`: "who's out". Every active member of the company with approved or
+  pending leave that costs at least one working day of the month (`entriesCostingDaysIn`: a Thursday-to-Sunday
+  request belongs to the Thursday's month, not to the month holding only its weekend), grouped by person (by name), each person's leave by date, pending marked
+  "Waiting for approval". Department filters are links ("Everyone", then each department); an id that is not a
+  department of the actor's company falls back to everyone. Deactivated people do not appear.
+- `/calendar/subscriptions`: the two feeds (below), linked from both pages.
+
+The header links Calendar and Team for every member of a company. No `proxy.ts` gates routes: each page calls
+`requireActor()`, which redirects to `/sign-in` without a session, and the ICS route is public by design.
+
+### Queries
+
+| Call | Queries | What |
+| --- | --- | --- |
+| `getMonthCalendar` | 3 | settings; then holidays and the person's leave over the grid's dates, in parallel |
+| `getTeamCalendar` | 4 | settings and departments in parallel; then the month's holidays and one range query, in parallel |
+| `renderCalendarFeed` | 2 or 3 | token lookup; then entries and, only when `last_used_at` is missing or over an hour old, the stamp, in parallel |
+
+The team query is a single join (`leave_requests` → `leave_types`, `user`, `departments`) filtered by
+`company_id`, status, `start_date <= last` and `end_date >= first`, served by `leave_requests_company_dates_idx
+(company_id, start_date, end_date)` (from M1); no new index was needed. `end_date >= first` cannot bound a btree
+scan, so every range query also has `start_date >= first - 365 days` (`earliestOverlappingStart`): a request spans
+at most 366 days, which submit checks and the `leave_requests_span_max` constraint (migration `0006`) guarantees,
+so the bound hides nothing and the scan reads at most a year before the range instead of the company's whole
+history. `calendar.test.ts` seeds 50 people with seven requests each and pins the count at 4, empty or full, and
+exercises a request of exactly 366 days ending on the range's first day. Grouping, ordering and the grid are pure
+functions in `src/domain/calendar.ts`.
+
+### Privacy rule
+
+Every member may see who is out, when, and the leave type's name and colour. Nobody sees another person's request
+note, decision note or balance on any calendar screen or feed. This is enforced by shape, not by filtering: every
+calendar view and both feeds are built from `CalendarEntry` (`src/domain/calendar.ts`), and the repository's
+calendar queries (`src/server/repositories/calendar.ts`) select only its fields. Notes are left out of the personal
+feed too, since a feed URL can travel further than the app. A person with a blank name is labelled by the part
+of their email before the `@` (`teamLabel`, `src/domain/person.ts`), never the full address, on the team view
+and in the team feed. Emails, which go only to the requester and their approver, still fall back to the full
+address (`personLabel`).
+
+### Feed tokens
+
+`calendar_feed_tokens (id, company_id, user_id, kind personal|team, token_hash, created_at, last_used_at,
+revoked_at)`, migration `0005`.
+
+- A token is 32 random bytes in base64url (43 characters), from `src/lib/feed-token.ts`. Only its SHA-256 (hex,
+  `CHECK`ed) is stored, under a unique index; the lookup is one index probe on the hash. A plain hash suffices
+  because the input is 256 random bits, not a password.
+- The link is shown once, in the server action's response, and never again: OOOhm keeps no copy. The page then
+  shows only when the feed was created and last fetched.
+- "Get a new link" revokes the live link and issues a new one in one transaction; "Turn off" sets `revoked_at`.
+  Both run under the person's member lock, and a partial unique index (`user_id, kind` where `revoked_at is
+  null`) backs it up, so one person never has two live links of a kind. Each change writes `audit_log` and
+  `events_outbox` rows in the same transaction.
+- Listing, regenerating and turning off match the person and kind, not the person's current company, like the
+  unique index. A link issued before a company move is listed, revoked by "Get a new link" or "Turn off", and its
+  revoke is recorded under the company it was issued in. Otherwise it would block a new link (unique index) and
+  come back to life if the person moved back. When M5 adds moving people between companies, it should revoke
+  their live feeds in the same transaction.
+- `GET /api/ics/<token>.ics` needs no session (calendar apps cannot sign in). It answers a bare 404 for a
+  malformed token (before any query), an unknown or revoked one, and one whose owner is inactive or no longer in
+  the feed's company, so deactivating someone stops their feeds at once. Reactivating them revives links they
+  never revoked.
+- Two in-memory limits, both 429 with `Retry-After: 60`. **Fetches per link:** 30 a minute, keyed by the feed's
+  id after the lookup (the service's `admit` hook), so only live links occupy that limiter. **Misses per
+  client:** 60 fetches a minute that find no live link, per client key. The token is looked up first (one probe
+  on the unique hash index); a live link is served whatever the miss budget says, and only a miss checks and
+  spends it, answering 429 instead of 404 once the key is over budget. So the miss limit can never refuse a real
+  calendar app, which matters because Google fetches every subscriber's feed from a few shared addresses and
+  the key may be a bucket anyone can fill. Every limiter holds at most 10,000 keys (`createRateLimiter`'s
+  `maxKeys`, dropping the oldest), so made-up keys cannot grow memory without bound.
+- **The client key** (`clientAddress`, `src/lib/client-address.ts`). Route handlers do not see the socket, and
+  Next's server fills in `X-Forwarded-For` from the socket only when the header is missing: a value the client
+  sent is kept as is. So the header is trusted only as far as `TRUSTED_PROXY_HOPS` says, the number of proxies
+  in front of the app that each append to it (nginx `$proxy_add_x_forwarded_for`, Caddy, Traefik) or, for the
+  first, overwrite it. The key is the entry that many places from the end, the one the outermost trusted proxy
+  wrote. With the default 0 (no trusted proxy, as `docker compose up` runs today, with port 3000 published
+  directly), a list shorter than the hop count, or an entry that is not an IP address, every caller shares one
+  key, `"shared"`: guessing is then capped for everyone at once, and since a miss budget never blocks a live
+  link, filling it only turns other people's 404s into 429s. Setting the hop count higher than the real number
+  of appending proxies would let a client choose its key again (rotate it to dodge the cap, or name someone
+  else's address). `X-Real-IP` is not read. **M7 must deploy behind an appending or overwriting proxy and set
+  `TRUSTED_PROXY_HOPS` to match**; that is a requirement for per-client limits, not a refinement.
+- It answers `Cache-Control: private, max-age=300` and `Referrer-Policy: no-referrer`, and logs failures with the
+  first 8 hex characters of the hash, never the token. The handler body is `handleFeedFetch`
+  (`src/app/api/ics/[file]/feed-fetch.ts`), with the context, client and limits injected;
+  `tests/integration/feed-route.test.ts` pins its status codes, headers and both limits.
+- `last_used_at` is telemetry, not a state change: it is not audited, and is written at most once an hour
+  (the service skips the `UPDATE` entirely while the stamp is fresh).
+
+### ICS format
+
+`src/domain/ics.ts` is a pure RFC 5545 writer, unit tested in `tests/unit/ics.test.ts` against a strict parser
+(`tests/support/ics-parser.ts`) that integration tests use on real feeds too.
+
+- `VCALENDAR` with `VERSION:2.0`, `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, `X-WR-CALNAME` and `NAME`
+  ("OOOhm: My time off", "OOOhm: Who's out at <company>"), `REFRESH-INTERVAL;VALUE=DURATION:PT1H` and
+  `X-PUBLISHED-TTL:PT1H`.
+- One `VEVENT` per approved or pending request: `UID:<request id>@ooohm` (stable for the request's life, so
+  clients update rather than duplicate), `DTSTAMP` (when the feed was rendered), `DTSTART;VALUE=DATE` and an
+  exclusive `DTEND;VALUE=DATE` (the day after the last day), `SUMMARY`, `STATUS`, `TRANSP` and `LAST-MODIFIED`.
+- **Pending leave is included**, as `STATUS:TENTATIVE` with "(pending)" in the title, because Google shows no
+  tentative styling; it disappears on the next refresh if declined. Approved leave is `CONFIRMED`.
+- Titles use the leave type's short `code`: "PTO", "PTO (AM)", "PTO (pending)" in the personal feed and "Ana:
+  PTO (PM, pending)" in the team feed. Personal-feed events are `TRANSP:OPAQUE` (busy); team-feed events, your own included, are
+  `TRANSPARENT`.
+- TEXT is escaped (`\\`, `\;`, `\,`, line breaks as `\n`; other control characters dropped), lines end in CRLF,
+  and every line is folded at 75 octets of UTF-8 without splitting a character.
+- The window is 90 days back to 548 days (about 18 months) ahead of today in the company's time zone; a request
+  that overlaps it is included whole.
+
+Google Calendar only subscribes to a publicly reachable `https` URL and refreshes on its own schedule (often
+several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
+
 ## Testing
 
 | Command | What | Needs |
 | --- | --- | --- |
-| `pnpm test` | Unit tests in `tests/unit/` (domain rules, allowance policy, year split, email templates, formatting) | nothing |
+| `pnpm test` | Unit tests in `tests/unit/` (domain rules, allowance policy, year split, calendar grid, ICS writer, email templates, formatting) | nothing |
 | `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres | `TEST_DATABASE_URL` |
 
 Both run with Node's test runner through `tsx --conditions=react-server`. The `react-server` condition makes

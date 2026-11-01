@@ -1,4 +1,4 @@
-import { type CalendarDate, isCalendarDate, spanInDays } from "./calendar-date";
+import { type CalendarDate, fromEpochDay, isCalendarDate, spanInDays, toEpochDay } from "./calendar-date";
 import { DomainError } from "./errors";
 
 export const DAY_PORTIONS = ["full", "am", "pm"] as const;
@@ -19,6 +19,14 @@ export const NOTE_MAX_LENGTH = 500;
  * bounded and catches typos such as a year of 2062 instead of 2026.
  */
 export const MAX_REQUEST_SPAN_DAYS = 366;
+
+/**
+ * The earliest start date a request covering `date` can have, given
+ * {@link MAX_REQUEST_SPAN_DAYS}: lets range queries bound their scan from below.
+ */
+export function earliestOverlappingStart(date: CalendarDate): CalendarDate {
+  return fromEpochDay(toEpochDay(date) - (MAX_REQUEST_SPAN_DAYS - 1));
+}
 
 /** The date part of a leave request: what is being asked for, before day counting. */
 export interface LeaveRange {

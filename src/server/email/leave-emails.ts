@@ -1,4 +1,7 @@
+import { displayName } from "@/domain/person";
 import { formatDays, formatLeaveDates } from "@/lib/format";
+
+export { displayName, personLabel } from "@/domain/person";
 
 /**
  * Leave notification emails: calm plain text plus a minimal HTML twin.
@@ -91,25 +94,6 @@ function parts(email: LeaveEmail): Parts {
         action: "Open OOOhm",
       };
   }
-}
-
-/** Longest display name an email shows; anything beyond is cut. */
-const NAME_MAX_LENGTH = 100;
-
-/**
- * A person's name as it may appear in someone else's inbox: one line, trimmed and
- * capped, so a name cannot pose as extra paragraphs of the message.
- */
-export function displayName(name: string): string {
-  return name.replace(/\s+/g, " ").trim().slice(0, NAME_MAX_LENGTH).trim();
-}
-
-/**
- * How an email names someone other than its recipient: their display name, or their
- * email address when the name is blank, matching what the app shows.
- */
-export function personLabel(person: { name: string; email: string }): string {
-  return displayName(person.name) || person.email;
 }
 
 export function renderLeaveEmail(input: LeaveEmail): EmailContent {

@@ -19,6 +19,10 @@ const schema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   MAIL_FROM: z.string().default("OOOhm <no-reply@ooohm.team>"),
+
+  // How many reverse proxies in front of the app append to X-Forwarded-For. Rate limits
+  // key on the client address only when this is set; see src/lib/client-address.ts.
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
 });
 
 // `next build` imports server modules to collect route info. Real secrets are only

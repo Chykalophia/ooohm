@@ -1,4 +1,5 @@
 import type { CalendarDate } from "./calendar-date";
+import type { FeedKind } from "./calendar-feed";
 import type { DayPortion, LeaveStatus } from "./leave-request";
 
 /**
@@ -91,3 +92,36 @@ export const ALLOWANCE_AUDIT_ACTIONS: Readonly<Record<BalanceChangeReason, strin
   carryover: "allowance.carried_over",
   allowance_created: "allowance.created",
 };
+
+/** Calendar feed event types written to `events_outbox`. Public contract; never rename one. */
+export const CALENDAR_FEED_EVENT_TYPES = {
+  issued: "calendar_feed.issued",
+  revoked: "calendar_feed.revoked",
+} as const;
+export type CalendarFeedEventType = (typeof CALENDAR_FEED_EVENT_TYPES)[keyof typeof CALENDAR_FEED_EVENT_TYPES];
+
+/**
+ * Why a feed link stopped working.
+ *
+ * - `regenerated`: its owner asked for a new link, which replaced it.
+ * - `turned_off`: its owner turned the feed off.
+ */
+export type CalendarFeedRevokeReason = "regenerated" | "turned_off";
+
+/**
+ * Version 1 payload of the `calendar_feed.*` events. Never carries the token or its
+ * hash: the link is a secret, and the outbox is delivered to other systems.
+ */
+export interface CalendarFeedEventPayload {
+  feedId: string;
+  userId: string;
+  kind: FeedKind;
+  /** Set on `calendar_feed.revoked` only. */
+  reason: CalendarFeedRevokeReason | null;
+  actorId: string;
+}
+
+/** Audit log `action` for each feed change: `calendar_feed.issued` or `calendar_feed.revoked`. */
+export function calendarFeedAuditAction(event: keyof typeof CALENDAR_FEED_EVENT_TYPES): string {
+  return CALENDAR_FEED_EVENT_TYPES[event];
+}

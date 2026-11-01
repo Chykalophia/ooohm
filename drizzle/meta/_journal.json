@@ -36,6 +36,20 @@
       "when": 1793567735242,
       "tag": "0004_m3_leave_request_days",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793571212543,
+      "tag": "0005_m4_calendar_feed_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793572729514,
+      "tag": "0006_m4_leave_request_span",
+      "breakpoints": true
     }
   ]
 }

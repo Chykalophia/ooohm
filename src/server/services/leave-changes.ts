@@ -1,6 +1,7 @@
 import type { Transaction } from "@/db/types";
 import { LEAVE_EVENT_TYPES, leaveAuditAction, leaveEventPayload } from "@/domain/events";
-import { type LeaveSummary, personLabel } from "@/server/email/leave-emails";
+import { personLabel } from "@/domain/person";
+import type { LeaveSummary } from "@/server/email/leave-emails";
 import { recordChange } from "@/server/repositories/change-log";
 import type { LeaveRequestRow } from "@/server/repositories/leave-requests";
 import { findContacts } from "@/server/repositories/users";

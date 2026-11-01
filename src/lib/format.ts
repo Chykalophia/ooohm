@@ -88,6 +88,30 @@ export function formatBalanceUsage(b: Balance, year: number): string {
   return parts.join(" · ");
 }
 
+const monthFormat = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "long", year: "numeric" });
+const longDayFormat = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
+/** A `YYYY-MM` month in words, e.g. "November 2026". */
+export function formatMonth(month: string): string {
+  return monthFormat.format(toUtc(`${month}-01`));
+}
+
+/** A date in full, e.g. "Thursday, November 26, 2026", for screen readers and titles. */
+export function formatLongDate(date: string): string {
+  return longDayFormat.format(toUtc(date));
+}
+
+/** An instant as its calendar date in `timeZone`, e.g. "Nov 1, 2026". */
+export function formatInstantDate(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(instant);
+}
+
 export const STATUS_LABEL = {
   pending: "Waiting for approval",
   approved: "Approved",

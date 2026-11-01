@@ -49,6 +49,26 @@ CRON_TZ=America/Chicago
 The rollover owns each allowance's carried-over days and recomputes them on every run; correct a balance with
 an adjustment instead. See [docs/architecture.md](docs/architecture.md#year-rollover) for the exact rules.
 
+### Calendar subscriptions
+
+Anyone can add their own time off, or everyone's ("who's out"), to a calendar app. In OOOhm, open
+**Calendar**, then **Add your time off to Google Calendar, Apple Calendar or Outlook**, and create a link. Copy it
+straight away: OOOhm stores only a hash of it, so it is shown once. Anyone with the link can see that calendar;
+**Get a new link** or **Turn off** there kills the old one at once.
+
+- **Google Calendar** (web): next to **Other calendars**, click **+**, then **From URL**, paste the link and click
+  **Add calendar**. Google fetches it on its own schedule, so changes can take several hours to show, up to about
+  a day. It only accepts a public `https` address, so this works once OOOhm is deployed, not against `localhost`.
+- **Apple Calendar**: **File**, then **New Calendar Subscription**, paste the link.
+- **Outlook**: **Add calendar**, then **Subscribe from web**, paste the link.
+
+Feeds hold approved and pending leave (pending marked "(pending)") from 90 days ago to about 18 months ahead,
+and never a request's note. See [docs/architecture.md](docs/architecture.md#calendar-m4) for the format.
+
+Behind a reverse proxy, set `TRUSTED_PROXY_HOPS` in `.env` to the number of proxies that append to
+`X-Forwarded-For`, so the feed's rate limit counts each client separately. Leave it at `0` when nothing in front
+rewrites that header: a client could otherwise pick its own address.
+
 ## Develop
 
 ```bash
@@ -57,7 +77,7 @@ TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:inte
 pnpm job:rollover [year]   # year rollover against DATABASE_URL
 ```
 
-How the code is organized, and how requests, approvals, balances, the year rollover, the audit log and the
+How the code is organized, and how requests, approvals, balances, the year rollover, calendars and feeds, the audit log and the
 events outbox work, is in [docs/architecture.md](docs/architecture.md).
 
 ## License

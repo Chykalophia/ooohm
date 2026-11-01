@@ -7,6 +7,7 @@ import { getDashboard } from "@/server/services/leave-requests";
 import { AppHeader } from "./app-header";
 import { BalanceSummary } from "./balance-summary";
 import { CancelRequestButton } from "./cancel-request-button";
+import { NoCompany } from "./no-company";
 import { RequestLeaveForm } from "./request-leave-form";
 import { StatusBadge } from "./status-badge";
 
@@ -16,16 +17,7 @@ export default async function HomePage() {
   const { user, actor } = await requireActor();
   const userName = user.name || user.email;
 
-  if (!actor) {
-    return (
-      <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-        <AppHeader userName={userName} approvals={null} current="home" />
-        <main>
-          <p className="text-muted">Your account isn&apos;t part of a company yet. Ask an admin to finish setting it up.</p>
-        </main>
-      </div>
-    );
-  }
+  if (!actor) return <NoCompany userName={userName} current="home" />;
 
   const ctx = serviceContext();
   const [dashboard, approvals] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor)]);

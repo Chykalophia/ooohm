@@ -258,6 +258,11 @@ export const leaveRequests = pgTable(
     index("leave_requests_status_idx").on(t.status),
     check("leave_requests_dates_ordered", sql`${t.endDate} >= ${t.startDate}`),
     check("leave_requests_days_positive", sql`${t.days} > 0`),
+    // A half day consumes exactly 0.5; a full-day request consumes whole days.
+    check(
+      "leave_requests_days_match_portion",
+      sql`(${t.dayPortion} = 'full' AND ${t.days} = trunc(${t.days})) OR (${t.dayPortion} <> 'full' AND ${t.days} = 0.5)`,
+    ),
     // Half days (am/pm) only make sense on a single-day request.
     check("leave_requests_half_day_single", sql`${t.dayPortion} = 'full' OR ${t.startDate} = ${t.endDate}`),
   ],

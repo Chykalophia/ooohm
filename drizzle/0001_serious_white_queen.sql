@@ -1,5 +1,6 @@
 CREATE UNIQUE INDEX "account_provider_account_uq" ON "account" USING btree ("provider_id","account_id");--> statement-breakpoint
 ALTER TABLE "leave_requests" ADD CONSTRAINT "leave_requests_dates_ordered" CHECK ("leave_requests"."end_date" >= "leave_requests"."start_date");--> statement-breakpoint
 ALTER TABLE "leave_requests" ADD CONSTRAINT "leave_requests_days_positive" CHECK ("leave_requests"."days" > 0);--> statement-breakpoint
+ALTER TABLE "leave_requests" ADD CONSTRAINT "leave_requests_days_match_portion" CHECK (("leave_requests"."day_portion" = 'full' AND "leave_requests"."days" = trunc("leave_requests"."days")) OR ("leave_requests"."day_portion" <> 'full' AND "leave_requests"."days" = 0.5));--> statement-breakpoint
 ALTER TABLE "leave_requests" ADD CONSTRAINT "leave_requests_half_day_single" CHECK ("leave_requests"."day_portion" = 'full' OR "leave_requests"."start_date" = "leave_requests"."end_date");--> statement-breakpoint
 ALTER TABLE "user" ADD CONSTRAINT "user_email_lowercase" CHECK ("user"."email" = lower("user"."email"));

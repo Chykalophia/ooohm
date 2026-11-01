@@ -8,7 +8,8 @@ type Fields = Record<string, unknown>;
  * `warn`/`error` to stderr, so log collectors can classify levels.
  */
 function write(level: Level, fields: Fields, event: string) {
-  const line = JSON.stringify({ time: new Date().toISOString(), level, event, ...serialize(fields) });
+  // Caller fields go first so they can never overwrite the reserved keys.
+  const line = JSON.stringify({ ...serialize(fields), time: new Date().toISOString(), level, event });
   (level === "info" ? process.stdout : process.stderr).write(line + "\n");
 }
 

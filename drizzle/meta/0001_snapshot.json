@@ -1,5 +1,5 @@
 {
-  "id": "ec86d410-ae80-4a95-bfdc-8f95b504bbe2",
+  "id": "cc28ed7a-6064-4c93-b5fc-b64bee6d2575",
   "prevId": "9d2949dc-e1b7-45a5-8a99-f12493ed2a8f",
   "version": "7",
   "dialect": "postgresql",
@@ -944,6 +944,10 @@
         "leave_requests_days_positive": {
           "name": "leave_requests_days_positive",
           "value": "\"leave_requests\".\"days\" > 0"
+        },
+        "leave_requests_days_match_portion": {
+          "name": "leave_requests_days_match_portion",
+          "value": "(\"leave_requests\".\"day_portion\" = 'full' AND \"leave_requests\".\"days\" = trunc(\"leave_requests\".\"days\")) OR (\"leave_requests\".\"day_portion\" <> 'full' AND \"leave_requests\".\"days\" = 0.5)"
         },
         "leave_requests_half_day_single": {
           "name": "leave_requests_half_day_single",

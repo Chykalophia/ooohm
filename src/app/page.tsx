@@ -2,11 +2,18 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { Logo } from "@/components/logo";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/auth";
+import { yearInTimeZone } from "@/lib/dates";
 import { SignOutButton } from "./sign-out-button";
 
 export default async function HomePage() {
   const user = await requireUser();
-  const year = new Date().getFullYear();
+  const [company] = user.companyId
+    ? await db
+        .select({ timezone: schema.companies.timezone })
+        .from(schema.companies)
+        .where(eq(schema.companies.id, user.companyId))
+    : [];
+  const year = yearInTimeZone(company?.timezone ?? "UTC");
 
   // M1 placeholder dashboard: proves auth, the schema and the seed data line up.
   // Real balances (minus taken/pending days) arrive with the policy engine in M3.

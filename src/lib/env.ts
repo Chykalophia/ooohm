@@ -11,7 +11,7 @@ const schema = z.object({
 
   // Any SMTP server works. docker-compose ships Mailpit for local development.
   SMTP_HOST: z.string().default("localhost"),
-  SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
   SMTP_SECURE: z
     .enum(["true", "false"])
     .default("false")

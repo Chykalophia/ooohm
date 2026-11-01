@@ -6,8 +6,10 @@ import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { db, schema } from "@/db";
 import { env, googleEnabled } from "@/lib/env";
+import { log } from "@/lib/log";
 import { sendMail } from "@/lib/mail";
 
 /**
@@ -37,6 +39,21 @@ export const auth = betterAuth({
       isActive: { type: "boolean", required: false, defaultValue: true, input: false },
     },
   },
+  databaseHooks: {
+    session: {
+      create: {
+        // Deactivated people get no new session from any sign-in method, including a
+        // magic link sent before they were deactivated. Returning false aborts the create.
+        before: async (session) => {
+          const [owner] = await db
+            .select({ isActive: schema.user.isActive })
+            .from(schema.user)
+            .where(eq(schema.user.id, session.userId));
+          return owner?.isActive ? undefined : false;
+        },
+      },
+    },
+  },
   socialProviders: googleEnabled
     ? {
         google: {
@@ -55,27 +72,29 @@ export const auth = betterAuth({
       disableSignUp: true,
       expiresIn: 60 * 15,
       sendMagicLink: async ({ email, url }) => {
-        // Only email people who have an active account. The API still answers 200
-        // for unknown addresses so it can't be used to discover who works here,
-        // and so it can't be used to send mail to strangers.
-        const [existing] = await db
-          .select({ isActive: schema.user.isActive })
-          .from(schema.user)
-          .where(eq(schema.user.email, email.toLowerCase()));
-        if (!existing?.isActive) return;
+        // The API answers 200 for every address, so it can't be used to discover who
+        // works here. The lookup and the send both run after the response is sent:
+        // awaiting them would make real accounts answer measurably slower (timing leak),
+        // and a send failure would turn into a 500 only for real users.
+        after(async () => {
+          try {
+            const [existing] = await db
+              .select({ isActive: schema.user.isActive })
+              .from(schema.user)
+              .where(eq(schema.user.email, email.toLowerCase()));
+            // Only email people who have an active account, never strangers.
+            if (!existing?.isActive) return;
 
-        // Swallow send failures so the response is the same for every address
-        // (a 500 only for real users would reveal who has an account).
-        try {
-          await sendMail({
-            to: email,
-            subject: "Your OOOhm sign-in link",
-            text: `Sign in to OOOhm:\n\n${url}\n\nThis link expires in 15 minutes. If you didn't ask for it, you can ignore this email.`,
-            html: `<p>Sign in to OOOhm:</p><p><a href="${url}">Sign in</a></p><p style="color:#6b7280">This link expires in 15 minutes. If you didn't ask for it, you can ignore this email.</p>`,
-          });
-        } catch (err) {
-          console.error("Failed to send magic-link email:", err);
-        }
+            await sendMail({
+              to: email,
+              subject: "Your OOOhm sign-in link",
+              text: `Sign in to OOOhm:\n\n${url}\n\nThis link expires in 15 minutes. If you didn't ask for it, you can ignore this email.`,
+              html: `<p>Sign in to OOOhm:</p><p><a href="${url}">Sign in</a></p><p style="color:#6b7280">This link expires in 15 minutes. If you didn't ask for it, you can ignore this email.</p>`,
+            });
+          } catch (err) {
+            log.error({ err }, "magic_link_send_failed");
+          }
+        });
       },
     }),
     nextCookies(), // must stay last

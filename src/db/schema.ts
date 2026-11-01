@@ -1,6 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
+  check,
   date,
   index,
   integer,
@@ -91,7 +93,12 @@ export const user = pgTable(
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
   },
-  (t) => [index("user_company_idx").on(t.companyId), index("user_manager_idx").on(t.managerId)],
+  (t) => [
+    index("user_company_idx").on(t.companyId),
+    index("user_manager_idx").on(t.managerId),
+    // Better Auth looks emails up lowercased, so a mixed-case row could never sign in.
+    check("user_email_lowercase", sql`${t.email} = lower(${t.email})`),
+  ],
 );
 
 export const session = pgTable(
@@ -128,7 +135,11 @@ export const account = pgTable(
     password: text("password"),
     ...timestamps,
   },
-  (t) => [index("account_user_idx").on(t.userId)],
+  (t) => [
+    index("account_user_idx").on(t.userId),
+    // One external identity (e.g. a Google account) maps to exactly one OOOhm user.
+    uniqueIndex("account_provider_account_uq").on(t.providerId, t.accountId),
+  ],
 );
 
 export const verification = pgTable(
@@ -245,6 +256,10 @@ export const leaveRequests = pgTable(
     index("leave_requests_user_idx").on(t.userId),
     index("leave_requests_company_dates_idx").on(t.companyId, t.startDate, t.endDate),
     index("leave_requests_status_idx").on(t.status),
+    check("leave_requests_dates_ordered", sql`${t.endDate} >= ${t.startDate}`),
+    check("leave_requests_days_positive", sql`${t.days} > 0`),
+    // Half days (am/pm) only make sense on a single-day request.
+    check("leave_requests_half_day_single", sql`${t.dayPortion} = 'full' OR ${t.startDate} = ${t.endDate}`),
   ],
 );
 

@@ -9,8 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.mts",
-    "db:seed": "tsx scripts/seed.mts"
+    "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.mts",
+    "db:seed": "tsx --env-file-if-exists=.env scripts/seed.mts",
+    "test": "node --test 'tests/**/*.test.ts'"
   },
   "dependencies": {
     "better-auth": "^1.7.15",

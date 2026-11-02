@@ -44,7 +44,7 @@ if [ "$RETENTION_DAYS" -lt 1 ]; then
   exit 2
 fi
 if [ "$RETENTION_DAYS" -gt 30 ]; then
-  echo "warning: RETENTION_DAYS is $RETENTION_DAYS. Backups older than 30 days keep deleted people's data longer than the delete dialog promises." >&2
+  echo "warning: RETENTION_DAYS is $RETENTION_DAYS. Deleted people's data stays in backups for up to $RETENTION_DAYS days, longer than the 30-day default." >&2
 fi
 export RETENTION_DAYS
 

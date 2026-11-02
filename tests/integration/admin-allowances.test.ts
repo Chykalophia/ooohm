@@ -68,6 +68,7 @@ describe("admin: allowance overrides", { skip }, () => {
           adjustmentDays: -1.5,
           reason: "admin_edit",
           actorId: co.people.boss.id,
+          actor: { type: "user", id: co.people.boss.id },
         },
       ],
     ]);
@@ -110,10 +111,11 @@ describe("admin: allowance overrides", { skip }, () => {
     assert.equal(vac2026.remaining, 14, "10 default + 4 carried");
     assert.equal(detail2025.firstEditableYear, 2025);
 
-    const actions = (await companyAudit(t.db, co.companyId, "allowance.")).map((a) => [a.action, a.actorId]);
+    // The re-carry is the admin's edit at work, not the nightly process: it names them too.
+    const actions = (await companyAudit(t.db, co.companyId, "allowance.")).map((a) => [a.action, a.actorKind, a.actorId, a.actorProcess]);
     assert.deepEqual(actions.slice(-2), [
-      ["allowance.edited", co.people.boss.id],
-      ["allowance.carried_over", null],
+      ["allowance.edited", "user", co.people.boss.id, null],
+      ["allowance.carried_over", "user", co.people.boss.id, null],
     ]);
     const events = (await companyEvents(t.db, co.companyId)).map((e) => (e.payload as { reason: string }).reason);
     assert.deepEqual(events.slice(-2), ["admin_edit", "carryover"], "each change has its outbox row");

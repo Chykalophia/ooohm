@@ -103,7 +103,11 @@ describe("year rollover", { skip }, () => {
     const audit = await allowanceAudit(co.companyId);
     assert.equal(events.length, first.carried + first.created);
     assert.equal(audit.length, events.length);
-    assert.ok(audit.every((a) => a.actorId === null));
+    assert.deepEqual(
+      [...new Set(audit.map((a) => JSON.stringify([a.actorKind, a.actorId, a.actorVia, a.actorProcess])))],
+      [JSON.stringify(["system", null, null, "year_rollover"])],
+      "every row names the rollover, and nobody",
+    );
     assert.deepEqual(
       [...new Set(audit.map((a) => a.action))].sort(),
       ["allowance.carried_over", "allowance.created"],
@@ -123,6 +127,7 @@ describe("year rollover", { skip }, () => {
       adjustmentDays: 0,
       reason: "carryover",
       actorId: null,
+      actor: { type: "system", process: "year_rollover" },
     });
 
     // The carried days show up in 2027's balance.

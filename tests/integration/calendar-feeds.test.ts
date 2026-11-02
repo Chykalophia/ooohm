@@ -112,7 +112,7 @@ describe("calendar feeds", { skip }, () => {
     const events = await feedEvents(t.db, co.companyId);
     assert.deepEqual(
       events.map((e) => [e.type, e.payload]),
-      [["calendar_feed.issued", { feedId: rows[0].id, userId: ana.id, kind: "personal", reason: null, actorId: ana.id }]],
+      [["calendar_feed.issued", { feedId: rows[0].id, userId: ana.id, kind: "personal", reason: null, actorId: ana.id, actor: { type: "user", id: ana.id } }]],
     );
     assert.ok(!JSON.stringify([audit, events]).includes(rows[0].tokenHash), "nor its hash");
 

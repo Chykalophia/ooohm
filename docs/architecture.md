@@ -49,7 +49,8 @@ theirs against a throwaway database. This keeps services free of Next.js and of 
 ### Actor and authorization
 
 `requireActor()` (`src/lib/auth.ts`) returns the session user and an `Actor` (`id`, `companyId`, `role`,
-`canSelfApprove`). Every service that acts for a person takes the `Actor`. `company_id` always comes from the
+`canSelfApprove`, and `source`: how they are acting, recorded on every change they make; see
+[Attribution](#attribution-who-or-what-made-a-change)). Every service that acts for a person takes the `Actor`. `company_id` always comes from the
 actor, never from input, and every query is scoped by it. A request id from another company is
 indistinguishable from one that does not exist (`not_found`).
 
@@ -73,13 +74,62 @@ its codes and command but not the server's reply, which quotes the recipient's a
 
 ### Audit log and events outbox
 
-Every state change calls `recordChange(tx, { audit, event })` (`src/server/repositories/change-log.ts`) in
-the same transaction as the change. The audit row names the person the change is about in
+Every state change calls `recordChange(tx, { source, audit, event })` (`src/server/repositories/change-log.ts`) in
+the same transaction as the change; `source` says who or what made it ([below](#attribution-who-or-what-made-a-change)).
+The audit row names the person the change is about in
 `subject_user_id` (a request's requester, an allowance's or feed's owner, a person an admin edited; `null` for
 company-wide things such as holidays), so the audit viewer can filter by person on one index. Migration `0007`
 backfilled it for rows written before M5. It takes a `Transaction`, not the pool, so it cannot be called outside
 one. `audit_log.created_at` and `events_outbox.created_at` default to `clock_timestamp()`, so rows written in
 one transaction (e.g. `leave.requested` then `leave.approved` for a self-approved request) keep their order.
+
+#### Attribution: who or what made a change
+
+Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-source.ts`), one of:
+
+| `kind` | Who or what | Example label in the audit log |
+| --- | --- | --- |
+| `user` | A person, directly, or through something they started (`via`) | "Peter Krzyzek", "Peter Krzyzek, via Gusto sync" |
+| `api_key` | A person's API key: the key's creator and the key, optionally `via` something | "Peter Krzyzek, via API key ‘Zapier’ (ooohm_ab12cd34…)" |
+| `system` | A process with no person behind it (`process`) | "System: year rollover", "System: scheduled Gusto sync" |
+
+`via` and `process` share one vocabulary of stable identifiers: `year_rollover`, `retention`, `adapter_sync:<adapterId>`,
+and `timeoff_import` (reserved; nothing writes it yet). They are stored and published, so never rename one.
+`changeSourceLabel` (pure) turns a source into the label above.
+
+How sources are chosen, type-enforced so a new call site cannot leave one out (every recorder takes a required
+`source`; there is no default):
+
+- A person in the app: `actor.source`, `{ kind: "user", userId }` from `toActor`. Admin changes go through
+  `recordAdminChange(tx, actor, …)`, which records `actor.source`. A future API write path builds an `Actor`
+  whose `source` is the key (`byApiKey`); the v1 API is read-only, so nothing writes one yet.
+- The year rollover: `system` / `year_rollover`. An admin's (or a sync's) edit of last year re-runs the
+  rollover's step for that person (`recarryMemberLeaveType`); the carry rows it writes record **the edit's** source,
+  since the edit caused them.
+- An adapter's inbound sync (`applyInboundSync`) takes a `SyncTrigger` from its caller: `{ kind: "admin", actor }`
+  (Sync now) records the admin `via: "adapter_sync:<id>"`; `{ kind: "schedule" }` records `system` /
+  `adapter_sync:<id>`. No scheduled sync runs in v1; the trigger is there for the first adapter that needs one.
+- Retention prunes delivery machinery, not state, and writes no audit rows; `retention` is named for when it does.
+
+Storage (`audit_log`, migration `0010`): `actor_kind` (`user` | `api_key` | `system`, not null), `actor_id` (the
+person), `api_key_id` (FK to `api_keys`, `set null`), `actor_via`, `actor_process`. A `CHECK` requires a `system` row
+to name a process and nobody; a `user` row has no key or process; an `api_key` row has no process. **A person's row
+does not require `actor_id`**: the foreign key is `on delete set null`, and a check that required it would make
+deleting a `user` row fail. OOOhm never deletes people (it deactivates them), and the TypeScript types require the
+id on every write, so in practice it is always set; if a row is ever deleted, its changes stay a person's
+(`actor_kind = 'user'`) and the viewer says "A deleted person". No name is copied into the log, so deleting a person
+does erase who made those changes.
+
+Migration `0010` backfilled older rows: a row with `actor_id` became `user`; one without, `system`, with
+`process` `year_rollover` for `allowance.carried_over` and `allowance.created` (only the rollover's step wrote those
+without an actor), `adapter_sync:<id>` for the inbound sync's rows (identified by `after.source = "adapter:<id>"`
+on `user.*` rows and `after.reason = "Synced from adapter:<id>"` on `allowance.synced`; with an actor, that becomes
+the actor's `via` instead), and `unknown` for anything else.
+
+Every event payload publishes the same source as **`actor`** (added within version 1), next to `actorId`, which
+stays the person or `null` for compatibility: `{ type: "user", id, via? }`, `{ type: "api_key", id, apiKeyId,
+via? }` (`id` is the key's creator) or `{ type: "system", process }`. `recordChange` writes both from `source`,
+so an event and its audit row can never disagree.
 
 Leave events (`src/domain/events.ts`) are a public contract for webhooks and adapters (M6):
 
@@ -90,8 +140,8 @@ Leave events (`src/domain/events.ts`) are a public contract for webhooks and ada
 | `leave.rejected` | An approver or admin declines | `rejected` |
 | `leave.cancelled` | The requester cancels a pending or approved request | `cancelled` |
 
-Payload (v1): `requestId, userId, leaveTypeId, startDate, endDate, dayPortion, days, status, actorId`. Add
-fields; never rename or remove one.
+Payload (v1): `requestId, userId, leaveTypeId, startDate, endDate, dayPortion, days, status, actorId, actor`. Add
+fields; never rename or remove one. Every payload below also carries `actor` beside `actorId`.
 
 Balance events (M3):
 
@@ -103,8 +153,8 @@ Balance events (M3):
 | `balance.adjusted` | An adapter's inbound sync sets `days` (and `adjustmentDays` when it sends one) (`reason: "sync"`, M6) | `allowance.synced` |
 
 Payload (v1): `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId`,
-the row after the change. A system job has no actor: `actorId` is `null` in both the payload and
-`audit_log.actor_id`.
+the row after the change. The rollover has no person behind it: `actorId` is `null` and `actor` is
+`{ type: "system", process: "year_rollover" }` (a re-carry caused by an edit names that edit's source instead).
 
 Calendar feed events (M4):
 
@@ -140,7 +190,8 @@ One more event comes with M5 but is not an admin event: it is `LEAVE_REASSIGNED_
 
 No payload ever holds a session, token, sign-in link or the admin's free-text reason. Emails are in `user.*`
 payloads because integrations sync people by address. Since M6, `user.created` and `user.updated` can also come
-from an adapter's inbound sync; their `actorId` is then the admin who started it, or `null` for a scheduled one.
+from an adapter's inbound sync; their `actorId` is then the admin who started it (`actor.via` names the sync), or
+`null` for a scheduled one (`actor` names the process).
 
 Integration events (M6), registered in `INTEGRATION_EVENT_TYPES`; the audit `action` is the event type and the
 actor the admin. Payloads carry a webhook URL's origin only (paths often hold a token), never a secret, key or
@@ -373,7 +424,7 @@ a year that has not ended in a company's time zone, and resolves every company's
 anything.
 
 **The rollover owns `carried_over_days`.** Every run recomputes it from the closing year, so a hand edit there
-is overwritten (and audited with actor `null`) by the next run or restart. Admin overrides (M5) write `days` and
+is overwritten (and audited as "System: year rollover") by the next run or restart. Admin overrides (M5) write `days` and
 `adjustment_days`, which the rollover never touches, and never `carried_over_days`.
 
 Run it with `pnpm job:rollover [year]` (default: the previous year in each company's time zone; needs only
@@ -674,7 +725,10 @@ when unchanged but cannot be chosen anew. Working days: at least one ISO weekday
 
 `/admin/audit` (`getAuditLog`): newest first, 50 a page, read-only. Filters: action (from the known list),
 who did it, who it is about (`subject_user_id`), and a date range in the company's time zone (converted in SQL
-with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malformed filters are ignored.
+with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malformed filters are ignored. Each row
+says who or what made it with `changeSourceLabel` ("Ana", "Ana, via Gusto sync", "System: year rollover"); the
+"who did it" filter matches `actor_id`, so it finds a person's changes whether direct, through a sync or with one of
+their API keys.
 
 - **Keyset pagination** on `(created_at, id)`: the cursor carries `created_at` printed in UTC to the
   microsecond, because a JS `Date` keeps only milliseconds and would skip or repeat rows written in the same one.
@@ -683,7 +737,7 @@ with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malfo
   entries in order instead of sorting the company's log. `audit-log.test.ts` checks the plan.
 - **Five queries a page**, whatever it holds: company (time zone), people, departments and leave types in
   parallel (for the pickers and for naming ids inside before/after snapshots), then the page, whose actor and
-  subject names come from joins.
+  subject names, and API key name and prefix, come from joins. Adapter names come from the registry.
 - Summaries are pure (`describeAuditChange`, `src/domain/audit.ts`): changed fields only, ids named ("Manager:
   Ana → Ben"), an unknown id described rather than shown.
 
@@ -918,8 +972,9 @@ no longer registered fails its attempts with `adapter_not_registered` and resume
   (`lockMember`), through `writeAllowance`, the same write as an admin's override: `days` and `adjustment_days`
   (kept when omitted), never `carried_over_days`, last year and later only, last year re-carried at once.
   `allowance.synced` + `balance.adjusted` (`reason: "sync"`).
-- Every audit row records `source: "adapter:<id>"`; the actor is the admin who pressed **Sync now**
-  (`syncAdapterNow`), or `null` for a scheduled sync.
+- Every change is attributed by the caller's `SyncTrigger`: the admin who pressed **Sync now**
+  (`syncAdapterNow`), via `adapter_sync:<id>`, or the system process `adapter_sync:<id>` for a scheduled sync
+  ([Attribution](#attribution-who-or-what-made-a-change)). The audit snapshot also keeps `source: "adapter:<id>"`.
 
 `/admin/integrations` (**Integrations → Connectors**; the admin nav groups webhooks, API keys and connectors under one **Integrations** link with a second row of tabs) lists registered adapters with their `healthCheck` (5-second limit each, failures shown as
 "not connected" and logged) and a **Sync now** action for those that sync; in v1 it shows a calm empty state
@@ -935,7 +990,7 @@ will add them to `AdapterContext`, not to core code.
 
 | Command | What | Needs |
 | --- | --- | --- |
-| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, email templates, formatting) | nothing |
+| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting) | nothing |
 | `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention | `TEST_DATABASE_URL` |
 
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,

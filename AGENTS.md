@@ -11,7 +11,7 @@ Work one milestone at a time and keep each PR to a single milestone.
 - **The allowance policy is pluggable.** v1 ships only `annual_calendar_year`: a flat yearly allowance per leave type that resets Jan 1. Carryover is set per leave type and is OFF by default.
 - **Approvals:** one approver (the manager) per person. `user.can_self_approve` auto-approves that user's own requests.
 - **Integrations go through `events_outbox`.** Write a domain event in the same transaction as every state change. No adapters ship in v1.
-- **Audit everything.** Every request decision and every balance change writes an `audit_log` row.
+- **Audit everything.** Every request decision and every balance change writes an `audit_log` row, naming who or what made it (a person, a person through a sync or import, their API key, or a system process). Nothing is anonymous.
 - **Day counts are numeric with one decimal place** (half days = 0.5). Weekends and company holidays never count.
 
 ## Stack and commands

@@ -56,6 +56,7 @@ describe("leave requests: submit and cancel", { skip }, () => {
       days: 4,
       status: "pending",
       actorId: ana.id,
+      actor: { type: "user", id: ana.id },
     });
 
     // Email goes out only after commit, and only to the approver.

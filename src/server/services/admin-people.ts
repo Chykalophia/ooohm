@@ -14,7 +14,7 @@ import type { Actor, Role } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { DomainError, isDomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES, type UserEventPayload } from "@/domain/events";
+import { ADMIN_EVENT_TYPES, type Unattributed, type UserEventPayload } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { firstEditableAllowanceYear } from "@/domain/leave-type-settings";
 import {
@@ -101,7 +101,7 @@ function personSnapshot(p: PersonRow) {
   };
 }
 
-function personPayload(p: PersonRow): Omit<UserEventPayload, "actorId"> {
+function personPayload(p: PersonRow): Unattributed<UserEventPayload> {
   return {
     userId: p.id,
     email: p.email,
@@ -478,7 +478,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
     const now = ctx.now();
     const after = await updatePersonRow(tx, actor.companyId, before.id, { isActive: false });
     const sessionsRevoked = await deleteSessionsOf(tx, before.id);
-    const feedsRevoked = await revokeFeedsOnDeactivation(tx, before.id, actor.id, now);
+    const feedsRevoked = await revokeFeedsOnDeactivation(tx, before.id, actor.source, now);
     const { reassigned, outgoing } = await rerouteApprovals(ctx, tx, actor, await listPendingAssignedTo(tx, actor.companyId, before.id));
 
     await recordAdminChange(tx, actor, {
@@ -538,7 +538,7 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
   for (const { request, approverId } of moves) {
     const after = await reassignIfCurrent(tx, { companyId: actor.companyId, id: request.id, from: request.approverId }, approverId);
     if (!after) continue;
-    await recordReassignment(tx, { before: request, after, actorId: actor.id });
+    await recordReassignment(tx, { before: request, after, source: actor.source });
     reassigned++;
 
     const approver = approverId && approverId !== request.userId ? contacts.get(approverId) : undefined;

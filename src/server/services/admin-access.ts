@@ -22,11 +22,13 @@ export async function assertActiveAdmin(ex: Executor, actor: Actor): Promise<voi
 }
 
 /**
- * Writes the audit row and outbox event for one admin change, inside `tx`. The audit
- * `action` and the event `type` are the same name (`user.created`, `holiday.deleted`).
+ * Writes the audit row and outbox event for one admin change, inside `tx`, attributed to
+ * the admin as they are acting (`actor.source`). The audit `action` and the event `type`
+ * are the same name (`user.created`, `holiday.deleted`).
  *
- * @param change.payload The event payload documented for `type` in `@/domain/events`.
- *   Never a token, session or sign-in link.
+ * @param change.payload The event payload documented for `type` in `@/domain/events`,
+ *   without `actorId` and `actor`, which `recordChange` adds. Never a token, session or
+ *   sign-in link.
  */
 export async function recordAdminChange(
   tx: Transaction,
@@ -42,9 +44,9 @@ export async function recordAdminChange(
   },
 ): Promise<void> {
   await recordChange(tx, {
+    source: actor.source,
     audit: {
       companyId: actor.companyId,
-      actorId: actor.id,
       action: change.type,
       entityType: change.entityType,
       entityId: change.entityId,
@@ -52,6 +54,6 @@ export async function recordAdminChange(
       before: change.before,
       after: change.after,
     },
-    event: { companyId: actor.companyId, type: change.type, payload: { ...change.payload, actorId: actor.id } },
+    event: { companyId: actor.companyId, type: change.type, payload: change.payload },
   });
 }

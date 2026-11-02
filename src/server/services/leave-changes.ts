@@ -1,4 +1,5 @@
 import type { Transaction } from "@/db/types";
+import type { PersonChangeSource } from "@/domain/change-source";
 import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
@@ -32,6 +33,7 @@ export function snapshot(row: LeaveRequestRow) {
  * Writes the audit row and outbox event for one leave transition, inside `tx`.
  *
  * @param before The request before the change, or `null` when it was just created.
+ * @param source The person who made it: the requester, the approver or an admin.
  */
 export async function recordLeaveChange(
   tx: Transaction,
@@ -39,14 +41,14 @@ export async function recordLeaveChange(
     event: keyof typeof LEAVE_EVENT_TYPES;
     before: LeaveRequestRow | null;
     after: LeaveRequestRow;
-    actorId: string;
+    source: PersonChangeSource;
   },
 ): Promise<void> {
-  const { after, actorId } = change;
+  const { after, source } = change;
   await recordChange(tx, {
+    source,
     audit: {
       companyId: after.companyId,
-      actorId,
       action: leaveAuditAction(change.event),
       entityType: "leave_request",
       entityId: after.id,
@@ -57,7 +59,7 @@ export async function recordLeaveChange(
     event: {
       companyId: after.companyId,
       type: LEAVE_EVENT_TYPES[change.event],
-      payload: leaveEventPayload(after, actorId),
+      payload: leaveEventPayload(after, source),
     },
   });
 }
@@ -68,18 +70,18 @@ export async function recordLeaveChange(
  */
 export async function recordReassignment(
   tx: Transaction,
-  change: { before: LeaveRequestRow; after: LeaveRequestRow; actorId: string },
+  change: { before: LeaveRequestRow; after: LeaveRequestRow; source: PersonChangeSource },
 ): Promise<void> {
-  const { before, after, actorId } = change;
+  const { before, after, source } = change;
   const payload: LeaveReassignedPayload = {
-    ...leaveEventPayload(after, actorId),
+    ...leaveEventPayload(after, source),
     previousApproverId: before.approverId,
     approverId: after.approverId,
   };
   await recordChange(tx, {
+    source,
     audit: {
       companyId: after.companyId,
-      actorId,
       action: leaveAuditAction("reassigned"),
       entityType: "leave_request",
       entityId: after.id,

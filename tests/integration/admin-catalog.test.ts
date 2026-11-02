@@ -75,9 +75,9 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.deepEqual(
       (await companyEvents(t.db, co.companyId)).map((e) => [e.type, e.payload]),
       [
-        ["department.created", { departmentId: ops.id, name: "Ops", actorId: boss.id }],
-        ["department.renamed", { departmentId: ops.id, name: "Operations", actorId: boss.id }],
-        ["department.deleted", { departmentId: ops.id, name: "Operations", actorId: boss.id }],
+        ["department.created", { departmentId: ops.id, name: "Ops", actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.renamed", { departmentId: ops.id, name: "Operations", actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.deleted", { departmentId: ops.id, name: "Operations", actorId: boss.id, actor: { type: "user", id: boss.id } }],
       ],
     );
   });
@@ -151,6 +151,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
       sortOrder: 2,
       archived: false,
       actorId: boss.id,
+      actor: { type: "user", id: boss.id },
     });
   });
 
@@ -261,9 +262,9 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.deepEqual(
       (await companyEvents(t.db, co.companyId, "holiday.")).map((e) => e.payload),
       [
-        { holidayId: xmas.id, date: "2026-12-25", name: "Christmas", actorId: boss.id },
-        { holidayId: xmas.id, date: "2026-12-25", name: "Christmas Day", actorId: boss.id },
-        { holidayId: xmas.id, date: "2026-12-25", name: "Christmas Day", actorId: boss.id },
+        { holidayId: xmas.id, date: "2026-12-25", name: "Christmas", actorId: boss.id, actor: { type: "user", id: boss.id } },
+        { holidayId: xmas.id, date: "2026-12-25", name: "Christmas Day", actorId: boss.id, actor: { type: "user", id: boss.id } },
+        { holidayId: xmas.id, date: "2026-12-25", name: "Christmas Day", actorId: boss.id, actor: { type: "user", id: boss.id } },
       ],
     );
   });

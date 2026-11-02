@@ -103,7 +103,7 @@ export async function submitLeaveRequest(
       approverId: decision.approverId,
     });
     await insertRequestDays(tx, created.id, assessment.charges);
-    await recordLeaveChange(tx, { event: "requested", before: null, after: created, actorId: actor.id });
+    await recordLeaveChange(tx, { event: "requested", before: null, after: created, source: actor.source });
 
     let final = created;
     if (decision.kind === "auto_approve") {
@@ -114,7 +114,7 @@ export async function submitLeaveRequest(
         { status: "approved", decidedAt: ctx.now() },
       );
       if (!approved) throw new DomainError("conflict");
-      await recordLeaveChange(tx, { event: "approved", before: created, after: approved, actorId: actor.id });
+      await recordLeaveChange(tx, { event: "approved", before: created, after: approved, source: actor.source });
       final = approved;
     }
 
@@ -162,7 +162,7 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
       { status: "cancelled" },
     );
     if (!after) throw new DomainError("conflict");
-    await recordLeaveChange(tx, { event: "cancelled", before, after, actorId: actor.id });
+    await recordLeaveChange(tx, { event: "cancelled", before, after, source: actor.source });
 
     const contacts = await activeContacts(tx, actor.companyId, [after.userId, after.approverId]);
     const leaveType = await findLeaveType(tx, actor.companyId, after.leaveTypeId);

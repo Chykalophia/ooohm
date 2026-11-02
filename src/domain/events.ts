@@ -1,7 +1,54 @@
 import type { CalendarDate } from "./calendar-date";
 import type { FeedKind } from "./calendar-feed";
 import type { Role } from "./actor";
+import type { ChangeProcess, ChangeSource, PersonChangeSource } from "./change-source";
 import type { DayPortion, LeaveStatus } from "./leave-request";
+
+/**
+ * Who or what made a change, as every event payload publishes it in `actor` (added
+ * within version 1). `id` is the person: the one who acted, or who created the API key.
+ * `via` and `process` are stable identifiers (`year_rollover`, `adapter_sync:<id>`).
+ */
+export type EventActor =
+  | { type: "user"; id: string; via?: ChangeProcess }
+  | { type: "api_key"; id: string; apiKeyId: string; via?: ChangeProcess }
+  | { type: "system"; process: ChangeProcess };
+
+/** An {@link EventActor} with a person behind it. */
+export type PersonEventActor = Exclude<EventActor, { type: "system" }>;
+
+/** The attribution fields of a payload whose change always has a person behind it. */
+export interface PersonAttribution {
+  /** The person who made the change; see `actor` for how. */
+  actorId: string;
+  actor: PersonEventActor;
+}
+
+/** The attribution fields of a payload whose change may come from a system process. */
+export interface Attribution {
+  /** The person who made the change, when there is one (`null` for a system process); see `actor`. */
+  actorId: string | null;
+  actor: EventActor;
+}
+
+/** A payload without its attribution fields, which `recordChange` adds from the change's source. */
+export type Unattributed<T> = Omit<T, "actorId" | "actor">;
+
+export function eventActor(source: PersonChangeSource): PersonEventActor;
+export function eventActor(source: ChangeSource): EventActor;
+export function eventActor(source: ChangeSource): EventActor {
+  const via = source.kind !== "system" && source.via !== undefined ? { via: source.via } : {};
+  if (source.kind === "user") return { type: "user", id: source.userId, ...via };
+  if (source.kind === "api_key") return { type: "api_key", id: source.userId, apiKeyId: source.apiKeyId, ...via };
+  return { type: "system", process: source.process };
+}
+
+/** `actorId` (kept for compatibility: the person or `null`) and `actor` for a payload. */
+export function eventAttribution(source: PersonChangeSource): PersonAttribution;
+export function eventAttribution(source: ChangeSource): Attribution;
+export function eventAttribution(source: ChangeSource): Attribution {
+  return { actorId: source.kind === "system" ? null : source.userId, actor: eventActor(source) };
+}
 
 /**
  * Domain event types written to `events_outbox`. These names are a public contract:
@@ -15,8 +62,11 @@ export const LEAVE_EVENT_TYPES = {
 } as const;
 export type LeaveEventType = (typeof LEAVE_EVENT_TYPES)[keyof typeof LEAVE_EVENT_TYPES];
 
-/** Version 1 payload of every `leave.*` event. Add fields; never remove or retype one. */
-export interface LeaveEventPayload {
+/**
+ * Version 1 payload of every `leave.*` event. Add fields; never remove or retype one.
+ * The actor is the requester, the approver, or an admin.
+ */
+export interface LeaveEventPayload extends PersonAttribution {
   requestId: string;
   userId: string;
   leaveTypeId: string;
@@ -25,8 +75,6 @@ export interface LeaveEventPayload {
   dayPortion: DayPortion;
   days: number;
   status: LeaveStatus;
-  /** Who caused the change: the requester, the approver, or an admin. */
-  actorId: string;
 }
 
 /** The leave request fields an event payload is built from. */
@@ -41,7 +89,7 @@ export interface LeaveEventSource {
   status: LeaveStatus;
 }
 
-export function leaveEventPayload(request: LeaveEventSource, actorId: string): LeaveEventPayload {
+export function leaveEventPayload(request: LeaveEventSource, source: PersonChangeSource): LeaveEventPayload {
   return {
     requestId: request.id,
     userId: request.userId,
@@ -51,7 +99,7 @@ export function leaveEventPayload(request: LeaveEventSource, actorId: string): L
     dayPortion: request.dayPortion,
     days: request.days,
     status: request.status,
-    actorId,
+    ...eventAttribution(source),
   };
 }
 
@@ -79,8 +127,12 @@ export const BALANCE_EVENT_TYPES = {
  */
 export type BalanceChangeReason = "carryover" | "allowance_created" | "admin_edit" | "sync";
 
-/** Version 1 payload of `balance.adjusted`: the allowance row after the change. */
-export interface BalanceAdjustedPayload {
+/**
+ * Version 1 payload of `balance.adjusted`: the allowance row after the change. The year
+ * rollover's changes have no person behind them (`actorId: null`, `actor` names the
+ * process), unless an admin's or a sync's edit of last year re-carried them.
+ */
+export interface BalanceAdjustedPayload extends Attribution {
   allowanceId: string;
   userId: string;
   leaveTypeId: string;
@@ -89,8 +141,6 @@ export interface BalanceAdjustedPayload {
   carriedOverDays: number;
   adjustmentDays: number;
   reason: BalanceChangeReason;
-  /** Who made the change; `null` for a system job such as the year rollover. */
-  actorId: string | null;
 }
 
 /** Audit log `action` for each allowance change. */
@@ -121,13 +171,12 @@ export type CalendarFeedRevokeReason = "regenerated" | "turned_off" | "deactivat
  * Version 1 payload of the `calendar_feed.*` events. Never carries the token or its
  * hash: the link is a secret, and the outbox is delivered to other systems.
  */
-export interface CalendarFeedEventPayload {
+export interface CalendarFeedEventPayload extends PersonAttribution {
   feedId: string;
   userId: string;
   kind: FeedKind;
   /** Set on `calendar_feed.revoked` only. */
   reason: CalendarFeedRevokeReason | null;
-  actorId: string;
 }
 
 /** Audit log `action` for each feed change: `calendar_feed.issued` or `calendar_feed.revoked`. */
@@ -179,8 +228,12 @@ export type AdminEventType = (typeof ADMIN_EVENT_TYPES)[keyof typeof ADMIN_EVENT
 /**
  * Version 1 payload of every `user.*` event: the person after the change. Never holds
  * a session, token or sign-in link.
+ *
+ * The actor is the admin who made the change. For an integration adapter's inbound
+ * sync, the admin who pressed Sync now (`actor.via` names the sync), or, for a scheduled
+ * sync, nobody (`actorId: null`, `actor` names the process).
  */
-export interface UserEventPayload {
+export interface UserEventPayload extends Attribution {
   userId: string;
   email: string;
   name: string;
@@ -189,22 +242,16 @@ export interface UserEventPayload {
   managerId: string | null;
   canSelfApprove: boolean;
   isActive: boolean;
-  /**
-   * The admin who made the change. For an integration adapter's inbound sync, the admin
-   * who pressed Sync now, or `null` for a scheduled sync.
-   */
-  actorId: string | null;
 }
 
 /** Version 1 payload of every `department.*` event: the department after the change (before, when deleted). */
-export interface DepartmentEventPayload {
+export interface DepartmentEventPayload extends PersonAttribution {
   departmentId: string;
   name: string;
-  actorId: string;
 }
 
 /** Version 1 payload of every `leave_type.*` event: the leave type after the change. */
-export interface LeaveTypeEventPayload {
+export interface LeaveTypeEventPayload extends PersonAttribution {
   leaveTypeId: string;
   code: string;
   name: string;
@@ -216,25 +263,22 @@ export interface LeaveTypeEventPayload {
   carryoverMaxDays: number | null;
   sortOrder: number;
   archived: boolean;
-  actorId: string;
 }
 
 /** Version 1 payload of every `holiday.*` event: the holiday after the change (before, when deleted). */
-export interface HolidayEventPayload {
+export interface HolidayEventPayload extends PersonAttribution {
   holidayId: string;
   date: CalendarDate;
   name: string;
-  actorId: string;
 }
 
 /** Version 1 payload of `company.updated`: the settings after the change. */
-export interface CompanyEventPayload {
+export interface CompanyEventPayload extends PersonAttribution {
   companyId: string;
   name: string;
   timezone: string;
   workingDays: number[];
   allowancePolicy: string;
-  actorId: string;
 }
 
 /**
@@ -262,7 +306,7 @@ export type IntegrationEventType = (typeof INTEGRATION_EVENT_TYPES)[keyof typeof
  * its path or query, which often hold a token (Slack, Zapier), and never the signing
  * secret.
  */
-export interface WebhookEndpointEventPayload {
+export interface WebhookEndpointEventPayload extends PersonAttribution {
   endpointId: string;
   urlOrigin: string;
   description: string;
@@ -273,23 +317,20 @@ export interface WebhookEndpointEventPayload {
    * path on the same origin is visible. Never the URL itself.
    */
   urlChanged?: boolean;
-  actorId: string;
 }
 
 /** Version 1 payload of `webhook_delivery.redelivered`: the delivery an admin queued again. */
-export interface WebhookRedeliveredPayload {
+export interface WebhookRedeliveredPayload extends PersonAttribution {
   endpointId: string;
   deliveryId: string;
   eventId: string;
   eventType: string;
-  actorId: string;
 }
 
 /** Version 1 payload of every `api_key.*` event. Never the key or its hash; `prefix` is the part shown to admins. */
-export interface ApiKeyEventPayload {
+export interface ApiKeyEventPayload extends PersonAttribution {
   apiKeyId: string;
   name: string;
   prefix: string;
   scopes: string[];
-  actorId: string;
 }

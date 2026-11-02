@@ -11,7 +11,7 @@
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES, type AdminEventType, type LeaveTypeEventPayload } from "@/domain/events";
+import { ADMIN_EVENT_TYPES, type AdminEventType, type LeaveTypeEventPayload, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { type LeaveTypeSettings, normalizeLeaveTypeSettings } from "@/domain/leave-type-settings";
 import type { Transaction } from "@/db/types";
@@ -47,7 +47,7 @@ function snapshot(row: LeaveTypeRow) {
   };
 }
 
-function payload(row: LeaveTypeRow): Omit<LeaveTypeEventPayload, "actorId"> {
+function payload(row: LeaveTypeRow): Unattributed<LeaveTypeEventPayload> {
   return { leaveTypeId: row.id, ...snapshot(row) };
 }
 

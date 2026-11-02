@@ -16,7 +16,7 @@ import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { DomainError } from "@/domain/errors";
-import { INTEGRATION_EVENT_TYPES, type IntegrationEventType, type WebhookEndpointEventPayload } from "@/domain/events";
+import { INTEGRATION_EVENT_TYPES, type IntegrationEventType, type Unattributed, type WebhookEndpointEventPayload } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import {
   buildEnvelope,
@@ -75,7 +75,7 @@ function snapshot(row: WebhookEndpointRow) {
   return { urlOrigin: urlOrigin(row.url), description: row.description, eventTypes: row.eventTypes, enabled: row.enabled };
 }
 
-function payload(row: WebhookEndpointRow): Omit<WebhookEndpointEventPayload, "actorId"> {
+function payload(row: WebhookEndpointRow): Unattributed<WebhookEndpointEventPayload> {
   return { endpointId: row.id, ...snapshot(row) };
 }
 

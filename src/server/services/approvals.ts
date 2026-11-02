@@ -82,7 +82,7 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
       { status: to, decidedAt: ctx.now(), decisionNote: reason },
     );
     if (!after) throw new DomainError("conflict");
-    await recordLeaveChange(tx, { event: to, before, after, actorId: actor.id });
+    await recordLeaveChange(tx, { event: to, before, after, source: actor.source });
 
     const contacts = await activeContacts(tx, actor.companyId, [after.userId]);
     const requester = contacts.get(after.userId);

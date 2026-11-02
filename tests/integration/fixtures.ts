@@ -3,6 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor, Role } from "@/domain/actor";
+import { byUser } from "@/domain/change-source";
 
 export interface PersonSpec {
   role?: Role;
@@ -57,6 +58,7 @@ export async function seedCompany(db: Database, people: Record<string, PersonSpe
       companyId: company.id,
       role: spec.role ?? "employee",
       canSelfApprove: spec.canSelfApprove ?? false,
+      source: byUser(ids[key]),
       email,
       name: key[0].toUpperCase() + key.slice(1),
     };

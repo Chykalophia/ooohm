@@ -354,7 +354,24 @@ export const auditLog = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
+    /**
+     * Who or what made the change (`ChangeSource`, `@/domain/change-source`): `user` (the
+     * person in `actor_id`), `api_key` (the key's creator in `actor_id`, the key in
+     * `api_key_id`) or `system` (the process in `actor_process`, nobody in `actor_id`).
+     */
+    actorKind: text("actor_kind").notNull(),
+    /**
+     * The person behind the change; `null` for `system`. Also `null` on a `user` or
+     * `api_key` row whose person's account was deleted (OOOhm deactivates people and
+     * never deletes them), which is why the shape check does not require it.
+     */
     actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    /** `api_key` rows: the key used. `null` only if the key row was deleted. */
+    apiKeyId: uuid("api_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
+    /** `user` and `api_key` rows: what the person acted through (`adapter_sync:<id>`), if anything. */
+    actorVia: text("actor_via"),
+    /** `system` rows: the process (`year_rollover`, `adapter_sync:<id>`; `unknown` for some rows written before M6). */
+    actorProcess: text("actor_process"),
     /** e.g. "leave_request.approved", "allowance.adjusted". */
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
@@ -378,6 +395,15 @@ export const auditLog = pgTable(
     index("audit_log_company_action_idx").on(t.companyId, t.action, t.createdAt, t.id),
     index("audit_log_company_actor_idx").on(t.companyId, t.actorId, t.createdAt, t.id),
     index("audit_log_company_subject_idx").on(t.companyId, t.subjectUserId, t.createdAt, t.id),
+    // Keeps the foreign key's `set null` from scanning the log when a key row is deleted.
+    index("audit_log_api_key_idx").on(t.apiKeyId).where(sql`${t.apiKeyId} is not null`),
+    check("audit_log_actor_kind_known", sql`${t.actorKind} in ('user', 'api_key', 'system')`),
+    check(
+      "audit_log_actor_shape",
+      sql`(${t.actorKind} = 'system' and ${t.actorProcess} is not null and ${t.actorId} is null and ${t.apiKeyId} is null and ${t.actorVia} is null)
+        or (${t.actorKind} = 'user' and ${t.actorProcess} is null and ${t.apiKeyId} is null)
+        or (${t.actorKind} = 'api_key' and ${t.actorProcess} is null)`,
+    ),
   ],
 );
 

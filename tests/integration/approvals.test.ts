@@ -83,6 +83,7 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
       days: 2,
       status: "approved",
       actorId: approved.co.people.manager.id,
+      actor: { type: "user", id: approved.co.people.manager.id },
     });
 
     await approved.ctx.settle();

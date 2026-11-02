@@ -297,7 +297,7 @@ describe("adapter seam", { skip }, () => {
     const result = await applyInboundSync(ctx, {
       companyId: co.companyId,
       adapterId: "fakehr",
-      actor: null,
+      trigger: { kind: "schedule" },
       users: [
         { email: "  New.Person@Example.com ", name: "New Person" },
         { email: co.people.ana.email, name: "Ana Renamed" },
@@ -329,12 +329,21 @@ describe("adapter seam", { skip }, () => {
     const audits = await companyAudit(t.db, co.companyId, "user.");
     assert.deepEqual(audits.map((a) => a.action), ["user.created", "user.updated"]);
     assert.ok(audits.every((a) => a.actorId === null && (a.after as { source: string }).source === "adapter:fakehr"));
+    assert.deepEqual(
+      audits.map((a) => [a.actorKind, a.actorProcess, a.actorVia]),
+      [
+        ["system", "adapter_sync:fakehr", null],
+        ["system", "adapter_sync:fakehr", null],
+      ],
+      "a scheduled sync is the system's doing",
+    );
     const events = await companyEvents(t.db, co.companyId, "user.");
     assert.deepEqual(events.map((e) => e.type), ["user.created", "user.updated"]);
     assert.equal((events[0].payload as { isActive: boolean; actorId: string | null }).isActive, false);
     assert.equal((events[0].payload as { actorId: string | null }).actorId, null);
+    assert.deepEqual((events[0].payload as { actor: unknown }).actor, { type: "system", process: "adapter_sync:fakehr" });
 
-    const active = await applyInboundSync(ctx, { companyId: co.companyId, adapterId: "fakehr", actor: null, activateNewUsers: true, users: [{ email: "second@example.com", name: "Second" }] });
+    const active = await applyInboundSync(ctx, { companyId: co.companyId, adapterId: "fakehr", trigger: { kind: "schedule" }, activateNewUsers: true, users: [{ email: "second@example.com", name: "Second" }] });
     assert.equal(active.users.created, 1);
     const [second] = await t.db.select().from(schema.user).where(eq(schema.user.email, "second@example.com"));
     assert.equal(second.isActive, true, "the flag lets them ask for a sign-in link themselves");
@@ -347,7 +356,7 @@ describe("adapter seam", { skip }, () => {
     const result = await applyInboundSync(ctx, {
       companyId: co.companyId,
       adapterId: "fakehr",
-      actor: co.people.boss,
+      trigger: { kind: "admin", actor: co.people.boss },
       balances: [
         { email: co.people.ana.email, leaveTypeCode: "pto", year: 2026, days: 20 },
         { email: co.people.ana.email, leaveTypeCode: "PTO", year: 2027, days: 18, adjustmentDays: -1 },
@@ -375,9 +384,43 @@ describe("adapter seam", { skip }, () => {
     const audits = await companyAudit(t.db, co.companyId, "allowance.synced");
     assert.equal(audits.length, 2);
     assert.equal(audits[0].actorId, co.people.boss.id);
+    assert.deepEqual([audits[0].actorKind, audits[0].actorVia, audits[0].actorProcess], ["user", "adapter_sync:fakehr", null], "the admin, through the sync");
     assert.equal((audits[0].after as { reason: string }).reason, "Synced from adapter:fakehr");
-    const events = (await companyEvents(t.db, co.companyId, "balance.adjusted")).map((e) => e.payload as { reason: string; days: number });
+    const events = (await companyEvents(t.db, co.companyId, "balance.adjusted")).map((e) => e.payload as { reason: string; days: number; actor: unknown });
     assert.deepEqual(events.map((e) => [e.reason, e.days]), [["sync", 20], ["sync", 18]]);
+    assert.deepEqual(events[0].actor, { type: "user", id: co.people.boss.id, via: "adapter_sync:fakehr" });
+  });
+
+  test("inbound: the same sync names the admin through it when they press Sync now, and the system when scheduled", async () => {
+    // Ana joined before last year, so last year's remaining carries.
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss", createdAt: "2025-01-01T00:00:00Z" } });
+    await setAllowance(t.db, { userId: co.people.ana.id, leaveTypeId: co.pto, year: 2025, days: 10 });
+    // Last year: the sync's edit re-carries into this year, and that carry is the sync's doing too.
+    await t.db.update(schema.leaveTypes).set({ carryoverEnabled: true, defaultAllowanceDays: 10 }).where(eq(schema.leaveTypes.id, co.pto));
+    const ctx = createTestContext(t.db, { now: T0 });
+    const sync = (trigger: Parameters<typeof applyInboundSync>[1]["trigger"], days: number) =>
+      applyInboundSync(ctx, { companyId: co.companyId, adapterId: "fakehr", trigger, balances: [{ email: co.people.ana.email, leaveTypeCode: "PTO", year: 2025, days }] });
+
+    await sync({ kind: "admin", actor: co.people.boss }, 12);
+    await sync({ kind: "schedule" }, 14);
+
+    const audits = (await companyAudit(t.db, co.companyId, "allowance.")).map((a) => [a.action, a.actorKind, a.actorId, a.actorVia, a.actorProcess]);
+    assert.deepEqual(audits, [
+      ["allowance.synced", "user", co.people.boss.id, "adapter_sync:fakehr", null],
+      ["allowance.carried_over", "user", co.people.boss.id, "adapter_sync:fakehr", null],
+      ["allowance.synced", "system", null, null, "adapter_sync:fakehr"],
+      ["allowance.carried_over", "system", null, null, "adapter_sync:fakehr"],
+    ]);
+    const events = (await companyEvents(t.db, co.companyId, "balance.adjusted")).map((e) => e.payload as { reason: string; actorId: string | null; actor: unknown });
+    assert.deepEqual(
+      events.map((e) => [e.reason, e.actorId, e.actor]),
+      [
+        ["sync", co.people.boss.id, { type: "user", id: co.people.boss.id, via: "adapter_sync:fakehr" }],
+        ["carryover", co.people.boss.id, { type: "user", id: co.people.boss.id, via: "adapter_sync:fakehr" }],
+        ["sync", null, { type: "system", process: "adapter_sync:fakehr" }],
+        ["carryover", null, { type: "system", process: "adapter_sync:fakehr" }],
+      ],
+    );
   });
 
   test("the admin screen lists adapters with their health, and Sync now applies what the adapter returns", async () => {
@@ -407,6 +450,7 @@ describe("adapter seam", { skip }, () => {
     assert.equal(result.balances.changed, 1);
     const [person] = await companyAudit(t.db, co.companyId, "user.created");
     assert.equal(person.actorId, co.people.boss.id);
+    assert.deepEqual([person.actorKind, person.actorVia], ["user", "adapter_sync:fakehr"]);
   });
 
   test("Sync now: an admin deactivated or demoted while the adapter reads is refused before anything is written", async () => {
@@ -467,7 +511,7 @@ describe("adapter seam", { skip }, () => {
     const co = await company();
     const other = await company();
     const ctx = createTestContext(t.db, { now: T0 });
-    await rejectsWith(applyInboundSync(ctx, { companyId: co.companyId, adapterId: "fakehr", actor: other.people.boss, users: [{ email: "x@example.com", name: "X" }] }), "forbidden");
+    await rejectsWith(applyInboundSync(ctx, { companyId: co.companyId, adapterId: "fakehr", trigger: { kind: "admin", actor: other.people.boss }, users: [{ email: "x@example.com", name: "X" }] }), "forbidden");
     assert.equal((await t.db.select().from(schema.user).where(eq(schema.user.email, "x@example.com"))).length, 0);
   });
 });

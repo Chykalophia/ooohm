@@ -13,6 +13,7 @@ import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { resolveAllowancePolicy } from "@/domain/allowance-policy";
+import type { ChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { type AllowanceEdit, assertAllowanceYear, normalizeAllowanceEdit } from "@/domain/leave-type-settings";
@@ -51,7 +52,7 @@ export interface AllowanceOverrideResult {
  * Writes `audit_log` (`allowance.edited`, the reason in its `after`) and a
  * `balance.adjusted` event (`reason: "admin_edit"`) in the same transaction. An edit
  * to last year then recomputes the carry into this year, as the rollover would
- * (`allowance.carried_over` / `allowance.created`, actor `null`).
+ * (`allowance.carried_over` / `allowance.created`, attributed to the admin too).
  *
  * @throws DomainError `forbidden`, `invalid_input` (amounts, reason, or a year before
  *   last), `not_found` (a person or leave type outside the actor's company),
@@ -81,7 +82,7 @@ export async function setAllowanceOverride(ctx: ServiceContext, actor: Actor, in
       days: edit.days,
       adjustmentDays: edit.adjustmentDays,
       reason: "admin_edit",
-      actorId: actor.id,
+      source: actor.source,
       note: edit.reason,
     });
   });
@@ -110,7 +111,8 @@ export async function writeAllowance(
     days: number;
     adjustmentDays: number;
     reason: "admin_edit" | "sync";
-    actorId: string | null;
+    /** Recorded on the change and on any re-carry it causes. */
+    source: ChangeSource;
     /** Free text kept in the audit row only (an admin's reason, or the sync's source). */
     note?: string;
   },
@@ -120,7 +122,7 @@ export async function writeAllowance(
   const before = await findAllowance(tx, where);
   if (before && before.days === job.days && before.adjustmentDays === job.adjustmentDays) return { row: before, changed: false };
   const after = await writeAllowanceOverride(tx, { ...where, days: job.days, adjustmentDays: job.adjustmentDays });
-  await recordAllowanceChange(tx, { companyId: company.id, reason: job.reason, before: before ?? null, after, actorId: job.actorId, note: job.note });
+  await recordAllowanceChange(tx, { companyId: company.id, reason: job.reason, before: before ?? null, after, source: job.source, note: job.note });
   if (job.year < job.currentYear && member.isActive) {
     await recarryMemberLeaveType(tx, {
       companyId: company.id,
@@ -129,6 +131,7 @@ export async function writeAllowance(
       member,
       leaveType,
       closingYear: job.year,
+      source: job.source,
     });
   }
   return { row: after, changed: true };

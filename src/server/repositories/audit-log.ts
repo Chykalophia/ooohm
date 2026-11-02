@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { auditLog, user } from "@/db/schema";
+import { apiKeys, auditLog, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 
 /** Where a page of the audit log starts: just older than this row. */
@@ -30,8 +30,8 @@ const subject = alias(user, "subject");
 
 /**
  * One page of the company's audit log, newest first, keyset-paginated on
- * `(created_at, id)`. One query whatever the page size: the actor's and subject's names
- * come from joins. With at most one of action, actor or person set, the scan runs on the
+ * `(created_at, id)`. One query whatever the page size: the actor's and subject's names,
+ * and the API key's name and prefix, come from joins. With at most one of action, actor or person set, the scan runs on the
  * matching `audit_log_company_*_idx` index in order, so it reads about `limit` rows.
  *
  * Each row carries its own cursor, `created_at` printed in UTC to the microsecond: a JS
@@ -49,15 +49,22 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
       after: auditLog.after,
       createdAt: auditLog.createdAt,
       cursor: sql<string>`to_char(${auditLog.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      actorKind: auditLog.actorKind,
       actorId: auditLog.actorId,
       actorName: actor.name,
       actorEmail: actor.email,
+      apiKeyId: auditLog.apiKeyId,
+      apiKeyName: apiKeys.name,
+      apiKeyPrefix: apiKeys.prefix,
+      actorVia: auditLog.actorVia,
+      actorProcess: auditLog.actorProcess,
       subjectUserId: auditLog.subjectUserId,
       subjectName: subject.name,
       subjectEmail: subject.email,
     })
     .from(auditLog)
     .leftJoin(actor, eq(actor.id, auditLog.actorId))
+    .leftJoin(apiKeys, eq(apiKeys.id, auditLog.apiKeyId))
     .leftJoin(subject, eq(subject.id, auditLog.subjectUserId))
     .where(
       and(

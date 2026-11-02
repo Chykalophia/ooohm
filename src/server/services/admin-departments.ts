@@ -6,7 +6,7 @@
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES, type DepartmentEventPayload } from "@/domain/events";
+import { ADMIN_EVENT_TYPES, type DepartmentEventPayload, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { normalizeDepartmentName } from "@/domain/people";
 import type { ServiceContext } from "@/server/context";
@@ -23,7 +23,7 @@ import { isUniqueViolation } from "@/server/repositories/errors";
 import { countDepartmentMembers } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 
-function payload(row: DepartmentRow): Omit<DepartmentEventPayload, "actorId"> {
+function payload(row: DepartmentRow): Unattributed<DepartmentEventPayload> {
   return { departmentId: row.id, name: row.name };
 }
 

@@ -68,7 +68,7 @@ export async function listAdapters(ctx: ServiceContext, actor: Actor): Promise<A
 
 /**
  * Reads people and allowances from an adapter and applies them for the admin's company
- * (`applyInboundSync`, actor = the admin). People it creates wait inactive for an admin.
+ * (`applyInboundSync`, recorded as the admin via `adapter_sync:<id>`). People it creates wait inactive for an admin.
  * The admin is checked before the adapter reads (which can take up to
  * {@link SYNC_READ_TIMEOUT_MS}) and again inside every write transaction, so one demoted
  * or deactivated meanwhile writes nothing more.
@@ -87,7 +87,7 @@ export async function syncAdapterNow(ctx: ServiceContext, actor: Actor, adapterI
     adapter.syncUsers ? withTimeout(adapter.syncUsers(actx), actx.signal) : Promise.resolve([]),
     adapter.syncBalances ? withTimeout(adapter.syncBalances(actx), actx.signal) : Promise.resolve([]),
   ]);
-  const result = await applyInboundSync(ctx, { companyId: actor.companyId, adapterId: adapter.id, actor, users, balances });
+  const result = await applyInboundSync(ctx, { companyId: actor.companyId, adapterId: adapter.id, trigger: { kind: "admin", actor }, users, balances });
   log.info(
     {
       adapterId: adapter.id,

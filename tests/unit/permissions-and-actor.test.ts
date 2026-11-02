@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type Actor, toActor } from "@/domain/actor";
+import { byUser } from "@/domain/change-source";
 import { canCancel, canDecide, decidesByAssignment, type RequestOwnership } from "@/domain/leave-permissions";
 
-const actor = (id: string, role: Actor["role"], companyId = "c1"): Actor => ({ id, companyId, role, canSelfApprove: false });
+const actor = (id: string, role: Actor["role"], companyId = "c1"): Actor => ({ id, companyId, role, canSelfApprove: false, source: byUser(id) });
 const request = (over: Partial<RequestOwnership> = {}): RequestOwnership => ({
   companyId: "c1",
   userId: "emp",
@@ -64,18 +65,20 @@ test("only the requester may cancel", () => {
   assert.equal(canCancel(actor("emp", "employee", "c2"), request()), false);
 });
 
-test("an actor needs a company; unknown roles degrade to employee", () => {
+test("an actor needs a company; unknown roles degrade to employee; a session actor acts as themself", () => {
   assert.equal(toActor({ id: "u", companyId: null, role: "admin" }), null);
   assert.deepEqual(toActor({ id: "u", companyId: "c1", role: "admin", canSelfApprove: true }), {
     id: "u",
     companyId: "c1",
     role: "admin",
     canSelfApprove: true,
+    source: { kind: "user", userId: "u" },
   });
   assert.deepEqual(toActor({ id: "u", companyId: "c1", role: "owner" }), {
     id: "u",
     companyId: "c1",
     role: "employee",
     canSelfApprove: false,
+    source: { kind: "user", userId: "u" },
   });
 });

@@ -105,7 +105,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                   <time dateTime={e.at.toISOString()}>{formatInstantDateTime(e.at, log.timezone)}</time>
                 </p>
               </div>
-              <p className="text-sm text-muted">By {e.actorName}</p>
+              <p className="text-sm text-muted">{e.actorKind === "system" ? e.actorLabel : `By ${e.actorLabel}`}</p>
               {e.changes.length > 0 && (
                 <ul className="space-y-0.5 text-sm break-words">
                   {e.changes.map((c, i) => (

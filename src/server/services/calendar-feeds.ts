@@ -1,11 +1,13 @@
 import type { Actor } from "@/domain/actor";
 import { buildFeedCalendar, type FeedContent, feedCalendarName, type FeedKind, feedWindow, isFeedKind } from "@/domain/calendar-feed";
+import type { PersonChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import {
   CALENDAR_FEED_EVENT_TYPES,
   type CalendarFeedEventPayload,
   type CalendarFeedRevokeReason,
   calendarFeedAuditAction,
+  type Unattributed,
 } from "@/domain/events";
 import { serializeCalendar } from "@/domain/ics";
 import { todayInTimeZone } from "@/lib/dates";
@@ -39,14 +41,14 @@ function snapshot(row: CalendarFeedRow) {
 
 async function recordFeedChange(
   tx: Transaction,
-  change: { event: "issued" | "revoked"; before: CalendarFeedRow | null; after: CalendarFeedRow; actorId: string; reason: CalendarFeedRevokeReason | null },
+  change: { event: "issued" | "revoked"; before: CalendarFeedRow | null; after: CalendarFeedRow; source: PersonChangeSource; reason: CalendarFeedRevokeReason | null },
 ): Promise<void> {
-  const { after, actorId } = change;
-  const payload: CalendarFeedEventPayload = { feedId: after.id, userId: after.userId, kind: after.kind, reason: change.reason, actorId };
+  const { after, source } = change;
+  const payload: Unattributed<CalendarFeedEventPayload> = { feedId: after.id, userId: after.userId, kind: after.kind, reason: change.reason };
   await recordChange(tx, {
+    source,
     audit: {
       companyId: after.companyId,
-      actorId,
       action: calendarFeedAuditAction(change.event),
       entityType: "calendar_feed",
       entityId: after.id,
@@ -112,11 +114,11 @@ export async function issueCalendarFeed(ctx: ServiceContext, actor: Actor, kind:
     const now = ctx.now();
     const old = await revokeLiveFeed(tx, { userId: actor.id, kind }, now);
     if (old) {
-      await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, actorId: actor.id, reason: "regenerated" });
+      await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, source: actor.source, reason: "regenerated" });
     }
     const token = generateFeedToken();
     const row = await insertFeed(tx, { companyId: actor.companyId, userId: actor.id, kind, tokenHash: hashFeedToken(token), createdAt: now });
-    await recordFeedChange(tx, { event: "issued", before: null, after: row, actorId: actor.id, reason: null });
+    await recordFeedChange(tx, { event: "issued", before: null, after: row, source: actor.source, reason: null });
     return { token, url: `${ctx.appUrl}${feedPath(token)}`, feed: { createdAt: row.createdAt, lastUsedAt: null } };
   });
 }
@@ -132,7 +134,7 @@ export async function revokeCalendarFeed(ctx: ServiceContext, actor: Actor, kind
   return asMember(ctx, actor, async (tx) => {
     const old = await revokeLiveFeed(tx, { userId: actor.id, kind }, ctx.now());
     if (!old) return false;
-    await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, actorId: actor.id, reason: "turned_off" });
+    await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, source: actor.source, reason: "turned_off" });
     return true;
   });
 }
@@ -144,10 +146,10 @@ export async function revokeCalendarFeed(ctx: ServiceContext, actor: Actor, kind
  *
  * @returns How many links were turned off.
  */
-export async function revokeFeedsOnDeactivation(tx: Transaction, userId: string, adminId: string, at: Date): Promise<number> {
+export async function revokeFeedsOnDeactivation(tx: Transaction, userId: string, admin: PersonChangeSource, at: Date): Promise<number> {
   const revoked = await revokeAllLiveFeeds(tx, userId, at);
   for (const row of revoked) {
-    await recordFeedChange(tx, { event: "revoked", before: { ...row, revokedAt: null }, after: row, actorId: adminId, reason: "deactivated" });
+    await recordFeedChange(tx, { event: "revoked", before: { ...row, revokedAt: null }, after: row, source: admin, reason: "deactivated" });
   }
   return revoked.length;
 }

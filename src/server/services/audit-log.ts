@@ -5,6 +5,7 @@ import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { AUDIT_ACTION_LABELS, auditActionLabel, describeAuditChange, isAuditAction } from "@/domain/audit";
 import { isCalendarDate } from "@/domain/calendar-date";
+import { type ChangeSourceKind, changeSourceLabel, recordedChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { personLabel } from "@/domain/person";
@@ -58,8 +59,10 @@ export interface AuditLogEntry {
   at: Date;
   action: string;
   label: string;
-  /** Who did it; "OOOhm" for a system job such as the year rollover. */
-  actorName: string;
+  /** Who or what did it: "Ana", "Ana, via Gusto sync", "System: year rollover" (`changeSourceLabel`). */
+  actorLabel: string;
+  /** Whether a person (directly, through something, or with an API key) or a system process did it. */
+  actorKind: ChangeSourceKind;
   /** Who it is about, if anyone. */
   subjectName: string | null;
   /** What changed, one line per field. */
@@ -124,7 +127,12 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
         at: r.createdAt,
         action: r.action,
         label: auditActionLabel(r.action),
-        actorName: r.actorId ? personLabel({ name: r.actorName ?? "", email: r.actorEmail ?? "" }) || "Someone" : "OOOhm",
+        actorLabel: changeSourceLabel(recordedChangeSource(r), {
+          person: () => (r.actorName === null ? undefined : personLabel({ name: r.actorName, email: r.actorEmail ?? "" })),
+          apiKey: () => (r.apiKeyName === null ? undefined : { name: r.apiKeyName, prefix: r.apiKeyPrefix ?? "" }),
+          adapter: (id) => ctx.adapters.get(id)?.displayName,
+        }),
+        actorKind: r.actorKind === "user" || r.actorKind === "api_key" ? r.actorKind : "system",
         subjectName: r.subjectUserId ? personLabel({ name: r.subjectName ?? "", email: r.subjectEmail ?? "" }) || null : null,
         changes: describeAuditChange(r.before, r.after, names),
       }),

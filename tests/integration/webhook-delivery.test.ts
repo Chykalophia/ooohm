@@ -304,7 +304,7 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     assert.equal(calls.at(-1)!.body, calls[0].body);
 
     const [event] = await companyEvents(t.db, co.companyId, "webhook_delivery.redelivered");
-    assert.deepEqual(event.payload, { endpointId: e.id, deliveryId: failed.id, eventId: failed.eventId, eventType: "leave.requested", actorId: co.people.boss.id });
+    assert.deepEqual(event.payload, { endpointId: e.id, deliveryId: failed.id, eventId: failed.eventId, eventType: "leave.requested", actorId: co.people.boss.id, actor: { type: "user", id: co.people.boss.id } });
   });
 
   test("ping: one test event to one endpoint whatever it subscribes to, signed like any delivery", async () => {

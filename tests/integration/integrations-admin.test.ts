@@ -56,6 +56,7 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
       eventTypes: ["leave.requested", "leave.approved"],
       enabled: true,
       actorId: co.people.boss.id,
+      actor: { type: "user", id: co.people.boss.id },
     });
     for (const json of [JSON.stringify(audit), JSON.stringify(event)]) {
       assert.ok(!json.includes(secret), "no secret");
@@ -199,7 +200,7 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     const events = await companyEvents(t.db, co.companyId, "api_key.");
     assert.deepEqual(audits.map((a) => a.action), ["api_key.created", "api_key.revoked"]);
     assert.deepEqual(events.map((e) => e.type), ["api_key.created", "api_key.revoked"]);
-    assert.deepEqual(events[0].payload, { apiKeyId: apiKey.id, name: "Payroll export", prefix: apiKey.prefix, scopes: ["read"], actorId: co.people.boss.id });
+    assert.deepEqual(events[0].payload, { apiKeyId: apiKey.id, name: "Payroll export", prefix: apiKey.prefix, scopes: ["read"], actorId: co.people.boss.id, actor: { type: "user", id: co.people.boss.id } });
     for (const json of [JSON.stringify(audits), JSON.stringify(events)]) {
       assert.ok(!json.includes(key) && !json.includes(row.keyHash));
     }

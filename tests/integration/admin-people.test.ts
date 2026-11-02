@@ -124,6 +124,7 @@ describe("admin: people", { skip }, () => {
           canSelfApprove: true,
           isActive: true,
           actorId: co.people.boss.id,
+          actor: { type: "user", id: co.people.boss.id },
         },
       ],
     ]);

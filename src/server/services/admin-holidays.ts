@@ -10,7 +10,7 @@ import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES, type AdminEventType, type HolidayEventPayload } from "@/domain/events";
+import { ADMIN_EVENT_TYPES, type AdminEventType, type HolidayEventPayload, type Unattributed } from "@/domain/events";
 import { assertHolidayDate, isHolidayYear, normalizeHolidayName, usFederalHolidays } from "@/domain/holidays";
 import { isUuid } from "@/domain/ids";
 import { yearInTimeZone } from "@/lib/dates";
@@ -27,7 +27,7 @@ import {
 } from "@/server/repositories/holidays";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 
-function payload(row: HolidayRow): Omit<HolidayEventPayload, "actorId"> {
+function payload(row: HolidayRow): Unattributed<HolidayEventPayload> {
   return { holidayId: row.id, date: row.date, name: row.name };
 }
 

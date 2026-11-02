@@ -123,8 +123,27 @@ exactly as the dashboard computes them:
 
 ### Types and payloads (version 1)
 
-Ids are strings; `actorId` is the person who made the change (for an integration's sync, the admin who pressed
-**Sync now**), or `null` for a system job (the year rollover) or a scheduled sync.
+Ids are strings. Every payload says who or what made the change in two fields:
+
+- **`actor`** (added within version 1) names it exactly, as one of:
+
+  ```text
+  { "type": "user", "id": "<user id>", "via": "adapter_sync:gusto" }
+  { "type": "api_key", "id": "<user id>", "apiKeyId": "<key id>", "via": "timeoff_import" }
+  { "type": "system", "process": "year_rollover" }
+  ```
+
+  `user` is a person; `via` is present only when they acted through something they started (an integration's
+  sync when they pressed **Sync now**). `api_key` is a change made with an API key: `id` is the person who created
+  the key (the v1 API is read-only, so none are sent yet). `system` is a process with no person behind it.
+  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, and
+  `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`). Expect more; treat an unknown one as
+  opaque.
+- **`actorId`** is kept for compatibility: the person, when there is one (`actor.id`), or `null` for a `system`
+  change. Prefer `actor`.
+
+For example, the year rollover's `balance.adjusted` carries `"actorId": null, "actor": { "type": "system",
+"process": "year_rollover" }`.
 
 **Leave**
 
@@ -136,7 +155,7 @@ Ids are strings; `actorId` is the person who made the change (for an integration
 | `leave.cancelled` | The requester cancels a pending or approved request |
 | `leave.reassigned` | A pending request moves to another approver (adds `previousApproverId`, `approverId`) |
 
-Payload: `requestId, userId, leaveTypeId, startDate, endDate, dayPortion ("full" | "am" | "pm"), days, status, actorId`.
+Payload: `requestId, userId, leaveTypeId, startDate, endDate, dayPortion ("full" | "am" | "pm"), days, status, actorId, actor`.
 
 **Balances**
 
@@ -144,7 +163,7 @@ Payload: `requestId, userId, leaveTypeId, startDate, endDate, dayPortion ("full"
 | --- | --- |
 | `balance.adjusted` | An allowance row changed: `reason` is `carryover` or `allowance_created` (year rollover), `admin_edit` (an admin), or `sync` (an adapter) |
 
-Payload: `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId` (the
+Payload: `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId, actor` (the
 row after the change).
 
 **People**
@@ -156,23 +175,23 @@ row after the change).
 | `user.deactivated`, `user.reactivated` | |
 | `user.invite_resent` | An admin sent a new sign-in link |
 
-Payload: `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId` (the person
+Payload: `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId, actor` (the person
 after the change). It never holds a session, token or sign-in link.
 
 **Company setup**
 
 | Type | Payload |
 | --- | --- |
-| `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId` |
-| `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
-| `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId` |
-| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, actorId` |
+| `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
+| `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
+| `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
+| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, actorId, actor` |
 
 **Calendar links**
 
 | Type | Payload |
 | --- | --- |
-| `calendar_feed.issued`, `calendar_feed.revoked` | `feedId, userId, kind ("personal" \| "team"), reason (null, "regenerated", "turned_off", "deactivated"), actorId` |
+| `calendar_feed.issued`, `calendar_feed.revoked` | `feedId, userId, kind ("personal" \| "team"), reason (null, "regenerated", "turned_off", "deactivated"), actorId, actor` |
 
 Never the link or its hash.
 
@@ -180,10 +199,10 @@ Never the link or its hash.
 
 | Type | Payload |
 | --- | --- |
-| `webhook_endpoint.created`, `.updated`, `.enabled`, `.disabled`, `.secret_rotated`, `.deleted`, `.pinged` | `endpointId, urlOrigin, description, eventTypes, enabled, actorId` |
+| `webhook_endpoint.created`, `.updated`, `.enabled`, `.disabled`, `.secret_rotated`, `.deleted`, `.pinged` | `endpointId, urlOrigin, description, eventTypes, enabled, actorId, actor` |
 | `webhook_endpoint.updated` also | `urlChanged` (boolean): the full URL changed, even if `urlOrigin` did not |
-| `webhook_delivery.redelivered` | `endpointId, deliveryId, eventId, eventType, actorId` |
-| `api_key.created`, `api_key.revoked` | `apiKeyId, name, prefix, scopes, actorId` |
+| `webhook_delivery.redelivered` | `endpointId, deliveryId, eventId, eventType, actorId, actor` |
+| `api_key.created`, `api_key.revoked` | `apiKeyId, name, prefix, scopes, actorId, actor` |
 
 `urlOrigin` is only the scheme and host (`https://hooks.example.com`): endpoint paths often carry a token. A move
 to another path on the same host shows as `urlChanged: true` on `webhook_endpoint.updated` (a field added within

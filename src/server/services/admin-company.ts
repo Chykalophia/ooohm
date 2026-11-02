@@ -8,7 +8,7 @@ import { assertCanAdminister } from "@/domain/admin-permissions";
 import { ALLOWANCE_POLICY_KEYS } from "@/domain/allowance-policy";
 import { type CompanySettingsInput, normalizeCompanySettings, supportedTimeZones } from "@/domain/company-settings";
 import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES, type CompanyEventPayload } from "@/domain/events";
+import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "@/domain/events";
 import type { ServiceContext } from "@/server/context";
 import { type CompanyRow, findCompany, lockCompany, updateCompany } from "@/server/repositories/companies";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
@@ -50,7 +50,7 @@ export async function updateCompanySettings(ctx: ServiceContext, actor: Actor, i
     const settings = normalizeCompanySettings(input, before.timezone);
     if (JSON.stringify(snapshot({ ...before, ...settings })) === JSON.stringify(snapshot(before))) return before;
     const after = await updateCompany(tx, actor.companyId, settings);
-    const payload: Omit<CompanyEventPayload, "actorId"> = { companyId: after.id, ...snapshot(after) };
+    const payload: Unattributed<CompanyEventPayload> = { companyId: after.id, ...snapshot(after) };
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.companyUpdated,
       entityType: "company",

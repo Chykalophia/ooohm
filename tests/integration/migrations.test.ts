@@ -139,3 +139,69 @@ describe("migration 0007: audit rows name their person", { skip }, () => {
     assert.equal(subjects.get(rows.gone), null, "an entity that no longer exists names nobody");
   });
 });
+
+describe("migration 0010: every audit row says who or what made it", { skip }, () => {
+  let t: TestDatabase;
+  let earlier: string;
+  before(async () => {
+    earlier = await migrationsBefore("0010_m6_change_source");
+    t = await createTestDatabase({ migrationsFolder: earlier });
+  });
+  after(async () => {
+    await t?.drop();
+    if (earlier) await rm(earlier, { recursive: true, force: true });
+  });
+
+  test("backfills a person's rows as theirs, the rollover's and a sync's by process, and the rest as unknown", async () => {
+    // Raw SQL: the app's schema already has the columns this migration adds.
+    const sql = t.client;
+    const [{ id: companyId }] = await sql`insert into companies (name) values ('Backfill Co') returning id`;
+    const boss = randomUUID();
+    await sql`insert into "user" (id, name, email, company_id, role) values (${boss}, 'Boss', ${`${boss}@example.com`}, ${companyId}, 'admin')`;
+    const audit = async (actorId: string | null, action: string, after: object) => {
+      const [{ id }] = await sql`
+        insert into audit_log (company_id, actor_id, action, entity_type, entity_id, after)
+        values (${companyId}, ${actorId}, ${action}, 'x', ${randomUUID()}, ${JSON.stringify(after)}::jsonb) returning id`;
+      return id as string;
+    };
+    const rows = {
+      edit: await audit(boss, "holiday.created", { name: "x" }),
+      carried: await audit(null, "allowance.carried_over", { days: 1 }),
+      created: await audit(null, "allowance.created", { days: 1 }),
+      // What M6's inbound sync wrote before this migration: a marker in the audit row.
+      scheduledUser: await audit(null, "user.created", { name: "N", source: "adapter:fakehr" }),
+      syncNowUser: await audit(boss, "user.updated", { name: "N", source: "adapter:fakehr" }),
+      scheduledAllowance: await audit(null, "allowance.synced", { days: 3, reason: "Synced from adapter:fakehr" }),
+      syncNowAllowance: await audit(boss, "allowance.synced", { days: 3, reason: "Synced from adapter:fakehr" }),
+      untraceable: await audit(null, "holiday.created", { name: "y" }),
+    };
+
+    await migrate(t.db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+    const stored = new Map(
+      (await t.db.select().from(schema.auditLog)).map((r) => [r.id, [r.actorKind, r.actorId, r.actorVia, r.actorProcess]]),
+    );
+    assert.deepEqual(stored.get(rows.edit), ["user", boss, null, null]);
+    assert.deepEqual(stored.get(rows.carried), ["system", null, null, "year_rollover"]);
+    assert.deepEqual(stored.get(rows.created), ["system", null, null, "year_rollover"]);
+    assert.deepEqual(stored.get(rows.scheduledUser), ["system", null, null, "adapter_sync:fakehr"]);
+    assert.deepEqual(stored.get(rows.syncNowUser), ["user", boss, "adapter_sync:fakehr", null]);
+    assert.deepEqual(stored.get(rows.scheduledAllowance), ["system", null, null, "adapter_sync:fakehr"]);
+    assert.deepEqual(stored.get(rows.syncNowAllowance), ["user", boss, "adapter_sync:fakehr", null]);
+    assert.deepEqual(stored.get(rows.untraceable), ["system", null, null, "unknown"]);
+
+    // The checks hold from now on: a system row names a process, and nobody...
+    await assert.rejects(sql`insert into audit_log (company_id, actor_kind, action, entity_type, entity_id) values (${companyId}, 'system', 'x', 'x', 'x')`, /audit_log_actor_shape/);
+    await assert.rejects(
+      sql`insert into audit_log (company_id, actor_kind, actor_id, actor_process, action, entity_type, entity_id) values (${companyId}, 'system', ${boss}, 'year_rollover', 'x', 'x', 'x')`,
+      /audit_log_actor_shape/,
+    );
+    await assert.rejects(sql`insert into audit_log (company_id, actor_kind, action, entity_type, entity_id) values (${companyId}, 'robot', 'x', 'x', 'x')`, /audit_log_actor_kind_known/);
+    // ...and deleting a person (OOOhm never does; the foreign key allows it) keeps their rows a person's.
+    await sql`delete from "user" where id = ${boss}`;
+    assert.deepEqual(
+      (await t.db.select().from(schema.auditLog).where(eq(schema.auditLog.id, rows.syncNowUser))).map((r) => [r.actorKind, r.actorId, r.actorVia]),
+      [["user", null, "adapter_sync:fakehr"]],
+    );
+  });
+});

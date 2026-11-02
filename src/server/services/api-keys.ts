@@ -11,7 +11,7 @@
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { DomainError } from "@/domain/errors";
-import { type ApiKeyEventPayload, INTEGRATION_EVENT_TYPES } from "@/domain/events";
+import { type ApiKeyEventPayload, INTEGRATION_EVENT_TYPES, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { type ApiClient, DEFAULT_API_SCOPES, isApiScope, MAX_API_KEYS, normalizeApiKeyName } from "@/domain/integrations";
 import { generateApiKey, hashApiKey, sameDigest } from "@/lib/integration-crypto";
@@ -36,7 +36,7 @@ function snapshot(row: ApiKeyRow) {
   return { name: row.name, prefix: row.prefix, scopes: row.scopes, revoked: row.revokedAt !== null };
 }
 
-function payload(row: ApiKeyRow): Omit<ApiKeyEventPayload, "actorId"> {
+function payload(row: ApiKeyRow): Unattributed<ApiKeyEventPayload> {
   return { apiKeyId: row.id, name: row.name, prefix: row.prefix, scopes: row.scopes };
 }
 

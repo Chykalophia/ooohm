@@ -1,9 +1,11 @@
 import type { Transaction } from "@/db/types";
+import type { ChangeSource } from "@/domain/change-source";
 import {
   ALLOWANCE_AUDIT_ACTIONS,
   BALANCE_EVENT_TYPES,
   type BalanceAdjustedPayload,
   type BalanceChangeReason,
+  type Unattributed,
 } from "@/domain/events";
 import type { AllowanceRow } from "@/server/repositories/balances";
 import { recordChange } from "@/server/repositories/change-log";
@@ -22,8 +24,8 @@ function allowanceSnapshot(row: AllowanceRow) {
 
 /**
  * Writes the audit row and the `balance.adjusted` event for one allowance change,
- * inside `tx`. Shared by the year rollover (`actorId: null`) and the admin allowance
- * editor.
+ * inside `tx`. Shared by the year rollover (a system source), the admin allowance editor
+ * and the inbound sync.
  *
  * @param change.note The admin's reason, kept in the audit row's `after` only: it is
  *   free text about a person, and the outbox payload goes to other systems.
@@ -35,12 +37,12 @@ export async function recordAllowanceChange(
     reason: BalanceChangeReason;
     before: AllowanceRow | null;
     after: AllowanceRow;
-    actorId: string | null;
+    source: ChangeSource;
     note?: string;
   },
 ): Promise<void> {
-  const { after, actorId } = change;
-  const payload: BalanceAdjustedPayload = {
+  const { after } = change;
+  const payload: Unattributed<BalanceAdjustedPayload> = {
     allowanceId: after.id,
     userId: after.userId,
     leaveTypeId: after.leaveTypeId,
@@ -49,12 +51,11 @@ export async function recordAllowanceChange(
     carriedOverDays: after.carriedOverDays,
     adjustmentDays: after.adjustmentDays,
     reason: change.reason,
-    actorId,
   };
   await recordChange(tx, {
+    source: change.source,
     audit: {
       companyId: change.companyId,
-      actorId,
       action: ALLOWANCE_AUDIT_ACTIONS[change.reason],
       entityType: "allowance",
       entityId: after.id,

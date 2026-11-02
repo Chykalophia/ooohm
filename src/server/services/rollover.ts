@@ -1,5 +1,6 @@
 import type { Transaction } from "@/db/types";
 import { type AllowancePolicy, type LeaveTypeAllowanceSettings, resolveAllowancePolicy } from "@/domain/allowance-policy";
+import { bySystem, CHANGE_PROCESSES, type ChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
@@ -41,7 +42,12 @@ interface MemberRollover {
   defaultTypes: readonly (LeaveTypeForRollover & { defaultAllowanceDays: number })[];
   closingYear: number;
   currentYear: number;
+  /** Recorded on every row it writes: the rollover itself, or the edit that re-carried. */
+  source: ChangeSource;
 }
+
+/** The nightly (or `pnpm job:rollover`) run has no person behind it. */
+const ROLLOVER_SOURCE = bySystem(CHANGE_PROCESSES.yearRollover);
 
 /**
  * Rolls one person over, in one transaction under their member lock (the same lock
@@ -75,7 +81,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
       if (existing) {
         if (carry === null || existing.carriedOverDays === carry) continue;
         const after = await setCarriedOverDays(tx, existing.id, carry);
-        await recordAllowanceChange(tx, { companyId: job.companyId, reason: "carryover", before: existing, after, actorId: null });
+        await recordAllowanceChange(tx, { companyId: job.companyId, reason: "carryover", before: existing, after, source: job.source });
         carried++;
         continue;
       }
@@ -92,7 +98,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
       ]);
       if (!after) continue;
       const reason = carry ? "carryover" : "allowance_created";
-      await recordAllowanceChange(tx, { companyId: job.companyId, reason, before: null, after, actorId: null });
+      await recordAllowanceChange(tx, { companyId: job.companyId, reason, before: null, after, source: job.source });
       if (reason === "carryover") carried++;
       else created++;
     }
@@ -103,7 +109,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
     job.defaultTypes.map((t) => ({ userId: member.id, leaveTypeId: t.id, year: job.currentYear, days: t.defaultAllowanceDays })),
   );
   for (const after of createdRows) {
-    await recordAllowanceChange(tx, { companyId: job.companyId, reason: "allowance_created", before: null, after, actorId: null });
+    await recordAllowanceChange(tx, { companyId: job.companyId, reason: "allowance_created", before: null, after, source: job.source });
   }
   return { carried, created: created + createdRows.length };
 }
@@ -115,11 +121,13 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
  * {@link runYearRollover} would, writing the same audit and outbox rows. Creates no
  * current-year default rows; the nightly run still owns those.
  *
- * For an admin's edit of a closed year's allowance, so the next year's
+ * For an admin's (or a sync's) edit of a closed year's allowance, so the next year's
  * `carried_over_days` is right at once rather than after the next nightly run. The
  * caller must hold the member lock. Archived types and inactive members are skipped,
  * as the rollover skips them.
  *
+ * @param job.source The edit's own source: the rows it writes are that edit's doing,
+ *   not the nightly process's.
  * @returns How many rows changed.
  */
 export async function recarryMemberLeaveType(
@@ -131,6 +139,7 @@ export async function recarryMemberLeaveType(
     member: { id: string; createdAt: Date };
     leaveType: LeaveTypeForRollover & { archivedAt: Date | null };
     closingYear: number;
+    source: ChangeSource;
   },
 ): Promise<{ carried: number; created: number }> {
   const t = job.leaveType;
@@ -146,6 +155,7 @@ export async function recarryMemberLeaveType(
     defaultTypes: [],
     closingYear: job.closingYear,
     currentYear: job.closingYear + 1,
+    source: job.source,
   });
 }
 
@@ -169,7 +179,7 @@ export async function recarryMemberLeaveType(
  *
  * Each member is processed in its own transaction under their member lock, and every
  * row created or changed writes an `audit_log` row (`allowance.carried_over` or
- * `allowance.created`, actor `null`) and a `balance.adjusted` event in that
+ * `allowance.created`, source `system` / `year_rollover`) and a `balance.adjusted` event in that
  * transaction. Carryover stays off unless a leave type turns it on.
  *
  * Re-running after a closing-year request is cancelled, rejected or added recomputes
@@ -221,6 +231,7 @@ export async function runYearRollover(ctx: ServiceContext, fromYear?: number): P
           defaultTypes,
           closingYear,
           currentYear,
+          source: ROLLOVER_SOURCE,
         }),
       );
       carried += changes.carried;

@@ -4,10 +4,11 @@ import { z } from "zod";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import type { FormState } from "@/components/forms/form-state";
+import { formFields } from "@/app/_lib/form-fields";
 import { runFormAction } from "@/app/_lib/server-action";
 
 const decideSchema = z.object({
-  requestId: z.string().min(1).max(100),
+  requestId: formFields.id,
   decision: z.enum(["approve", "reject"]),
   reason: z.string().max(NOTE_MAX_LENGTH).optional(),
 });

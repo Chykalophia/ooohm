@@ -57,7 +57,7 @@ export default async function DepartmentsPage() {
                     label="Delete"
                     ariaLabel={`Delete ${d.name}`}
                     pendingLabel="Deleting…"
-                    danger
+                    variant="danger"
                     confirm={`Delete ${d.name}?`}
                     confirmLabel="Yes, delete"
                   />

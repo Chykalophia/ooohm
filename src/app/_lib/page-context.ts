@@ -19,14 +19,17 @@ export type CompanylessPage = { actor: null; nav: HeaderNav };
  * The entry point of every signed-in page outside the admin area: the session (or a
  * redirect to sign-in), the service context, and what the header needs.
  *
- * The header's approvals count starts loading here and is awaited by the header, so it
+ * The header's approvals count starts loading here and is read by the header, so it
  * runs alongside the page's own queries rather than before them.
  */
 export async function requireMemberPage(): Promise<MemberPage | CompanylessPage> {
   const { user, actor } = await requireActor();
   const userName = user.name || user.email;
   if (!actor) return { actor: null, nav: { userName, approvals: null, member: false, admin: false } };
+  return memberPage(actor, userName);
+}
 
+function memberPage(actor: Actor, userName: string): MemberPage {
   const ctx = serviceContext();
   const approvals = getApprovalNav(ctx, actor);
   // The page may bail out (a 404) before the header awaits this; mark the rejection as
@@ -41,9 +44,9 @@ export async function requireMemberPage(): Promise<MemberPage | CompanylessPage>
  * keeps non-admins from seeing the screens.
  */
 export async function requireAdminPage(): Promise<MemberPage> {
-  const page = await requireMemberPage();
-  if (!page.actor || !canAdminister(page.actor)) notFound();
-  return page;
+  const { user, actor } = await requireActor();
+  if (!actor || !canAdminister(actor)) notFound();
+  return memberPage(actor, user.name || user.email);
 }
 
 /**

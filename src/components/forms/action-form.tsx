@@ -44,7 +44,7 @@ export function ActionForm({
         {children}
       </div>
       <div className="flex flex-wrap items-center gap-4">
-        <button type="submit" disabled={pending} className={buttonClassName}>
+        <button type="submit" aria-disabled={pending} className={buttonClassName}>
           {pending ? pendingLabel : submitLabel}
         </button>
         <FormStatus state={state} />

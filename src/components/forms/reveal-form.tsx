@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { CopyField } from "@/components/ui/copy-field";
 import { cx, primaryButton, subtleButton, textLink } from "@/components/ui/styles";
-import { ErrorMessage } from "./form-status";
+import { FormStatus } from "./form-status";
+import { useConfirm } from "./use-confirm";
 import { REVEAL_IDLE, type RevealState } from "./reveal-state";
 import { type StateAction, useFormAction } from "./use-form-action";
 
@@ -76,7 +77,8 @@ export function RevealForm({
   children?: React.ReactNode;
 }) {
   const { state, dispatch, pending, onSubmit } = useFormAction(action, REVEAL_IDLE);
-  const [asking, setAsking] = useState(false);
+  const { asking: asked, ask, back, done, questionRef, openerRef } = useConfirm();
+  const asking = asked !== null;
   const fieldsKey = state.status === "revealed" ? state.id : "form";
 
   const revealed = state.status === "revealed" ? state : null;
@@ -87,7 +89,7 @@ export function RevealForm({
         <form
           action={dispatch}
           onSubmit={(e) => {
-            setAsking(false);
+            done();
             onSubmit(e);
           }}
           className={className}
@@ -95,25 +97,27 @@ export function RevealForm({
           <div key={fieldsKey} className={className}>
             {children}
           </div>
-          {confirm && asking && <p className="text-sm">{confirm}</p>}
+          {confirm && asking && (
+            <p ref={questionRef} tabIndex={-1} className="text-sm outline-none">
+              {confirm}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-4">
             {confirm && !asking ? (
-              <button type="button" onClick={() => setAsking(true)} className={buttonClassName}>
+              <button ref={openerRef("confirm")} type="button" onClick={() => ask("confirm")} className={buttonClassName}>
                 {submitLabel}
               </button>
             ) : (
-              <button type="submit" disabled={pending} className={buttonClassName}>
+              <button type="submit" aria-disabled={pending} className={buttonClassName}>
                 {pending ? pendingLabel : confirm ? (confirmLabel ?? "Yes") : submitLabel}
               </button>
             )}
             {confirm && asking && (
-              <button type="button" onClick={() => setAsking(false)} className={subtleButton}>
+              <button type="button" onClick={back} className={subtleButton}>
                 Keep it
               </button>
             )}
-            <p aria-live="polite" className="min-h-5 text-sm">
-              {state.status === "error" && <ErrorMessage>{state.message}</ErrorMessage>}
-            </p>
+            <FormStatus state={state} />
           </div>
         </form>
       )}

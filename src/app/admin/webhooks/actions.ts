@@ -14,7 +14,8 @@ import {
   updateWebhookEndpoint,
 } from "@/server/services/webhooks";
 import type { FormState } from "@/components/forms/form-state";
-import { adminAction, adminRevealAction, formFields } from "@/app/admin/admin-action";
+import { adminAction, adminRevealAction } from "@/app/admin/admin-action";
+import { formFields } from "@/app/_lib/form-fields";
 import type { RevealState } from "@/components/forms/reveal-state";
 
 const MESSAGES = {

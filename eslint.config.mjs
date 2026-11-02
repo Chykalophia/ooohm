@@ -33,14 +33,17 @@ const layers = [
     // Shared UI: building blocks that render what a page passes in. They hold no data
     // access or session logic of their own, so any page (or a future app) can reuse them.
     files: ["src/components/**/*.{ts,tsx}"],
+    // @/lib/auth-client stays allowed: it is the browser's own sign-in client (Sign out).
     paths: [
       pool,
-      { name: "@/db/schema", message: "Components render props; the page loads the data." },
       { name: "@/lib/env", message: "Components take configuration as props." },
+      { name: "@/lib/worker-env", message: "Components take configuration as props." },
       { name: "@/lib/auth", message: "Components take the person as props; the page resolves the session." },
+      { name: "@/lib/log", message: "The server logger cannot run in a browser; components report through props or state." },
       { name: "server-only", message: "Components are shared by server and client code." },
     ],
     patterns: [
+      { group: ["@/db/*"], message: "Components render props; the page loads the data." },
       drizzle,
       relative,
       upward("Pages import components, never the reverse."),

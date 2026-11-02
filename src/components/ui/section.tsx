@@ -10,7 +10,8 @@ const HEADING = {
 /**
  * The top of a page: its one `h1`, a sentence on what the page is for, and the screen's
  * main action beside them. `hidden` keeps the heading for screen readers only, on a page
- * whose content already says what it is (the dashboard).
+ * whose content already says what it is (the dashboard); the description then goes too,
+ * and the action stays.
  */
 export function PageHeader({
   title,
@@ -23,7 +24,14 @@ export function PageHeader({
   action?: React.ReactNode;
   hidden?: boolean;
 }) {
-  if (hidden) return <h1 className="sr-only">{title}</h1>;
+  if (hidden) {
+    return (
+      <>
+        <h1 className="sr-only">{title}</h1>
+        {action}
+      </>
+    );
+  }
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="space-y-2">

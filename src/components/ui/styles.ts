@@ -45,7 +45,7 @@ const BUTTON_SIZE: Record<ButtonSize, string> = {
 /** The classes of a button-shaped control. */
 export function buttonClass(variant: ButtonVariant, size: ButtonSize = "md"): string {
   return cx(
-    "inline-flex items-center justify-center rounded-lg font-medium disabled:opacity-60",
+    "inline-flex items-center justify-center rounded-lg font-medium disabled:opacity-60 aria-disabled:opacity-60",
     BUTTON_VARIANT[variant],
     BUTTON_SIZE[size],
     focusRing,
@@ -57,10 +57,13 @@ export const outlineButton = buttonClass("outline", "sm");
 export const dangerOutlineButton = buttonClass("danger");
 
 /** A quiet text action. */
-export const subtleButton = `rounded-md text-sm text-muted hover:text-foreground disabled:opacity-60 ${focusRing}`;
+export const subtleButton = `rounded-md text-sm text-muted hover:text-foreground disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
+
+/** The "Yes, …" of a question that replaces something rather than removing it. */
+export const confirmButton = `rounded-md text-sm font-medium text-foreground hover:underline underline-offset-4 disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
 
 /** A quiet text action that removes or switches something off. */
-export const dangerButton = `rounded-md text-sm font-medium ${errorText} hover:text-red-800 disabled:opacity-60 ${focusRing}`;
+export const dangerButton = `rounded-md text-sm font-medium ${errorText} hover:text-red-800 disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
 
 /** A link inside running text. */
 export const textLink = `rounded-md underline-offset-4 hover:underline ${focusRing}`;

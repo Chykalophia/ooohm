@@ -5,6 +5,7 @@ import { formatSubmitted } from "@/lib/format";
 import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-requests";
 import type { FormState } from "@/components/forms/form-state";
 import { leaveRequestSchema, readDraftFields } from "./_lib/leave-input";
+import { formFields } from "./_lib/form-fields";
 import { runFormAction } from "./_lib/server-action";
 
 /** Dashboard form: asks for time off as the signed-in user. */
@@ -16,7 +17,7 @@ export async function requestLeaveAction(_prev: FormState, formData: FormData): 
   });
 }
 
-const cancelSchema = z.object({ requestId: z.string().min(1).max(100) });
+const cancelSchema = z.object({ requestId: formFields.id });
 
 /** Cancels one of the signed-in user's own requests. */
 export async function cancelLeaveAction(_prev: FormState, formData: FormData): Promise<FormState> {

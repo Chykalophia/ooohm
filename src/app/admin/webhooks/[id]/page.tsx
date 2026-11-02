@@ -11,7 +11,7 @@ import { ActionForm } from "@/components/forms/action-form";
 import { InlineAction } from "@/components/forms/inline-action";
 import { Reveal } from "@/components/forms/reveal";
 import { RevealForm } from "@/components/forms/reveal-form";
-import { outlineButton, primaryButton, textLink } from "@/components/ui/styles";
+import { outlineButton, textLink } from "@/components/ui/styles";
 import {
   deleteEndpointAction,
   redeliverAction,
@@ -44,7 +44,7 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
       }
       action={
         endpoint.enabled ? (
-          <InlineAction key="ping" action={sendPingAction} fields={{ id: endpoint.id }} label="Send test event" pendingLabel="Queuing…" className={primaryButton} />
+          <InlineAction key="ping" action={sendPingAction} fields={{ id: endpoint.id }} label="Send test event" pendingLabel="Queuing…" variant="primary" />
         ) : undefined
       }
     >
@@ -67,7 +67,7 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
             fields={{ id: endpoint.id, enabled: String(!endpoint.enabled) }}
             label={endpoint.enabled ? "Turn off" : "Turn on"}
             pendingLabel="Saving…"
-            className={outlineButton}
+            variant="outline"
             focusResult
           />
           <Reveal label="Edit" ariaLabel="Edit the endpoint">
@@ -145,7 +145,7 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
           fields={{ id: endpoint.id }}
           label="Delete"
           pendingLabel="Deleting…"
-          danger
+          variant="danger"
           confirm={`Delete the endpoint at ${new URL(endpoint.url).host}?`}
           confirmLabel="Yes, delete"
         />

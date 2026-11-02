@@ -1,12 +1,13 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 import type { FeedKind } from "@/domain/calendar-feed";
 import { ErrorMessage } from "@/components/forms/form-status";
+import { useConfirm } from "@/components/forms/use-confirm";
 import { useFormAction } from "@/components/forms/use-form-action";
 import { Card } from "@/components/ui/card";
 import { CopyField } from "@/components/ui/copy-field";
-import { buttonClass, cx, dangerButton, subtleButton as subtle } from "@/components/ui/styles";
+import { buttonClass, confirmButton, dangerButton, subtleButton as subtle } from "@/components/ui/styles";
 import { feedAction } from "./actions";
 import { FEED_IDLE, type FeedState } from "./feed-state";
 
@@ -47,10 +48,10 @@ export function FeedCard({
   description: string;
   status: FeedStatus | null;
 }) {
-  const [confirming, setConfirming] = useState<"issue" | "revoke" | null>(null);
+  const { asking: confirming, ask, back, done, questionRef, openerRef } = useConfirm<"issue" | "revoke">();
   const { state, dispatch, pending, onSubmit } = useFormAction<FeedState>(async (prev, formData) => {
     const next = await feedAction(prev, formData);
-    if (next.status !== "error") setConfirming(null);
+    if (next.status !== "error") done();
     return next;
   }, FEED_IDLE);
   const headingId = useId();
@@ -60,7 +61,7 @@ export function FeedCard({
     <form action={dispatch} onSubmit={onSubmit}>
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="intent" value={intent} />
-      <button type="submit" disabled={pending} className={className}>
+      <button type="submit" aria-disabled={pending} className={className}>
         {label}
       </button>
     </form>
@@ -92,26 +93,26 @@ export function FeedCard({
 
       {live && confirming === null && (
         <div className="flex flex-wrap gap-5">
-          <button type="button" onClick={() => setConfirming("issue")} className={subtle}>
+          <button ref={openerRef("issue")} type="button" onClick={() => ask("issue")} className={subtle}>
             Get a new link
           </button>
-          <button type="button" onClick={() => setConfirming("revoke")} className={subtle}>
+          <button ref={openerRef("revoke")} type="button" onClick={() => ask("revoke")} className={subtle}>
             Turn off
           </button>
         </div>
       )}
       {live && confirming !== null && (
         <div className="space-y-3">
-          <p className="text-sm">
+          <p ref={questionRef} tabIndex={-1} className="text-sm outline-none">
             {confirming === "issue"
               ? "Your current link will stop working, and calendars using it will stop updating."
               : "Calendars using this link will stop updating."}
           </p>
           <div className="flex flex-wrap items-center gap-5">
             {confirming === "issue"
-              ? form("issue", pending ? "Creating…" : "Yes, get a new link", cx(subtle, "font-medium text-foreground"))
+              ? form("issue", pending ? "Creating…" : "Yes, get a new link", confirmButton)
               : form("revoke", pending ? "Turning off…" : "Yes, turn it off", dangerButton)}
-            <button type="button" onClick={() => setConfirming(null)} className={subtle}>
+            <button type="button" onClick={back} className={subtle}>
               Keep it
             </button>
           </div>

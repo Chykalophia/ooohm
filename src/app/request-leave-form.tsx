@@ -43,7 +43,7 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
       <form action={dispatch} onSubmit={onSubmit} className="space-y-5">
         <Fields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} />
         <div className="flex flex-wrap items-center gap-4">
-          <button type="submit" disabled={pending} aria-describedby={PREVIEW_ID} className={primaryButton}>
+          <button type="submit" aria-disabled={pending} aria-describedby={PREVIEW_ID} className={primaryButton}>
             {pending ? "Sending…" : "Request time off"}
           </button>
           <FormStatus state={state} />

@@ -7,7 +7,7 @@ import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Item, ItemList } from "@/components/ui/card";
 import { InlineAction } from "@/components/forms/inline-action";
-import { cx, outlineButton, primaryButton, subtleButton, textLink } from "@/components/ui/styles";
+import { cx, primaryButton, textLink } from "@/components/ui/styles";
 import { Section } from "@/components/ui/section";
 import { archiveLeaveTypeAction, moveLeaveTypeAction } from "@/app/admin/leave-types/actions";
 
@@ -37,7 +37,6 @@ export default async function LeaveTypesPage() {
   const types = await listLeaveTypesForAdmin(ctx, actor);
   const active = types.filter((t) => t.archivedAt === null);
   const archived = types.filter((t) => t.archivedAt !== null);
-  const move = cx(subtleButton, "px-2 py-1");
 
   return (
     <AdminShell
@@ -74,7 +73,6 @@ export default async function LeaveTypesPage() {
                     label="↑ Up"
                     ariaLabel={`Move ${t.name} up`}
                     pendingLabel="Moving…"
-                    className={move}
                     showSuccess={false}
                   />
                 )}
@@ -85,7 +83,6 @@ export default async function LeaveTypesPage() {
                     label="↓ Down"
                     ariaLabel={`Move ${t.name} down`}
                     pendingLabel="Moving…"
-                    className={move}
                     showSuccess={false}
                   />
                 )}
@@ -95,7 +92,7 @@ export default async function LeaveTypesPage() {
                   label="Archive"
                   ariaLabel={`Archive ${t.name}`}
                   pendingLabel="Archiving…"
-                  danger
+                  variant="danger"
                   confirm={`Archive ${t.name}? Nobody can request it any more; past requests and balances keep it.`}
                   confirmLabel="Yes, archive"
                 />
@@ -120,7 +117,7 @@ export default async function LeaveTypesPage() {
                   label="Restore"
                   ariaLabel={`Restore ${t.name}`}
                   pendingLabel="Restoring…"
-                  className={outlineButton}
+                  variant="outline"
                 />
               </Item>
             ))}

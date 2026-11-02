@@ -4,7 +4,8 @@ import { z } from "zod";
 import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH } from "@/domain/leave-type-settings";
 import { createLeaveType, moveLeaveType, setLeaveTypeArchived, updateLeaveType } from "@/server/services/admin-leave-types";
 import type { FormState } from "@/components/forms/form-state";
-import { adminAction, formFields } from "@/app/admin/admin-action";
+import { adminAction } from "@/app/admin/admin-action";
+import { formFields } from "@/app/_lib/form-fields";
 
 const MESSAGES = {
   already_exists: "Another leave type already uses that code.",

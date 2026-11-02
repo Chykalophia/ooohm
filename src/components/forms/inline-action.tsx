@@ -1,18 +1,35 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { dangerButton, subtleButton } from "@/components/ui/styles";
+import { useEffect, useRef } from "react";
+import { dangerButton, outlineButton, primaryButton, subtleButton } from "@/components/ui/styles";
 import type { FormAction } from "./action-form";
-import { type FormState, IDLE } from "./form-state";
+import { IDLE } from "./form-state";
 import { FormStatus } from "./form-status";
+import { useConfirm } from "./use-confirm";
 import { useFormAction } from "./use-form-action";
+
+const VARIANT = {
+  /** A quiet text action (the default). */
+  subtle: subtleButton,
+  /** A quiet text action that removes or switches something off. */
+  danger: dangerButton,
+  outline: outlineButton,
+  /** The page's main action, when it is a one-click action (Send test event). */
+  primary: primaryButton,
+} as const;
+
+export type InlineActionVariant = keyof typeof VARIANT;
 
 /**
  * One quiet action on a record (archive, delete, cancel, move up), sent with hidden
  * fields. The result stays shown while the component stays mounted, even when the page
  * swaps `action`, `label` and `confirm` after a refresh (give it a stable `key` for
- * that). With `confirm`, the first click asks first: "Yes, …" sends it, "Keep it" backs
- * out. Focus moves to the question and back, so keyboard users never lose their place.
+ * that). With `confirm`, the first click asks first (see {@link useConfirm}); the
+ * question stays up after a refusal, so the person can read why and try again or back
+ * out without losing their place.
+ *
+ * Without `confirm` or `focusOnSuccess`, the form posts the server action directly, so
+ * it also works before the page's JavaScript has loaded.
  */
 export function InlineAction({
   action,
@@ -21,9 +38,8 @@ export function InlineAction({
   pendingLabel,
   confirm,
   confirmLabel,
-  danger = false,
-  className,
-  confirmClassName,
+  variant = "subtle",
+  confirmVariant = variant,
   ariaLabel,
   showSuccess = true,
   focusResult = false,
@@ -35,10 +51,9 @@ export function InlineAction({
   pendingLabel: string;
   confirm?: string;
   confirmLabel?: string;
-  danger?: boolean;
-  className?: string;
+  variant?: InlineActionVariant;
   /** Style of the "Yes, …" button, when it should differ from the opener's (a quiet Cancel that confirms in red). */
-  confirmClassName?: string;
+  confirmVariant?: InlineActionVariant;
   /** Names the action for screen readers when `label` alone is ambiguous ("Up", "Delete"). */
   ariaLabel?: string;
   showSuccess?: boolean;
@@ -55,25 +70,21 @@ export function InlineAction({
    */
   focusOnSuccess?: string;
 }) {
-  // Focus moves inside the action, not in an effect: the refresh that comes back with a
-  // success can unmount this component in the same commit, and its effects with it.
-  const run: FormAction = async (prev, formData) => {
+  const { asking: asked, ask, back, done, questionRef, openerRef } = useConfirm();
+  // Work after a success happens inside the action, not in an effect: the refresh that
+  // comes back with it can unmount this component in the same commit.
+  const wrapped: FormAction = async (prev, formData) => {
     const next = await action(prev, formData);
-    if (next.status === "success" && focusOnSuccess) document.getElementById(focusOnSuccess)?.focus();
+    if (next.status === "success") {
+      done();
+      if (focusOnSuccess) document.getElementById(focusOnSuccess)?.focus();
+    }
     return next;
   };
-  const { state, dispatch, pending, onSubmit } = useFormAction(run, IDLE);
+  const { state, dispatch, pending, onSubmit } = useFormAction(confirm || focusOnSuccess ? wrapped : action, IDLE);
   const result = useRef<HTMLParagraphElement>(null);
-  // Asking lasts until the next result arrives: a new state object ends it.
-  const [askedAt, setAskedAt] = useState<FormState | null>(null);
-  const asking = askedAt === state;
-  const question = useRef<HTMLParagraphElement>(null);
-  const opener = useRef<HTMLButtonElement>(null);
-  const style = className ?? (danger ? dangerButton : subtleButton);
+  const asking = Boolean(confirm) && asked !== null;
 
-  useEffect(() => {
-    if (asking) question.current?.focus();
-  }, [asking]);
   useEffect(() => {
     if (focusResult && state.status === "success") result.current?.focus();
   }, [focusResult, state]);
@@ -87,35 +98,28 @@ export function InlineAction({
   return (
     <div className="space-y-2">
       {confirm && !asking ? (
-        <button ref={opener} type="button" onClick={() => setAskedAt(state)} className={style} aria-label={ariaLabel}>
+        <button ref={openerRef("confirm")} type="button" onClick={() => ask("confirm")} className={VARIANT[variant]} aria-label={ariaLabel}>
           {label}
         </button>
       ) : (
         <form action={dispatch} onSubmit={onSubmit} className="space-y-2">
           {hidden}
           {confirm && (
-            <p ref={question} tabIndex={-1} className="text-sm outline-none">
+            <p ref={questionRef} tabIndex={-1} className="text-sm outline-none">
               {confirm}
             </p>
           )}
           <div className="flex flex-wrap items-center gap-4">
             <button
               type="submit"
-              disabled={pending}
-              className={confirm ? (confirmClassName ?? style) : style}
+              aria-disabled={pending}
+              className={VARIANT[confirm ? confirmVariant : variant]}
               aria-label={confirm ? undefined : ariaLabel}
             >
               {pending ? pendingLabel : confirm ? (confirmLabel ?? "Yes") : label}
             </button>
             {confirm && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAskedAt(null);
-                  requestAnimationFrame(() => opener.current?.focus());
-                }}
-                className={subtleButton}
-              >
+              <button type="button" onClick={back} className={subtleButton}>
                 Keep it
               </button>
             )}

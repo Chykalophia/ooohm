@@ -33,13 +33,17 @@ export function DecisionForm({ requestId }: { requestId: string }) {
 
   return (
     <form action={dispatch} onSubmit={onSubmit} className="space-y-3">
+      {/* Enter in the reason field submits with the form's first submit button. This one is
+          disabled, so Enter does nothing rather than approving a request someone was
+          writing a decline reason for. */}
+      <button type="submit" disabled hidden aria-hidden tabIndex={-1} />
       <input type="hidden" name="requestId" value={requestId} />
       <TextField label="Reason" optional name="reason" maxLength={NOTE_MAX_LENGTH} />
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" name="decision" value="approve" disabled={pending} className={buttonClass("primary", "sm")}>
+        <button type="submit" name="decision" value="approve" aria-disabled={pending} className={buttonClass("primary", "sm")}>
           Approve
         </button>
-        <button type="submit" name="decision" value="reject" disabled={pending} className={buttonClass("outline", "sm")}>
+        <button type="submit" name="decision" value="reject" aria-disabled={pending} className={buttonClass("outline", "sm")}>
           Decline
         </button>
         {state.status === "error" && <ErrorMessage className="text-sm">{state.message}</ErrorMessage>}

@@ -4,7 +4,8 @@ import { z } from "zod";
 import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
 import { createDepartment, deleteDepartment, renameDepartment } from "@/server/services/admin-departments";
 import type { FormState } from "@/components/forms/form-state";
-import { adminAction, formFields } from "@/app/admin/admin-action";
+import { adminAction } from "@/app/admin/admin-action";
+import { formFields } from "@/app/_lib/form-fields";
 
 const MESSAGES = {
   already_exists: "There's already a department with that name.",

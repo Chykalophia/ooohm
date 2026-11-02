@@ -4,7 +4,8 @@ import { z } from "zod";
 import { API_KEY_NAME_MAX_LENGTH } from "@/domain/integrations";
 import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
 import type { FormState } from "@/components/forms/form-state";
-import { adminAction, adminRevealAction, formFields } from "@/app/admin/admin-action";
+import { adminAction, adminRevealAction } from "@/app/admin/admin-action";
+import { formFields } from "@/app/_lib/form-fields";
 import type { RevealState } from "@/components/forms/reveal-state";
 
 const MESSAGES = {

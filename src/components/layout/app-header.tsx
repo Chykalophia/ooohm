@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { use } from "react";
 import { REQUEST_FORM_ID } from "./anchors";
 import { buttonClass, cx, focusRing } from "@/components/ui/styles";
 import { AccountMenu } from "./account-menu";
@@ -43,8 +44,10 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
  * main action stays the one filled button. The person's name opens their own options
  * ({@link AccountMenu}).
  */
-export async function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSection }) {
-  const approvals = await nav.approvals;
+export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSection }) {
+  // `use` rather than `await`, so the header stays an ordinary component: it renders
+  // from a server page today and could from a client one.
+  const approvals = nav.approvals instanceof Promise ? use(nav.approvals) : nav.approvals;
   const showApprovals = approvals !== null && (approvals.visible || current === "approvals");
   return (
     <header className="mb-10 flex flex-wrap items-center justify-between gap-4">

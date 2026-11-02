@@ -18,6 +18,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
 
   async function sendLink(e: React.FormEvent) {
     e.preventDefault();
+    if (state.kind === "sending") return;
     // Accounts are stored lowercase; normalize so "Ana@Co.com " works too.
     const normalized = email.trim().toLowerCase();
     setState({ kind: "sending" });
@@ -69,7 +70,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@company.com"
         />
-        <button type="submit" disabled={state.kind === "sending"} className={cx(buttonClass("primary"), "w-full")}>
+        <button type="submit" aria-disabled={state.kind === "sending"} className={cx(buttonClass("primary"), "w-full")}>
           {state.kind === "sending" ? "Sending…" : "Email me a sign-in link"}
         </button>
       </form>

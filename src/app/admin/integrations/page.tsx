@@ -5,7 +5,7 @@ import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card, Item, ItemList } from "@/components/ui/card";
 import { InlineAction } from "@/components/forms/inline-action";
-import { cx, errorText, outlineButton, textLink } from "@/components/ui/styles";
+import { cx, errorText, textLink } from "@/components/ui/styles";
 import { syncAdapterAction } from "@/app/admin/integrations/actions";
 
 export const metadata: Metadata = { title: "Connectors · Admin · OOOhm" };
@@ -46,7 +46,7 @@ export default async function IntegrationsPage() {
               </div>
               {a.detail && <p className="text-sm text-muted">{a.detail}</p>}
               {a.syncs && (
-                <InlineAction action={syncAdapterAction} fields={{ adapterId: a.id }} label="Sync now" pendingLabel="Syncing…" className={outlineButton} />
+                <InlineAction action={syncAdapterAction} fields={{ adapterId: a.id }} label="Sync now" pendingLabel="Syncing…" variant="outline" />
               )}
             </Item>
           ))}

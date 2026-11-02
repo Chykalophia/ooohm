@@ -33,7 +33,8 @@ export function FormStatus({
   success = true,
   ref,
 }: {
-  state: FormState;
+  /** A form's result: `FormState`, or any state with the same `error` shape (a reveal, a feed link). */
+  state: FormState | { status: string; message?: string };
   success?: boolean;
   /** Lets a caller move focus to the result; the line is then focusable. */
   ref?: React.Ref<HTMLParagraphElement>;
@@ -41,7 +42,7 @@ export function FormStatus({
   return (
     <p ref={ref} tabIndex={ref ? -1 : undefined} aria-live="polite" className="min-h-5 text-sm outline-none">
       {state.status === "success" && success && <span className="text-accent">{state.message}</span>}
-      {state.status === "error" && <ErrorMessage>{state.message}</ErrorMessage>}
+      {state.status === "error" && state.message && <ErrorMessage>{state.message}</ErrorMessage>}
     </p>
   );
 }

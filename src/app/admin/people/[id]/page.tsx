@@ -83,8 +83,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               fields={{ userId: person.id }}
               label={person.isActive ? "Deactivate" : "Reactivate"}
               pendingLabel={person.isActive ? "Deactivating…" : "Reactivating…"}
-              danger={person.isActive}
-              className={person.isActive ? undefined : outlineButton}
+              variant={person.isActive ? "danger" : "outline"}
               confirm={
                 person.isActive
                   ? "They'll be signed out and can't sign in again, and their calendar links stop working. Their requests stay. Requests waiting for their approval move to another approver."

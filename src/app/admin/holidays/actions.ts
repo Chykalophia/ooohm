@@ -5,7 +5,8 @@ import { HOLIDAY_NAME_MAX_LENGTH } from "@/domain/holidays";
 import { formatRecountOutcome } from "@/lib/format";
 import { addHoliday, addUsFederalHolidays, deleteHoliday, renameHoliday } from "@/server/services/admin-holidays";
 import type { FormState } from "@/components/forms/form-state";
-import { adminAction, formFields } from "@/app/admin/admin-action";
+import { adminAction } from "@/app/admin/admin-action";
+import { formFields } from "@/app/_lib/form-fields";
 
 const MESSAGES = {
   already_exists: "There's already a holiday on that date.",

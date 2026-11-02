@@ -8,7 +8,6 @@ import { StatusBadge } from "@/components/leave/status-badge";
 import { Item, ItemList } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { Section } from "@/components/ui/section";
-import { dangerButton } from "@/components/ui/styles";
 import { requireMemberPage } from "./_lib/page-context";
 import { cancelLeaveAction } from "./actions";
 import { RequestLeaveForm } from "./request-leave-form";
@@ -68,7 +67,7 @@ export default async function HomePage() {
                       pendingLabel="Cancelling…"
                       confirm="Cancel this request?"
                       confirmLabel="Yes, cancel it"
-                      confirmClassName={dangerButton}
+                      confirmVariant="danger"
                       showSuccess={false}
                       focusOnSuccess={REQUESTS_HEADING_ID}
                     />

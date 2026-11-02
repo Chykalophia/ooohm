@@ -51,9 +51,10 @@ the header, so it runs alongside the page's own queries. Detail pages wrap their
 turns `not_found` into the 404 page. A page then renders inside `AppPage` (or `AdminShell`, which adds the admin
 sub-navigation): the header, the page's one `h1` with its description and main action, then its content.
 
-**Server actions** are a zod schema and one service call, run through the pipeline in
-`src/app/_lib/server-action.ts`: session, company, role (for `who: "admin"`), parse, the service call through
-`runAction`, then `refresh()` after a success. `runFormAction` returns a calm message (`FormState`),
+**Server actions** are a zod schema (common field schemas are in `src/app/_lib/form-fields.ts`) and one
+service call, run through the pipeline in `src/app/_lib/action-pipeline.ts` (wired to Next.js in
+`server-action.ts`; its order of steps is unit-tested with fakes): session, company, role (for `who: "admin"`), parse, the service call through
+`runActionWith`, then `refresh()` after a success. `runFormAction` returns a calm message (`FormState`),
 `runStateAction` returns an action's own state (a revealed secret, a new calendar link) and `runActionThenGo`
 navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these with `who: "admin"`.
 
@@ -63,13 +64,15 @@ navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these 
 | Folder | Holds |
 | --- | --- |
 | `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField` |
-| `forms/` | Forms bound to server actions: `useFormAction` (no automatic reset, so a refused submit keeps what was typed), `ActionForm`, `InlineAction` (a quiet action on a record, optionally confirmed first), `Reveal`, `RevealForm` (a secret shown once), `FormStatus` and `ErrorMessage` |
+| `forms/` | Forms bound to server actions: `useFormAction` (no automatic reset, so a refused submit keeps what was typed), `useConfirm` (the "ask first" step, with focus moved to the question and back), `ActionForm`, `InlineAction` (a quiet action on a record, optionally confirmed first), `Reveal`, `RevealForm` (a secret shown once), `FormStatus` and `ErrorMessage` |
 | `layout/` | The page frame: `AppPage`, `AppHeader`, `AccountMenu`, `NoCompany`, the logo |
 | `navigation/` | `PillNav`, `MonthNav`, `YearNav` |
 | `leave/` | Leave and balance displays: `StatusBadge`, `LeaveChip`, `BalanceSummary`, `BalanceList`, `BalanceFigures`, `LeaveTypeName` |
 
 Components render what they are given: they never load data, read the session or import from `src/app` or
-`src/server` (`pnpm lint` enforces this). Controls take their classes from the recipes in
+`src/server` (`pnpm lint` enforces this; the one auth import allowed is `@/lib/auth-client`, the browser's
+sign-in client behind Sign out). The header reads the approvals count with React's `use`, so it is an ordinary
+component, not an async one. Controls take their classes from the recipes in
 `src/components/ui/styles.ts` (`buttonClass(variant, size)`, `field`, `textLink`, `errorText`…) rather than
 spelling out Tailwind classes again, so the one accent colour, the focus ring and the error colour stay the same
 everywhere; `cx()` joins optional classes. Two classes that set the same property (`p-4` and `p-5`) must never be
@@ -102,7 +105,7 @@ indistinguishable from one that does not exist (`not_found`).
 ### Errors
 
 Expected failures throw `DomainError` with a stable `code` (`src/domain/errors.ts`). Server actions run
-service calls through `runAction` (`src/app/_lib/run-action.ts`), which maps each code to a calm message and logs
+service calls through `runActionWith` (`src/app/_lib/run-action.ts`), which maps each code to a calm message and logs
 anything else as `<event>_failed`, returning a generic retry message. Stack traces never reach the browser.
 
 Some codes carry structured `details` so the message can be specific without parsing text:
@@ -718,7 +721,7 @@ departments, leave types, allowances, holidays, company) and `audit-log.ts`, and
 Pages under `/admin/**` call `requireAdminPage()` (`src/app/_lib/page-context.ts`), which answers 404 to
 non-admins, and render inside `AdminShell` (`src/app/admin/admin-shell.tsx`). Server actions go through
 `adminAction()` (`src/app/admin/admin-action.ts`), the shared action pipeline with the admin role required:
-session, admin check, zod parse of the form, one service call through `runAction`, then `refresh()`. Next.js server actions only run
+session, admin check, zod parse of the form, one service call through `runActionWith`, then `refresh()`. Next.js server actions only run
 for `POST`s whose `Origin` matches the host (see `node_modules/next/dist/docs/01-app/02-guides/data-security.md`,
 "Allowed origins"), and Better Auth's session cookie is `SameSite=Lax`, which covers CSRF; no extra token is
 needed. Behind a proxy that rewrites `Host`, set `serverActions.allowedOrigins` in `next.config.ts`.

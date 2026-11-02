@@ -71,7 +71,7 @@ export default async function ApiKeysPage() {
                   label="Revoke"
                   ariaLabel={`Revoke ${k.name}`}
                   pendingLabel="Revoking…"
-                  danger
+                  variant="danger"
                   confirm={`Revoke ${k.name}? Apps using it stop working at once.`}
                   confirmLabel="Yes, revoke"
                 />

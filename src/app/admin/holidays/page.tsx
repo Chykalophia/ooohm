@@ -65,7 +65,7 @@ export default async function HolidaysPage({ searchParams }: { searchParams: Pro
                   label="Delete"
                   ariaLabel={`Delete ${h.name}`}
                   pendingLabel="Deleting…"
-                  danger
+                  variant="danger"
                   confirm={`Delete ${h.name}? Requests on that date will count it as a working day again.`}
                   confirmLabel="Yes, delete"
                 />
@@ -81,7 +81,7 @@ export default async function HolidaysPage({ searchParams }: { searchParams: Pro
           fields={{ year: String(year) }}
           label={`Add the US federal holidays for ${year}`}
           pendingLabel="Adding…"
-          className={outlineButton}
+          variant="outline"
         />
         <p className="text-sm text-muted">The eleven federal holidays, on the days they&apos;re observed. Dates you already have are left alone.</p>
       </Section>

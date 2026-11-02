@@ -1,4 +1,5 @@
 import type { Actor } from "@/domain/actor";
+import { isEmptyBalance } from "@/domain/allowance-policy";
 import { type ApprovalRule, ManagerApprovalRule } from "@/domain/approval-rule";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
@@ -238,6 +239,10 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
     defaultDate: nextWorkingDay(today, { workingDays: settings.workingDays, holidays }),
     /** Active leave types in display order; the first is the form's default. */
     leaveTypes: types.filter((t) => !t.archived).map(({ id, name, code, color }) => ({ id, name, code, color })),
-    balances,
+    /**
+     * The person's balances, without types they have no days of at all (nothing
+     * allotted and nothing booked), so "0 left of 0" never shows. Admin views keep them.
+     */
+    balances: balances && { ...balances, items: balances.items.filter((i) => !isEmptyBalance(i.balance)) },
   };
 }

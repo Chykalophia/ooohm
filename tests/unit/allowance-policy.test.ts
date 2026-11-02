@@ -7,6 +7,7 @@ import {
   type Balance,
   type BalanceInput,
   findShortfall,
+  isEmptyBalance,
   type LeaveTypeAllowanceSettings,
   remainingAfter,
   resolveAllowancePolicy,
@@ -198,4 +199,16 @@ test("policies resolve by key; an unknown key fails loudly instead of falling ba
   for (const key of ["", "anniversary_year", "toString", "__proto__"]) {
     assert.throws(() => resolveAllowancePolicy(key), (err) => isDomainError(err, "policy_unavailable"), key);
   }
+});
+
+test("a balance is empty only with nothing allotted and nothing booked or carried out", () => {
+  const none = { ...pto, defaultAllowanceDays: 0 };
+  const zero = (input: Partial<BalanceInput>) => policy.balance({ leaveType: none, allowance: null, booked: nothing, ...input });
+  assert.equal(isEmptyBalance(zero({})), true);
+  assert.equal(isEmptyBalance(zero({ allowance: { days: 0, carriedOverDays: 0, adjustmentDays: 1 } })), false, "a granted day");
+  assert.equal(isEmptyBalance(zero({ allowance: { days: 0, carriedOverDays: 2, adjustmentDays: -2 } })), true, "grants that cancel out");
+  assert.equal(isEmptyBalance(zero({ booked: { approved: 1, pending: 0 } })), false, "overdrawn");
+  assert.equal(isEmptyBalance(zero({ booked: { approved: 0, pending: 0.5 } })), false, "pending");
+  assert.equal(isEmptyBalance(balance({})), false, "a default allowance");
+  assert.equal(isEmptyBalance({ tracked: false, used: 0, pending: 0 }), false, "unlimited types always show");
 });

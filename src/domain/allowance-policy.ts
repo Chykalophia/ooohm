@@ -203,6 +203,15 @@ export interface RequestCost {
   years: { year: number; days: number; remainingAfter: number | null }[];
 }
 
+/**
+ * A tracked balance with nothing in it: no days allotted (allowance, carryover and
+ * adjustment add up to 0) and none used, pending or carried out. A balance that is
+ * overdrawn or has any booking is never empty.
+ */
+export function isEmptyBalance(b: Balance): boolean {
+  return b.tracked && b.total === 0 && b.used === 0 && b.pending === 0 && b.carriedOut === 0;
+}
+
 /** The balance left in a period once `days` more are booked; `null` when untracked. */
 export function remainingAfter(before: Balance, days: number): number | null {
   return before.tracked ? addDays(before.remaining, -days) : null;

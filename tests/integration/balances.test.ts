@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Actor } from "@/domain/actor";
 import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
+import { getPersonDetail } from "@/server/services/admin-people";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary, previewLeaveRequest } from "@/server/services/balances";
 import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
@@ -311,5 +312,25 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     const vac = await addLeaveType(t.db, co.companyId, { code: "VAC", defaultAllowanceDays: 5 });
     const req = await submitLeaveRequest(createTestContext(t.db), co.people.ana, { leaveTypeId: vac, startDate: "2026-11-02", dayPortion: "full" });
     assert.deepEqual((await eventsFor(t.db, co.companyId, req.id)).map((e) => e.type), ["leave.requested"]);
+  });
+  test("the dashboard leaves out a type with no days allotted and none booked; admin views keep it", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss" } });
+    const bonus = await addLeaveType(t.db, co.companyId, { code: "BONUS", defaultAllowanceDays: 0 });
+    const ctx = createTestContext(t.db);
+    const { ana, boss } = co.people;
+    const onDashboard = async () => (await getDashboard(ctx, ana)).balances?.items.some((i) => i.leaveTypeId === bonus);
+
+    assert.equal(await onDashboard(), false, "nothing allotted and nothing booked: hidden");
+    assert.equal((await getDashboard(ctx, ana)).balances?.items.some((i) => i.leaveTypeId === co.pto), true, "an unlimited type still shows");
+    assert.equal((await balanceOf(ctx, ana, bonus)).tracked, true, "the balance summary itself keeps it");
+    const detail = await getPersonDetail(ctx, boss, ana.id);
+    assert.ok(detail.balances?.items.some((i) => i.leaveTypeId === bonus), "the admin person page keeps it");
+
+    await setAllowance(t.db, { userId: ana.id, leaveTypeId: bonus, year: 2026, days: 0, adjustmentDays: 1 });
+    assert.equal(await onDashboard(), true, "a granted day shows it");
+
+    await submitLeaveRequest(ctx, ana, { leaveTypeId: bonus, startDate: "2026-11-02", dayPortion: "full" });
+    await setAllowance(t.db, { userId: ana.id, leaveTypeId: bonus, year: 2026, days: 0, adjustmentDays: 0 });
+    assert.equal(await onDashboard(), true, "a booking keeps it visible once the grant is taken back, so the overdraw shows");
   });
 });

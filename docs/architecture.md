@@ -149,7 +149,7 @@ Leave events (`src/domain/events.ts`) are a public contract for webhooks and ada
 | `leave.requested` | Every submit, including self-approved ones | `pending` |
 | `leave.approved` | An approver or admin approves, or self-approval at submit | `approved` |
 | `leave.rejected` | An approver or admin declines | `rejected` |
-| `leave.cancelled` | The requester cancels a pending or approved request | `cancelled` |
+| `leave.cancelled` | The requester cancels a pending or approved request (approved leave of a past year cannot be cancelled) | `cancelled` |
 
 Payload (v1): `requestId, userId, leaveTypeId, startDate, endDate, dayPortion, days, status, actorId, actor`. Add
 fields; never rename or remove one. Every payload below also carries `actor` beside `actorId`.
@@ -293,7 +293,13 @@ pending ──► approved ──► cancelled
 ```
 
 Nothing else is legal (`src/domain/request-status.ts`). The requester may cancel a pending or approved
-request. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
+request, except **approved leave of a closed year**: one whose end date is before January 1 of the current year in
+the company's time zone (`isClosedYearLeave`). Nobody may cancel that, the requester or an admin; the service
+refuses with `past_year_closed` and the dashboard shows no Cancel button (`getDashboard` returns `cancellable` per
+request). That leave was taken and its year's balance is settled and carried over, so a past year is corrected with
+an admin's balance adjustment for that year instead. A request spanning New Year counts by its end date: Dec 29 to
+Jan 2 can still be cancelled in the new year, since part of it is in the open year (cancelling it gives back the
+days of both years). A pending request from a past year can still be withdrawn: it was never granted. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
 optional reason (max 500 characters) stored in `decision_note`. Every status change is a compare-and-set
 (`UPDATE ... WHERE status = <expected>`), so of two concurrent decisions exactly one wins and the other gets
 `conflict`.

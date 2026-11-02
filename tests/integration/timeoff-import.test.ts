@@ -8,16 +8,19 @@ import { createHash } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
+import { toActor } from "@/domain/actor";
 import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
 import { readTimeOffSqlite } from "@/server/importers/timeoff/sqlite-reader";
 import { decideLeaveRequest, listApprovalInbox } from "@/server/services/approvals";
 import { getBalanceSummary } from "@/server/services/balances";
+import { cancelLeaveRequest, getDashboard } from "@/server/services/leave-requests";
 import { runYearRollover } from "@/server/services/rollover";
 import { importTimeOff, type TimeOffImportInput } from "@/server/services/timeoff-import";
 import { DatabaseSync } from "node:sqlite";
 import { buildTimeOffFixtureThrough } from "../support/timeoff-carry-forward";
 import { buildTimeOffFixture, FIXTURE_EXPECTED_2026, FIXTURE_QUINN_2027, type FixtureData, fixtureLeave, T, U } from "../support/timeoff-fixture";
 import { rejectsWith } from "./assertions";
+import { requestsOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 const TABLES = {
@@ -521,5 +524,34 @@ describe("TimeOff import", { skip }, () => {
     assert.deepEqual([bob.name, bob.role, bob.canSelfApprove], ["Bob Boss", "admin", true]);
     const rows = await db.execute(sql`select year, days, carried_over_days from allowances a join leave_types t on t.id = a.leave_type_id where a.user_id = ${adminId} and t.code = 'HOLIDAY' order by year`);
     assert.deepEqual([...rows].map((r) => [r.year, Number(r.days), Number(r.carried_over_days)]), [[2025, 25, 0], [2026, 25, 5]]);
+  });
+
+  test("an imported 2025 request shows no Cancel button and cannot be cancelled; one ending in 2026 still can", async () => {
+    const db = await freshDb();
+    const { companyId } = await seedFreshDeploy(db);
+    const ctx = createTestContext(db); // today: 2026-11-01
+    await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true }));
+    const actorFor = async (email: string) => {
+      const [row] = await db.select().from(schema.user).where(eq(schema.user.email, email));
+      return toActor(row)!;
+    };
+
+    // Alice's Aug 4-8 2025 holiday, approved in TimeOff.
+    const alice = await actorFor("alice@example.com");
+    const [summer] = (await requestsOf(db, alice.id)).filter((r) => r.startDate === "2025-08-04");
+    assert.equal(summer.status, "approved");
+    const dashboard = await getDashboard(ctx, alice);
+    assert.equal(dashboard.requests.find((r) => r.id === summer.id)?.cancellable, false, "no Cancel button");
+    const eventsBefore = await db.$count(schema.eventsOutbox);
+    await rejectsWith(cancelLeaveRequest(ctx, alice, summer.id), "past_year_closed");
+    const [still] = await db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, summer.id));
+    assert.equal(still.status, "approved");
+    assert.equal(await db.$count(schema.eventsOutbox), eventsBefore, "nothing recorded");
+
+    // Erin's Dec 29 2025 to Jan 5 2026 crosses New Year, so part of it is in the open year.
+    const erin = await actorFor("erin@example.com");
+    const [newYear] = (await requestsOf(db, erin.id)).filter((r) => r.startDate === "2025-12-29");
+    assert.equal((await getDashboard(ctx, erin)).requests.find((r) => r.id === newYear.id)?.cancellable, true);
+    assert.equal((await cancelLeaveRequest(ctx, erin, newYear.id)).status, "cancelled");
   });
 });

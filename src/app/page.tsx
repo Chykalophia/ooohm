@@ -1,5 +1,4 @@
 import { canAdminister } from "@/domain/admin-permissions";
-import { isCancellable } from "@/domain/request-status";
 import { requireActor } from "@/lib/auth";
 import { formatDays, formatLeaveDates } from "@/lib/format";
 import { serviceContext } from "@/server/runtime";
@@ -67,7 +66,7 @@ export default async function HomePage() {
                   </div>
                   <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
                     <StatusBadge status={r.status} />
-                    {isCancellable(r.status) && <CancelRequestButton requestId={r.id} focusAfterCancel={REQUESTS_HEADING_ID} />}
+                    {r.cancellable && <CancelRequestButton requestId={r.id} focusAfterCancel={REQUESTS_HEADING_ID} />}
                   </div>
                 </li>
               ))}

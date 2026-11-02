@@ -29,6 +29,11 @@ export type DomainErrorCode =
   | "forbidden"
   /** The requested status change is not allowed by the state machine. */
   | "invalid_transition"
+  /**
+   * Approved leave that ended before this year (in the company's time zone) cannot be
+   * cancelled by anyone; a past year is corrected with a balance adjustment instead.
+   */
+  | "past_year_closed"
   /** The record changed underneath the caller (e.g. a concurrent decision won). */
   | "conflict"
   /** The actor did this too often in a short window; they can retry later. */

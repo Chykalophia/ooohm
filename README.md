@@ -70,7 +70,7 @@ docker compose run --rm migrate pnpm job:rollover 2026   # closes a specific yea
 ```
 
 A host cron is now optional. Use one only if you run OOOhm without the worker; then schedule it daily (not just
-on Jan 1), so late cancellations of last year's leave still update the carryover:
+on Jan 1), so late changes to last year (an admin's adjustment, a withdrawn request) still update the carryover:
 
 ```cron
 # The company's time zone; cron otherwise uses the host's.

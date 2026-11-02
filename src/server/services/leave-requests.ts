@@ -6,7 +6,7 @@ import { isUuid } from "@/domain/ids";
 import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/domain/leave-days";
 import { canCancel } from "@/domain/leave-permissions";
 import { assertValidRange, normalizeNote } from "@/domain/leave-request";
-import { assertTransition } from "@/domain/request-status";
+import { assertCancellableOn, assertTransition, canCancelOn } from "@/domain/request-status";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
@@ -138,14 +138,16 @@ export async function submitLeaveRequest(
 }
 
 /**
- * Cancels one of the actor's own requests, pending or already approved.
+ * Cancels one of the actor's own requests, pending or already approved, unless it is
+ * approved leave of a closed year (it ended before January 1 in the company's time
+ * zone; see `isClosedYearLeave`), which nobody may cancel.
  *
  * Emails the requester, and the approver too unless the approver is the person
  * cancelling (a self-approved request).
  *
  * @throws DomainError `not_found`, `forbidden` (not the requester),
- *   `invalid_transition` (already rejected or cancelled), or `conflict` when the
- *   request changed concurrently.
+ *   `invalid_transition` (already rejected or cancelled), `past_year_closed`, or
+ *   `conflict` when the request changed concurrently.
  */
 export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requestId: string): Promise<LeaveRequestRow> {
   if (!isUuid(requestId)) throw new DomainError("not_found");
@@ -154,7 +156,9 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
     const before = await findLeaveRequest(tx, actor.companyId, requestId);
     if (!before) throw new DomainError("not_found");
     if (!canCancel(actor, before)) throw new DomainError("forbidden");
-    assertTransition(before.status, "cancelled");
+    const settings = await findCompanySettings(tx, actor.companyId);
+    if (!settings) throw new DomainError("no_company");
+    assertCancellableOn(before, todayInTimeZone(settings.timezone, ctx.now()));
 
     const after = await updateStatusIfCurrent(
       tx,
@@ -223,13 +227,17 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
   ]);
   return {
     /**
+     * The person's requests, each with whether it can be cancelled today: the status
+     * machine allows it and it is not approved leave of a closed year.
+     */
+    requests: requests.map((r) => ({ ...r, cancellable: canCancelOn(r, today) })),
+    /**
      * The form's default start date: the first working day from today (in the
      * company's time zone), so the pre-filled request is never worth zero days.
      */
     defaultDate: nextWorkingDay(today, { workingDays: settings.workingDays, holidays }),
     /** Active leave types in display order; the first is the form's default. */
     leaveTypes: types.filter((t) => !t.archived).map(({ id, name, code, color }) => ({ id, name, code, color })),
-    requests,
     balances,
   };
 }

@@ -18,6 +18,7 @@ const MESSAGES: Record<DomainErrorCode, string> = {
   not_found: "That request doesn't exist any more.",
   forbidden: "You can't change that request.",
   invalid_transition: "That request has already been decided or cancelled.",
+  past_year_closed: "That time off is from a past year, which is closed, so it can't be cancelled. An admin can adjust that year's balance instead.",
   conflict: "Someone else just updated that request. Refresh to see the latest.",
   rate_limited: "That's a lot of requests in a few minutes. Wait a little, then try again.",
   insufficient_balance: "There aren't enough days left for that.",

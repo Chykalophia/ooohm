@@ -264,7 +264,7 @@ Imported people get no email. Tell them to open `https://ooohm.team` and sign in
 ## 13. Backups (20 min)
 
 `deploy/backup.sh` dumps the database (`pg_dump` custom format, gzipped), names it by UTC time, checks it, and
-deletes old ones: after each nightly run, no backup on the server is older than `RETENTION_DAYS` (30 days). That
+deletes old ones: after each nightly run, no backup on the server is older than `RETENTION_DAYS` (30 days by default). That
 limit is what bounds how long a deleted person's data survives in backups, so keep the off-site copies (below) to
 the same limit. Install the nightly timer:
 
@@ -314,7 +314,7 @@ the server, so anyone with root there can read every copy.
 
 and uncomment `Environment=OFFSITE_HOOK=/usr/local/bin/ooohm-offsite` in the service file (then
 `daemon-reload`). The hook prunes the remote copies itself. Anything else that keeps a copy keeps the data too:
-give Storage Box snapshots a retention of at most 30 days, or a deleted person outlives the promise there. Also
+give Storage Box snapshots a retention of at most `RETENTION_DAYS`, or a deleted person outlives the promise there. Also
 turn on Hetzner's server backups for whole-disk recovery (they keep seven slots, so they stay inside the limit).
 
 ### Restore

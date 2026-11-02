@@ -6,11 +6,11 @@ import {
   feedLogId,
   feedPath,
   generateFeedToken,
-  hashFeedToken,
   isFeedTokenShape,
   tokenFromFeedFileName,
 } from "@/lib/feed-token";
 import { formatInstantDate, formatLongDate, formatMonth } from "@/lib/format";
+import { hashToken } from "@/lib/token-hash";
 
 test("feed tokens are 32 random bytes in base64url, different every time", () => {
   const tokens = new Set(Array.from({ length: 200 }, generateFeedToken));
@@ -23,9 +23,9 @@ test("feed tokens are 32 random bytes in base64url, different every time", () =>
 });
 
 test("the stored hash is the token's SHA-256 in hex, and never contains the token", () => {
-  assert.equal(hashFeedToken("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  assert.equal(hashToken("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   const token = generateFeedToken();
-  const hash = hashFeedToken(token);
+  const hash = hashToken(token);
   assert.match(hash, /^[0-9a-f]{64}$/);
   assert.ok(!hash.includes(token));
   assert.equal(feedLogId(token), hash.slice(0, 8));

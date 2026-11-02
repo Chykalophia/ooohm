@@ -15,7 +15,8 @@ repositories. `src/server/integrations/**` (the adapter seam, M6) and `src/serve
 one-time imports, M7: they read another system's files into domain records and never touch OOOhm's database)
 follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
 `scripts/*.mts` (migrate, seed, rollover, the outbox worker, the TimeOff import) are composition roots for
-processes outside Next: each builds its own `ServiceContext`.
+processes outside Next: the rollover, the worker and the TimeOff import build their `ServiceContext` with
+`scriptContext` (`scripts/script-context.mts`).
 
 | Layer | Path | Owns | May import |
 | --- | --- | --- | --- |
@@ -45,7 +46,7 @@ for invites), and, since M6, `secrets` (seals webhook secrets), `webhookTargets`
 `next/server`, `BETTER_AUTH_URL`, Better Auth's magic-link endpoint, `WEBHOOK_ENCRYPTION_KEY`, the
 `WEBHOOK_ALLOW_*` flags, the installed adapters, and `wake`, the inline background tick when that mode is on);
 `backgroundContext()` is the same without `after()` or `wake`, for ticks that run outside a request. The worker
-builds its own in `scripts/worker.mts`. Tests build theirs against a throwaway database. This keeps services free of Next.js and of the app's environment.
+builds its own with `scriptContext` (`scripts/script-context.mts`). Tests build theirs against a throwaway database. This keeps services free of Next.js and of the app's environment.
 
 ## Cross-cutting conventions
 
@@ -927,9 +928,10 @@ These limits are also the dialog's small print:
 
 - **Webhooks already delivered** to other systems cannot be recalled. `user.deleted` (mode `scrubbed`) tells
   integrations to erase their own copy.
-- **Backups** keep the data until they rotate out: `deploy/backup.sh` keeps at most 30 days (it refuses a
-  `RETENTION_DAYS` above 30; [hosting.md](hosting.md#backups-bound-how-long-deleted-data-survives)); on Vercel, the
-  database provider's (Neon's) restore window.
+- **Backups** keep the data until they rotate out, after the configured retention: `deploy/backup.sh` keeps
+  `RETENTION_DAYS` days, 30 by default (any whole number is accepted, with a warning on every run above 30;
+  [hosting.md](hosting.md#backups-bound-how-long-deleted-data-survives)); on Vercel, the database provider's (Neon's)
+  restore window.
 - **A downloaded CSV** is outside OOOhm.
 - Free text that names them only partly (a first name in someone else's note) is not detected; the full name and the
   address are. A person known by a one-word name, or by a name someone else in the company also has, is not searched
@@ -1314,7 +1316,7 @@ Every environment value is trimmed when read (`nonEmptyEnv`), so a secret stored
 HTTPS, security headers, compression, a body size limit and access logs without query strings or feed tokens.
 Only Caddy publishes ports; Postgres sits on a network Caddy is not on. The app runs with `TRUSTED_PROXY_HOPS=1`.
 `deploy/backup.sh` and `deploy/restore.sh` dump and restore the database (custom-format `pg_dump`, gzipped), with a
-systemd timer in `deploy/systemd/`. After each nightly run no local backup is older than `RETENTION_DAYS` (30; `find
+systemd timer in `deploy/systemd/`. After each nightly run no local backup is older than `RETENTION_DAYS` (30 by default; `find
 -mmin`, since `-mtime +30` let files live 31 to 32 days), and the documented off-site hook prunes to the same limit:
 backup retention is what bounds how long a deleted person's data survives ([hosting.md](hosting.md#backups-bound-how-long-deleted-data-survives)). The runbook is [deploy.md](deploy.md).
 

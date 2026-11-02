@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { type FormState, IDLE, nextFormKey } from "@/app/form-state";
-import { dangerButton, primaryButton, subtleButton } from "./styles";
+import { dangerButton, primaryButton, subtleButton } from "@/app/styles";
 
 export type AdminAction = (prev: FormState, formData: FormData) => Promise<FormState>;
 

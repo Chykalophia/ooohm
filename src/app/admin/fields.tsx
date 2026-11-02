@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { field } from "./styles";
+import { field } from "@/app/styles";
 
 /**
  * Labelled form fields for the admin screens. Plain markup, so server pages can render

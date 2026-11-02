@@ -6,7 +6,7 @@ import { requireActor } from "@/lib/auth";
 import { serviceContext } from "@/server/runtime";
 import { getApprovalNav } from "@/server/services/approvals";
 import { AppHeader } from "@/app/app-header";
-import { focusRing } from "./styles";
+import { focusRing } from "@/app/styles";
 
 export type AdminSection =
   | "people"

@@ -17,6 +17,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -195,7 +196,7 @@ export const leaveTypes = pgTable(
     name: text("name").notNull(),
     /** Short label for calendars, e.g. "PTO". */
     code: text("code").notNull(),
-    color: text("color").notNull().default("#6b7280"),
+    color: text("color").notNull().default(DEFAULT_LEAVE_TYPE_COLOR),
     isPaid: boolean("is_paid").notNull().default(true),
     /** When false, taking this leave never reduces a balance. */
     countsAgainstAllowance: boolean("counts_against_allowance").notNull().default(true),

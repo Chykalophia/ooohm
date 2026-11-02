@@ -6,11 +6,13 @@
 #
 # Settings (environment):
 #   BACKUP_DIR        where backups go             (default /var/backups/ooohm)
-#   RETENTION_DAYS    the most days a backup is kept (default 30, at most 30): after
-#                     each run no local backup is older than this. Exported, so
-#                     OFFSITE_HOOK can prune its copies to the same limit. It is what
-#                     bounds how long a deleted person's data survives in backups, which
-#                     the delete dialog promises is 30 days at most.
+#   RETENTION_DAYS    the most days a backup is kept (default 30, any whole number from
+#                     1): after each run no local backup is older than this. Exported,
+#                     so OFFSITE_HOOK can prune its copies to the same limit. It is what
+#                     bounds how long a deleted person's data survives in backups. Above
+#                     30 the script warns on every run, since that keeps deleted people's
+#                     data longer than the 30-day default the delete dialog mentions;
+#                     some companies must keep backups longer, so it is allowed.
 #   OOOHM_DIR         the repository checkout      (default: this script's parent)
 #   ENV_FILE          compose env file             (default $OOOHM_DIR/.env.production)
 #   PG_DUMP           the dump command; it must write a custom-format dump to stdout
@@ -31,11 +33,18 @@ ENV_FILE=${ENV_FILE:-$OOOHM_DIR/.env.production}
 PG_DUMP=${PG_DUMP:-docker compose --env-file "$ENV_FILE" -f "$OOOHM_DIR/deploy/docker-compose.prod.yml" exec -T db pg_dump -U ooohm -d ooohm}
 
 case $RETENTION_DAYS in
-  '' | *[!0-9]* | 0) echo "RETENTION_DAYS must be a whole number of days, from 1 to 30." >&2; exit 2 ;;
+  '' | *[!0-9]*) echo "RETENTION_DAYS must be a whole number of days, 1 or more." >&2; exit 2 ;;
+  # Ten digits and up would overflow the shell arithmetic below; 9 is millions of years.
+  ??????????*) echo "RETENTION_DAYS is too large: use at most 9 digits." >&2; exit 2 ;;
 esac
-if [ "$((10#$RETENTION_DAYS))" -gt 30 ]; then
-  echo "RETENTION_DAYS must be a whole number of days, from 1 to 30: deleted people's data must not outlive 30 days in backups." >&2
+# Base 10, so a leading zero is not read as octal ("08" is 8 days, "030" is 30).
+RETENTION_DAYS=$((10#$RETENTION_DAYS))
+if [ "$RETENTION_DAYS" -lt 1 ]; then
+  echo "RETENTION_DAYS must be a whole number of days, 1 or more." >&2
   exit 2
+fi
+if [ "$RETENTION_DAYS" -gt 30 ]; then
+  echo "warning: RETENTION_DAYS is $RETENTION_DAYS. Backups older than 30 days keep deleted people's data longer than the delete dialog promises." >&2
 fi
 export RETENTION_DAYS
 

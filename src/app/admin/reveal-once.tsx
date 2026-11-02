@@ -1,56 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { CopyField } from "@/app/copy-field";
+import { primaryButton, subtleButton, textLink } from "@/app/styles";
 import { REVEAL_IDLE, type RevealState } from "./reveal-state";
-import { primaryButton, subtleButton, textLink } from "./styles";
 
 export type RevealAction = (prev: RevealState, formData: FormData) => Promise<RevealState>;
 
 /** The secret, once: a read-only field, a copy button, and what to do with it. */
 function Revealed({ state, label, note, hrefLabel }: { state: Extract<RevealState, { status: "revealed" }>; label: string; note: React.ReactNode; hrefLabel?: string }) {
-  const inputId = useId();
-  const input = useRef<HTMLInputElement>(null);
   const heading = useRef<HTMLParagraphElement>(null);
-  const [copy, setCopy] = useState<"idle" | "copied" | "manual">("idle");
 
   useEffect(() => heading.current?.focus(), []);
-
-  async function copyValue() {
-    try {
-      await navigator.clipboard.writeText(state.value);
-      setCopy("copied");
-    } catch {
-      input.current?.select();
-      setCopy("manual");
-    }
-  }
 
   return (
     <div className="space-y-3 rounded-xl border border-accent/40 bg-accent/5 p-4">
       <p ref={heading} tabIndex={-1} className="text-sm font-medium outline-none">
         {state.message}
       </p>
-      <label htmlFor={inputId} className="block text-sm font-medium">
-        {label}
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          id={inputId}
-          ref={input}
-          readOnly
-          value={state.value}
-          onFocus={(e) => e.currentTarget.select()}
-          className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-        />
-        <button type="button" onClick={copyValue} className={`${primaryButton} shrink-0`}>
-          Copy
-        </button>
-      </div>
-      <p aria-live="polite" className="min-h-5 text-sm text-accent">
-        {copy === "copied" && "Copied."}
-        {copy === "manual" && <span className="text-foreground">It&apos;s selected. Press Ctrl+C (⌘C on a Mac) to copy it.</span>}
-      </p>
+      <CopyField label={label} value={state.value} />
       <p className="text-sm text-muted">{note}</p>
       {state.href && (
         <Link href={state.href} className={`${textLink} text-sm font-medium text-accent`}>

@@ -32,8 +32,13 @@ function payload(row: HolidayRow): Unattributed<HolidayEventPayload> {
   return { holidayId: row.id, date: row.date, name: row.name };
 }
 
-async function record(tx: Transaction, actor: Actor, type: AdminEventType, before: HolidayRow | null, after: HolidayRow | null) {
-  const row = (after ?? before)!;
+/** A created holiday has no `before`; a deleted one has no `after`. */
+type HolidayChange = { before: null; after: HolidayRow } | { before: HolidayRow; after: HolidayRow | null };
+
+async function record(tx: Transaction, actor: Actor, type: AdminEventType, change: HolidayChange) {
+  const { before, after } = change;
+  // The holiday as it is now, or as it was when deleted.
+  const row = change.before === null ? change.after : (change.after ?? change.before);
   await recordAdminChange(tx, actor, {
     type,
     entityType: "holiday",
@@ -78,7 +83,7 @@ export async function addHoliday(ctx: ServiceContext, actor: Actor, input: { dat
       await assertActiveAdmin(tx, actor);
       const [row] = await insertHolidays(tx, actor.companyId, [{ date: input.date, name }]);
       if (!row) throw new DomainError("already_exists");
-      await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, null, row);
+      await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, { before: null, after: row });
       return row;
     });
   } catch (err) {
@@ -100,7 +105,7 @@ export async function addUsFederalHolidays(ctx: ServiceContext, actor: Actor, ye
   return inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const added = await insertHolidays(tx, actor.companyId, usFederalHolidays(year));
-    for (const row of added) await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, null, row);
+    for (const row of added) await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, { before: null, after: row });
     return added;
   });
 }
@@ -117,7 +122,7 @@ export async function renameHoliday(ctx: ServiceContext, actor: Actor, id: strin
     if (before.name === name) return before;
     const after = await renameHolidayRow(tx, actor.companyId, id, name);
     if (!after) throw new DomainError("not_found");
-    await record(tx, actor, ADMIN_EVENT_TYPES.holidayRenamed, before, after);
+    await record(tx, actor, ADMIN_EVENT_TYPES.holidayRenamed, { before, after });
     return after;
   });
 }
@@ -130,6 +135,6 @@ export async function deleteHoliday(ctx: ServiceContext, actor: Actor, id: strin
     await assertActiveAdmin(tx, actor);
     const before = await deleteHolidayRow(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");
-    await record(tx, actor, ADMIN_EVENT_TYPES.holidayDeleted, before, null);
+    await record(tx, actor, ADMIN_EVENT_TYPES.holidayDeleted, { before, after: null });
   });
 }

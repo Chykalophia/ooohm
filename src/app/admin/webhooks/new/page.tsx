@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { RevealForm } from "@/app/admin/reveal-once";
-import { card } from "@/app/admin/styles";
+import { card } from "@/app/styles";
 import { createEndpointAction } from "@/app/admin/webhooks/actions";
 import { EndpointFields } from "@/app/admin/webhooks/endpoint-fields";
 

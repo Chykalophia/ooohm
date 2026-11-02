@@ -1,12 +1,12 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import { hashToken } from "./token-hash";
 
 /**
  * Calendar feed tokens: the secret part of a feed URL.
  *
- * A token is 32 random bytes in base64url (43 characters). Only its SHA-256 hash is
- * stored, so a copy of the database cannot be turned back into working links. A plain
- * hash is enough here (no salt or slow KDF): the input is 256 random bits, not a
- * guessable password.
+ * A token is 32 random bytes in base64url (43 characters). Only its hash
+ * ({@link hashToken}) is stored, so a copy of the database cannot be turned back into
+ * working links.
  */
 export const FEED_TOKEN_BYTES = 32;
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
@@ -14,11 +14,6 @@ const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 /** A new feed token: {@link FEED_TOKEN_BYTES} random bytes, base64url (43 characters). Store only its hash. */
 export function generateFeedToken(): string {
   return randomBytes(FEED_TOKEN_BYTES).toString("base64url");
-}
-
-/** The stored form of a token: its SHA-256, as 64 lowercase hex characters. */
-export function hashFeedToken(token: string): string {
-  return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
 /** True for a string shaped like a token from {@link generateFeedToken}. */
@@ -46,5 +41,5 @@ export function feedPath(token: string): string {
  * Never log the token itself; it is a working link.
  */
 export function feedLogId(token: string): string {
-  return hashFeedToken(token).slice(0, 8);
+  return hashToken(token).slice(0, 8);
 }

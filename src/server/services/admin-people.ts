@@ -36,9 +36,8 @@ import { renderInviteEmail } from "@/server/email/invite-email";
 import { renderLeaveEmail } from "@/server/email/leave-emails";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
-import { listDepartments } from "@/server/repositories/departments";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
-import { findDepartment } from "@/server/repositories/departments";
+import { findDepartment, listDepartments } from "@/server/repositories/departments";
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { countLiveEndpoints } from "@/server/repositories/webhooks";
 import {

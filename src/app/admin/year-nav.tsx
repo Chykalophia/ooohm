@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { outlineButton } from "@/app/admin/styles";
+import { outlineButton } from "@/app/styles";
 
 /**
  * Previous / current / next year, for admin pages that show one year at a time. A

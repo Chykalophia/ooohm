@@ -4,7 +4,7 @@ import { listDepartmentsForAdmin } from "@/server/services/admin-departments";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { TextField } from "@/app/admin/fields";
 import { AdminForm, InlineAction, Reveal } from "@/app/admin/forms";
-import { card, outlineButton } from "@/app/admin/styles";
+import { card, outlineButton } from "@/app/styles";
 import { createDepartmentAction, deleteDepartmentAction, renameDepartmentAction } from "@/app/admin/departments/actions";
 
 export const metadata: Metadata = { title: "Departments · Admin · OOOhm" };

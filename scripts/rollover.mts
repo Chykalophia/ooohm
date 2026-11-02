@@ -10,12 +10,9 @@
  */
 import { resolveDatabaseConfig } from "../src/db/config";
 import { openDatabase } from "../src/db/connect";
-import { STRICT_TARGET_POLICY } from "../src/domain/webhook-target";
-import { unavailableSecretBox } from "../src/lib/integration-crypto";
 import { nonEmptyEnv } from "../src/lib/integration-env";
-import type { ServiceContext } from "../src/server/context";
-import { createAdapterRegistry } from "../src/server/integrations/adapter";
 import { runYearRollover } from "../src/server/services/rollover";
+import { scriptContext } from "./script-context.mts";
 
 const config = resolveDatabaseConfig(nonEmptyEnv(process.env));
 
@@ -26,22 +23,7 @@ if (arg !== undefined && !/^\d{4}$/.test(arg)) {
 }
 
 const handle = await openDatabase(config, { purpose: "pnpm job:rollover", max: 1 });
-const ctx: ServiceContext = {
-  db: handle.db,
-  // The rollover sends no email; failing loudly beats silently dropping one.
-  mailer: async () => {
-    throw new Error("The rollover job does not send email.");
-  },
-  defer: (task) => void task(),
-  appUrl: "",
-  now: () => new Date(),
-  issueSignInLink: async () => {
-    throw new Error("The rollover job does not sign anyone in.");
-  },
-  secrets: unavailableSecretBox("The rollover job holds no webhook encryption key."),
-  webhookTargets: STRICT_TARGET_POLICY,
-  adapters: createAdapterRegistry(),
-};
+const ctx = scriptContext(handle.db, "rollover job");
 
 try {
   const result = await runYearRollover(ctx, arg === undefined ? undefined : Number(arg));

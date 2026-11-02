@@ -5,7 +5,7 @@ import { getPersonFormOptions } from "@/server/services/admin-people";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { TextField } from "@/app/admin/fields";
 import { AdminForm } from "@/app/admin/forms";
-import { card, subtleButton } from "@/app/admin/styles";
+import { card, subtleButton } from "@/app/styles";
 import { inviteAction } from "@/app/admin/people/actions";
 import { PersonFields } from "@/app/admin/people/person-fields";
 

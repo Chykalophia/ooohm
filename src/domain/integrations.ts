@@ -14,6 +14,7 @@ import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
 } from "./events";
+import { oneLine } from "./text";
 
 /**
  * The public integration guide (docs/api.md in the published source): auth, events,
@@ -132,10 +133,6 @@ export const MAX_WEBHOOK_ENDPOINTS = 20;
 /** Most live (not revoked) API keys per company. */
 export const MAX_API_KEYS = 50;
 
-function oneLine(raw: string): string {
-  return raw.replace(/\s+/g, " ").trim();
-}
-
 /** A description on one line, at most {@link WEBHOOK_DESCRIPTION_MAX_LENGTH} characters; blank is allowed. */
 export function normalizeWebhookDescription(raw: string): string {
   const value = oneLine(raw);
@@ -168,6 +165,7 @@ export const RETRY_JITTER = 0.1;
  * @param attemptsMade Attempts so far, at least 1.
  * @param random A number in [0, 1); `Math.random` in the worker, fixed in tests.
  * @returns Milliseconds, or `null` when no attempt is left (the delivery has failed).
+ * @throws RangeError when `attemptsMade` is not a positive integer.
  */
 export function retryDelayMs(attemptsMade: number, random: number): number | null {
   if (!Number.isInteger(attemptsMade) || attemptsMade < 1) throw new RangeError(`attemptsMade must be a positive integer, got ${attemptsMade}`);

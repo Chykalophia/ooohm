@@ -38,7 +38,12 @@ export function formatLeaveDates(startDate: string, endDate: string, dayPortion:
 
 /** "1 day", "0.5 days", "3 days". */
 export function formatDays(days: number): string {
-  return `${days} ${days === 1 ? "day" : "days"}`;
+  return formatCount(days, "day", "days");
+}
+
+/** A number with its noun, singular for exactly one: "1 API key", "3 API keys". */
+export function formatCount(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
 /**

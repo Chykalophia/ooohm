@@ -55,7 +55,8 @@ export async function runDueJobs(ctx: ServiceContext, jobs = DAILY_JOBS): Promis
       // Name and code only: a query error's message carries its bound parameters.
       const code = err instanceof Error ? (err as Error & { code?: unknown }).code : undefined;
       const message = err instanceof Error ? `${err.name}${typeof code === "string" ? ` (${code})` : ""}`.slice(0, 100) : "failed";
-      await finishJob(ctx.db, name, { at: ctx.now(), nextRunAt: new Date(ctx.now().getTime() + JOB_RETRY_MS), error: message }).catch((e) =>
+      const failedAt = ctx.now();
+      await finishJob(ctx.db, name, { at: failedAt, nextRunAt: new Date(failedAt.getTime() + JOB_RETRY_MS), error: message }).catch((e) =>
         log.error({ job: name, err: e }, "scheduled_job_record_failed"),
       );
     }

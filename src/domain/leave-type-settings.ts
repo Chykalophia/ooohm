@@ -6,11 +6,17 @@
 import { addDays } from "./allowance-policy";
 import { DomainError } from "./errors";
 import { NOTE_MAX_LENGTH } from "./leave-request";
+import { oneLine } from "./text";
 
 export const LEAVE_TYPE_NAME_MAX_LENGTH = 60;
 export const LEAVE_TYPE_CODE_MAX_LENGTH = 12;
 /** Largest allowance, default or carryover cap: a year of days. */
 export const MAX_ALLOWANCE_DAYS = 366;
+/**
+ * A neutral grey: the column default for a leave type's colour, and what calendars
+ * show for a stored colour that is not a hex value.
+ */
+export const DEFAULT_LEAVE_TYPE_COLOR = "#6b7280";
 
 /** Uppercase letters and digits first, then also `_` or `-`; at most 12 characters. */
 const CODE = new RegExp(`^[A-Z0-9][A-Z0-9_-]{0,${LEAVE_TYPE_CODE_MAX_LENGTH - 1}}$`);
@@ -61,7 +67,7 @@ export function normalizeDayAmount(value: number, range: { min: number; max: num
 }
 
 function normalizeName(raw: string, max: number): string {
-  const name = raw.replace(/\s+/g, " ").trim();
+  const name = oneLine(raw);
   if (name.length === 0 || name.length > max) throw new DomainError("invalid_input", `Names are 1 to ${max} characters.`);
   return name;
 }

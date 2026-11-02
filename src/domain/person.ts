@@ -1,4 +1,5 @@
 /** How people are named where others see them: emails, the team view, the team feed. */
+import { oneLine } from "./text";
 
 /** Longest display name shown; anything beyond is cut. */
 const NAME_MAX_LENGTH = 100;
@@ -8,7 +9,7 @@ const NAME_MAX_LENGTH = 100;
  * name cannot pose as extra paragraphs of a message or extra lines of a calendar.
  */
 export function displayName(name: string): string {
-  return name.replace(/\s+/g, " ").trim().slice(0, NAME_MAX_LENGTH).trim();
+  return oneLine(name).slice(0, NAME_MAX_LENGTH).trim();
 }
 
 /**

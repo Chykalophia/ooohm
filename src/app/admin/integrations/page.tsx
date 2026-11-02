@@ -3,7 +3,7 @@ import Link from "next/link";
 import { listAdapters } from "@/server/services/integrations";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { InlineAction } from "@/app/admin/forms";
-import { card, outlineButton, textLink } from "@/app/admin/styles";
+import { card, outlineButton, textLink } from "@/app/styles";
 import { syncAdapterAction } from "@/app/admin/integrations/actions";
 
 export const metadata: Metadata = { title: "Connectors · Admin · OOOhm" };

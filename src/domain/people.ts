@@ -5,6 +5,7 @@
  */
 import { ROLES, type Role } from "./actor";
 import { DomainError } from "./errors";
+import { oneLine } from "./text";
 
 /** Longest name an admin may give a person. Display trims further (see `displayName`). */
 export const PERSON_NAME_MAX_LENGTH = 100;
@@ -39,7 +40,7 @@ export function normalizeEmail(raw: string): string {
  * @throws DomainError `invalid_input` when blank or longer than {@link PERSON_NAME_MAX_LENGTH}.
  */
 export function normalizePersonName(raw: string): string {
-  const name = raw.replace(/\s+/g, " ").trim();
+  const name = oneLine(raw);
   if (name.length === 0 || name.length > PERSON_NAME_MAX_LENGTH) {
     throw new DomainError("invalid_input", `Names are 1 to ${PERSON_NAME_MAX_LENGTH} characters.`);
   }
@@ -54,7 +55,7 @@ export const DEPARTMENT_NAME_MAX_LENGTH = 60;
  * @throws DomainError `invalid_input` when blank or longer than {@link DEPARTMENT_NAME_MAX_LENGTH}.
  */
 export function normalizeDepartmentName(raw: string): string {
-  const name = raw.replace(/\s+/g, " ").trim();
+  const name = oneLine(raw);
   if (name.length === 0 || name.length > DEPARTMENT_NAME_MAX_LENGTH) {
     throw new DomainError("invalid_input", `Department names are 1 to ${DEPARTMENT_NAME_MAX_LENGTH} characters.`);
   }

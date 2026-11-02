@@ -17,13 +17,10 @@ import { parseArgs } from "node:util";
 import { resolveDatabaseConfig } from "../src/db/config";
 import { openDatabase } from "../src/db/connect";
 import { isDomainError } from "../src/domain/errors";
-import { STRICT_TARGET_POLICY } from "../src/domain/webhook-target";
-import { unavailableSecretBox } from "../src/lib/integration-crypto";
 import { nonEmptyEnv } from "../src/lib/integration-env";
-import type { ServiceContext } from "../src/server/context";
 import { readTimeOffSqlite } from "../src/server/importers/timeoff/sqlite-reader";
-import { createAdapterRegistry } from "../src/server/integrations/adapter";
 import { importTimeOff, type TimeOffImportReport } from "../src/server/services/timeoff-import";
+import { scriptContext } from "./script-context.mts";
 
 const USAGE = `Usage: pnpm import:timeoff -- --file <timeoff.sqlite> (--company <id> | --create-company <name>) --actor <email> [options]
 
@@ -97,20 +94,7 @@ try {
 const source = { sha256: createHash("sha256").update(bytes).digest("hex"), fileName: basename(options.file) };
 
 const handle = await openDatabase(config, { purpose: "pnpm import:timeoff", max: 2 });
-const refuse = (what: string) => async (): Promise<never> => {
-  throw new Error(`The importer does not ${what}.`);
-};
-const ctx: ServiceContext = {
-  db: handle.db,
-  mailer: refuse("send email"),
-  defer: (task) => void task(),
-  appUrl: "",
-  now: () => new Date(),
-  issueSignInLink: refuse("sign anyone in"),
-  secrets: unavailableSecretBox("The importer holds no webhook encryption key."),
-  webhookTargets: STRICT_TARGET_POLICY,
-  adapters: createAdapterRegistry(),
-};
+const ctx = scriptContext(handle.db, "importer");
 
 function pad(value: string, width: number, right = false): string {
   return right ? value.padStart(width) : value.padEnd(width);

@@ -8,7 +8,7 @@ import { listPeople } from "@/server/services/admin-people";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { InlineAction } from "@/app/admin/forms";
 import { cancelDeletionAction } from "@/app/admin/people/actions";
-import { field, focusRing, outlineButton, primaryButton } from "@/app/admin/styles";
+import { field, focusRing, outlineButton, primaryButton } from "@/app/styles";
 import { departmentParamSchema, readParam } from "@/app/calendar-input";
 
 export const metadata: Metadata = { title: "People · Admin · OOOhm" };

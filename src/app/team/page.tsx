@@ -12,11 +12,11 @@ import { departmentParamSchema, monthParamSchema, readParam } from "@/app/calend
 import { MonthNav } from "@/app/month-nav";
 import { NoCompany } from "@/app/no-company";
 import { StatusBadge } from "@/app/status-badge";
+import { focusRing } from "@/app/styles";
 
 export const metadata: Metadata = { title: "Team · OOOhm" };
 
 const HEADING_ID = "team-month-heading";
-const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 function teamHref(month: string, departmentId: string | null): string {
   const query = new URLSearchParams({ month });

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { resolveDatabaseConfig } from "@/db/config";
 import { BACKGROUND_MODES, resolveBackgroundMode } from "./background-mode";
-import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, integrationEnvShape, nonEmptyEnv } from "./integration-env";
+import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, envFlag, integrationEnvShape, nonEmptyEnv } from "./integration-env";
 
 const schema = z.object({
   // Checked in full by resolveDatabaseConfig (src/db/config.ts): a postgres:// URL, or
@@ -31,10 +31,7 @@ const schema = z.object({
   // Any SMTP server works. docker-compose ships Mailpit for local development.
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
-  SMTP_SECURE: z
-    .enum(["true", "false"])
-    .default("false")
-    .transform((v) => v === "true"),
+  SMTP_SECURE: envFlag,
   // Refuse to send over a plain connection when STARTTLS is missing (see
   // src/lib/smtp-options.ts). On by default in production; Mailpit offers no TLS, so
   // the development compose and .env.example turn it off.

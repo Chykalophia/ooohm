@@ -5,7 +5,7 @@ import { isDomainError } from "@/domain/errors";
 import { getLeaveTypeForAdmin } from "@/server/services/admin-leave-types";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { AdminForm } from "@/app/admin/forms";
-import { card, subtleButton } from "@/app/admin/styles";
+import { card, subtleButton } from "@/app/styles";
 import { updateLeaveTypeAction } from "@/app/admin/leave-types/actions";
 import { LeaveTypeFields } from "@/app/admin/leave-types/leave-type-fields";
 

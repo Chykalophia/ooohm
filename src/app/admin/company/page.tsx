@@ -5,7 +5,7 @@ import { getCompanySettings } from "@/server/services/admin-company";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { CheckboxField, SelectField, TextField } from "@/app/admin/fields";
 import { AdminForm } from "@/app/admin/forms";
-import { card } from "@/app/admin/styles";
+import { card } from "@/app/styles";
 import { updateCompanyAction } from "@/app/admin/company/actions";
 
 export const metadata: Metadata = { title: "Company · Admin · OOOhm" };

@@ -28,13 +28,13 @@ import {
   createSecretBox,
   generateApiKey,
   generateWebhookSecret,
-  hashApiKey,
   parseEncryptionKey,
   sameDigest,
   signWebhook,
   verifyWebhookSignature,
   webhookRequestHeaders,
 } from "@/lib/integration-crypto";
+import { hashToken } from "@/lib/token-hash";
 import { loadWorkerEnv } from "@/lib/worker-env";
 import { adapterRegistry, createAdapterRegistry, type Adapter } from "@/server/integrations/adapter";
 
@@ -282,10 +282,10 @@ describe("API keys", () => {
   test("a key is ooohm_ plus 43 characters; only its SHA-256 and an 8-character prefix are kept", () => {
     const { key, hash, prefix } = generateApiKey();
     assert.match(key, /^ooohm_[A-Za-z0-9_-]{43}$/);
-    assert.equal(hash, hashApiKey(key));
+    assert.equal(hash, hashToken(key));
     assert.match(hash, /^[0-9a-f]{64}$/);
     assert.equal(prefix, key.slice(0, 14));
-    assert.ok(sameDigest(hash, hashApiKey(key)));
+    assert.ok(sameDigest(hash, hashToken(key)));
     assert.ok(!sameDigest(hash, generateApiKey().hash));
     assert.ok(!sameDigest("", ""));
   });

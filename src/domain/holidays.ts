@@ -6,12 +6,13 @@
  */
 import { type CalendarDate, fromEpochDay, isCalendarDate, isoWeekday, toEpochDay } from "./calendar-date";
 import { DomainError } from "./errors";
+import { oneLine } from "./text";
 
 export const HOLIDAY_NAME_MAX_LENGTH = 100;
 
 /** @throws DomainError `invalid_input` when blank or longer than {@link HOLIDAY_NAME_MAX_LENGTH}. */
 export function normalizeHolidayName(raw: string): string {
-  const name = raw.replace(/\s+/g, " ").trim();
+  const name = oneLine(raw);
   if (name.length === 0 || name.length > HOLIDAY_NAME_MAX_LENGTH) {
     throw new DomainError("invalid_input", `Holiday names are 1 to ${HOLIDAY_NAME_MAX_LENGTH} characters.`);
   }

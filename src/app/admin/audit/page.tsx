@@ -4,7 +4,7 @@ import { z } from "zod";
 import { formatInstantDateTime } from "@/lib/format";
 import { getAuditLog } from "@/server/services/audit-log";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { field, focusRing, outlineButton } from "@/app/admin/styles";
+import { field, focusRing, outlineButton } from "@/app/styles";
 
 export const metadata: Metadata = { title: "Audit log · Admin · OOOhm" };
 

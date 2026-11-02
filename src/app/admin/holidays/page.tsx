@@ -7,7 +7,7 @@ import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { YearNav } from "@/app/admin/year-nav";
 import { TextField } from "@/app/admin/fields";
 import { AdminForm, InlineAction, Reveal } from "@/app/admin/forms";
-import { card, outlineButton } from "@/app/admin/styles";
+import { card, outlineButton } from "@/app/styles";
 import { addFederalHolidaysAction, addHolidayAction, deleteHolidayAction, renameHolidayAction } from "@/app/admin/holidays/actions";
 
 export const metadata: Metadata = { title: "Holidays · Admin · OOOhm" };

@@ -16,6 +16,7 @@ import type { Role } from "./actor";
 import { DomainError } from "./errors";
 import type { DeletionMode } from "./events";
 import { displayName } from "./person";
+import { oneLine } from "./text";
 
 export type { DeletionMode } from "./events";
 
@@ -133,7 +134,7 @@ export function confirmationTarget(person: { name: string; email: string }): str
   return displayName(person.name) || person.email;
 }
 
-const fold = (s: string) => s.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+const fold = (s: string) => oneLine(s).toLocaleLowerCase();
 
 /** Whether `typed` is the person's full name (spaces and case aside). */
 export function confirmationMatches(typed: string, person: { name: string; email: string }): boolean {

@@ -37,7 +37,7 @@ migrates when the app starts.
 | **Node on a VM with systemd** | Any Postgres (local or managed) | Two units: `pnpm start` (or `node .next/standalone/server.js`) and `pnpm worker`, both `Restart=always` | `pnpm db:migrate` before starting the new version | `deploy/backup.sh` with `PG_DUMP='pg_dump -d "$DATABASE_URL"'` from a timer | Any SMTP provider |
 | **Vercel + Neon or Supabase** ([deploy-vercel.md](deploy-vercel.md)) | Neon / Supabase pooled URL as `DATABASE_URL`, direct URL as `DATABASE_URL_UNPOOLED` | `inline` (default there) plus Vercel Cron on `/api/cron/tick` (`vercel.json`) | The `vercel-build` script, production deployments only | The provider's restore window, plus `deploy/backup.sh` against the direct URL from any machine | SMTP on 587 (Vercel blocks 25) |
 | **Railway, Render or Fly** | The platform's Postgres, or any other | Either a second process (`pnpm worker`, `worker` mode, the default) or `OOOHM_BACKGROUND=inline` plus the platform's scheduler calling `/api/cron/tick` every few minutes | `pnpm db:migrate` as a release / pre-deploy command | The platform's backups, or `deploy/backup.sh` from a scheduled job | Any SMTP provider |
-| **Embedded** (no database server) | PGlite in `./data/pglite` (`OOOHM_DATA_DIR`) | In the app: `inline` after each change, and its own timer every `OOOHM_TICK_INTERVAL_SECONDS` (30) for retries and the daily jobs | On every start | Copy the data directory while the app is stopped (a nightly timer that stops it, `tar`s `OOOHM_DATA_DIR`, and starts it again), keeping copies at most 30 days | Any SMTP provider |
+| **Embedded** (no database server) | PGlite in `./data/pglite` (`OOOHM_DATA_DIR`) | In the app: `inline` after each change, and its own timer every `OOOHM_TICK_INTERVAL_SECONDS` (30) for retries and the daily jobs | On every start | Copy the data directory while the app is stopped (a nightly timer that stops it, `tar`s `OOOHM_DATA_DIR`, and starts it again), keeping copies for your backup retention (30 days by default) | Any SMTP provider |
 
 Embedded mode, from a checkout: `pnpm install`, `pnpm build`, then `pnpm start:embedded` with `BETTER_AUTH_SECRET`,
 `BETTER_AUTH_URL`, `WEBHOOK_ENCRYPTION_KEY`, `SEED_ADMIN_EMAIL` and the `SMTP_*` settings in `.env`. It migrates,
@@ -64,7 +64,10 @@ beyond a trial.
 ## Backups bound how long deleted data survives
 
 When a person is deleted ([architecture.md](architecture.md#people-lifecycle-and-privacy-m8)), their data stays in every backup taken before, until that backup
-is deleted. So the backup retention is the promise: `deploy/backup.sh` keeps local backups at most `RETENTION_DAYS`
-(30, and it refuses more than 30) days after each nightly run, and the documented off-site hook prunes its copies to the same limit. Any other
-copy counts too: a provider's point-in-time restore window (Neon's is part of the plan), Storage Box snapshots,
-whole-disk server backups. Keep each of them at 30 days or less, or the promise does not hold there.
+is deleted. So backup retention bounds how long it survives, and the delete dialog tells admins that backups keep it for
+the configured retention, 30 days by default. `deploy/backup.sh` keeps local backups at most `RETENTION_DAYS` days
+(default 30) after each nightly run, and the documented off-site hook prunes its copies to the same limit. Some
+companies must keep backups longer, so the script accepts any whole number of days; above 30 it warns on every run,
+since the default people are told about no longer holds. Any other copy counts too: a provider's point-in-time restore
+window (Neon's is part of the plan), Storage Box snapshots, whole-disk server backups. Keep each of them within the
+same retention.

@@ -95,7 +95,7 @@ export async function getLeaveTypeForAdmin(ctx: ServiceContext, actor: Actor, id
 /**
  * Creates a leave type, last in the request form's order.
  *
- * @throws DomainError `forbidden`, `invalid_input`, or `already_exists` (the code is taken).
+ * @throws DomainError `forbidden`, `no_company`, `invalid_input`, or `already_exists` (the code is taken).
  */
 export async function createLeaveType(ctx: ServiceContext, actor: Actor, input: LeaveTypeSettings): Promise<LeaveTypeRow> {
   assertCanAdminister(actor);
@@ -103,7 +103,7 @@ export async function createLeaveType(ctx: ServiceContext, actor: Actor, input: 
   return uniqueCode(() =>
     inTransaction(ctx, async (tx) => {
       // Serialises creates, so two cannot take the same next sort order.
-      await lockCompany(tx, actor.companyId);
+      if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
       await assertActiveAdmin(tx, actor);
       if (await leaveTypeCodeTaken(tx, actor.companyId, settings.code)) throw new DomainError("already_exists");
       const sortOrder = await nextLeaveTypeSortOrder(tx, actor.companyId);
@@ -148,13 +148,13 @@ export async function updateLeaveType(ctx: ServiceContext, actor: Actor, id: str
  * them. A restored type goes last.
  *
  * @returns The type after the change (unchanged, with nothing recorded, when already so).
- * @throws DomainError `forbidden` or `not_found`.
+ * @throws DomainError `forbidden`, `no_company`, or `not_found`.
  */
 export async function setLeaveTypeArchived(ctx: ServiceContext, actor: Actor, id: string, archived: boolean): Promise<LeaveTypeRow> {
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
   return inTransaction(ctx, async (tx) => {
-    await lockCompany(tx, actor.companyId);
+    if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);
     const before = await findLeaveTypeForAdmin(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");
@@ -173,7 +173,7 @@ export async function setLeaveTypeArchived(ctx: ServiceContext, actor: Actor, id
  * `leave_type.reordered` audit row and event. The first type is the form's default.
  *
  * @returns `false` when it was already first (up) or last (down); nothing changes then.
- * @throws DomainError `forbidden`, `not_found` (unknown or archived type), or `invalid_input`.
+ * @throws DomainError `forbidden`, `no_company`, `not_found` (unknown or archived type), or `invalid_input`.
  */
 export async function moveLeaveType(ctx: ServiceContext, actor: Actor, id: string, direction: "up" | "down"): Promise<boolean> {
   assertCanAdminister(actor);
@@ -181,7 +181,7 @@ export async function moveLeaveType(ctx: ServiceContext, actor: Actor, id: strin
   if (direction !== "up" && direction !== "down") throw new DomainError("invalid_input");
   return inTransaction(ctx, async (tx) => {
     // Serialises reorders, so two at once cannot interleave their renumbering.
-    await lockCompany(tx, actor.companyId);
+    if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);
     const active = (await listAllLeaveTypes(tx, actor.companyId)).filter((t) => t.archivedAt === null);
     const from = active.findIndex((t) => t.id === id);

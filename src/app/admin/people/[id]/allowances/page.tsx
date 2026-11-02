@@ -11,7 +11,7 @@ import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { YearNav } from "@/app/admin/year-nav";
 import { TextField } from "@/app/admin/fields";
 import { AdminForm, Reveal } from "@/app/admin/forms";
-import { card, focusRing, outlineButton, subtleButton } from "@/app/admin/styles";
+import { card, focusRing, outlineButton, subtleButton } from "@/app/styles";
 import { allowanceAction } from "@/app/admin/people/actions";
 import { remainingText } from "@/app/admin/people/balance-list";
 

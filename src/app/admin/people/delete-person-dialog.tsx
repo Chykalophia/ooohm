@@ -5,7 +5,7 @@ import { useActionState, useEffect, useId, useRef, useState, useTransition } fro
 import { confirmationMatches, type DeletionBlockers, type DeletionMode } from "@/domain/person-deletion";
 import { IDLE } from "@/app/form-state";
 import { type DeleteState, deletePersonAction } from "@/app/admin/people/actions";
-import { dangerButton, dangerOutlineButton, field, outlineButton, subtleButton, textLink } from "@/app/admin/styles";
+import { dangerButton, dangerOutlineButton, field, outlineButton, subtleButton, textLink } from "@/app/styles";
 
 export interface DeletePersonDialogProps {
   personId: string;
@@ -204,8 +204,9 @@ export function DeletePersonDialog(props: DeletePersonDialogProps) {
 
               <p className="text-xs text-muted">
                 This can&apos;t be undone{schedules ? " once it runs" : ""}. Webhooks already delivered (or on their way) to other systems can&apos;t be
-                recalled, backups keep data until they rotate out (at most 30 days; on Vercel, your database provider&apos;s restore window), and a
-                downloaded CSV is outside OOOhm. Text mentioning them by first name only, or by a name a colleague shares, stays as written.
+                recalled, backups keep data until they rotate out (after the configured backup retention, 30 days by default; on Vercel,
+                your database provider&apos;s restore window), and a downloaded CSV is outside OOOhm. Text mentioning them by first name
+                only, or by a name a colleague shares, stays as written.
               </p>
 
               {state.status === "error" && (

@@ -8,7 +8,7 @@ import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { TextField } from "@/app/admin/fields";
 import { InlineAction } from "@/app/admin/forms";
 import { RevealForm } from "@/app/admin/reveal-once";
-import { card, textLink } from "@/app/admin/styles";
+import { card, textLink } from "@/app/styles";
 
 export const metadata: Metadata = { title: "API keys · Admin · OOOhm" };
 

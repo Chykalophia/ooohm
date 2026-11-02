@@ -11,7 +11,8 @@ import {
 } from "@/domain/events";
 import { serializeCalendar } from "@/domain/ics";
 import { todayInTimeZone } from "@/lib/dates";
-import { feedPath, generateFeedToken, hashFeedToken, isFeedTokenShape } from "@/lib/feed-token";
+import { feedPath, generateFeedToken, isFeedTokenShape } from "@/lib/feed-token";
+import { hashToken } from "@/lib/token-hash";
 import type { ServiceContext } from "@/server/context";
 import type { Transaction } from "@/db/types";
 import { findCompanySettings, listPersonalEntries, listTeamEntries } from "@/server/repositories/calendar";
@@ -118,7 +119,7 @@ export async function issueCalendarFeed(ctx: ServiceContext, actor: Actor, kind:
       await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, source: actor.source, reason: "regenerated" });
     }
     const token = generateFeedToken();
-    const row = await insertFeed(tx, { companyId: actor.companyId, userId: actor.id, kind, tokenHash: hashFeedToken(token), createdAt: now });
+    const row = await insertFeed(tx, { companyId: actor.companyId, userId: actor.id, kind, tokenHash: hashToken(token), createdAt: now });
     await recordFeedChange(tx, { event: "issued", before: null, after: row, source: actor.source, reason: null });
     return { token, url: `${ctx.appUrl}${feedPath(token)}`, feed: { createdAt: row.createdAt, lastUsedAt: null } };
   });
@@ -190,7 +191,7 @@ export async function renderCalendarFeed(
   options: { admit?: (feedId: string) => boolean } = {},
 ): Promise<RenderedFeed | null> {
   if (!isFeedTokenShape(token)) return null;
-  const feed = await findLiveFeedByHash(ctx.db, hashFeedToken(token));
+  const feed = await findLiveFeedByHash(ctx.db, hashToken(token));
   if (!feed) return null;
   if (options.admit && !options.admit(feed.id)) throw new DomainError("rate_limited");
 

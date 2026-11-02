@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { after, before, describe, test } from "node:test";
-import { eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Actor } from "@/domain/actor";
 import type { ApiClient } from "@/domain/integrations";
@@ -226,16 +226,30 @@ describe("REST API v1", { skip }, () => {
     assert.equal((await call("/api/v1/holidays", key, { year: "1999" })).status, 400);
   });
 
+  const SETTLE_TIMEOUT_MS = 30_000;
+
   /**
-   * Events show once every transaction older than them has ended, cluster-wide. Other
-   * test files share the server, so one of their short transactions can delay ours by a
-   * moment: wait for `ready`, briefly.
+   * Waits until the API can see every event the company has. Events show once every
+   * transaction older than them has ended, cluster-wide (`listCompanyEvents`), and other
+   * test files share the server, so one of their transactions can hold ours back for a
+   * while. Polls that condition itself, the same comparison the API makes, and fails
+   * after {@link SETTLE_TIMEOUT_MS} rather than letting a test read a partial page.
    */
-  async function eventsWhen<T>(read: () => Promise<T>, ready: (value: T) => boolean): Promise<T> {
-    for (let i = 0; ; i++) {
-      const value = await read();
-      if (ready(value) || i === 50) return value;
-      await new Promise((r) => setTimeout(r, 50));
+  async function eventsSettled(companyId: string): Promise<void> {
+    const deadline = Date.now() + SETTLE_TIMEOUT_MS;
+    for (;;) {
+      const [{ hidden }] = await t.db
+        .select({ hidden: count() })
+        .from(schema.eventsOutbox)
+        .where(
+          and(
+            eq(schema.eventsOutbox.companyId, companyId),
+            sql`${schema.eventsOutbox.txId} >= pg_snapshot_xmin(pg_current_snapshot())::text::bigint`,
+          ),
+        );
+      if (hidden === 0) return;
+      if (Date.now() > deadline) assert.fail(`${hidden} events still hidden behind an open transaction after ${SETTLE_TIMEOUT_MS} ms`);
+      await new Promise((r) => setTimeout(r, 25));
     }
   }
 
@@ -247,10 +261,8 @@ describe("REST API v1", { skip }, () => {
     for (const d of ["2026-11-09", "2026-11-10", "2026-11-11"]) {
       await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: co.pto, startDate: d, endDate: d, dayPortion: "full" });
     }
-    const all = await eventsWhen(
-      async () => (await call("/api/v1/events", key, { limit: "200" })).body as unknown as Events,
-      (e) => e.data.length === 4,
-    );
+    await eventsSettled(co.companyId);
+    const all = (await call("/api/v1/events", key, { limit: "200" })).body as unknown as Events;
     assert.equal(all.hasMore, false);
     assert.deepEqual(all.data.map((e) => e.type), ["api_key.created", "leave.requested", "leave.requested", "leave.requested"]);
     assert.ok(all.data.every((e) => e.version === 1));
@@ -266,7 +278,8 @@ describe("REST API v1", { skip }, () => {
     const { co, ctx, key } = await companyWithKey();
     const call = api(ctx);
     const read = async (query: Record<string, string>) => (await call("/api/v1/events", key, query)).body as unknown as Events;
-    const before = await eventsWhen(() => read({ limit: "200" }), (e) => e.data.length === 1);
+    await eventsSettled(co.companyId);
+    const before = await read({ limit: "200" });
     assert.deepEqual(before.data.map((e) => e.type), ["api_key.created"]);
     const cursor = before.data[0].id;
 
@@ -284,7 +297,9 @@ describe("REST API v1", { skip }, () => {
     } finally {
       writer.release();
     }
-    const after = await eventsWhen(() => read({ after: cursor }), (e) => e.data.length === 2);
+    await eventsSettled(co.companyId);
+    const after = await read({ after: cursor });
+    assert.equal(after.data.length, 2);
     assert.equal(after.data[0].data.slow, true, "the slow row is not lost behind the cursor: it comes first");
     assert.equal(after.data[1].data.requestId, request.id);
   });

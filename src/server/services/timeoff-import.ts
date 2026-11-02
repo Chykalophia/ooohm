@@ -51,6 +51,7 @@ import { DomainError } from "@/domain/errors";
 import { IMPORT_AUDIT_ACTIONS, IMPORT_EVENT_TYPES, type ImportCompletedPayload, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { normalizeEmail } from "@/domain/people";
+import { oneLine } from "@/domain/text";
 import type { TimeOffYearBalance } from "@/domain/timeoff/balance";
 import {
   buildImportPlan,
@@ -251,7 +252,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
       );
     }
   } else {
-    const name = input.target.createCompany.replace(/\s+/g, " ").trim();
+    const name = oneLine(input.target.createCompany);
     if (name.length === 0 || name.length > COMPANY_NAME_MAX_LENGTH) refuse(`Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`);
     company = await insertCompany(tx, { name, timezone: timeOffTimeZone(timeoffCompany) ?? "UTC", workingDays: [1, 2, 3, 4, 5] });
     created = true;

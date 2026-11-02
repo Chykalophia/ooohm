@@ -5,7 +5,7 @@ import { formatDays } from "@/lib/format";
 import { type LeaveTypeRow, listLeaveTypesForAdmin } from "@/server/services/admin-leave-types";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { InlineAction } from "@/app/admin/forms";
-import { focusRing, outlineButton, primaryButton } from "@/app/admin/styles";
+import { focusRing, outlineButton, primaryButton } from "@/app/styles";
 import { archiveLeaveTypeAction, moveLeaveTypeAction } from "@/app/admin/leave-types/actions";
 
 export const metadata: Metadata = { title: "Leave types · Admin · OOOhm" };

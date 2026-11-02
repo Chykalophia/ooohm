@@ -1,15 +1,14 @@
 "use client";
 
-import { useActionState, useId, useRef, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import type { FeedKind } from "@/domain/calendar-feed";
+import { CopyField } from "@/app/copy-field";
+import { focusRing, subtleButton as subtle } from "@/app/styles";
 import { feedAction } from "./actions";
 import { FEED_IDLE, type FeedState } from "./feed-state";
 
-const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
-const primary = `rounded-lg bg-accent px-4 py-2 font-medium text-accent-foreground disabled:opacity-60 ${focusRing}`;
 // The page holds two feeds; outlined buttons keep "Copy link" the one solid accent on screen.
 const create = `rounded-lg border border-accent px-4 py-2 font-medium text-accent hover:bg-accent/10 disabled:opacity-60 ${focusRing}`;
-const subtle = `rounded-md text-sm text-muted hover:text-foreground disabled:opacity-60 ${focusRing}`;
 
 /** The feed's live link, as the server reports it. Dates are already formatted. */
 export interface FeedStatus {
@@ -18,42 +17,9 @@ export interface FeedStatus {
 }
 
 function NewLink({ url }: { url: string }) {
-  const inputId = useId();
-  const input = useRef<HTMLInputElement>(null);
-  const [copy, setCopy] = useState<"idle" | "copied" | "manual">("idle");
-
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopy("copied");
-    } catch {
-      input.current?.select();
-      setCopy("manual");
-    }
-  }
-
   return (
     <div className="space-y-2">
-      <label htmlFor={inputId} className="text-sm font-medium">
-        Your new link
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          id={inputId}
-          ref={input}
-          readOnly
-          value={url}
-          onFocus={(e) => e.currentTarget.select()}
-          className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-        />
-        <button type="button" onClick={copyLink} className={`${primary} shrink-0`}>
-          Copy link
-        </button>
-      </div>
-      <p aria-live="polite" className="min-h-5 text-sm text-accent">
-        {copy === "copied" && "Copied."}
-        {copy === "manual" && <span className="text-foreground">The link is selected. Press Ctrl+C (⌘C on a Mac) to copy it.</span>}
-      </p>
+      <CopyField label="Your new link" value={url} copyLabel="Copy link" selectedText="The link is selected." />
       <p className="text-sm text-muted">
         Paste it into your calendar app now. It won&apos;t be shown again, because OOOhm doesn&apos;t keep a copy. Anyone with the
         link can see this calendar, so keep it to yourself.

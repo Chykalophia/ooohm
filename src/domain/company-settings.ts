@@ -5,6 +5,7 @@
  */
 import { ALLOWANCE_POLICY_KEYS } from "./allowance-policy";
 import { DomainError } from "./errors";
+import { oneLine } from "./text";
 
 export const COMPANY_NAME_MAX_LENGTH = 100;
 
@@ -57,7 +58,7 @@ export interface CompanySettings {
  *   working day or one outside 1 to 7, or an allowance policy nobody registered.
  */
 export function normalizeCompanySettings(input: CompanySettingsInput, currentTimezone?: string): CompanySettings {
-  const name = input.name.replace(/\s+/g, " ").trim();
+  const name = oneLine(input.name);
   if (name.length === 0 || name.length > COMPANY_NAME_MAX_LENGTH) {
     throw new DomainError("invalid_input", `Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`);
   }

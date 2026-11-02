@@ -1,17 +1,16 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { SignOutButton } from "./sign-out-button";
+import { focusRing } from "@/app/styles";
 
 export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "admin";
-
-const focusRing = "rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
 
 function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`${focusRing} hover:text-foreground ${active ? "font-medium text-foreground" : "text-muted"}`}
+      className={`rounded-md ${focusRing} hover:text-foreground ${active ? "font-medium text-foreground" : "text-muted"}`}
     >
       {children}
     </Link>
@@ -40,7 +39,7 @@ export function AppHeader({
 }) {
   return (
     <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
-      <Link href="/" className={focusRing}>
+      <Link href="/" className={`rounded-md ${focusRing}`}>
         <Logo />
       </Link>
       <nav aria-label="Main" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">

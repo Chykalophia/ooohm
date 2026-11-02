@@ -38,10 +38,10 @@ import { createSecretBox } from "../src/lib/integration-crypto";
 import { log } from "../src/lib/log";
 import { createSafeFetch } from "../src/lib/safe-fetch";
 import { loadWorkerEnv } from "../src/lib/worker-env";
-import type { ServiceContext } from "../src/server/context";
 import { adapterRegistry } from "../src/server/integrations/adapter";
 import { ping } from "../src/server/repositories/health";
 import { runTick, type TickStep } from "../src/server/services/background-tick";
+import { scriptContext } from "./script-context.mts";
 
 /** How long one loop pass may keep starting new work before the loop checks in again. */
 const STEP_BUDGET_MS = 30_000;
@@ -50,21 +50,11 @@ const env = loadWorkerEnv();
 const webhookTargets = { allowInsecure: env.WEBHOOK_ALLOW_INSECURE, allowPrivate: env.WEBHOOK_ALLOW_PRIVATE };
 // Embedded mode: refuses (with who holds it) while the app has the data directory open.
 const handle = await openDatabase(env.database, { purpose: "pnpm worker", max: 5 });
-const refuse = (what: string) => async (): Promise<never> => {
-  throw new Error(`The worker does not ${what}.`);
-};
-
-const ctx: ServiceContext = {
-  db: handle.db,
-  mailer: refuse("send email"),
-  defer: (task) => void task(),
-  appUrl: "",
-  now: () => new Date(),
-  issueSignInLink: refuse("sign anyone in"),
+const ctx = scriptContext(handle.db, "worker", {
   secrets: createSecretBox(env.WEBHOOK_ENCRYPTION_KEY),
   webhookTargets,
   adapters: adapterRegistry,
-};
+});
 const fetch = createSafeFetch(webhookTargets);
 const stop = new AbortController();
 

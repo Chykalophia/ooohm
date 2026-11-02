@@ -1,4 +1,5 @@
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { hashToken } from "./token-hash";
 
 /**
  * Secrets of the integration layer: encryption of webhook signing secrets at rest,
@@ -143,15 +144,7 @@ const SHOWN_CHARS = 8;
 /** A new key: `ooohm_` and 32 random bytes in base64url. Shown once; only its hash is stored. */
 export function generateApiKey(): { key: string; hash: string; prefix: string } {
   const key = API_KEY_PREFIX + randomBytes(32).toString("base64url");
-  return { key, hash: hashApiKey(key), prefix: apiKeyPrefix(key) };
-}
-
-/**
- * The stored form of a key: SHA-256, 64 lowercase hex characters. A plain hash is
- * enough (no salt or slow KDF): the input is 256 random bits, not a password.
- */
-export function hashApiKey(key: string): string {
-  return createHash("sha256").update(key, "utf8").digest("hex");
+  return { key, hash: hashToken(key), prefix: apiKeyPrefix(key) };
 }
 
 /** What admins see of a key, e.g. `ooohm_AbCdEfGh`. Not secret on its own: 208 random bits stay hidden. */

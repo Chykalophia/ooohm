@@ -39,6 +39,7 @@ import {
   normalizeLeaveTypeColor,
 } from "@/domain/leave-type-settings";
 import { normalizeDepartmentName, normalizeEmail, normalizePersonName, PERSON_NAME_MAX_LENGTH } from "@/domain/people";
+import { oneLine } from "@/domain/text";
 import {
   isTimeOffApproved,
   scheduleWorkingDays,
@@ -535,7 +536,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
   });
 
   // Leave types
-  const typeName = (t: TimeOffLeaveType) => t.name.replace(/\s+/g, " ").trim().slice(0, LEAVE_TYPE_NAME_MAX_LENGTH) || `Type ${t.id}`;
+  const typeName = (t: TimeOffLeaveType) => oneLine(t.name).slice(0, LEAVE_TYPE_NAME_MAX_LENGTH) || `Type ${t.id}`;
   const poolCandidates = leaveTypes.filter((t) => t.useAllowance);
   let poolSource: TimeOffLeaveType | undefined;
   if (options.poolTypeName !== undefined) {

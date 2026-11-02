@@ -8,7 +8,7 @@ import { getPersonDetail, getPersonFormOptions } from "@/server/services/admin-p
 import { getDeletionPreview } from "@/server/services/admin-people-deletion";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { AdminForm, InlineAction } from "@/app/admin/forms";
-import { card, outlineButton, subtleButton } from "@/app/admin/styles";
+import { card, outlineButton, subtleButton } from "@/app/styles";
 import { cancelDeletionAction, deactivateAction, reactivateAction, resendInviteAction, updatePersonAction } from "@/app/admin/people/actions";
 import { BalanceList } from "@/app/admin/people/balance-list";
 import { Blocked, DeletePersonDialog } from "@/app/admin/people/delete-person-dialog";

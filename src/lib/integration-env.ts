@@ -7,7 +7,8 @@ import { parseEncryptionKey } from "./integration-crypto";
  * sees the auth secret or SMTP credentials.
  */
 
-const flag = z
+/** A `true` / `false` variable, `false` when unset. */
+export const envFlag = z
   .enum(["true", "false"])
   .default("false")
   .transform((v) => v === "true");
@@ -18,9 +19,9 @@ export const integrationEnvShape = {
     .string()
     .refine((v) => parseEncryptionKey(v) !== null, "WEBHOOK_ENCRYPTION_KEY must be 32 bytes in base64 (openssl rand -base64 32)"),
   /** Local development only: allow `http://` webhook URLs. */
-  WEBHOOK_ALLOW_INSECURE: flag,
+  WEBHOOK_ALLOW_INSECURE: envFlag,
   /** Local development only: allow webhooks to loopback, private and link-local addresses. */
-  WEBHOOK_ALLOW_PRIVATE: flag,
+  WEBHOOK_ALLOW_PRIVATE: envFlag,
   /** Least severe log level written: `debug`, `info` (default), `warn` or `error`. Read by `log.ts` itself. */
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 };

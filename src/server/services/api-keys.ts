@@ -14,7 +14,8 @@ import { DomainError } from "@/domain/errors";
 import { type ApiKeyEventPayload, INTEGRATION_EVENT_TYPES, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { type ApiClient, DEFAULT_API_SCOPES, isApiScope, MAX_API_KEYS, normalizeApiKeyName } from "@/domain/integrations";
-import { generateApiKey, hashApiKey, sameDigest } from "@/lib/integration-crypto";
+import { generateApiKey, sameDigest } from "@/lib/integration-crypto";
+import { hashToken } from "@/lib/token-hash";
 import type { ServiceContext } from "@/server/context";
 import {
   type ApiKeyRow,
@@ -123,7 +124,7 @@ export async function revokeApiKey(ctx: ServiceContext, actor: Actor, id: string
  * compared again in constant time; the key is never logged.
  */
 export async function authenticateApiKey(ctx: ServiceContext, key: string): Promise<ApiClient | null> {
-  const hash = hashApiKey(key);
+  const hash = hashToken(key);
   const row = await findLiveKeyByHash(ctx.db, hash);
   if (!row || !sameDigest(row.keyHash, hash)) return null;
   const now = ctx.now();

@@ -4,7 +4,7 @@ import { API_GUIDE_URL } from "@/domain/integrations";
 import { formatInstantDateTime } from "@/lib/format";
 import { listWebhookEndpoints } from "@/server/services/webhooks";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { primaryButton, textLink } from "@/app/admin/styles";
+import { primaryButton, textLink } from "@/app/styles";
 import { DeliveryStatusText } from "@/app/admin/webhooks/delivery-status";
 
 export const metadata: Metadata = { title: "Webhooks · Admin · OOOhm" };

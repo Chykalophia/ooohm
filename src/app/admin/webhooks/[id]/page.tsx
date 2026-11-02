@@ -8,7 +8,7 @@ import { getWebhookEndpoint } from "@/server/services/webhooks";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { AdminForm, InlineAction, Reveal } from "@/app/admin/forms";
 import { RevealForm } from "@/app/admin/reveal-once";
-import { card, outlineButton, primaryButton, textLink } from "@/app/admin/styles";
+import { card, outlineButton, primaryButton, textLink } from "@/app/styles";
 import {
   deleteEndpointAction,
   redeliverAction,

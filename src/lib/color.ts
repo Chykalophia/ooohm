@@ -2,15 +2,14 @@
  * Colour helpers for leave type colours, which admins choose freely. Pure; safe on the
  * client.
  */
+import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
-/** Used when a stored colour is not a `#rgb` / `#rrggbb` value. */
-export const FALLBACK_COLOR = "#6b7280";
 
-/** The colour as `#rrggbb`, or {@link FALLBACK_COLOR} when it is not a hex colour. */
+/** The colour as `#rrggbb`, or {@link DEFAULT_LEAVE_TYPE_COLOR} when it is not a hex colour. */
 export function normalizeHexColor(color: string): string {
   const m = HEX.exec(color.trim());
-  if (!m) return FALLBACK_COLOR;
+  if (!m) return DEFAULT_LEAVE_TYPE_COLOR;
   const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
   return `#${hex.toLowerCase()}`;
 }

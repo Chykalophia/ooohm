@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { diffAuditSnapshots } from "@/domain/audit";
 import { MAX_WEBHOOK_ENDPOINTS } from "@/domain/integrations";
-import { hashApiKey } from "@/lib/integration-crypto";
+import { hashToken } from "@/lib/token-hash";
 import { authenticateApiKey, createApiKey, listApiKeys, revokeApiKey } from "@/server/services/api-keys";
 import {
   createWebhookEndpoint,
@@ -183,7 +183,7 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     assert.equal(apiKey.prefix, key.slice(0, 14));
 
     const [row] = await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, apiKey.id));
-    assert.equal(row.keyHash, hashApiKey(key));
+    assert.equal(row.keyHash, hashToken(key));
     const listed = await listApiKeys(ctx, co.people.boss);
     assert.ok(!JSON.stringify(listed).includes(row.keyHash), "the list never carries the hash");
     assert.equal(listed.keys[0].createdByEmail, co.people.boss.email);

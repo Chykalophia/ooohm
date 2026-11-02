@@ -93,6 +93,9 @@ export const WEBHOOK_EVENT_GROUPS: readonly EventTypeGroup[] = [
       ADMIN_EVENT_TYPES.userDeactivated,
       ADMIN_EVENT_TYPES.userReactivated,
       ADMIN_EVENT_TYPES.userInviteResent,
+      ADMIN_EVENT_TYPES.userDeletionScheduled,
+      ADMIN_EVENT_TYPES.userDeletionCancelled,
+      ADMIN_EVENT_TYPES.userDeleted,
     ],
   },
   {

@@ -8,9 +8,18 @@ const companyFields = {
   timezone: companies.timezone,
   workingDays: companies.workingDays,
   allowancePolicy: companies.allowancePolicy,
+  deletionGrace: companies.deletionGrace,
 };
 
-export type CompanyRow = { id: string; name: string; timezone: string; workingDays: number[]; allowancePolicy: string };
+export type CompanyRow = {
+  id: string;
+  name: string;
+  timezone: string;
+  workingDays: number[];
+  allowancePolicy: string;
+  /** Full-scrub deletes wait 7 days, with undo. */
+  deletionGrace: boolean;
+};
 
 export async function findCompany(ex: Executor, companyId: string): Promise<CompanyRow | undefined> {
   const [row] = await ex.select(companyFields).from(companies).where(eq(companies.id, companyId));
@@ -34,7 +43,7 @@ export async function lockCompany(tx: Transaction, companyId: string): Promise<C
 export async function updateCompany(
   tx: Transaction,
   companyId: string,
-  set: { name: string; timezone: string; workingDays: number[]; allowancePolicy: string },
+  set: { name: string; timezone: string; workingDays: number[]; allowancePolicy: string; deletionGrace?: boolean },
 ): Promise<CompanyRow> {
   const [row] = await tx.update(companies).set(set).where(eq(companies.id, companyId)).returning(companyFields);
   return row;

@@ -8,11 +8,13 @@ import type { DayPortion, LeaveStatus } from "./leave-request";
  * Who or what made a change, as every event payload publishes it in `actor` (added
  * within version 1). `id` is the person: the one who acted, or who created the API key.
  * `via` and `process` are stable identifiers (`year_rollover`, `adapter_sync:<id>`).
+ * `requestedBy` (added within version 1) is the person who asked for a system run ahead
+ * of time: the admin behind a scheduled scrub.
  */
 export type EventActor =
   | { type: "user"; id: string; via?: ChangeProcess }
   | { type: "api_key"; id: string; apiKeyId: string; via?: ChangeProcess }
-  | { type: "system"; process: ChangeProcess };
+  | { type: "system"; process: ChangeProcess; requestedBy?: string };
 
 /** An {@link EventActor} with a person behind it. */
 export type PersonEventActor = Exclude<EventActor, { type: "system" }>;
@@ -40,7 +42,9 @@ export function eventActor(source: ChangeSource): EventActor {
   const via = source.kind !== "system" && source.via !== undefined ? { via: source.via } : {};
   if (source.kind === "user") return { type: "user", id: source.userId, ...via };
   if (source.kind === "api_key") return { type: "api_key", id: source.userId, apiKeyId: source.apiKeyId, ...via };
-  return { type: "system", process: source.process };
+  return source.requestedBy === undefined
+    ? { type: "system", process: source.process }
+    : { type: "system", process: source.process, requestedBy: source.requestedBy };
 }
 
 /** `actorId` (kept for compatibility: the person or `null`) and `actor` for a payload. */
@@ -210,6 +214,9 @@ export const ADMIN_EVENT_TYPES = {
   userDeactivated: "user.deactivated",
   userReactivated: "user.reactivated",
   userInviteResent: "user.invite_resent",
+  userDeletionScheduled: "user.deletion_scheduled",
+  userDeletionCancelled: "user.deletion_cancelled",
+  userDeleted: "user.deleted",
   departmentCreated: "department.created",
   departmentRenamed: "department.renamed",
   departmentDeleted: "department.deleted",
@@ -242,6 +249,41 @@ export interface UserEventPayload extends Attribution {
   managerId: string | null;
   canSelfApprove: boolean;
   isActive: boolean;
+}
+
+/**
+ * Audit `action` of an admin downloading a person's records (the CSV offered before a
+ * delete). A read, not a state change, so it writes an audit row and no event.
+ */
+export const RECORDS_EXPORTED_AUDIT_ACTION = "user.records_exported";
+
+/** How a person was deleted: nothing kept (`scrubbed`), or their history kept under a tombstone (`records_kept`). */
+export type DeletionMode = "scrubbed" | "records_kept";
+
+/**
+ * Version 1 payload of `user.deleted`. No name or email: the person is gone, and the
+ * outbox is delivered to other systems. Integrations should erase their own copy of the
+ * person on `mode: "scrubbed"`.
+ *
+ * The actor is the admin who deleted them, or, for a full scrub that waited out the
+ * company's grace period, the system (`actor.process` `scheduled_scrub`, with the admin
+ * who asked in `actor.requestedBy`).
+ */
+export interface UserDeletedPayload extends Attribution {
+  userId: string;
+  mode: DeletionMode;
+  /** When the delete ran, ISO 8601 in UTC. */
+  deletedAt: string;
+}
+
+/**
+ * Version 1 payload of `user.deletion_scheduled` and `user.deletion_cancelled`: a full
+ * scrub waiting out the company's grace period, and an admin's undo of it. No name or email.
+ */
+export interface UserDeletionScheduleEventPayload extends PersonAttribution {
+  userId: string;
+  /** When the scrub may run (ISO 8601, UTC); on `cancelled`, when it would have. */
+  scheduledFor: string;
 }
 
 /** Version 1 payload of every `department.*` event: the department after the change (before, when deleted). */
@@ -279,6 +321,8 @@ export interface CompanyEventPayload extends PersonAttribution {
   timezone: string;
   workingDays: number[];
   allowancePolicy: string;
+  /** Added within version 1: full-scrub deletes wait 7 days, with undo. */
+  deletionGrace: boolean;
 }
 
 /**

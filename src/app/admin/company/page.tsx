@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { ALLOWANCE_POLICY_LABELS, COMPANY_NAME_MAX_LENGTH, ISO_WEEKDAYS } from "@/domain/company-settings";
+import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
 import { getCompanySettings } from "@/server/services/admin-company";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { SelectField, TextField } from "@/app/admin/fields";
+import { CheckboxField, SelectField, TextField } from "@/app/admin/fields";
 import { AdminForm } from "@/app/admin/forms";
 import { card } from "@/app/admin/styles";
 import { updateCompanyAction } from "@/app/admin/company/actions";
@@ -59,6 +60,12 @@ export default async function CompanyPage() {
             name="allowancePolicy"
             defaultValue={company.allowancePolicy}
             options={allowancePolicies.map((p) => ({ value: p, label: ALLOWANCE_POLICY_LABELS[p] ?? p }))}
+          />
+          <CheckboxField
+            label={`Wait ${DELETION_GRACE_DAYS} days before a full scrub, with undo`}
+            name="deletionGrace"
+            defaultChecked={company.deletionGrace}
+            hint="When you delete someone and remove everything about them, they're scheduled instead, and you can undo it until the day it runs. Deletes that keep records never wait."
           />
         </AdminForm>
       </section>

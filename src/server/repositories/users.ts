@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { departments, session, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
@@ -22,12 +22,15 @@ const approvalFields = {
  * but not with the `FOR KEY SHARE` lock Postgres takes when another transaction
  * inserts a row referencing this user (e.g. a request routed to them as approver).
  * `FOR UPDATE` would deadlock two people who approve each other submitting at once.
+ *
+ * A deleted person (a tombstone) is not a member: nothing may be written for them, so
+ * they read as missing.
  */
 export async function lockMember(tx: Transaction, companyId: string, userId: string) {
   const [row] = await tx
     .select(approvalFields)
     .from(user)
-    .where(and(eq(user.id, userId), eq(user.companyId, companyId)))
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId), isNull(user.deletedAt)))
     .for("no key update");
   return row;
 }
@@ -87,7 +90,11 @@ const personFields = {
   canSelfApprove: user.canSelfApprove,
   isActive: user.isActive,
   createdAt: user.createdAt,
+  scrubScheduledAt: user.scrubScheduledAt,
 };
+
+/** Not a tombstone: deleted people stay as rows (for their foreign keys) but are no longer people. */
+const notDeleted = isNull(user.deletedAt);
 
 export type PersonRow = {
   id: string;
@@ -99,6 +106,8 @@ export type PersonRow = {
   canSelfApprove: boolean;
   isActive: boolean;
   createdAt: Date;
+  /** When a full scrub waiting out the company's grace period may run; `null` when none is scheduled. */
+  scrubScheduledAt: Date | null;
 };
 
 const manager = alias(user, "manager");
@@ -117,7 +126,7 @@ function likePattern(query: string): string {
 
 /**
  * The company's people for the admin list, by name, with department and manager names
- * resolved in the same query.
+ * resolved in the same query. Never tombstones.
  */
 export async function listPeople(ex: Executor, companyId: string, filter: PeopleFilter, limit: number) {
   const query = filter.query?.trim();
@@ -129,6 +138,7 @@ export async function listPeople(ex: Executor, companyId: string, filter: People
     .where(
       and(
         eq(user.companyId, companyId),
+        notDeleted,
         filter.status === "all" ? undefined : eq(user.isActive, filter.status === "active"),
         filter.departmentId ? eq(user.departmentId, filter.departmentId) : undefined,
         query ? or(ilike(user.name, likePattern(query)), ilike(user.email, likePattern(query))) : undefined,
@@ -138,12 +148,12 @@ export async function listPeople(ex: Executor, companyId: string, filter: People
     .limit(limit);
 }
 
-/** One person of the company with every admin field, or `undefined`. */
+/** One person of the company with every admin field, or `undefined` (also for a tombstone). */
 export async function findPerson(ex: Executor, companyId: string, userId: string): Promise<PersonRow | undefined> {
   const [row] = await ex
     .select(personFields)
     .from(user)
-    .where(and(eq(user.id, userId), eq(user.companyId, companyId)));
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId), notDeleted));
   return row;
 }
 
@@ -152,7 +162,7 @@ export async function lockPerson(tx: Transaction, companyId: string, userId: str
   const [row] = await tx
     .select(personFields)
     .from(user)
-    .where(and(eq(user.id, userId), eq(user.companyId, companyId)))
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId), notDeleted))
     .for("no key update");
   return row;
 }
@@ -165,12 +175,23 @@ export async function listReportingLines(ex: Executor, companyId: string) {
     .where(eq(user.companyId, companyId));
 }
 
-/** Names of every member, active or not, by name: for pickers and for naming people in the audit log. */
-export async function listPeopleNames(ex: Executor, companyId: string) {
+/**
+ * Names of every member, active or not, by name: for pickers and for naming people in the
+ * audit log. Tombstones (deleted people) are left out unless `includeDeleted`: a picker
+ * never offers them, but history still names them ("Former employee #3f9a2c").
+ */
+export async function listPeopleNames(ex: Executor, companyId: string, options: { includeDeleted?: boolean } = {}) {
   return ex
-    .select({ id: user.id, name: user.name, email: user.email, isActive: user.isActive, role: user.role })
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      isActive: user.isActive,
+      role: user.role,
+      deleted: sql<boolean>`${user.deletedAt} is not null`,
+    })
     .from(user)
-    .where(eq(user.companyId, companyId))
+    .where(and(eq(user.companyId, companyId), options.includeDeleted ? undefined : notDeleted))
     .orderBy(asc(sql`lower(${user.name})`), asc(user.email));
 }
 

@@ -6,10 +6,11 @@
 #
 # Settings (environment):
 #   BACKUP_DIR        where backups go             (default /var/backups/ooohm)
-#   RETENTION_DAYS    the most days a backup is kept (default 30): after each run no
-#                     local backup is older than this. Exported, so OFFSITE_HOOK can
-#                     prune its copies to the same limit. It is what bounds how long a
-#                     deleted person's data survives in backups.
+#   RETENTION_DAYS    the most days a backup is kept (default 30, at most 30): after
+#                     each run no local backup is older than this. Exported, so
+#                     OFFSITE_HOOK can prune its copies to the same limit. It is what
+#                     bounds how long a deleted person's data survives in backups, which
+#                     the delete dialog promises is 30 days at most.
 #   OOOHM_DIR         the repository checkout      (default: this script's parent)
 #   ENV_FILE          compose env file             (default $OOOHM_DIR/.env.production)
 #   PG_DUMP           the dump command; it must write a custom-format dump to stdout
@@ -30,8 +31,12 @@ ENV_FILE=${ENV_FILE:-$OOOHM_DIR/.env.production}
 PG_DUMP=${PG_DUMP:-docker compose --env-file "$ENV_FILE" -f "$OOOHM_DIR/deploy/docker-compose.prod.yml" exec -T db pg_dump -U ooohm -d ooohm}
 
 case $RETENTION_DAYS in
-  '' | *[!0-9]* | 0) echo "RETENTION_DAYS must be a whole number of days, at least 1." >&2; exit 2 ;;
+  '' | *[!0-9]* | 0) echo "RETENTION_DAYS must be a whole number of days, from 1 to 30." >&2; exit 2 ;;
 esac
+if [ "$((10#$RETENTION_DAYS))" -gt 30 ]; then
+  echo "RETENTION_DAYS must be a whole number of days, from 1 to 30: deleted people's data must not outlive 30 days in backups." >&2
+  exit 2
+fi
 export RETENTION_DAYS
 
 # Dumps hold every person's data: readable by the owner only.

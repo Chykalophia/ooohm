@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, gte, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { departments, leaveRequests, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 import type { Role } from "@/domain/actor";
@@ -24,7 +24,10 @@ export type ApiUserRow = {
   departmentName: string | null;
 };
 
-/** A page of the company's people by id, after `afterId`. Served by `user_company_id_idx`. */
+/**
+ * A page of the company's people by id, after `afterId`. Served by `user_company_id_idx`.
+ * Deleted people are not listed: integrations learn of them from `user.deleted`.
+ */
 export async function listUsersPage(ex: Executor, input: { companyId: string; afterId?: string; limit: number }): Promise<ApiUserRow[]> {
   return ex
     .select({
@@ -40,7 +43,7 @@ export async function listUsersPage(ex: Executor, input: { companyId: string; af
     })
     .from(user)
     .leftJoin(departments, eq(departments.id, user.departmentId))
-    .where(and(eq(user.companyId, input.companyId), input.afterId ? gt(user.id, input.afterId) : undefined))
+    .where(and(eq(user.companyId, input.companyId), isNull(user.deletedAt), input.afterId ? gt(user.id, input.afterId) : undefined))
     .orderBy(asc(user.id))
     .limit(input.limit + 1);
 }
@@ -111,11 +114,21 @@ export async function listLeaveRequestsPage(ex: Executor, q: LeaveRequestPageQue
     .limit(q.limit + 1);
 }
 
-/** The company's people for a balance listing: everyone active, or one person (active or not). */
+/**
+ * The company's people for a balance listing: everyone active, or one person (active or
+ * not, or deleted with their records kept). Never a scrubbed person, who has no balance
+ * to report.
+ */
 export async function listBalanceSubjects(ex: Executor, companyId: string, userId?: string) {
   return ex
     .select({ id: user.id })
     .from(user)
-    .where(and(eq(user.companyId, companyId), userId ? eq(user.id, userId) : eq(user.isActive, true)))
+    .where(
+      and(
+        eq(user.companyId, companyId),
+        or(isNull(user.deletedAt), ne(user.deletionMode, "scrubbed")),
+        userId ? eq(user.id, userId) : eq(user.isActive, true),
+      ),
+    )
     .orderBy(asc(user.id));
 }

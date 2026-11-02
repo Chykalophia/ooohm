@@ -14,6 +14,7 @@ OOOhm is a calm, modern leave tracker for small teams. Employees can request tim
 - A who's-out calendar plus personal and team ICS feeds for Google Calendar
 - Per-company working days and public holidays
 - Admin screens, an audit log, and an import tool for TimeOff.Management
+- Deactivating people, and deleting them for good (a full scrub, or keeping their records), with a CSV export first
 - An integration layer (events, REST API, signed webhooks) that other apps can build on
 
 ## Stack
@@ -60,7 +61,21 @@ header, and set the rest up there. Nothing needs the database.
 
 Every change is in the **Audit log**, with who made it and when. To retire someone, **Deactivate** them on
 their page: they are signed out, their calendar links stop working, their requests stay, and requests waiting
-for their approval move to another approver. There is always at least one active admin.
+for their approval move to another approver. There is always at least one active admin. The People list hides
+deactivated people until you tick **Show inactive**.
+
+To remove someone for good, deactivate them first, then use **Delete…** on their page. You choose how:
+
+- **Remove everything** (the default): nothing about them stays. Their leave, balances and the audit entries about
+  them are deleted, and their name and email are taken out of every stored event and webhook. Approvals they made on
+  other people's leave stay, under "Former employee #…".
+- **Remove their account, keep their records**: their sign-in and email go; their history stays under "<Name>
+  (deleted)", and the same email can be invited again as a new account.
+
+The dialog shows exactly what will be removed, offers a CSV of their records first, and asks you to type their name.
+Both are permanent. Under **Company** you can make a full removal wait 7 days, with undo. What can't be erased
+(webhooks already sent, backups until they expire, a downloaded CSV) is listed in
+[architecture.md](docs/architecture.md#people-lifecycle-and-privacy-m8).
 
 ### Year rollover
 

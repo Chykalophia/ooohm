@@ -51,6 +51,11 @@ export const companies = pgTable("companies", {
   workingDays: integer("working_days").array().notNull().default([1, 2, 3, 4, 5]),
   /** Allowance policy key. v1 ships "annual_calendar_year" only. */
   allowancePolicy: text("allowance_policy").notNull().default("annual_calendar_year"),
+  /**
+   * When on, a full-scrub delete waits `DELETION_GRACE_DAYS` (7) days, with undo, before
+   * it runs; off by default. Deletes that keep records never wait.
+   */
+  deletionGrace: boolean("deletion_grace").notNull().default(false),
   ...timestamps,
 });
 
@@ -88,14 +93,40 @@ export const user = pgTable(
     /** When true, this user's own requests are approved automatically. */
     canSelfApprove: boolean("can_self_approve").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
+    /**
+     * Set when an admin deleted the person. The row stays as a tombstone, so every
+     * foreign key to it holds; its name and email are replaced (see `@/domain/person-deletion`).
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /** How they were deleted: `scrubbed` (nothing about them kept) or `records_kept` (history kept under the tombstone). */
+    deletionMode: text("deletion_mode"),
+    /** A full scrub waiting out the company's grace period: when the daily job may run it. */
+    scrubScheduledAt: timestamp("scrub_scheduled_at", { withTimezone: true }),
+    /** The admin who asked for the scheduled scrub; the job's change is attributed to the system on their behalf. */
+    scrubRequestedBy: text("scrub_requested_by").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
     ...timestamps,
   },
   (t) => [
     // (company_id, id): company scoping everywhere, and keyset pages of the REST API's /users.
     index("user_company_id_idx").on(t.companyId, t.id),
     index("user_manager_idx").on(t.managerId),
+    // The daily job's lookup of due scrubs. Partial: almost nobody is ever scheduled.
+    index("user_scrub_scheduled_idx").on(t.scrubScheduledAt).where(sql`${t.scrubScheduledAt} is not null`),
     // Better Auth looks emails up lowercased, so a mixed-case row could never sign in.
     check("user_email_lowercase", sql`${t.email} = lower(${t.email})`),
+    // A tombstone names its mode and can never be active; a live person has neither.
+    check(
+      "user_deletion_shape",
+      sql`(${t.deletedAt} is null and ${t.deletionMode} is null)
+        or (${t.deletedAt} is not null and ${t.deletionMode} in ('scrubbed', 'records_kept') and not ${t.isActive})`,
+    ),
+    // Only a deactivated, not yet deleted person can wait for a scrub. The requester may
+    // be null while scheduled only if their own row was ever removed (the foreign key).
+    check(
+      "user_scrub_schedule_shape",
+      sql`(${t.scrubScheduledAt} is null and ${t.scrubRequestedBy} is null)
+        or (${t.scrubScheduledAt} is not null and ${t.deletedAt} is null and not ${t.isActive})`,
+    ),
   ],
 );
 
@@ -360,6 +391,11 @@ export const auditLog = pgTable(
     actorVia: text("actor_via"),
     /** `system` rows: the process (`year_rollover`, `adapter_sync:<id>`; `unknown` for some rows written before attribution existed). */
     actorProcess: text("actor_process"),
+    /**
+     * `system` rows a person asked for ahead of time (a scheduled scrub): the person who
+     * asked. Not the actor: the process made the change, on their behalf.
+     */
+    actorRequestedBy: text("actor_requested_by").references(() => user.id, { onDelete: "set null" }),
     /** e.g. "leave_request.approved", "allowance.adjusted". */
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
@@ -389,8 +425,8 @@ export const auditLog = pgTable(
     check(
       "audit_log_actor_shape",
       sql`(${t.actorKind} = 'system' and ${t.actorProcess} is not null and ${t.actorId} is null and ${t.apiKeyId} is null and ${t.actorVia} is null)
-        or (${t.actorKind} = 'user' and ${t.actorProcess} is null and ${t.apiKeyId} is null)
-        or (${t.actorKind} = 'api_key' and ${t.actorProcess} is null)`,
+        or (${t.actorKind} = 'user' and ${t.actorProcess} is null and ${t.apiKeyId} is null and ${t.actorRequestedBy} is null)
+        or (${t.actorKind} = 'api_key' and ${t.actorProcess} is null and ${t.actorRequestedBy} is null)`,
     ),
   ],
 );

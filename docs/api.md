@@ -71,10 +71,10 @@ neither skipped nor repeated. `/events` pages with `after` instead (below).
 
 | Endpoint | Parameters | Returns |
 | --- | --- | --- |
-| `GET /api/v1/users` | `cursor`, `limit` | People, active and not, by id: `id, name, email, department {id, name} \| null, managerId, role, isActive, createdAt` |
+| `GET /api/v1/users` | `cursor`, `limit` | People, active and not, by id: `id, name, email, department {id, name} \| null, managerId, role, isActive, createdAt`. Deleted people are not listed (see `user.deleted`); leave requests they kept still name their id |
 | `GET /api/v1/leave-types` | | Every leave type, archived ones flagged: `id, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived` |
 | `GET /api/v1/leave-requests` | `from`, `to`, `userId`, `status`, `cursor`, `limit` | Requests overlapping `[from, to]` (either optional), by start date then id: `id, userId, leaveTypeId, startDate, endDate, dayPortion, days, status, approverId, decidedAt, createdAt, updatedAt` |
-| `GET /api/v1/balances` | `year`, `userId` | `{ year, data }`: one balance per person and leave type (below) |
+| `GET /api/v1/balances` | `year`, `userId` | `{ year, data }`: one balance per person and leave type (below). A person deleted with their records kept still has theirs (`userId` of that tombstone); a scrubbed person has none (no rows) |
 | `GET /api/v1/holidays` | `year` | `{ year, data }`: `id, date, name`, by date |
 | `GET /api/v1/events` | `after`, `limit` | `{ data, hasMore }`: event envelopes (below) |
 | `GET /api/v1/openapi.json` | | The OpenAPI 3.1 document (no key needed) |
@@ -131,12 +131,15 @@ Ids are strings. Every payload says who or what made the change in two fields:
   { "type": "user", "id": "<user id>", "via": "adapter_sync:gusto" }
   { "type": "api_key", "id": "<user id>", "apiKeyId": "<key id>", "via": "timeoff_import" }
   { "type": "system", "process": "year_rollover" }
+  { "type": "system", "process": "scheduled_scrub", "requestedBy": "<user id>" }
   ```
 
   `user` is a person; `via` is present only when they acted through something they started (an integration's
   sync when they pressed **Sync now**, or a one-time import they ran, `timeoff_import`). `api_key` is a change made with an API key: `id` is the person who created
-  the key (the v1 API is read-only, so none are sent yet). `system` is a process with no person behind it.
-  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, and
+  the key (the v1 API is read-only, so none are sent yet). `system` is a process with no person behind it;
+  `requestedBy` (added within version 1) is present when a person asked for that run ahead of time (an admin who
+  scheduled a deletion), and is not the actor.
+  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`, and
   `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`). Expect more; treat an unknown one as
   opaque.
 - **`actorId`** is kept for compatibility: the person, when there is one (`actor.id`), or `null` for a `system`
@@ -178,6 +181,33 @@ row after the change).
 Payload: `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId, actor` (the person
 after the change). It never holds a session, token or sign-in link.
 
+**Deleting people** (added in M8)
+
+| Type | When | Payload |
+| --- | --- | --- |
+| `user.deletion_scheduled` | An admin asked for a full scrub and the company waits 7 days first (its grace option) | `userId, scheduledFor, actorId, actor` |
+| `user.deletion_cancelled` | An admin undid a scheduled scrub, or reactivated the person | `userId, scheduledFor, actorId, actor` |
+| `user.deleted` | A person was deleted | `userId, mode ("scrubbed" \| "records_kept"), deletedAt, actorId, actor` |
+
+None of these carries a name or email. **The contract for `user.deleted`:**
+
+- **`mode: "scrubbed"`**: OOOhm removed everything about the person: their leave, balances, the audit entries about
+  them, and their name and email from every stored event. **Erase your own copy of the person** (and anything you
+  derived from OOOhm about them). Events you receive later, and redeliveries, may still name `userId`, which now
+  belongs to a tombstone ("Former employee #…", email `deleted+<id>@invalid`); treat it as no one.
+- **`mode: "records_kept"`**: their account and email are gone; their history stays in OOOhm under "<Name>
+  (deleted)". Any request of theirs still pending is withdrawn as part of the delete (status `cancelled`, with no
+  `leave.cancelled` event of its own): treat their pending leave as cancelled. Remove the address and any sign-in or
+  contact data you keep for them; keep history if you need it. The same address may come back later in a
+  `user.created` for a **new** `userId`: it is a different person record, with no link to the old one.
+- Undelivered events about them are redacted before they are sent, so a retry after the delete no longer carries
+  their name (scrubbed) or email (either mode). Events you already received are yours to erase, and so is an event
+  whose delivery was already in flight when the delete committed: it may reach you twice under the same event `id`,
+  first as it was, then redacted.
+- `actor` is the admin, or, for a scrub that waited out the grace period, `{ "type": "system", "process":
+  "scheduled_scrub", "requestedBy": "<admin id>" }` with `actorId: null`.
+- After a delete, `GET /api/v1/users` no longer lists them.
+
 **Company setup**
 
 | Type | Payload |
@@ -185,7 +215,7 @@ after the change). It never holds a session, token or sign-in link.
 | `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
-| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, actorId, actor` |
+| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace (added within version 1), actorId, actor` |
 
 **Calendar links**
 

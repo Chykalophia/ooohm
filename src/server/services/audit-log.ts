@@ -69,6 +69,56 @@ export interface AuditLogEntry {
   changes: string[];
 }
 
+type AuditRow = Awaited<ReturnType<typeof listAuditPage>>[number];
+type AuditNames = Parameters<typeof describeAuditChange>[2];
+
+/**
+ * What naming audit rows takes, loaded once per read in parallel: the company (its time
+ * zone), its people (deleted ones included, so history still names them), departments
+ * and leave types (for ids inside before/after snapshots).
+ *
+ * @throws DomainError `no_company`.
+ */
+async function loadAuditNaming(ctx: ServiceContext, companyId: string) {
+  const [company, people, departments, leaveTypes] = await Promise.all([
+    findCompany(ctx.db, companyId),
+    listPeopleNames(ctx.db, companyId, { includeDeleted: true }),
+    listDepartments(ctx.db, companyId),
+    listAllLeaveTypes(ctx.db, companyId),
+  ]);
+  if (!company) throw new DomainError("no_company");
+  const peopleById = new Map(people.map((p) => [p.id, personLabel(p)]));
+  const departmentsById = new Map(departments.map((d) => [d.id, d.name]));
+  const typesById = new Map(leaveTypes.map((t) => [t.id, t.name]));
+  const names: AuditNames = {
+    person: (id: string) => peopleById.get(id),
+    department: (id: string) => departmentsById.get(id),
+    leaveType: (id: string) => typesById.get(id),
+  };
+  return { company, people, names };
+}
+
+function toAuditEntry(ctx: ServiceContext, r: AuditRow, names: AuditNames): AuditLogEntry {
+  return {
+    id: r.id,
+    at: r.createdAt,
+    action: r.action,
+    label: auditActionLabel(r.action),
+    actorLabel: changeSourceLabel(recordedChangeSource(r), {
+      person: (id) => {
+        if (id === r.actorId && r.actorName !== null) return personLabel({ name: r.actorName, email: r.actorEmail ?? "" });
+        if (id === r.actorRequestedBy && r.requesterName !== null) return personLabel({ name: r.requesterName, email: r.requesterEmail ?? "" });
+        return undefined;
+      },
+      apiKey: () => (r.apiKeyName === null ? undefined : { name: r.apiKeyName, prefix: r.apiKeyPrefix ?? "" }),
+      adapter: (id) => ctx.adapters.get(id)?.displayName,
+    }),
+    actorKind: r.actorKind === "user" || r.actorKind === "api_key" ? r.actorKind : "system",
+    subjectName: r.subjectUserId ? personLabel({ name: r.subjectName ?? "", email: r.subjectEmail ?? "" }) || null : null,
+    changes: describeAuditChange(r.before, r.after, names),
+  };
+}
+
 /**
  * One page of the company's audit log, newest first, with the names the filters and
  * summaries need.
@@ -85,13 +135,7 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
   const action = filter.action && isAuditAction(filter.action) ? filter.action : undefined;
   const from = filter.from && isCalendarDate(filter.from) ? filter.from : undefined;
   const to = filter.to && isCalendarDate(filter.to) ? filter.to : undefined;
-  const [company, people, departments, leaveTypes] = await Promise.all([
-    findCompany(ctx.db, actor.companyId),
-    listPeopleNames(ctx.db, actor.companyId),
-    listDepartments(ctx.db, actor.companyId),
-    listAllLeaveTypes(ctx.db, actor.companyId),
-  ]);
-  if (!company) throw new DomainError("no_company");
+  const { company, people, names } = await loadAuditNaming(ctx, actor.companyId);
 
   const rows = await listAuditPage(
     ctx.db,
@@ -108,35 +152,11 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
     AUDIT_PAGE_SIZE + 1,
   );
 
-  const peopleById = new Map(people.map((p) => [p.id, personLabel(p)]));
-  const departmentsById = new Map(departments.map((d) => [d.id, d.name]));
-  const typesById = new Map(leaveTypes.map((t) => [t.id, t.name]));
-  const names = {
-    person: (id: string) => peopleById.get(id),
-    department: (id: string) => departmentsById.get(id),
-    leaveType: (id: string) => typesById.get(id),
-  };
-
   const page = rows.slice(0, AUDIT_PAGE_SIZE);
   const last = page.at(-1);
   return {
     timezone: company.timezone,
-    entries: page.map(
-      (r): AuditLogEntry => ({
-        id: r.id,
-        at: r.createdAt,
-        action: r.action,
-        label: auditActionLabel(r.action),
-        actorLabel: changeSourceLabel(recordedChangeSource(r), {
-          person: () => (r.actorName === null ? undefined : personLabel({ name: r.actorName, email: r.actorEmail ?? "" })),
-          apiKey: () => (r.apiKeyName === null ? undefined : { name: r.apiKeyName, prefix: r.apiKeyPrefix ?? "" }),
-          adapter: (id) => ctx.adapters.get(id)?.displayName,
-        }),
-        actorKind: r.actorKind === "user" || r.actorKind === "api_key" ? r.actorKind : "system",
-        subjectName: r.subjectUserId ? personLabel({ name: r.subjectName ?? "", email: r.subjectEmail ?? "" }) || null : null,
-        changes: describeAuditChange(r.before, r.after, names),
-      }),
-    ),
+    entries: page.map((r) => toAuditEntry(ctx, r, names)),
     nextCursor: rows.length > AUDIT_PAGE_SIZE && last ? encodeCursor({ createdAt: last.cursor, id: last.id }) : null,
     filters: {
       action,
@@ -145,7 +165,34 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
       from,
       to,
     },
-    people: people.map((p) => ({ id: p.id, label: personLabel(p) })),
+    // Pickers never offer deleted people; their rows still name them (above).
+    people: people.filter((p) => !p.deleted).map((p) => ({ id: p.id, label: personLabel(p) })),
     actions: Object.entries(AUDIT_ACTION_LABELS).map(([value, label]) => ({ value, label })),
   };
+}
+
+/** Rows read per query by {@link listAuditEntriesAbout}. */
+const ABOUT_BATCH = 1_000;
+
+/**
+ * Every audit entry about one person (`subject_user_id`), newest first, at most `max`:
+ * for their records export. The names load once, then the rows come a thousand at a
+ * time, so a long history costs a handful of queries.
+ *
+ * @throws DomainError `forbidden` for a non-admin, `no_company`.
+ */
+export async function listAuditEntriesAbout(ctx: ServiceContext, actor: Actor, subjectUserId: string, max: number): Promise<AuditLogEntry[]> {
+  assertCanAdminister(actor);
+  const { company, names } = await loadAuditNaming(ctx, actor.companyId);
+  const entries: AuditLogEntry[] = [];
+  let after: AuditCursor | undefined;
+  while (entries.length < max) {
+    const limit = Math.min(ABOUT_BATCH, max - entries.length);
+    const rows = await listAuditPage(ctx.db, { companyId: actor.companyId, subjectUserId, timezone: company.timezone, after }, limit);
+    entries.push(...rows.map((r) => toAuditEntry(ctx, r, names)));
+    const last = rows.at(-1);
+    if (rows.length < limit || !last) break;
+    after = { createdAt: last.cursor, id: last.id };
+  }
+  return entries;
 }

@@ -1,7 +1,7 @@
 /**
- * Admin use cases for the company's own settings: name, time zone, working days and
- * allowance policy. v1 runs one company per deployment; the company is always the
- * actor's.
+ * Admin use cases for the company's own settings: name, time zone, working days, the
+ * allowance policy and the deletion grace option. v1 runs one company per deployment;
+ * the company is always the actor's.
  */
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
@@ -15,7 +15,13 @@ import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { inTransaction } from "./notify";
 
 function snapshot(row: CompanyRow) {
-  return { name: row.name, timezone: row.timezone, workingDays: row.workingDays, allowancePolicy: row.allowancePolicy };
+  return {
+    name: row.name,
+    timezone: row.timezone,
+    workingDays: row.workingDays,
+    allowancePolicy: row.allowancePolicy,
+    deletionGrace: row.deletionGrace,
+  };
 }
 
 /**
@@ -48,7 +54,7 @@ export async function updateCompanySettings(ctx: ServiceContext, actor: Actor, i
     const before = await lockCompany(tx, actor.companyId);
     if (!before) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);
-    const settings = normalizeCompanySettings(input, before.timezone);
+    const settings = { deletionGrace: before.deletionGrace, ...normalizeCompanySettings(input, before.timezone) };
     if (JSON.stringify(snapshot({ ...before, ...settings })) === JSON.stringify(snapshot(before))) return before;
     const after = await updateCompany(tx, actor.companyId, settings);
     const payload: Unattributed<CompanyEventPayload> = { companyId: after.id, ...snapshot(after) };

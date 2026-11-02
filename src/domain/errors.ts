@@ -1,3 +1,5 @@
+import type { DeletionBlockers } from "./person-deletion";
+
 /**
  * Stable error codes raised by the domain and service layers.
  *
@@ -74,7 +76,14 @@ export type DomainErrorCode =
    * before, the target company already has data, the source is ambiguous or unusable.
    * The message says why and which option changes it; only the import CLI raises it.
    */
-  | "import_refused";
+  | "import_refused"
+  /**
+   * A person cannot be deleted yet: they are still active, manage people, have pending
+   * requests to decide, or are the last admin. Carries `blockers` ({@link DeletionBlockers}).
+   */
+  | "deletion_blocked"
+  /** The name typed to confirm a delete is not the person's full name. */
+  | "confirmation_mismatch";
 
 /**
  * Facts behind an `insufficient_balance` error, so the presentation layer can say
@@ -92,7 +101,7 @@ export interface BalanceShortfallDetails {
 }
 
 /** Structured facts attached to some codes; see each code's documentation. */
-export type DomainErrorDetails = BalanceShortfallDetails;
+export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers;
 
 /**
  * An expected, user-correctable failure. Anything that is not a `DomainError` is a
@@ -100,7 +109,10 @@ export type DomainErrorDetails = BalanceShortfallDetails;
  */
 export class DomainError extends Error {
   readonly code: DomainErrorCode;
-  /** Structured facts for wording the user message; present for `insufficient_balance`. */
+  /**
+   * Structured facts for wording the user message: the shortfall for
+   * `insufficient_balance`, what blocks the delete for `deletion_blocked`.
+   */
   readonly details?: DomainErrorDetails;
 
   constructor(code: DomainErrorCode, message?: string, details?: DomainErrorDetails) {

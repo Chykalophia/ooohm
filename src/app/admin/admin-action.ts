@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { Actor } from "@/domain/actor";
 import { canAdminister } from "@/domain/admin-permissions";
@@ -44,6 +45,31 @@ export async function adminAction<S extends z.ZodType>(
   );
   if (state.status === "success") refresh();
   return state;
+}
+
+/**
+ * {@link adminAction} for an action whose success leaves the page behind (deleting a
+ * person removes the page it was started from): `work` returns where to go, and the
+ * browser is sent there. A refusal stays on the page as a calm message.
+ */
+export async function adminActionThenGo<S extends z.ZodType>(
+  event: string,
+  formData: FormData,
+  schema: S,
+  work: (ctx: ServiceContext, actor: Actor, input: z.infer<S>) => Promise<string>,
+  messages: Partial<Record<DomainErrorCode, string>> = {},
+): Promise<FormState> {
+  const { actor } = await requireActor();
+  if (!actor) return { status: "error", message: messageFor("no_company") };
+  if (!canAdminister(actor)) return { status: "error", message: "Only admins can do that." };
+
+  const parsed = schema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { status: "error", message: messageFor("invalid_input") };
+
+  const outcome = await runActionWith(event, async () => ({ status: "go" as const, path: await work(serviceContext(), actor, parsed.data) }), messages);
+  // Outside the try in runActionWith: redirect() throws to do its work.
+  if (outcome.status === "go") redirect(outcome.path);
+  return outcome;
 }
 
 /**

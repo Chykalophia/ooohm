@@ -33,6 +33,8 @@ const MESSAGES: Record<DomainErrorCode, string> = {
   blocked_address: "That address points inside a private network. Use a public address.",
   limit_reached: "You've reached the limit. Remove one you no longer use first.",
   import_refused: "That import can't run. The import tool says why.",
+  deletion_blocked: "This person can't be deleted yet. Deactivate them, and give the people they manage another manager, first.",
+  confirmation_mismatch: "Type their full name exactly as shown to confirm.",
 };
 
 /**
@@ -53,7 +55,7 @@ export function messageFor(code: DomainErrorCode): string {
  */
 export function messageForError(err: DomainError, event: string): string {
   if (MISCONFIGURATION.has(err.code)) log.error({ err }, `${event}_misconfigured`);
-  if (err.code === "insufficient_balance" && err.details) return formatShortfall(err.details);
+  if (err.code === "insufficient_balance" && err.details && "year" in err.details) return formatShortfall(err.details);
   return messageFor(err.code);
 }
 

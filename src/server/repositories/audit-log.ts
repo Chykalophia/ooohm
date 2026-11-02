@@ -27,11 +27,12 @@ export interface AuditQuery {
 
 const actor = alias(user, "actor");
 const subject = alias(user, "subject");
+const requester = alias(user, "requester");
 
 /**
  * One page of the company's audit log, newest first, keyset-paginated on
- * `(created_at, id)`. One query whatever the page size: the actor's and subject's names,
- * and the API key's name and prefix, come from joins. With at most one of action, actor or person set, the scan runs on the
+ * `(created_at, id)`. One query whatever the page size: the actor's, subject's and (for a
+ * scheduled run) requester's names, and the API key's name and prefix, come from joins. With at most one of action, actor or person set, the scan runs on the
  * matching `audit_log_company_*_idx` index in order, so it reads about `limit` rows.
  *
  * Each row carries its own cursor, `created_at` printed in UTC to the microsecond: a JS
@@ -58,6 +59,9 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
       apiKeyPrefix: apiKeys.prefix,
       actorVia: auditLog.actorVia,
       actorProcess: auditLog.actorProcess,
+      actorRequestedBy: auditLog.actorRequestedBy,
+      requesterName: requester.name,
+      requesterEmail: requester.email,
       subjectUserId: auditLog.subjectUserId,
       subjectName: subject.name,
       subjectEmail: subject.email,
@@ -66,6 +70,7 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
     .leftJoin(actor, eq(actor.id, auditLog.actorId))
     .leftJoin(apiKeys, eq(apiKeys.id, auditLog.apiKeyId))
     .leftJoin(subject, eq(subject.id, auditLog.subjectUserId))
+    .leftJoin(requester, eq(requester.id, auditLog.actorRequestedBy))
     .where(
       and(
         eq(auditLog.companyId, q.companyId),

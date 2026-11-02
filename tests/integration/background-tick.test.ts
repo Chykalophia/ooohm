@@ -144,7 +144,7 @@ describe("background tick: one bounded pass, inline after a change, safe to run 
     const { fetch } = receiver();
     clock.now = new Date(T0.getTime() + 25 * 3_600_000);
     const [a, b] = await Promise.all([runTick(ctx, { fetch, steps: ["jobs"] }), runTick(ctx, { fetch, steps: ["jobs"] })]);
-    assert.equal(a.jobs + b.jobs, 2, "both daily jobs ran, each by one tick");
+    assert.equal(a.jobs + b.jobs, 3, "every daily job ran, each by one tick");
     assert.equal((await runTick(ctx, { fetch })).jobs, 0, "not again the same day");
   });
 });

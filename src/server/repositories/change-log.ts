@@ -29,11 +29,25 @@ export interface OutboxEvent {
 export function sourceColumns(source: ChangeSource) {
   switch (source.kind) {
     case "user":
-      return { actorKind: source.kind, actorId: source.userId, apiKeyId: null, actorVia: source.via ?? null, actorProcess: null };
+      return { actorKind: source.kind, actorId: source.userId, apiKeyId: null, actorVia: source.via ?? null, actorProcess: null, actorRequestedBy: null };
     case "api_key":
-      return { actorKind: source.kind, actorId: source.userId, apiKeyId: source.apiKeyId, actorVia: source.via ?? null, actorProcess: null };
+      return {
+        actorKind: source.kind,
+        actorId: source.userId,
+        apiKeyId: source.apiKeyId,
+        actorVia: source.via ?? null,
+        actorProcess: null,
+        actorRequestedBy: null,
+      };
     case "system":
-      return { actorKind: source.kind, actorId: null, apiKeyId: null, actorVia: null, actorProcess: source.process };
+      return {
+        actorKind: source.kind,
+        actorId: null,
+        apiKeyId: null,
+        actorVia: null,
+        actorProcess: source.process,
+        actorRequestedBy: source.requestedBy ?? null,
+      };
   }
 }
 
@@ -50,6 +64,15 @@ export async function recordChange(tx: Transaction, change: { source: ChangeSour
   await tx.insert(auditLog).values({ ...change.audit, ...sourceColumns(change.source) });
   await tx.insert(eventsOutbox).values({ ...change.event, payload: { ...change.event.payload, ...eventAttribution(change.source) } });
   wroteEvents.add(tx);
+}
+
+/**
+ * Writes an audit row with no outbox event, for an action that changes no state but must
+ * be on record: an admin downloading someone's records. State changes use
+ * {@link recordChange}, which writes both.
+ */
+export async function recordAuditOnly(tx: Transaction, change: { source: ChangeSource; audit: AuditEntry }): Promise<void> {
+  await tx.insert(auditLog).values({ ...change.audit, ...sourceColumns(change.source) });
 }
 
 /** Transactions that wrote at least one outbox event; weak, so a finished one is simply forgotten. */

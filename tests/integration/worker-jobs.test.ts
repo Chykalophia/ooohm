@@ -70,12 +70,12 @@ describe("worker jobs and retention", { skip }, () => {
     assert.equal((await findJob(t.db, "flaky"))?.lastError, null);
   });
 
-  test("the worker's daily jobs are the year rollover and retention, and both run", async () => {
-    assert.deepEqual(Object.keys(DAILY_JOBS), ["year_rollover", "integration_retention"]);
+  test("the worker's daily jobs are the year rollover, retention and scheduled scrubs, and all run", async () => {
+    assert.deepEqual(Object.keys(DAILY_JOBS), ["year_rollover", "integration_retention", "scheduled_scrub"]);
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     await t.db.update(schema.leaveTypes).set({ defaultAllowanceDays: 15 }).where(eq(schema.leaveTypes.id, co.pto));
     const ctx = createTestContext(t.db, { now: new Date("2027-01-02T12:00:00Z") });
-    assert.deepEqual(await runDueJobs(ctx), ["year_rollover", "integration_retention"]);
+    assert.deepEqual(await runDueJobs(ctx), ["year_rollover", "integration_retention", "scheduled_scrub"]);
     const rows = await t.db.select().from(schema.allowances).where(eq(schema.allowances.userId, co.people.boss.id));
     assert.ok(rows.some((r) => r.year === 2027 && r.days === 15), "the rollover created this year's allowance");
     assert.deepEqual(await runDueJobs(ctx), [], "not again the same day");

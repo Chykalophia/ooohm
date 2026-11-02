@@ -23,6 +23,11 @@ export const CHANGE_PROCESSES = {
    * the admin named by the CLI's `--actor`, through the import.
    */
   timeoffImport: "timeoff_import",
+  /**
+   * A full-scrub delete that waited out the company's grace period, run by the daily job.
+   * An admin asked for it, so its source names them as `requestedBy`.
+   */
+  scheduledScrub: "scheduled_scrub",
 } as const;
 
 const ADAPTER_SYNC_PREFIX = "adapter_sync:";
@@ -62,6 +67,11 @@ export interface ApiKeyChangeSource {
 export interface SystemChangeSource {
   readonly kind: "system";
   readonly process: ChangeProcess;
+  /**
+   * The person who asked for this run ahead of time (an admin who scheduled a scrub).
+   * The process still made the change: they are not its actor.
+   */
+  readonly requestedBy?: string;
 }
 
 export type ChangeSource = UserChangeSource | ApiKeyChangeSource | SystemChangeSource;
@@ -78,8 +88,8 @@ export function byApiKey(key: { userId: string; apiKeyId: string }, via?: Change
   return via === undefined ? base : { ...base, via };
 }
 
-export function bySystem(process: ChangeProcess): SystemChangeSource {
-  return { kind: "system", process };
+export function bySystem(process: ChangeProcess, requestedBy?: string): SystemChangeSource {
+  return requestedBy === undefined ? { kind: "system", process } : { kind: "system", process, requestedBy };
 }
 
 /** The same person (and key), now acting through `via`: e.g. an admin running a sync. */
@@ -104,7 +114,7 @@ export const UNKNOWN_PROCESS = "unknown";
 export type RecordedChangeSource =
   | { readonly kind: "user"; readonly userId: string | null; readonly via?: string | null }
   | { readonly kind: "api_key"; readonly userId: string | null; readonly apiKeyId: string | null; readonly via?: string | null }
-  | { readonly kind: "system"; readonly process: string };
+  | { readonly kind: "system"; readonly process: string; readonly requestedBy?: string | null };
 
 /** Reads the source columns of one `audit_log` row. An unknown kind reads as a system row. */
 export function recordedChangeSource(row: {
@@ -113,10 +123,12 @@ export function recordedChangeSource(row: {
   apiKeyId: string | null;
   actorVia: string | null;
   actorProcess: string | null;
+  actorRequestedBy?: string | null;
 }): RecordedChangeSource {
   if (row.actorKind === "user") return { kind: "user", userId: row.actorId, via: row.actorVia };
   if (row.actorKind === "api_key") return { kind: "api_key", userId: row.actorId, apiKeyId: row.apiKeyId, via: row.actorVia };
-  return { kind: "system", process: row.actorProcess ?? UNKNOWN_PROCESS };
+  const process = row.actorProcess ?? UNKNOWN_PROCESS;
+  return row.actorRequestedBy ? { kind: "system", process, requestedBy: row.actorRequestedBy } : { kind: "system", process };
 }
 
 /** Lookups the label needs; each returns `undefined` for an id it does not know. */
@@ -137,6 +149,8 @@ function processLabel(process: string, names: ChangeSourceNames, scheduled: bool
       return "retention";
     case CHANGE_PROCESSES.timeoffImport:
       return "time-off import";
+    case CHANGE_PROCESSES.scheduledScrub:
+      return "scheduled deletion";
     case UNKNOWN_PROCESS:
       return "unknown process";
     default:
@@ -156,9 +170,13 @@ function personLabelOf(userId: string | null, names: ChangeSourceNames): string 
  * - "Peter Krzyzek, via Gusto sync"
  * - "Peter Krzyzek, via API key ‘Zapier’ (ooohm_ab12cd34…)"
  * - "System: year rollover", "System: scheduled Gusto sync"
+ * - "System: scheduled deletion, requested by Peter Krzyzek"
  */
 export function changeSourceLabel(source: RecordedChangeSource, names: ChangeSourceNames): string {
-  if (source.kind === "system") return `System: ${processLabel(source.process, names, true)}`;
+  if (source.kind === "system") {
+    const label = `System: ${processLabel(source.process, names, true)}`;
+    return source.requestedBy ? `${label}, requested by ${personLabelOf(source.requestedBy, names)}` : label;
+  }
   const person = personLabelOf(source.userId, names);
   const via = source.via ? processLabel(source.via, names, false) : null;
   if (source.kind === "user") return via ? `${person}, via ${via}` : person;

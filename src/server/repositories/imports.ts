@@ -63,6 +63,7 @@ export async function insertCompany(
     timezone: companies.timezone,
     workingDays: companies.workingDays,
     allowancePolicy: companies.allowancePolicy,
+    deletionGrace: companies.deletionGrace,
   });
   return row;
 }

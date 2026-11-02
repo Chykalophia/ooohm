@@ -1,6 +1,7 @@
 /**
  * Admin use cases for people: list, invite (create + sign-in link), edit, resend the
- * invite, deactivate and reactivate.
+ * invite, deactivate and reactivate. Deleting someone, the step after deactivating them,
+ * is in `admin-people-deletion`.
  *
  * Every write runs in one transaction that first takes the company lock
  * (`lockCompany`), so the rules that span several people hold under concurrency: the
@@ -64,6 +65,7 @@ import {
   updatePerson as updatePersonRow,
 } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { cancelScheduledScrubIn } from "./admin-people-deletion";
 import { type BalanceSummary, summarizeBalances } from "./balances";
 import { revokeFeedsOnDeactivation } from "./calendar-feeds";
 import { activeContacts, recordReassignment, summarize } from "./leave-changes";
@@ -192,22 +194,26 @@ async function inviterName(tx: Transaction, actor: Actor): Promise<string> {
 
 /**
  * The company's people for the admin list, by name, with department and manager names.
- * Two queries in parallel: the people and the departments (for the filter).
+ * Deleted people (tombstones) never appear. Three queries in parallel: the people, the
+ * departments (for the filter) and the company (its time zone, for dates).
  *
  * @returns At most {@link PEOPLE_LIST_LIMIT} people; `truncated` when there were more.
- * @throws DomainError `forbidden` for a non-admin.
+ * @throws DomainError `forbidden` for a non-admin, `no_company`.
  */
 export async function listPeople(ctx: ServiceContext, actor: Actor, filter: PeopleFilter) {
   assertCanAdminister(actor);
   const departmentId = filter.departmentId && isUuid(filter.departmentId) ? filter.departmentId : undefined;
-  const [rows, departments] = await Promise.all([
+  const [rows, departments, company] = await Promise.all([
     listPeopleRows(ctx.db, actor.companyId, { ...filter, departmentId }, PEOPLE_LIST_LIMIT + 1),
     listDepartments(ctx.db, actor.companyId),
+    findCompany(ctx.db, actor.companyId),
   ]);
+  if (!company) throw new DomainError("no_company");
   return {
     people: rows.slice(0, PEOPLE_LIST_LIMIT),
     truncated: rows.length > PEOPLE_LIST_LIMIT,
     departments,
+    timezone: company.timezone,
   };
 }
 
@@ -266,6 +272,7 @@ export async function getPersonDetail(ctx: ServiceContext, actor: Actor, userId:
   });
   return {
     person,
+    timezone: company.timezone,
     year: balanceYear,
     /** Allowances of years before this one are closed; see `firstEditableAllowanceYear`. */
     firstEditableYear: firstEditableAllowanceYear(yearInTimeZone(company.timezone, ctx.now())),
@@ -562,7 +569,8 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
  * deactivation stay off; they can create new ones. Requests that moved off them while
  * they were away stay where they are, except any an admin had routed to themself for
  * want of another approver: those are re-routed, so a returning admin or manager takes
- * them (see {@link rerouteApprovals}).
+ * them (see {@link rerouteApprovals}). A full scrub scheduled for them is cancelled
+ * (`user.deletion_cancelled`), since only a deactivated person can wait for one.
  *
  * Doing it to someone already active changes and records nothing.
  *
@@ -575,6 +583,8 @@ export async function reactivatePerson(ctx: ServiceContext, actor: Actor, userId
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
     if (before.isActive) return { result: before, outgoing: [] };
+    // Only a deactivated person can wait for a scrub, so coming back cancels it (audited).
+    await cancelScheduledScrubIn(tx, actor, before);
     const after = await updatePersonRow(tx, actor.companyId, before.id, { isActive: true });
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.userReactivated,

@@ -63,8 +63,8 @@ beyond a trial.
 
 ## Backups bound how long deleted data survives
 
-When a person is deleted (a planned feature), their data stays in every backup taken before, until that backup
+When a person is deleted ([architecture.md](architecture.md#people-lifecycle-and-privacy-m8)), their data stays in every backup taken before, until that backup
 is deleted. So the backup retention is the promise: `deploy/backup.sh` keeps local backups at most `RETENTION_DAYS`
-(30) days after each nightly run, and the documented off-site hook prunes its copies to the same limit. Any other
+(30, and it refuses more than 30) days after each nightly run, and the documented off-site hook prunes its copies to the same limit. Any other
 copy counts too: a provider's point-in-time restore window (Neon's is part of the plan), Storage Box snapshots,
 whole-disk server backups. Keep each of them at 30 days or less, or the promise does not hold there.

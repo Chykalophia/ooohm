@@ -2,12 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isDomainError } from "@/domain/errors";
+import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
+import { formatInstantDate } from "@/lib/format";
 import { getPersonDetail, getPersonFormOptions } from "@/server/services/admin-people";
+import { getDeletionPreview } from "@/server/services/admin-people-deletion";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { AdminForm, InlineAction } from "@/app/admin/forms";
 import { card, outlineButton, subtleButton } from "@/app/admin/styles";
-import { deactivateAction, reactivateAction, resendInviteAction, updatePersonAction } from "@/app/admin/people/actions";
+import { cancelDeletionAction, deactivateAction, reactivateAction, resendInviteAction, updatePersonAction } from "@/app/admin/people/actions";
 import { BalanceList } from "@/app/admin/people/balance-list";
+import { Blocked, DeletePersonDialog } from "@/app/admin/people/delete-person-dialog";
 import { PersonFields } from "@/app/admin/people/person-fields";
 
 export const metadata: Metadata = { title: "Person · Admin · OOOhm" };
@@ -22,8 +26,11 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     }),
     getPersonFormOptions(ctx, actor, id),
   ]);
-  const { person, year, balances } = detail;
+  const { person, year, balances, timezone } = detail;
   const isSelf = person.id === actor.id;
+  // Deleting is the step after deactivating, so only a deactivated person's page offers it.
+  const deletion = person.isActive ? null : await getDeletionPreview(ctx, actor, person.id);
+  const scrubDate = person.scrubScheduledAt ? formatInstantDate(person.scrubScheduledAt, timezone) : null;
 
   return (
     <AdminShell
@@ -95,6 +102,33 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               }
               confirmLabel={person.isActive ? "Yes, deactivate" : undefined}
               focusResult
+            />
+          )}
+          {scrubDate && (
+            <div className="space-y-3 text-sm">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p>
+                  {deletion?.scrubWaiting ? `Deletion was due on ${scrubDate}, but it can't run yet.` : `Scheduled for deletion on ${scrubDate}.`}
+                </p>
+                <InlineAction action={cancelDeletionAction} fields={{ userId: person.id }} label="Undo" pendingLabel="Undoing…" />
+              </div>
+              {deletion?.scrubWaiting && <Blocked blockers={deletion.blockers} />}
+            </div>
+          )}
+          {deletion && (
+            <DeletePersonDialog
+              // A new schedule state (scheduled, or undone) mounts a fresh dialog, so its mode
+              // starts from the default for that state rather than the last choice.
+              key={scrubDate ?? "none"}
+              personId={person.id}
+              confirmName={deletion.confirmName}
+              blockers={deletion.blockers}
+              blocked={deletion.blocked}
+              describe={deletion.describe}
+              deletionGrace={deletion.deletionGrace}
+              graceDays={DELETION_GRACE_DAYS}
+              scrubScheduledFor={scrubDate}
+              exportHref={`/admin/people/${person.id}/export`}
             />
           )}
         </div>

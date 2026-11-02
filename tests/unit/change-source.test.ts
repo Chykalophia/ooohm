@@ -22,7 +22,7 @@ const names: ChangeSourceNames = {
 };
 
 test("process identifiers are stable strings; an adapter sync carries its adapter id", () => {
-  assert.deepEqual(Object.values(CHANGE_PROCESSES), ["year_rollover", "retention", "timeoff_import"]);
+  assert.deepEqual(Object.values(CHANGE_PROCESSES), ["year_rollover", "retention", "timeoff_import", "scheduled_scrub"]);
   assert.equal(adapterSyncProcess("gusto"), "adapter_sync:gusto");
   assert.equal(adapterIdOf("adapter_sync:gusto"), "gusto");
   assert.equal(adapterIdOf("adapter_sync:"), null);

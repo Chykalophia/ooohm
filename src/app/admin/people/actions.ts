@@ -4,10 +4,13 @@ import { z } from "zod";
 import { ROLES } from "@/domain/actor";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { EMAIL_MAX_LENGTH, PERSON_NAME_MAX_LENGTH } from "@/domain/people";
+import { isDomainError } from "@/domain/errors";
+import { DELETION_MODES, type DeletionBlockers, type DeletionMode, deletionBlockersOf } from "@/domain/person-deletion";
 import { setAllowanceOverride } from "@/server/services/admin-allowances";
 import { deactivatePerson, invitePerson, reactivatePerson, resendInvite, updatePerson } from "@/server/services/admin-people";
+import { cancelScheduledDeletion, deletePerson } from "@/server/services/admin-people-deletion";
 import type { FormState } from "@/app/form-state";
-import { adminAction, formFields } from "@/app/admin/admin-action";
+import { adminAction, adminActionThenGo, formFields } from "@/app/admin/admin-action";
 import { deactivationMessage } from "@/app/admin/people/deactivation-message";
 
 const personFields = {
@@ -94,6 +97,55 @@ export async function reactivateAction(_prev: FormState, formData: FormData): Pr
     async (ctx, actor, { userId }) => {
       await reactivatePerson(ctx, actor, userId);
       return "Reactivated. They can sign in again.";
+    },
+    PERSON_MESSAGES,
+  );
+}
+
+const deleteSchema = z.object({
+  userId: formFields.id,
+  mode: z.enum(DELETION_MODES as [DeletionMode, ...DeletionMode[]]),
+  confirmName: formFields.text(EMAIL_MAX_LENGTH + PERSON_NAME_MAX_LENGTH),
+});
+
+/** The delete dialog's state: a form state, or what now blocks the delete (it changed since the page loaded). */
+export type DeleteState = FormState | { status: "blocked"; blockers: DeletionBlockers };
+
+/**
+ * Person page, delete dialog: deletes a deactivated person (or schedules a full scrub,
+ * with the company's grace option on), then goes back to People, which says what happened.
+ * When something blocks the delete, the dialog gets the blockers to list in place.
+ */
+export async function deletePersonAction(_prev: DeleteState, formData: FormData): Promise<DeleteState> {
+  const refused: { blockers: DeletionBlockers | null } = { blockers: null };
+  const state = await adminActionThenGo(
+    "person_delete",
+    formData,
+    deleteSchema,
+    async (ctx, actor, { userId, mode, confirmName }) => {
+      try {
+        const outcome = await deletePerson(ctx, actor, userId, { mode, confirmName });
+        if (outcome.outcome === "deleted") return `/admin/people?notice=${outcome.mode}`;
+        return `/admin/people?inactive=1&notice=${outcome.alreadyScheduled ? "already_scheduled" : "scheduled"}`;
+      } catch (err) {
+        if (isDomainError(err)) refused.blockers = deletionBlockersOf(err);
+        throw err;
+      }
+    },
+    { ...PERSON_MESSAGES, not_found: "That person isn't in your company, or was already deleted." },
+  );
+  return refused.blockers ? { status: "blocked", blockers: refused.blockers } : state;
+}
+
+/** People list and person page: undoes a scheduled full scrub. */
+export async function cancelDeletionAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return adminAction(
+    "person_delete_cancel",
+    formData,
+    personSchema,
+    async (ctx, actor, { userId }) => {
+      const cancelled = await cancelScheduledDeletion(ctx, actor, userId);
+      return cancelled ? "Undone. They stay, deactivated." : "Nothing was scheduled.";
     },
     PERSON_MESSAGES,
   );

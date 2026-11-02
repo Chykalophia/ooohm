@@ -184,7 +184,7 @@ test("assertCovered throws insufficient_balance carrying the shortfall, and pass
   assert.doesNotThrow(() => assertCovered([{ year: 2026, days: 2, before: two }]));
   assert.throws(
     () => assertCovered([{ year: 2026, days: 3, before: two }]),
-    (err) => isDomainError(err, "insufficient_balance") && err.details?.remaining === 2 && err.details.requested === 3,
+    (err) => isDomainError(err, "insufficient_balance") && err.details !== undefined && "remaining" in err.details && err.details.remaining === 2 && err.details.requested === 3,
   );
 });
 

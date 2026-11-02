@@ -27,7 +27,7 @@ async function shortfallOf(promise: Promise<unknown>): Promise<BalanceShortfallD
   let details: BalanceShortfallDetails | undefined;
   await assert.rejects(promise, (err) => {
     assert.ok(isDomainError(err, "insufficient_balance"), `expected insufficient_balance, got ${String(err)}`);
-    details = err.details;
+    details = err.details && "year" in err.details ? err.details : undefined;
     return true;
   });
   assert.ok(details);

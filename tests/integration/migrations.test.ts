@@ -41,9 +41,11 @@ describe("migration 0004: per-year request days", { skip }, () => {
   });
 
   test("backfills every existing request, splitting ones over New Year, and the rows always add up to its days", async () => {
-    const [company] = await t.db.insert(schema.companies).values({ name: "Backfill Co" }).returning();
+    // Raw SQL for tables a later migration adds columns to: the query builder would name
+    // every column of today's schema, which this older database does not have yet.
+    const [company] = await t.query<{ id: string }>`insert into companies (name) values ('Backfill Co') returning id`;
     const userId = randomUUID();
-    await t.db.insert(schema.user).values({ id: userId, name: "Ana", email: `ana-${userId.slice(0, 8)}@example.com`, companyId: company.id });
+    await t.query`insert into "user" (id, name, email, company_id) values (${userId}, 'Ana', ${`ana-${userId.slice(0, 8)}@example.com`}, ${company.id})`;
     const [type] = await t.db.insert(schema.leaveTypes).values({ companyId: company.id, code: "PTO", name: "PTO" }).returning();
     await t.db.insert(schema.holidays).values([
       { companyId: company.id, date: "2027-01-01", name: "New Year" },

@@ -33,6 +33,8 @@ export interface CompanySettingsInput {
   timezone: string;
   workingDays: readonly number[];
   allowancePolicy: string;
+  /** Wait `DELETION_GRACE_DAYS` before a full scrub, with undo. Left as it is when absent. */
+  deletionGrace?: boolean;
 }
 
 export interface CompanySettings {
@@ -41,6 +43,8 @@ export interface CompanySettings {
   /** Distinct ISO weekdays, ascending. */
   workingDays: number[];
   allowancePolicy: string;
+  /** Present only when the input set it. */
+  deletionGrace?: boolean;
 }
 
 /**
@@ -65,7 +69,9 @@ export function normalizeCompanySettings(input: CompanySettingsInput, currentTim
   if (!ALLOWANCE_POLICY_KEYS.includes(input.allowancePolicy)) {
     throw new DomainError("invalid_input", "Unknown allowance policy.");
   }
-  return { name, timezone, workingDays, allowancePolicy: input.allowancePolicy };
+  const out: CompanySettings = { name, timezone, workingDays, allowancePolicy: input.allowancePolicy };
+  if (input.deletionGrace !== undefined) out.deletionGrace = input.deletionGrace === true;
+  return out;
 }
 
 /**

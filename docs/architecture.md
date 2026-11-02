@@ -98,10 +98,10 @@ Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-so
 | --- | --- | --- |
 | `user` | A person, directly, or through something they started (`via`) | "Peter Krzyzek", "Peter Krzyzek, via Gusto sync" |
 | `api_key` | A person's API key: the key's creator and the key, optionally `via` something | "Peter Krzyzek, via API key ‘Zapier’ (ooohm_ab12cd34…)" |
-| `system` | A process with no person behind it (`process`) | "System: year rollover", "System: scheduled Gusto sync" |
+| `system` | A process with no person behind it (`process`), optionally run for a person who asked for it ahead of time (`requestedBy`) | "System: year rollover", "System: scheduled Gusto sync", "System: scheduled deletion, requested by Peter Krzyzek" |
 
 `via` and `process` share one vocabulary of stable identifiers: `year_rollover`, `retention`, `adapter_sync:<adapterId>`,
-and `timeoff_import`. They are stored and published, so never rename one.
+`timeoff_import` and `scheduled_scrub`. They are stored and published, so never rename one.
 `changeSourceLabel` (pure) turns a source into the label above.
 
 How sources are chosen, type-enforced so a new call site cannot leave one out (every recorder takes a required
@@ -121,15 +121,21 @@ How sources are chosen, type-enforced so a new call site cannot leave one out (e
   via: "timeoff_import" }` on every audit row it writes and on `import.completed`. The CLI's required `--actor <email>`
   names the admin; it is resolved inside the import's transaction, after people are imported, and must be an
   active admin of the target company (existing, or just imported with `--create-company`), or the import rolls back.
+- A full-scrub delete that waited out the company's grace period ([People lifecycle](#people-lifecycle-and-privacy-m8))
+  is run by the daily job: `{ kind: "system", process: "scheduled_scrub", requestedBy: <the admin who asked> }`. The
+  process made the change, so `actor_id` stays empty; `requestedBy` only names who asked, and the label reads
+  "System: scheduled deletion, requested by <name>" (the admin's tombstone name, if they were deleted since).
 
 Storage (`audit_log`, migration `0010`): `actor_kind` (`user` | `api_key` | `system`, not null), `actor_id` (the
-person), `api_key_id` (FK to `api_keys`, `set null`), `actor_via`, `actor_process`. A `CHECK` requires a `system` row
-to name a process and nobody; a `user` row has no key or process; an `api_key` row has no process. **A person's row
-does not require `actor_id`**: the foreign key is `on delete set null`, and a check that required it would make
-deleting a `user` row fail. OOOhm never deletes people (it deactivates them), and the TypeScript types require the
-id on every write, so in practice it is always set; if a row is ever deleted, its changes stay a person's
-(`actor_kind = 'user'`) and the viewer says "A deleted person". No name is copied into the log, so deleting a person
-does erase who made those changes.
+person), `api_key_id` (FK to `api_keys`, `set null`), `actor_via`, `actor_process`, and since migration `0012`
+`actor_requested_by` (FK to `user`, `set null`). A `CHECK` requires a `system` row to name a process and nobody; a
+`user` row has no key, process or requester; an `api_key` row has no process or requester. **A person's row does not
+require `actor_id`**: the foreign key is `on delete set null`, and a check that required it would make deleting a
+`user` row fail. OOOhm never removes a `user` row (deleting a person turns the row into a tombstone, below), and the
+TypeScript types require the id on every write, so in practice it is always set; if a row were ever removed, its
+changes would stay a person's (`actor_kind = 'user'`) and the viewer would say "A deleted person". No name is copied
+into the log's actor columns: a person's changes on other people's records show their tombstone name once they are
+deleted.
 
 Migration `0010` backfilled older rows: a row with `actor_id` became `user`; one without, `system`, with
 `process` `year_rollover` for `allowance.carried_over` and `allowance.created` (only the rollover's step wrote those
@@ -188,6 +194,8 @@ the event type, and `actorId` is the admin.
 | `user.deactivated` | An admin deactivates someone | same |
 | `user.reactivated` | An admin reactivates someone | same |
 | `user.invite_resent` | An admin sends someone a new sign-in link | same |
+| `user.deletion_scheduled`, `user.deletion_cancelled` | An admin asks for a full scrub with the grace option on; an admin undoes it (or reactivates the person) | `userId, scheduledFor, actorId` |
+| `user.deleted` | A person is deleted (M8). The one admin event a system process can also make: a scheduled scrub's actor is `{ type: "system", process: "scheduled_scrub", requestedBy }` | `userId, mode ("scrubbed" \| "records_kept"), deletedAt, actorId`: no name or email |
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
@@ -688,7 +696,9 @@ person's **member lock** (`lockMember`), as the M3 rule requires of every writer
   picks its holder, checked at decision time), and it shows in every admin's inbox.
 - **Reactivate**: `is_active = true`. Sessions and calendar links do not come back. Requests that moved off them
   while they were away stay where they are, except requests an admin had routed to themself, which are
-  re-routed (a returning manager or admin takes them back).
+  re-routed (a returning manager or admin takes them back). Reactivating someone with a scheduled scrub cancels it
+  (`user.deletion_cancelled`): only a deactivated person can wait for one.
+- **Delete**: the step after deactivating; see [People lifecycle and privacy](#people-lifecycle-and-privacy-m8).
 - **Self-approval is per person, not per role.** The handover allowed either. With small teams a per-person
   toggle is a few clicks, and a role-wide setting would be a second source of truth the approval rule would have
   to reconcile with the person's flag (which wins when they disagree?), while a one-off "apply to all managers"
@@ -746,7 +756,9 @@ so.
 Name, time zone, working days and allowance policy. Time zones are those in `Intl.supportedValuesOf("timeZone")`
 plus `UTC` (which that list omits); a stored zone outside the list (an alias saved before this check) is kept
 when unchanged but cannot be chosen anew. Working days: at least one ISO weekday. The policy must be registered
-(`ALLOWANCE_POLICY_KEYS`; only `annual_calendar_year` today). Changes affect future counting only.
+(`ALLOWANCE_POLICY_KEYS`; only `annual_calendar_year` today). Changes affect future counting only. Since M8 the page
+also holds the deletion grace option ([The grace option](#the-grace-option)); `company.updated` carries it as
+`deletionGrace`.
 
 ### Audit log viewer
 
@@ -776,6 +788,156 @@ sits under the header, which shows **Admin** to admins only. One main action per
 …); secondary actions are quiet text buttons, and destructive ones (deactivate, delete, archive) ask first.
 Per-row edits (rename, change an allowance) open in place. Refused saves keep what was typed (forms submit
 without React's automatic reset) and show the reason with `role="alert"` in `text-red-700 dark:text-red-400`.
+
+## People lifecycle and privacy (M8)
+
+A person moves through at most three states, each a deliberate admin action (`src/server/services/admin-people.ts`,
+`src/server/services/admin-people-deletion.ts`; rules in `src/domain/person-deletion.ts`):
+
+| State | How | Signs in | Shows in People | Reversible |
+| --- | --- | --- | --- | --- |
+| Active | Invite | Yes | Yes | |
+| Deactivated | **Deactivate** ([People](#people)) | No | With **Show inactive** | Yes: **Reactivate** |
+| Deleted (tombstone) | **Delete…** on a deactivated person | No | Never | No |
+
+There is no "archived" state. The People list hides deactivated people unless **Show inactive** is ticked
+(`?inactive=1`), and never lists a tombstone, nor do pickers (managers, the audit log's filters), the team view,
+calendars, feeds or `GET /api/v1/users`. History views (the audit log, approvals, a request's approver) name a
+tombstone by its tombstone name.
+
+### The two deletes
+
+| | Full scrub (`scrubbed`, the default) | Keep records (`records_kept`) |
+| --- | --- | --- |
+| Tombstone name | "Former employee #3f9a2c" (`tombstoneName`: the id's first six letters or digits) | "<Name> (deleted)" |
+| Email | `deleted+<id>@invalid` (`tombstoneEmail`) | same; the real address is free to invite again |
+| Sessions, linked accounts (Google), unused sign-in links to their address, calendar feed links | deleted | deleted |
+| Their leave requests (and per-year days), allowance rows | deleted | kept; a request still pending is withdrawn (`cancelled`) |
+| Audit rows about them (`subject_user_id`, or their `user` entity) | deleted, except the one new `user.deleted` row | kept |
+| Their name in stored payloads | replaced by the tombstone name | kept |
+| Their email in stored payloads | replaced by the placeholder | replaced by the placeholder |
+| Records where they acted on someone else (approvals they made, audit rows with them as `actor_id`) | kept, shown as "Former employee #…" | kept, shown as "<Name> (deleted)" |
+| API keys and webhook endpoints they created | kept: they belong to the company (`created_by` points at the tombstone) | same |
+
+The `user` row is **never removed**: every foreign key to it (approvals, audit actors, API keys) keeps pointing at
+the tombstone. `user.deleted_at` and `user.deletion_mode` (migration `0012`) mark it; `user_deletion_shape` requires
+both or neither, and a tombstone can never be active. Its role becomes employee, and its manager, department,
+self-approval and image are cleared, so it holds up nothing (a department with a tombstone in it can still be
+deleted). Re-inviting the released address creates a brand-new person with nothing linking them to the tombstone.
+
+**Payload redaction** (`redactStoredMentions`): every company row whose text mentions the person (a `strpos` scan,
+then a precise rewrite) in `events_outbox.payload` (and so what adapters are handed, which read the outbox),
+`webhook_deliveries.body` and `last_response_excerpt` (delivered, failed and pending alike), `adapter_deliveries.last_error`,
+`import_runs` (`report`, `counts`, `source_file_name`), the remaining `audit_log.before`/`after`, leave
+requests' `note` and `decision_note`, and the labels admins give company settings: API key names, webhook endpoint
+descriptions, and department, leave type and holiday names (never an endpoint's URL, which says where it sends). The
+rules (`PersonRedaction`, `redactText`, `redactJson`):
+
+- **The email** is replaced wherever it stands as a whole address, in both modes: not where it is only part of a
+  longer one, so deleting `ed@acme.com` leaves `ted@acme.com`, `fred.ed@acme.com` and `ed@acme.com.au` alone, byte
+  for byte, but after the separators of a URL, query string or log line (`/users/ed@acme.com`, `?email=ed@acme.com`)
+  it is theirs. Object keys lose the email and nothing else.
+- **On a full scrub, the `name` field of their own records** (an object whose own `userId`, else `email`, is theirs:
+  `user.*` payloads, person snapshots, import report rows) becomes the tombstone name, whatever name it holds, so a
+  name from before a rename goes too. The `name` field of anyone else's record is kept bar the email (deleting one
+  "Sam Lee" never renames the other Sam Lee).
+- **On a full scrub, free text** (every other string: notes, an admin's reason on a colleague's allowance row, import
+  messages, the name of a thing such as an API key or holiday) loses each **full name** they are known to have had,
+  as whole words, ignoring case and spacing (two spaces or a line break between the words too): the current name plus
+  earlier ones read from their `user.*` events and the audit snapshots of their account before those go
+  (`listOwnNameRecords`, `namesInOwnRecords`). Only names of two or more words are searched for: a one-word name
+  ("May", "Will") is too often an ordinary word to rewrite other people's text for, so "May Day" stays when a "May"
+  is deleted. Nor is a name **another person of the company also goes by** (anyone not deleted, or deleted with their
+  records kept, by the name before " (deleted)"; `listOtherNames`, `nameInUse`): the text cannot say which of them it
+  means, so the other Sam Lee's notes, and everyone's mentions of "Sam Lee", stay as written.
+
+The lookup needles are the email and the longest word of each of those names (as written and JSON-escaped), plus, on
+a scrub, the person's id, which finds their own records whatever name they hold. One word rather than the whole name,
+because the rewrite allows any spacing between the words, which no single substring covers; the rewrite then changes
+only what matches. A **pending** delivery is sent with its redacted body; one whose body cannot be redacted safely
+(not JSON, or still holding the address afterwards) is stopped for good: `failed`, `last_error = 'subject_deleted'`.
+A delivery **in flight** under a lease when the delete commits (webhook or adapter) has its attempt count moved on
+(`rewriteDelivery`, `supersedeAdapterAttempts`), so the attempt's outcome loses its compare-and-set and is dropped,
+and the delivery goes again, redacted, once the lease runs out.
+
+**Keeping records withdraws** the person's own requests still waiting for a decision (status `cancelled`), so none
+sits in Approvals for someone who is gone or holds up deleting the approver it waited on. The withdrawal is part of the
+delete: counted in its one audit row (`pendingRequestsWithdrawn`), with no `leave.cancelled` event of its own.
+
+### Rules, locks and the record
+
+- Only a **deactivated** person can be deleted (two steps, so nobody is deleted by accident). They must **manage no
+  one** and have **no pending requests to decide**; the **last-admin guard** still applies (it only ever adds to "still
+  active", since only an active admin holds a seat). Anything that blocks comes back as `deletion_blocked` with
+  the blockers as its `details` (`stillActive`, `reports` with names, `pendingApprovals`, `lastAdmin`;
+  `deletionBlockersOf`), and the dialog shows what to sort out first, with links to the people they manage, instead
+  of the form. A refusal that arrives after the page loaded (something changed in between) brings the current
+  blockers, and the dialog switches to them in place.
+- A tombstone is not a member: `lockMember` and `lockPerson` read it as missing, so nothing (an allowance edit posted
+  with its id, say) can be written for it. `GET /api/v1/balances?userId=<tombstone>` returns no rows for a scrubbed
+  person, and the kept balances of someone deleted with their records kept.
+- The admin types the person's **full name** (case and spacing aside; the email when the name is blank), or
+  `confirmation_mismatch`.
+- Everything for one delete runs in **one transaction**: the company lock first, then the person's member lock
+  (`lockPerson`), so it serialises with every other admin change, with balance writers, and with a second delete. The
+  grace option is the only deferred path.
+- Every delete writes **exactly one audit row** (`user.deleted`, subject and entity the tombstone, `before` null,
+  `after` `{ mode, counts }` with counts only) and **one event** (`user.deleted`, `{ userId, mode, deletedAt }` plus
+  `actorId`/`actor`). Neither holds a name or email.
+
+### The confirmation and the export
+
+`getDeletionPreview` counts from the database what each mode removes ("Deletes 14 leave requests, 3 years of
+balances, 41 audit entries", `describeDeletion`). The dialog (`src/app/admin/people/delete-person-dialog.tsx`, a
+native modal `<dialog>`) offers the two modes as radios with the full scrub preselected, the counts, **Download their
+records first**, the type-the-name field, small print on the limits below, and a destructive button that stays off
+until the name matches.
+
+**Download their records first** is `GET /admin/people/<id>/export` (a route handler, `exportPersonRecords`): one CSV
+with a `record` column (`leave_request`, `balance`, `audit`): their requests with notes, their balance per leave type
+for every year they have an allowance row or booked days (computed by the dashboard's balance code), and the audit
+entries about them as the viewer words them (`listAuditEntriesAbout`: the names load once, then a thousand rows per
+query, at most the newest 10,000). Admins of the person's company only (anyone else, another company's id or a
+tombstone: a bare 404), `Cache-Control: no-store`, a file name by short id (never the name), cells that look like a
+formula prefixed with `'` (`src/domain/csv.ts`). Each download is audited as `user.records_exported` (an audit row
+and no event: nothing changed). Being a GET that writes and hands out personal data, it refuses a request another
+site started (`Sec-Fetch-Site` other than `same-origin` or `none`; `isCrossSiteRequest`) with a 404, so a link
+elsewhere cannot make a signed-in admin's browser download it. A full scrub deletes the export's audit row with the
+rest of their audit rows.
+
+### The grace option
+
+**Company → Wait 7 days before a full scrub, with undo** (`companies.deletion_grace`, off by default). With it on, a
+full scrub only schedules: `user.scrub_scheduled_at = now + 7 days` and `scrub_requested_by` = the admin
+(`user_scrub_schedule_shape`: only a deactivated, undeleted person can be scheduled), audited as
+`user.deletion_scheduled`. The person is already deactivated and cannot sign in. People and the person's page say
+"Scheduled for deletion on <date> · Undo"; **Undo** (`cancelScheduledDeletion`) clears it as
+`user.deletion_cancelled`, and so does reactivating them. The `scheduled_scrub` daily job (worker, cron route, inline
+tick and embedded timer alike; [Scheduled jobs](#scheduled-jobs)) runs each due scrub in its own transaction under the
+same locks, after re-checking the rules: one they now refuse (say a request was routed to them in a race) is logged
+as `scheduled_scrub_blocked`, stays scheduled for the next run, and is passed over (the job pages on past it, up to
+500 checks a run), so it never holds up the scrubs due after it. The person's page then says "Deletion was due on
+<date>, but it can't run yet" with what blocks it. Since the job runs daily, a scrub happens within a day after its
+date. Asking for a full scrub again while one is scheduled changes nothing (the dialog offers only keeping records,
+and says the date it already has). Keeping records never waits, and replaces a scheduled scrub.
+
+### What is not erased
+
+These limits are also the dialog's small print:
+
+- **Webhooks already delivered** to other systems cannot be recalled. `user.deleted` (mode `scrubbed`) tells
+  integrations to erase their own copy.
+- **Backups** keep the data until they rotate out: `deploy/backup.sh` keeps at most 30 days (it refuses a
+  `RETENTION_DAYS` above 30; [hosting.md](hosting.md#backups-bound-how-long-deleted-data-survives)); on Vercel, the
+  database provider's (Neon's) restore window.
+- **A downloaded CSV** is outside OOOhm.
+- Free text that names them only partly (a first name in someone else's note) is not detected; the full name and the
+  address are. A person known by a one-word name, or by a name someone else in the company also has, is not searched
+  for in free text at all (their own records still lose it). A webhook endpoint's URL is never rewritten.
+- Pseudonymous history stays after a full scrub: events about their requests keep ids and dates under the tombstone
+  id until retention prunes delivered events (90 days); `user.deleted` carries the id so integrations can match it.
+- A webhook or adapter attempt **already in flight** when the delete commits sends what it already read; its outcome
+  is dropped and the delivery is sent again, redacted.
 
 ## Integrations (M6)
 
@@ -856,13 +1018,14 @@ codes, never a URL, secret, signature or body (`webhook-delivery.test.ts` checks
 ### Scheduled jobs
 
 `runDueJobs` (`src/server/services/scheduled-jobs.ts`) runs the daily jobs: `year_rollover` (the M3
-`runYearRollover`) and `integration_retention`. A worker claims a job with an atomic compare-and-set on its
+`runYearRollover`), `integration_retention` and `scheduled_scrub` (`runDueScrubs`, full-scrub deletes whose grace
+period has ended; see [People lifecycle](#people-lifecycle-and-privacy-m8)). A worker claims a job with an atomic compare-and-set on its
 `scheduled_jobs` row (`UPDATE ... SET next_run_at = now + 1 h WHERE name = $1 AND next_run_at <= now`): of
 several workers exactly one gets it, and, unlike a session advisory lock, the claim survives restarts, so a job
 runs once a day however often workers restart. Success sets `next_run_at` a day after the claim; a failure is
 logged and recorded (`last_error`: error name and code only, since a query error's message carries parameters)
-and retried an hour later; a crash leaves the one-hour lease to run out. Both jobs are idempotent, so the rare
-overlap after an expired lease is harmless.
+and retried an hour later; a crash leaves the one-hour lease to run out. Every job is idempotent (a scrub re-checks,
+under its locks, that the person is still scheduled and due), so the rare overlap after an expired lease is harmless.
 
 **Retention** (`pruneIntegrationData`): finished webhook and adapter deliveries last changed more than 90 days
 ago, then dispatched outbox events written more than 90 days ago (unless an adapter still has one pending), in
@@ -1159,8 +1322,8 @@ backup retention is what bounds how long a deleted person's data survives ([host
 
 | Command | What | Needs |
 | --- | --- | --- |
-| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time; the hosting pieces: database and background-mode configuration, pooler detection, trimmed env values, the embedded directory lock, the cron route's authorization and the tick scheduler; the past-year cancel rule) | nothing |
-| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import`; past-year leave refused for the requester and an admin, in the company's time zone, including an imported 2025 request; the background tick: inline after a change (and not after a refused one), a due retry, three ticks at once, the budget, daily jobs | `TEST_DATABASE_URL` |
+| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time; the hosting pieces: database and background-mode configuration, pooler detection, trimmed env values, the embedded directory lock, the cron route's authorization and the tick scheduler; the past-year cancel rule; deleting people: tombstone names and emails, the guards, the confirmation, payload redaction and CSV escaping) | nothing |
+| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import`; past-year leave refused for the requester and an admin, in the company's time zone, including an imported 2025 request; the background tick: inline after a change (and not after a refused one), a due retry, three ticks at once, the budget, daily jobs; deleting people (`person-deletion.test.ts`): both modes (exactly which rows go and stay, the counts in the one audit row, the one `user.deleted` event), every guard, the grace option (scheduled, undo, the daily job, attribution), re-inviting a released address, a kept-records delete withdrawing their pending request, outbox, delivery, import and settings-label redaction including a pending delivery that must not leak and one in flight when the delete commits, a namesake untouched (free text included), the CSV export, and a no-trace scan of every text, varchar, json(b) and text[] column of every table (read from `information_schema`, so new tables are covered) for the name parts and email after a full scrub | `TEST_DATABASE_URL` |
 | `pnpm test:integration:embedded` | The same suites on embedded PGlite (`TEST_DATABASE_URL=pglite:memory`: an in-memory database per file, migrated as embedded mode migrates). Two tests that need two connections at once are skipped (`needsServer`) | nothing |
 
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,

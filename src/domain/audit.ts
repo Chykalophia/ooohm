@@ -9,6 +9,7 @@ import {
   CALENDAR_FEED_EVENT_TYPES,
   IMPORT_AUDIT_ACTIONS,
   INTEGRATION_EVENT_TYPES,
+  RECORDS_EXPORTED_AUDIT_ACTION,
 } from "./events";
 
 /** Every `audit_log.action` the app writes, with how the viewer names it. */
@@ -28,6 +29,10 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   [ADMIN_EVENT_TYPES.userDeactivated]: "Person deactivated",
   [ADMIN_EVENT_TYPES.userReactivated]: "Person reactivated",
   [ADMIN_EVENT_TYPES.userInviteResent]: "Invite sent again",
+  [ADMIN_EVENT_TYPES.userDeletionScheduled]: "Deletion scheduled",
+  [ADMIN_EVENT_TYPES.userDeletionCancelled]: "Scheduled deletion undone",
+  [ADMIN_EVENT_TYPES.userDeleted]: "Person deleted",
+  [RECORDS_EXPORTED_AUDIT_ACTION]: "Records exported",
   [ADMIN_EVENT_TYPES.departmentCreated]: "Department created",
   [ADMIN_EVENT_TYPES.departmentRenamed]: "Department renamed",
   [ADMIN_EVENT_TYPES.departmentDeleted]: "Department deleted",
@@ -168,6 +173,28 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   mismatches: "Balance differences",
   warnings: "Warnings",
   conflicts: "Conflicts",
+  mode: "How",
+  counts: "Removed or changed",
+  scheduledFor: "Runs on",
+  leaveRequestsDeleted: "Leave requests deleted",
+  allowancesDeleted: "Allowance rows deleted",
+  auditEntriesDeleted: "Audit entries deleted",
+  sessionsDeleted: "Sessions ended",
+  accountsDeleted: "Sign-in links (Google) removed",
+  verificationsDeleted: "Unused sign-in links removed",
+  calendarFeedsDeleted: "Calendar links removed",
+  eventsRedacted: "Events redacted",
+  deliveriesRedacted: "Webhook deliveries redacted",
+  deliveriesFailed: "Pending webhook deliveries stopped",
+  importRunsRedacted: "Import reports redacted",
+  auditEntriesRedacted: "Other audit entries redacted",
+  notesRedacted: "Notes redacted",
+  rows: "Rows",
+};
+
+const DELETION_MODE_LABELS: Readonly<Record<string, string>> = {
+  scrubbed: "full scrub (nothing kept)",
+  records_kept: "account removed, records kept",
 };
 
 /** "carriedOverDays" → "Carried over days" for a field the viewer has no label for. */
@@ -191,7 +218,14 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export function formatAuditValue(field: string, value: unknown, names: AuditNames): string {
   if (value === null || value === undefined || value === "") return "none";
   if (typeof value === "boolean") return value ? "yes" : "no";
+  if (field === "counts" && asRecord(value)) {
+    const parts = Object.entries(asRecord(value)!)
+      .filter(([, n]) => typeof n === "number" && n !== 0)
+      .map(([key, n]) => `${auditFieldLabel(key)}: ${n}`);
+    return parts.length > 0 ? parts.join(", ") : "nothing";
+  }
   if (typeof value === "string") {
+    if (field === "mode") return DELETION_MODE_LABELS[value] ?? value;
     if (PERSON_FIELDS.has(field)) return names.person(value) ?? "someone else";
     if (field === "departmentId") return names.department(value) ?? "a deleted department";
     if (field === "leaveTypeId") return names.leaveType(value) ?? "another leave type";

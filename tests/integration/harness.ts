@@ -14,7 +14,10 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
+import { STRICT_TARGET_POLICY, type TargetPolicy } from "@/domain/webhook-target";
+import { createSecretBox } from "@/lib/integration-crypto";
 import type { MailMessage, ServiceContext } from "@/server/context";
+import { type AdapterRegistry, createAdapterRegistry } from "@/server/integrations/adapter";
 
 const baseUrl = process.env.TEST_DATABASE_URL;
 
@@ -75,9 +78,18 @@ export interface TestContext extends ServiceContext {
   settle(): Promise<void>;
 }
 
+/** A fixed WEBHOOK_ENCRYPTION_KEY for tests (32 bytes, base64). */
+export const TEST_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+
 export function createTestContext(
   db: Database,
-  options: { now?: Date; mailer?: (m: MailMessage) => Promise<void>; issueSignInLink?: (email: string) => Promise<string> } = {},
+  options: {
+    now?: Date;
+    mailer?: (m: MailMessage) => Promise<void>;
+    issueSignInLink?: (email: string) => Promise<string>;
+    adapters?: AdapterRegistry;
+    webhookTargets?: TargetPolicy;
+  } = {},
 ): TestContext {
   const sent: MailMessage[] = [];
   const signInLinks: string[] = [];
@@ -98,6 +110,9 @@ export function createTestContext(
         signInLinks.push(email);
         return `https://ooohm.test/api/auth/magic-link/verify?token=test-${signInLinks.length}&callbackURL=%2F`;
       }),
+    secrets: createSecretBox(TEST_ENCRYPTION_KEY),
+    webhookTargets: options.webhookTargets ?? STRICT_TARGET_POLICY,
+    adapters: options.adapters ?? createAdapterRegistry(),
     sent,
     signInLinks,
     deferred: () => scheduled,

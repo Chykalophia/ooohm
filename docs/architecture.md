@@ -11,7 +11,9 @@ with per-directory `no-restricted-imports` rules in `eslint.config.mjs`; change 
 import specifiers, so imports across directories use the `@/` alias and a parent-relative (`../`) import is a
 lint error everywhere under `src/`. `src/server/email/**` (templates) and `src/server/context.ts` (the
 `ServiceContext` type) sit just below services: no Next.js, database, schema, Drizzle, `env`, `auth`, services or
-repositories. `src/server/runtime.ts` is the composition root and imports no service or repository.
+repositories. `src/server/integrations/**` (the adapter seam, M6) follows the same rules. `src/server/runtime.ts` is
+the composition root and imports no service or repository. `scripts/*.mts` (migrate, seed, rollover, the outbox
+worker) are composition roots for processes outside Next: each builds its own `ServiceContext`.
 
 | Layer | Path | Owns | May import |
 | --- | --- | --- | --- |
@@ -35,10 +37,12 @@ Rules of thumb:
 ### Composition root
 
 Services receive a `ServiceContext` (`src/server/context.ts`): the database handle, a mailer, a `defer`
-function, the app's base URL, a clock, and `issueSignInLink` (makes a one-time sign-in link without sending it,
-for invites). The app builds the real one in `src/server/runtime.ts` (`db`, nodemailer, `after()` from
-`next/server`, `BETTER_AUTH_URL`, Better Auth's magic-link endpoint). Tests build their own against a
-throwaway database. This keeps services free of Next.js and of the app's environment.
+function, the app's base URL, a clock, `issueSignInLink` (makes a one-time sign-in link without sending it,
+for invites), and, since M6, `secrets` (seals webhook secrets), `webhookTargets` (the URL policy) and `adapters`
+(the adapter registry). The app builds the real one in `src/server/runtime.ts` (`db`, nodemailer, `after()` from
+`next/server`, `BETTER_AUTH_URL`, Better Auth's magic-link endpoint, `WEBHOOK_ENCRYPTION_KEY`, the
+`WEBHOOK_ALLOW_*` flags, the installed adapters); the worker builds its own in `scripts/worker.mts`. Tests build
+theirs against a throwaway database. This keeps services free of Next.js and of the app's environment.
 
 ## Cross-cutting conventions
 
@@ -96,6 +100,7 @@ Balance events (M3):
 | `balance.adjusted` | The year rollover sets a carried-over amount (`reason: "carryover"`) | `allowance.carried_over` |
 | `balance.adjusted` | The year rollover creates an allowance row from the leave type default, or copies it from the person's latest row for a type without a default (`reason: "allowance_created"`) | `allowance.created` |
 | `balance.adjusted` | An admin sets a person's allowance `days` or `adjustmentDays` for a year (`reason: "admin_edit"`, M5). The admin's typed reason is in the audit row's `after.reason` only, never the payload | `allowance.edited` |
+| `balance.adjusted` | An adapter's inbound sync sets `days` (and `adjustmentDays` when it sends one) (`reason: "sync"`, M6) | `allowance.synced` |
 
 Payload (v1): `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId`,
 the row after the change. A system job has no actor: `actorId` is `null` in both the payload and
@@ -134,7 +139,22 @@ One more event comes with M5 but is not an admin event: it is `LEAVE_REASSIGNED_
 | `leave.reassigned` | A pending request moves to another approver: its approver was deactivated or demoted from admin, the requester's manager changed, or someone was invited as admin, promoted to admin or reactivated who can now take a request an admin had routed to themself (actor = the admin) | `leave_request.reassigned` | the `leave.*` payload plus `previousApproverId, approverId` (either may be `null`) |
 
 No payload ever holds a session, token, sign-in link or the admin's free-text reason. Emails are in `user.*`
-payloads because integrations sync people by address.
+payloads because integrations sync people by address. Since M6, `user.created` and `user.updated` can also come
+from an adapter's inbound sync; their `actorId` is then the admin who started it, or `null` for a scheduled one.
+
+Integration events (M6), registered in `INTEGRATION_EVENT_TYPES`; the audit `action` is the event type and the
+actor the admin. Payloads carry a webhook URL's origin only (paths often hold a token), never a secret, key or
+hash.
+
+| Event | Payload (v1) |
+| --- | --- |
+| `webhook_endpoint.created`, `.updated`, `.enabled`, `.disabled`, `.secret_rotated`, `.deleted`, `.pinged` | `endpointId, urlOrigin, description, eventTypes, enabled, actorId` |
+| `webhook_endpoint.updated` also | `urlChanged` (boolean): the full URL changed, even if `urlOrigin` did not |
+| `webhook_delivery.redelivered` | `endpointId, deliveryId, eventId, eventType, actorId` |
+| `api_key.created`, `api_key.revoked` | `apiKeyId, name, prefix, scopes, actorId` |
+
+[docs/api.md](api.md#events) is the public catalogue of every type and payload, with the envelope they are
+delivered in.
 
 ### Dates
 
@@ -360,7 +380,8 @@ Run it with `pnpm job:rollover [year]` (default: the previous year in each compa
 `DATABASE_URL`). The compose `migrate` service runs it after the seed on every start; a failure there is
 printed but does not stop the app, since balances work without it and only carryover waits.
 
-Without restarts, schedule it **daily** from a host cron. Running only on Jan 1 is not enough: the carryover
+Since M6 the outbox worker runs it **daily** on its own ([Scheduled jobs](#scheduled-jobs)), so a host cron is
+optional. Without the worker, schedule it **daily** from a host cron. Running only on Jan 1 is not enough: the carryover
 must be recomputed when December leave that was still pending is rejected or cancelled in January, and cron
 fires in the host's time zone, so on a UTC host 00:15 on Jan 1 is still Dec 31 for a company in the Americas;
 the job would close the year before last (a no-op) and skip the year that just ended. A daily run is
@@ -580,6 +601,9 @@ person's **member lock** (`lockMember`), as the M3 rule requires of every writer
   Each move is a compare-and-set on `pending` and the old approver, writes `leave.reassigned`, and emails the
   new approver after commit. The reads behind it (requesters, their managers, admins, contacts, leave types) are
   batched, so the company lock is held for a fixed number of reads plus three statements per moved request. Then `user.deactivated`, whose audit `after` counts sessions, links and requests.
+  API keys and webhook endpoints they created stay (they belong to the company), but the result counts the live
+  ones (`liveApiKeysCreated`, `liveWebhookEndpointsCreated`, by `created_by`) and the screen points the admin
+  to Integrations: the person saw each key and signing secret in full.
   Known gap: a request submitted in the same instant can still be routed to the person being deactivated or
   demoted (submit reads the manager and admins without a lock, by design, to avoid deadlocks), and its review
   email may go to them. They cannot decide it (a stored assignment counts only while the approval rule still
@@ -665,18 +689,260 @@ with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malfo
 
 ### Screens
 
-`/admin` opens People. A sub-nav (People, Departments, Leave types, Holidays, Company, Audit log) sits under
-the header, which shows **Admin** to admins only. One main action per screen (Invite someone, Save changes, Add
+`/admin` opens People. A sub-nav (People, Departments, Leave types, Holidays, Company, Audit log, and since M6
+Integrations, which opens Webhooks and adds a quieter second row of tabs for Webhooks, API keys and Connectors)
+sits under the header, which shows **Admin** to admins only. One main action per screen (Invite someone, Save changes, Add
 …); secondary actions are quiet text buttons, and destructive ones (deactivate, delete, archive) ask first.
 Per-row edits (rename, change an allowance) open in place. Refused saves keep what was typed (forms submit
 without React's automatic reset) and show the reason with `role="alert"` in `text-red-700 dark:text-red-400`.
+
+## Integrations (M6)
+
+Three ways for other systems to follow and read OOOhm, all fed by the events outbox: signed **webhooks**, the
+read-only **REST API** (`/api/v1`), and **adapters** (none ship in v1). The public reference for integrators is
+[docs/api.md](api.md); this section is how it works inside.
+
+```
+service tx ─► events_outbox ──(worker: dispatch)──► webhook_deliveries ──(worker: deliver)──► POST, signed
+                   │                          └───► adapter_deliveries ──(worker: deliver)──► adapter.deliver()
+                   └──(GET /api/v1/events: replay)
+```
+
+### Outbox → dispatch → deliveries
+
+Every state change already writes an `events_outbox` row in its transaction (`recordChange`). The **outbox
+worker** (`scripts/worker.mts`, `pnpm worker`, the compose `worker` service) turns those rows into deliveries:
+
+1. **Dispatch** (`dispatchOutboxBatch`, `src/server/services/outbox-dispatch.ts`). In one transaction: claim up
+   to 100 undispatched rows, oldest first, with `FOR UPDATE SKIP LOCKED`; create a `webhook_deliveries` row for
+   every enabled, live endpoint of the event's company that subscribes to its type and **existed when the event
+   was written** (an endpoint never receives history); create an `adapter_deliveries` row for every registered
+   adapter whose `handles(type, companyId)` is true (a throw counts as false and is logged as
+   `adapter_handles_failed`, so a faulty adapter cannot stall dispatch); set `delivered_at` (read it as "dispatched"). The delivery's `body` is
+   the envelope as JSON, fixed now so every retry sends the same bytes. Unique `(endpoint, event)` and
+   `(adapter, event)` indexes make a repeat harmless.
+2. **Deliver** (`deliverDueWebhooks`, `src/server/services/webhook-delivery.ts`). Claim up to 20 due deliveries
+   (`status = 'pending' and next_attempt_at <= now`, enabled live endpoint) in one `UPDATE ... WHERE id IN
+   (SELECT ... FOR UPDATE SKIP LOCKED)` that also **leases** them: `attempts + 1`, `next_attempt_at = now + 2
+   min`. Then, 8 at a time and outside any transaction: open the endpoint's secret, sign, POST with a 10-second
+   timeout, and record the outcome with a compare-and-set on `(id, attempts, status = 'pending')`. A worker that
+   dies mid-attempt leaves the lease to run out and the next claim retries it, so delivery is **at least once**;
+   a late outcome from a superseded claim (or after a redelivery) is dropped. Adapter deliveries
+   (`deliverDueAdapterEvents`) work the same way with a 30-second limit per `deliver` call, but run one after
+   another and are **claimed one at a time**, just before each call, so the 2-minute lease always covers the one
+   call it guards: a slow adapter never leaves queued claims whose leases run out and get re-claimed by another
+   worker while the first is still working through its batch.
+3. **Retry schedule** (`retryDelayMs`, `src/domain/integrations.ts`, shared): after attempt 1 to 7 fails, wait
+   1 min, 5 min, 30 min, 2 h, 6 h, 12 h, 24 h, each ±10% jitter; the 8th failure marks it `failed`. Success is a
+   2xx. Anything else is a failure: other statuses (3xx included: redirects are never followed), timeouts,
+   refused or blocked addresses, an unreadable secret (`secret_unreadable`, e.g. after the key changed).
+
+Statuses: `pending` (not tried yet, waiting to retry, or in flight under a lease), `delivered`, `failed`,
+`cancelled` (its endpoint was deleted). A disabled endpoint gets no new deliveries, and the claim skips its
+pending ones, which go out when it is turned back on.
+
+Several workers are safe at once: every claim is `SKIP LOCKED` (no event dispatched twice, no worker waiting on
+another) or a compare-and-set. `webhook-delivery.test.ts` runs two dispatchers and two deliverers concurrently
+over 40 events and checks every event is dispatched and sent exactly once, and that a dispatcher passes over
+rows another transaction holds instead of waiting.
+
+### The worker process
+
+Four loops share a pool of 5 connections: dispatch, deliver (webhooks), adapters (adapter deliveries), and jobs
+(each minute). Adapters get their own loop so a slow or hanging adapter (up to 20 calls of 30 seconds in one
+pass) never holds up webhook delivery. A loop that found work goes again at once; an idle one sleeps `WORKER_POLL_INTERVAL_MS` (1 s), doubling to
+`WORKER_MAX_IDLE_MS` (10 s). A loop error is logged (`worker_loop_failed`) and the loop backs off; it never exits.
+`SIGTERM`/`SIGINT` stops the loops: no new batch or claim starts; webhook attempts in flight finish (at most the
+10-second timeout, under compose's 30-second `stop_grace_period`) and the unstarted rest of their batch is released
+(`releaseDeliveryClaims`: due at once, attempt not counted); an adapter call in flight sees its
+`AdapterContext.signal` abort and its delivery is released the same way (`releaseAdapterClaim`), as is one
+claimed just as the stop landed, whose adapter is then never called. A shutdown therefore never spends an
+attempt or turns a last attempt into `failed`; an interrupted call may have reached the other system, so it is
+sent again (at least once). Then the pool closes (`worker_stopped`). A
+second signal exits at once; anything in flight is retried after its lease.
+
+It reads its own environment (`src/lib/worker-env.ts`), not the app's: `DATABASE_URL`, `WEBHOOK_ENCRYPTION_KEY`,
+`WEBHOOK_ALLOW_INSECURE`, `WEBHOOK_ALLOW_PRIVATE`, `LOG_LEVEL`, `WORKER_POLL_INTERVAL_MS`, `WORKER_MAX_IDLE_MS`.
+Compose gives it exactly those (no auth, OAuth or SMTP secret), and its `ServiceContext` refuses to send mail or
+issue sign-in links. Compose also runs it as the unprivileged `node` user on a read-only filesystem with no
+capabilities. **This keeps secrets out of its environment; it is not database isolation.** The worker connects as
+the same owner role as the app, so a compromised worker could read or write any table, including Better Auth's
+`session` and `verification` rows. A dedicated role granted only the outbox, delivery, endpoint and rollover
+tables (and nothing on `session`, `account` or `verification`) is the next step if that matters to a
+deployment; v1 does not ship one. Log lines are structured (`log`) and carry ids, event types, status codes and short error
+codes, never a URL, secret, signature or body (`webhook-delivery.test.ts` checks).
+
+### Scheduled jobs
+
+`runDueJobs` (`src/server/services/scheduled-jobs.ts`) runs the daily jobs: `year_rollover` (the M3
+`runYearRollover`) and `integration_retention`. A worker claims a job with an atomic compare-and-set on its
+`scheduled_jobs` row (`UPDATE ... SET next_run_at = now + 1 h WHERE name = $1 AND next_run_at <= now`): of
+several workers exactly one gets it, and, unlike a session advisory lock, the claim survives restarts, so a job
+runs once a day however often workers restart. Success sets `next_run_at` a day after the claim; a failure is
+logged and recorded (`last_error`: error name and code only, since a query error's message carries parameters)
+and retried an hour later; a crash leaves the one-hour lease to run out. Both jobs are idempotent, so the rare
+overlap after an expired lease is harmless.
+
+**Retention** (`pruneIntegrationData`): finished webhook and adapter deliveries last changed more than 90 days
+ago, then dispatched outbox events written more than 90 days ago (unless an adapter still has one pending), in
+batches of 1,000. Pending deliveries and undispatched events are never pruned. The audit log is never pruned.
+
+### Webhooks
+
+Admin use cases are in `src/server/services/webhooks.ts`, screens under `/admin/webhooks`. They follow the admin
+rules ([Admin](#admin-m5)): `assertCanAdminister`, `assertActiveAdmin` in the transaction, company scoping (an id
+from another company, or a deleted endpoint, is `not_found`), and `audit_log` + outbox in the same transaction.
+
+- **Create** takes the company lock and allows at most 20 live endpoints per company (`limit_reached`), since
+  every event fans out to each. The URL is checked (`normalizeWebhookUrl`, `src/domain/webhook-target.ts`):
+  absolute, at most 2,048 characters, no credentials or fragment, `https:` unless `WEBHOOK_ALLOW_INSECURE`
+  (`insecure_url`), and, unless `WEBHOOK_ALLOW_PRIVATE`, not an IP literal in a blocked range nor an obviously
+  local name such as `localhost`, `*.local`, `*.internal` or a single label (`blocked_address`). Event types must
+  come from `WEBHOOK_EVENT_TYPES` (every outbox type, grouped for the form; `ping` is never subscribable).
+- **The secret** is `whsec_` and 32 random bytes, generated in the service, returned once (shown with a copy
+  button by `RevealForm`, `src/app/admin/reveal-once.tsx`), and stored sealed with AES-256-GCM under
+  `WEBHOOK_ENCRYPTION_KEY` (`createSecretBox`, `src/lib/integration-crypto.ts`): a fresh 12-byte IV per seal, a
+  16-byte tag, and the **endpoint id as additional data**, so a sealed value copied onto another row does not
+  open. `v1.<iv>.<ciphertext>.<tag>` leaves room for a key rotation scheme later. It is encrypted, not hashed,
+  because the signer needs the plaintext.
+- **Rotate** replaces the secret at once; every later attempt, retries of older events included, uses the new
+  one. There is no overlap window (decision: one secret keeps verification simple; the header format already
+  allows several `v1=` values if a grace period is added).
+- **Disable/enable**, **delete** (soft: `deleted_at`, `enabled = false`, pending deliveries `cancelled`), **ping**
+  (a `ping` delivery to that endpoint only, refused when it is off) and **redeliver** (a finished delivery back to
+  `pending` with `attempts = 0`, same event id and body, refused while pending) are queued for the worker: the app
+  never makes an outbound request. Each is audited.
+- **Audit and events** hold the URL's origin only (`urlOrigin`), never its path or query. An edit that changes the
+  URL also records `urlChanged: true`, so a move to another path on the same host is visible. Not a hash of the
+  URL: an unkeyed hash of a path holding a short token could be brute-forced by anyone who reads events.
+
+**Signing** (`webhookRequestHeaders`): `OOOhm-Event-Id`, `OOOhm-Event-Type`, `OOOhm-Timestamp` (unix seconds at
+the attempt) and `OOOhm-Signature: v1=<hex HMAC-SHA256(secret, `${timestamp}.${body}`)>`. The receiver's steps
+and a Node snippet are in [docs/api.md](api.md#verifying-the-signature); `verifyWebhookSignature` implements the
+same, and the unit tests pin the HMAC against a vector computed with `openssl dgst -hmac`.
+
+**Server-side request forgery.** The worker's transport (`createSafeFetch`, `src/lib/safe-fetch.ts`) is Node's
+`http`/`https`, not `fetch`, so it controls name resolution: its `lookup` resolves **every** address of the host
+and refuses the connection if any is blocked (`isBlockedAddress`), on the very answer the socket then uses, so
+DNS rebinding between a check and the connection is impossible. IP literals are checked before connecting (Node
+skips `lookup` for them). Blocked: IPv4 0/8, 10/8, 100.64/10, 127/8, 169.254/16 (cloud metadata), 172.16/12,
+192.0.0/24, 192.0.2/24, 192.88.99/24, 192.168/16, 198.18/15, 198.51.100/24, 203.0.113/24, 224/4, 240/4; IPv6 `::`,
+`::1`, `100::/64`, `2001::/32` (Teredo), ORCHID, `2001:db8::/32`, `fc00::/7` (incl. AWS `fd00:ec2::254`),
+`fec0::/10`, `fe80::/10`, `ff00::/8`; and any IPv4-mapped, -compatible, NAT64 or 6to4 address whose embedded IPv4
+is blocked. Anything that does not parse is blocked. Redirects are never followed, the response body is read up
+to 64 KB, and only a 200-character excerpt is stored.
+
+### REST API
+
+Route handlers under `src/app/api/v1/*/route.ts` are one line each: `apiGet` (`_lib/api-get.ts`) builds the
+context, then `handleApiRequest` (`_lib/handler.ts`, injectable and tested without Next) authenticates, rate
+limits and maps errors; the route parses the query with zod (`_lib/query.ts`) and calls one service in
+`src/server/services/api-v1.ts`, whose queries are in `src/server/repositories/api-reads.ts` and the existing
+repositories.
+
+- **Keys** (`src/server/services/api-keys.ts`, screen `/admin/api-keys`): `ooohm_` + 32 random bytes, shown once,
+  stored as SHA-256 hex under a unique index (a plain hash suffices for 256 random bits) with an 8-character
+  `prefix` for admins to tell keys apart. At most 50 live keys per company. `scopes text[]` is `CHECK`ed to
+  `read`/`write`; v1 grants `read` and every endpoint requires it (`assertScope`), so `write` endpoints can come
+  later without a migration. Creating and revoking are audited with `api_key.*` events, never the key or hash.
+  Keys belong to the company: deactivating the admin who made one does not revoke it.
+- **Authentication** (`authenticateApiKey`): only a well-formed `Authorization: Bearer ooohm_<43>` is looked up,
+  by its hash (one index probe), then compared again with `timingSafeEqual`. Missing, malformed, unknown and
+  revoked keys get the same 401. `last_used_at` is written at most once a minute per key.
+- **The client** is an `ApiClient` (`keyId, companyId, scopes`), the API's counterpart of `Actor`: every query is
+  scoped by its `companyId`, never by input. Ids of another company read as absent.
+- **Rate limits** (in process memory, like the feed's): 120 requests a minute per key (429, `Retry-After: 60`),
+  and 30 requests without a valid key per client address (`clientAddress`), after which they get 429 instead of
+  401; a valid key is never refused by the second. One standalone server process makes this exact; several
+  instances would each count separately.
+- **Pagination** is keyset, `limit + 1` rows to know whether a next page exists: `/users` by `id`
+  (`user_company_id_idx (company_id, id)`), `/leave-requests` by `(start_date, id)`
+  (`leave_requests_company_start_id_idx`), with the calendar's lower bound on `start_date` when `from` is given.
+  Cursors are base64url JSON the service validates (`400` otherwise).
+- **Fixed query counts** (pinned in `api.test.ts`): 2 per page of users, leave types, leave requests or events
+  (the key, then the page), 3 for events after a cursor and for holidays, 6 for balances (the key; settings, types
+  and people; allowance rows and booked days), however many rows.
+- **No notes.** Leave requests never include the requester's note or the decision note: the M4 privacy rule, and
+  a key is a company-wide machine credential.
+- **Errors** are `{ error: { code, message } }` (`invalid_request`, `unauthorized`, `forbidden`, `rate_limited`,
+  `internal_error`); every response is `Cache-Control: no-store`.
+- **OpenAPI 3.1** is hand-written in `_lib/openapi.ts` and served at `/api/v1/openapi.json` (public).
+  `api.test.ts` walks `src/app/api/v1` and fails if a route method is undocumented or a documented one does not
+  exist.
+
+**Event replay** (`GET /api/v1/events`) pages the outbox after an event id. Ordering by `created_at` alone would
+lose events: a transaction that writes early but commits late would land behind a reader's cursor. So every
+outbox row stores the id of the transaction that wrote it (`tx_id`, `pg_current_xact_id()`, migration 0009), the
+replay orders by `(tx_id, created_at, id)` (`events_outbox_company_tx_idx`), and returns only rows with
+`tx_id < pg_snapshot_xmin(pg_current_snapshot())`: rows of transactions older than every transaction still
+running. Any row a reader could see later then has a larger `tx_id` and sorts after its cursor. Read-only
+transactions (`pg_dump`, reports) take no transaction id and do not hold it back; a transaction that writes and
+stays open does, until it ends. `api.test.ts` holds a writing transaction open and checks that neither its row nor
+a later committed one shows, and that both arrive after the cursor once it commits.
+
+### Adapters
+
+`src/server/integrations/adapter.ts` defines the seam; `installed.ts` lists what a deployment registers, and is
+**empty in v1** (`adapters.test.ts` and the unit tests assert it).
+
+```ts
+interface Adapter {
+  id: string;                                   // stable; stored with each delivery
+  displayName: string;
+  handles(eventType: string, companyId: string): boolean;  // outbound filter, per company
+  deliver(event: EventEnvelope, ctx: AdapterContext): Promise<void>;   // outbound; throw to retry
+  syncUsers?(ctx: AdapterContext): Promise<InboundUser[]>;            // inbound
+  syncBalances?(ctx: AdapterContext): Promise<InboundBalance[]>;      // inbound
+  healthCheck(ctx: AdapterContext): Promise<{ ok: boolean; detail?: string }>;
+}
+```
+
+Adapters are registered per deployment, but every call is for one company: `handles` gets the `companyId`, and
+every `AdapterContext` carries it. An adapter that a company must connect first (credentials, an opt-in) answers
+`false` from `handles` for companies that have not, so per-company installation needs no change to dispatch; its
+configuration (say an `adapter_installations` table read through a new `AdapterContext` field) is the part a
+first real adapter adds.
+
+Adapters never touch the database (lint enforces it: `src/server/integrations/**` may not import the pool,
+schema, Drizzle, `env`, `auth`, services or repositories). Outbound, the worker delivers envelopes to them
+exactly as to webhooks (`adapter_deliveries`, same claim, lease and retry schedule; a delivery whose adapter is
+no longer registered fails its attempts with `adapter_not_registered` and resumes if it comes back). Inbound,
+`applyInboundSync` (`src/server/services/inbound-sync.ts`) writes what they return:
+
+- **People**, matched by lowercased email, in one transaction under the company lock: a person of this company is
+  renamed if the name differs (`user.updated`); an unknown email creates an employee with no department or
+  manager (`user.created`), **inactive** unless the caller passes `activateNewUsers`; an email of another company,
+  or a malformed entry, is skipped and reported. Invite-only holds: a sync creates the row and nothing else (no
+  session, link or email), and an inactive person cannot sign in until an admin reactivates them.
+- **Allowances** by email, leave type code and year, each in its own transaction under the person's member lock
+  (`lockMember`), through `writeAllowance`, the same write as an admin's override: `days` and `adjustment_days`
+  (kept when omitted), never `carried_over_days`, last year and later only, last year re-carried at once.
+  `allowance.synced` + `balance.adjusted` (`reason: "sync"`).
+- Every audit row records `source: "adapter:<id>"`; the actor is the admin who pressed **Sync now**
+  (`syncAdapterNow`), or `null` for a scheduled sync.
+
+`/admin/integrations` (**Integrations → Connectors**; the admin nav groups webhooks, API keys and connectors under one **Integrations** link with a second row of tabs) lists registered adapters with their `healthCheck` (5-second limit each, failures shown as
+"not connected" and logged) and a **Sync now** action for those that sync; in v1 it shows a calm empty state
+pointing at webhooks and API keys. `adapters.test.ts` proves the seam with a test-only adapter: outbound delivery
+with a failure, a scheduled retry and success; failure after 8 attempts; inbound people and allowances with audit
+and events.
+
+To add one: implement `Adapter` in `src/server/integrations/adapters/<name>.ts` and list it in `installed.ts`.
+Nothing else changes. Configuration and credentials per company are not modelled yet; the first real adapter
+will add them to `AdapterContext`, not to core code.
 
 ## Testing
 
 | Command | What | Needs |
 | --- | --- | --- |
 | `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, email templates, formatting) | nothing |
-| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan | `TEST_DATABASE_URL` |
+| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention | `TEST_DATABASE_URL` |
+
+The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
+IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,
+API key format) and runs the webhook transport against a local HTTP server (loopback refused by literal and by
+name, no redirects, 64 KB cap, timeout). `tests/e2e/` holds a signature-verifying webhook receiver and a setup
+script for trying the whole flow against a real build ([docs/api.md](api.md#try-it-locally)).
 
 Both run with Node's test runner through `tsx --conditions=react-server`. The `react-server` condition makes
 `import "server-only"` resolve to its empty module, the same way Next.js resolves it on the server, so tests

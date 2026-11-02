@@ -33,11 +33,13 @@ import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { renderInviteEmail } from "@/server/email/invite-email";
 import { renderLeaveEmail } from "@/server/email/leave-emails";
+import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
 import { listDepartments } from "@/server/repositories/departments";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
 import { findDepartment } from "@/server/repositories/departments";
 import { isUniqueViolation } from "@/server/repositories/errors";
+import { countLiveEndpoints } from "@/server/repositories/webhooks";
 import {
   type LeaveRequestRow,
   listPendingAssignedTo,
@@ -426,6 +428,13 @@ export interface DeactivationResult {
   feedsRevoked: number;
   /** Pending requests that were waiting on this person and now wait on someone else. */
   requestsReassigned: number;
+  /**
+   * Unrevoked API keys and undeleted webhook endpoints this person created. They belong
+   * to the company and keep working; they are reported because the person saw each key
+   * and signing secret in full, so an admin may want to revoke or rotate them.
+   */
+  liveApiKeysCreated: number;
+  liveWebhookEndpointsCreated: number;
 }
 
 /**
@@ -437,6 +446,9 @@ export interface DeactivationResult {
  * now picks for each requester (their active manager, else the longest-standing other
  * active admin; never self-approval), each with a `leave.reassigned` event and a
  * review email to the new approver after commit.
+ *
+ * API keys and webhook endpoints they created stay (they belong to the company); the
+ * result counts the live ones so the admin can review them.
  *
  * Doing it again to someone already inactive changes and records nothing.
  *
@@ -450,8 +462,12 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
     await beginAdminChange(tx, actor);
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
+    const credentials = async () => ({
+      liveApiKeysCreated: await countLiveApiKeys(tx, actor.companyId, before.id),
+      liveWebhookEndpointsCreated: await countLiveEndpoints(tx, actor.companyId, before.id),
+    });
     if (!before.isActive) {
-      return { result: { person: before, sessionsRevoked: 0, feedsRevoked: 0, requestsReassigned: 0 }, outgoing: [] };
+      return { result: { person: before, sessionsRevoked: 0, feedsRevoked: 0, requestsReassigned: 0, ...(await credentials()) }, outgoing: [] };
     }
     const adminsBefore = await listActiveAdmins(tx, actor.companyId);
     assertKeepsAnActiveAdmin(
@@ -474,7 +490,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
       after: { ...personSnapshot(after), sessionsRevoked, feedsRevoked, requestsReassigned: reassigned },
       payload: personPayload(after),
     });
-    return { result: { person: after, sessionsRevoked, feedsRevoked, requestsReassigned: reassigned }, outgoing };
+    return { result: { person: after, sessionsRevoked, feedsRevoked, requestsReassigned: reassigned, ...(await credentials()) }, outgoing };
   });
 }
 

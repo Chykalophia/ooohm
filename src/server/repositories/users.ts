@@ -191,9 +191,23 @@ export async function insertPerson(
     departmentId: string | null;
     managerId: string | null;
     canSelfApprove: boolean;
+    /** Defaults to true (an admin's invite); an inbound sync may create people inactive. */
+    isActive?: boolean;
   },
 ): Promise<PersonRow> {
-  const [row] = await tx.insert(user).values({ ...values, emailVerified: false, isActive: true }).returning(personFields);
+  const [row] = await tx
+    .insert(user)
+    .values({ ...values, emailVerified: false, isActive: values.isActive ?? true })
+    .returning(personFields);
+  return row;
+}
+
+/** The account with this email (already lowercased), in any company, with its company. */
+export async function findPersonByEmail(ex: Executor, email: string): Promise<(PersonRow & { companyId: string | null }) | undefined> {
+  const [row] = await ex
+    .select({ ...personFields, companyId: user.companyId })
+    .from(user)
+    .where(eq(user.email, email));
   return row;
 }
 

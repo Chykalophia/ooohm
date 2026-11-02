@@ -8,6 +8,7 @@ import { setAllowanceOverride } from "@/server/services/admin-allowances";
 import { deactivatePerson, invitePerson, reactivatePerson, resendInvite, updatePerson } from "@/server/services/admin-people";
 import type { FormState } from "@/app/form-state";
 import { adminAction, formFields } from "@/app/admin/admin-action";
+import { deactivationMessage } from "@/app/admin/people/deactivation-message";
 
 const personFields = {
   name: formFields.text(PERSON_NAME_MAX_LENGTH * 2),
@@ -79,9 +80,7 @@ export async function deactivateAction(_prev: FormState, formData: FormData): Pr
     formData,
     personSchema,
     async (ctx, actor, { userId }) => {
-      const { requestsReassigned } = await deactivatePerson(ctx, actor, userId);
-      const moved = requestsReassigned === 0 ? "" : ` ${requestsReassigned} pending ${requestsReassigned === 1 ? "request" : "requests"} moved to another approver.`;
-      return `Deactivated. They're signed out everywhere.${moved}`;
+      return deactivationMessage(await deactivatePerson(ctx, actor, userId));
     },
     PERSON_MESSAGES,
   );

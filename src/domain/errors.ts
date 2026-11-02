@@ -57,7 +57,13 @@ export type DomainErrorCode =
   /** A department still has people in it, so deleting it would silently move them. */
   | "department_not_empty"
   /** Admins cannot deactivate their own account; another admin has to. */
-  | "self_change_not_allowed";
+  | "self_change_not_allowed"
+  /** A webhook URL is not `https://` (and plain `http://` is not allowed here). */
+  | "insecure_url"
+  /** A webhook URL points at a loopback, private, link-local or otherwise non-public address. */
+  | "blocked_address"
+  /** The company already has as many of something (webhook endpoints, API keys) as it may. */
+  | "limit_reached";
 
 /**
  * Facts behind an `insufficient_balance` error, so the presentation layer can say

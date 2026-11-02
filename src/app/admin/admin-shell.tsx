@@ -8,15 +8,32 @@ import { getApprovalNav } from "@/server/services/approvals";
 import { AppHeader } from "@/app/app-header";
 import { focusRing } from "./styles";
 
-export type AdminSection = "people" | "departments" | "leave-types" | "holidays" | "company" | "audit";
+export type AdminSection =
+  | "people"
+  | "departments"
+  | "leave-types"
+  | "holidays"
+  | "company"
+  | "audit"
+  | "webhooks"
+  | "api-keys"
+  | "integrations";
 
-const SECTIONS: { id: AdminSection; href: string; label: string }[] = [
+/** The integration screens, grouped under one "Integrations" link with their own row of tabs. */
+const INTEGRATION_SECTIONS: { id: AdminSection; href: string; label: string }[] = [
+  { id: "webhooks", href: "/admin/webhooks", label: "Webhooks" },
+  { id: "api-keys", href: "/admin/api-keys", label: "API keys" },
+  { id: "integrations", href: "/admin/integrations", label: "Connectors" },
+];
+
+const SECTIONS: { id: AdminSection; href: string; label: string; group?: readonly AdminSection[] }[] = [
   { id: "people", href: "/admin/people", label: "People" },
   { id: "departments", href: "/admin/departments", label: "Departments" },
   { id: "leave-types", href: "/admin/leave-types", label: "Leave types" },
   { id: "holidays", href: "/admin/holidays", label: "Holidays" },
   { id: "company", href: "/admin/company", label: "Company" },
   { id: "audit", href: "/admin/audit", label: "Audit log" },
+  { id: "webhooks", href: "/admin/webhooks", label: "Integrations", group: INTEGRATION_SECTIONS.map((s) => s.id) },
 ];
 
 /**
@@ -32,26 +49,50 @@ export async function requireAdminPage() {
   return { actor, ctx, userName: user.name || user.email, approvals };
 }
 
-/** The admin sub-navigation: one calm row of links, wrapping on small screens. */
+/**
+ * The admin sub-navigation: one calm row of seven links, wrapping on small screens. On
+ * an integration screen a second, quieter row switches between webhooks, API keys and
+ * connectors.
+ */
 function AdminNav({ section }: { section: AdminSection }) {
+  const inIntegrations = INTEGRATION_SECTIONS.some((s) => s.id === section);
   return (
-    <nav aria-label="Admin" className="flex flex-wrap gap-2 text-sm">
-      {SECTIONS.map((s) => {
-        const active = s.id === section;
-        return (
-          <Link
-            key={s.id}
-            href={s.href}
-            aria-current={active ? "page" : undefined}
-            className={`rounded-full border px-3 py-1 ${focusRing} ${
-              active ? "border-accent text-accent" : "border-border text-muted hover:text-foreground"
-            }`}
-          >
-            {s.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <div className="space-y-3">
+      <nav aria-label="Admin" className="flex flex-wrap gap-2 text-sm">
+        {SECTIONS.map((s) => {
+          const active = s.group ? s.group.includes(section) : s.id === section;
+          return (
+            <Link
+              key={s.label}
+              href={s.href}
+              aria-current={active ? (s.group ? "true" : "page") : undefined}
+              className={`rounded-full border px-3 py-1 ${focusRing} ${
+                active ? "border-accent text-accent" : "border-border text-muted hover:text-foreground"
+              }`}
+            >
+              {s.label}
+            </Link>
+          );
+        })}
+      </nav>
+      {inIntegrations && (
+        <nav aria-label="Integrations" className="flex flex-wrap gap-4 text-sm">
+          {INTEGRATION_SECTIONS.map((s) => {
+            const active = s.id === section;
+            return (
+              <Link
+                key={s.id}
+                href={s.href}
+                aria-current={active ? "page" : undefined}
+                className={`rounded ${focusRing} ${active ? "text-accent underline underline-offset-4" : "text-muted hover:text-foreground"}`}
+              >
+                {s.label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+    </div>
   );
 }
 

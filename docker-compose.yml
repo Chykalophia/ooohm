@@ -15,6 +15,10 @@ x-app-env: &app-env
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
   TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+  WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY:?Set WEBHOOK_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
+  WEBHOOK_ALLOW_INSECURE: ${WEBHOOK_ALLOW_INSECURE:-false}
+  WEBHOOK_ALLOW_PRIVATE: ${WEBHOOK_ALLOW_PRIVATE:-false}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
 
 services:
   db:
@@ -65,6 +69,41 @@ services:
     environment: *app-env
     ports:
       - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # The outbox worker: dispatches events to webhooks (and adapters, none in v1), delivers
+  # them with retries, and runs the daily year rollover and retention. It gets only the
+  # database, the webhook encryption key and its own settings: never the auth secret,
+  # OAuth or SMTP credentials. Safe to scale (`--scale worker=2`): claims use SKIP LOCKED.
+  worker:
+    build:
+      context: .
+      target: builder
+    # tsx directly (not pnpm) so SIGTERM reaches the worker, which finishes in-flight
+    # deliveries before exiting; init reaps the child.
+    command: ["node_modules/.bin/tsx", "--conditions=react-server", "scripts/worker.mts"]
+    init: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+    # The one process that talks to admin-chosen hosts runs unprivileged (the image's
+    # `node` user), on a read-only filesystem with no capabilities; tsx caches in /tmp.
+    user: node
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
+      WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY:?Set WEBHOOK_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
+      WEBHOOK_ALLOW_INSECURE: ${WEBHOOK_ALLOW_INSECURE:-false}
+      WEBHOOK_ALLOW_PRIVATE: ${WEBHOOK_ALLOW_PRIVATE:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-1000}
+      WORKER_MAX_IDLE_MS: ${WORKER_MAX_IDLE_MS:-10000}
     depends_on:
       migrate:
         condition: service_completed_successfully

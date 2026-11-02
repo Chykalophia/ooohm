@@ -64,6 +64,13 @@
       "when": 1793577352159,
       "tag": "0008_m5_department_name_ci",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793580301056,
+      "tag": "0009_m6_integrations",
+      "breakpoints": true
     }
   ]
 }

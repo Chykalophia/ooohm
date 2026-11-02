@@ -10,7 +10,10 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../src/db/schema";
+import { STRICT_TARGET_POLICY } from "../src/domain/webhook-target";
+import { unavailableSecretBox } from "../src/lib/integration-crypto";
 import type { ServiceContext } from "../src/server/context";
+import { createAdapterRegistry } from "../src/server/integrations/adapter";
 import { runYearRollover } from "../src/server/services/rollover";
 
 const url = process.env.DATABASE_URL;
@@ -35,6 +38,9 @@ const ctx: ServiceContext = {
   issueSignInLink: async () => {
     throw new Error("The rollover job does not sign anyone in.");
   },
+  secrets: unavailableSecretBox("The rollover job holds no webhook encryption key."),
+  webhookTargets: STRICT_TARGET_POLICY,
+  adapters: createAdapterRegistry(),
 };
 
 try {

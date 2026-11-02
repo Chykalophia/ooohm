@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   check,
   date,
@@ -96,7 +97,8 @@ export const user = pgTable(
     ...timestamps,
   },
   (t) => [
-    index("user_company_idx").on(t.companyId),
+    // (company_id, id): company scoping everywhere, and keyset pages of the REST API's /users.
+    index("user_company_id_idx").on(t.companyId, t.id),
     index("user_manager_idx").on(t.managerId),
     // Better Auth looks emails up lowercased, so a mixed-case row could never sign in.
     check("user_email_lowercase", sql`${t.email} = lower(${t.email})`),
@@ -264,6 +266,8 @@ export const leaveRequests = pgTable(
   (t) => [
     index("leave_requests_user_idx").on(t.userId),
     index("leave_requests_company_dates_idx").on(t.companyId, t.startDate, t.endDate),
+    // Keyset pages of the REST API's /leave-requests, ordered by (start_date, id).
+    index("leave_requests_company_start_id_idx").on(t.companyId, t.startDate, t.id),
     index("leave_requests_status_idx").on(t.status),
     // Approvals inbox: requests assigned to one approver, and every pending request
     // in a company for admins. Also backs the approver_id foreign key.
@@ -379,7 +383,9 @@ export const auditLog = pgTable(
 
 /**
  * Transactional outbox for domain events (leave.requested, leave.approved, ...).
- * Webhooks and future adapters read from here; no adapters ship in v1.
+ * The outbox worker fans each row out to webhook endpoints and adapters, then sets
+ * `delivered_at` (read it as "dispatched": the deliveries themselves are tracked in
+ * `webhook_deliveries` and `adapter_deliveries`). The REST API's `/events` replays it.
  */
 export const eventsOutbox = pgTable(
   "events_outbox",
@@ -388,10 +394,179 @@ export const eventsOutbox = pgTable(
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     payload: jsonb("payload").notNull(),
+    /** Unused since M6: retries are counted per delivery. Kept, as columns are never dropped from a public table. */
     attempts: integer("attempts").notNull().default(0),
+    /** When the worker dispatched the event (created its deliveries); `null` until then. */
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     // clock_timestamp(), not now(): rows written in one transaction keep their write order.
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+    /**
+     * The id of the transaction that wrote the row. The events API pages in
+     * `(tx_id, created_at, id)` order and only shows rows of transactions older than every
+     * one still running, so a slow transaction can never commit a row behind a reader's
+     * cursor. Rows written before M6 share the migration's id.
+     */
+    txId: bigint("tx_id", { mode: "number" }).notNull().default(sql`pg_current_xact_id()::text::bigint`),
   },
-  (t) => [index("events_outbox_pending_idx").on(t.deliveredAt, t.createdAt)],
+  (t) => [
+    // The worker's claim: undispatched rows oldest first. Partial, so it stays small however long the history.
+    index("events_outbox_undispatched_idx").on(t.createdAt, t.id).where(sql`${t.deliveredAt} is null`),
+    // The events API: one company's events in commit-safe order, after a cursor.
+    index("events_outbox_company_tx_idx").on(t.companyId, t.txId, t.createdAt, t.id),
+  ],
 );
+
+/** Where a delivery stands. `pending` covers both "not tried yet" and "waiting to retry". */
+export const deliveryStatusEnum = pgEnum("delivery_status", ["pending", "delivered", "failed", "cancelled"]);
+
+/**
+ * Outbound webhook endpoints, one company's each. Deleting is soft (`deleted_at`), so
+ * deliveries and audit rows keep pointing at a real row.
+ */
+export const webhookEndpoints = pgTable(
+  "webhook_endpoints",
+  {
+    id: uuid("id").primaryKey(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    description: text("description").notNull().default(""),
+    /** Subscribed event types, e.g. `{leave.approved,balance.adjusted}`. */
+    eventTypes: text("event_types").array().notNull(),
+    /**
+     * The signing secret sealed with AES-256-GCM under `WEBHOOK_ENCRYPTION_KEY`, the
+     * endpoint id as additional data (`v1.<iv>.<ciphertext>.<tag>`). The signer needs the
+     * plaintext, so it is encrypted rather than hashed.
+     */
+    secretCiphertext: text("secret_ciphertext").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("webhook_endpoints_company_idx").on(t.companyId, t.createdAt).where(sql`${t.deletedAt} is null`),
+    check("webhook_endpoints_event_types_nonempty", sql`cardinality(${t.eventTypes}) > 0`),
+  ],
+);
+
+/**
+ * One event to one webhook endpoint, with its retry state. The worker creates these
+ * when it dispatches an outbox row (or an admin sends a `ping`), and delivers due ones.
+ * `body` is the exact JSON sent, fixed at creation, so every retry carries the same
+ * bytes; only the timestamp and signature headers change per attempt.
+ */
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    endpointId: uuid("endpoint_id")
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+    /** The envelope id: the outbox id, or a generated one for a `ping`. Not a foreign key, since pings have no outbox row. */
+    eventId: uuid("event_id").notNull(),
+    eventType: text("event_type").notNull(),
+    body: text("body").notNull(),
+    status: deliveryStatusEnum("status").notNull().default("pending"),
+    /** Attempts started, including one in flight. */
+    attempts: integer("attempts").notNull().default(0),
+    /** When the next attempt is due; while one is in flight, when its lease runs out. */
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull(),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    lastStatusCode: integer("last_status_code"),
+    lastLatencyMs: integer("last_latency_ms"),
+    /** A short code (`timeout`, `HTTP 500`, `blocked_address`); never a URL. */
+    lastError: text("last_error"),
+    /** The first 200 characters of the last response body, for debugging; never more. */
+    lastResponseExcerpt: text("last_response_excerpt"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    // At most one delivery of an event to an endpoint, so a re-dispatch cannot duplicate.
+    uniqueIndex("webhook_deliveries_endpoint_event_uq").on(t.endpointId, t.eventId),
+    // The worker's claim: due pending deliveries.
+    index("webhook_deliveries_due_idx").on(t.nextAttemptAt, t.id).where(sql`${t.status} = 'pending'`),
+    // An endpoint's recent deliveries, newest first, for the admin screen.
+    index("webhook_deliveries_endpoint_created_idx").on(t.endpointId, t.createdAt, t.id),
+  ],
+);
+
+/**
+ * One outbox event to one registered adapter, with the same retry state as a webhook
+ * delivery. Empty in v1, which ships no adapters.
+ */
+export const adapterDeliveries = pgTable(
+  "adapter_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    /** The adapter's `id` in the registry. */
+    adapterId: text("adapter_id").notNull(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => eventsOutbox.id, { onDelete: "cascade" }),
+    status: deliveryStatusEnum("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull(),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("adapter_deliveries_adapter_event_uq").on(t.adapterId, t.eventId),
+    index("adapter_deliveries_due_idx").on(t.nextAttemptAt, t.id).where(sql`${t.status} = 'pending'`),
+    index("adapter_deliveries_event_idx").on(t.eventId),
+  ],
+);
+
+/**
+ * REST API keys. Only the SHA-256 of a key is stored (hex, `CHECK`ed), under a unique
+ * index: a lookup is one probe. `prefix` (`ooohm_` and 8 characters) is what admins see.
+ */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    keyHash: text("key_hash").notNull(),
+    /** What the key may do. v1 grants `read` only; `write` is reserved. */
+    scopes: text("scopes").array().notNull().default(sql`'{read}'::text[]`),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Last authenticated request; written at most once a minute. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("api_keys_hash_uq").on(t.keyHash),
+    index("api_keys_company_created_idx").on(t.companyId, t.createdAt),
+    check("api_keys_hash_format", sql`${t.keyHash} ~ '^[0-9a-f]{64}$'`),
+    check("api_keys_scopes_known", sql`cardinality(${t.scopes}) > 0 and ${t.scopes} <@ array['read', 'write']::text[]`),
+  ],
+);
+
+/**
+ * Periodic jobs the outbox worker runs (the year rollover, retention). A worker claims
+ * a due job with a compare-and-set on `next_run_at`, so of several workers exactly one
+ * runs it, and a restart does not run it again early.
+ */
+export const scheduledJobs = pgTable("scheduled_jobs", {
+  name: text("name").primaryKey(),
+  nextRunAt: timestamp("next_run_at", { withTimezone: true }).notNull(),
+  lastStartedAt: timestamp("last_started_at", { withTimezone: true }),
+  lastFinishedAt: timestamp("last_finished_at", { withTimezone: true }),
+  /** Why the last run failed (a short message), or `null` after a success. */
+  lastError: text("last_error"),
+});

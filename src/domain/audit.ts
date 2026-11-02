@@ -3,7 +3,7 @@
  * summary of what a change did, computed from the row's `before` and `after` JSON.
  * Pure, so the viewer's wording is unit tested without a database.
  */
-import { ADMIN_EVENT_TYPES, ALLOWANCE_AUDIT_ACTIONS, CALENDAR_FEED_EVENT_TYPES } from "./events";
+import { ADMIN_EVENT_TYPES, ALLOWANCE_AUDIT_ACTIONS, CALENDAR_FEED_EVENT_TYPES, INTEGRATION_EVENT_TYPES } from "./events";
 
 /** Every `audit_log.action` the app writes, with how the viewer names it. */
 export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
@@ -34,6 +34,17 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   [ADMIN_EVENT_TYPES.holidayRenamed]: "Holiday renamed",
   [ADMIN_EVENT_TYPES.holidayDeleted]: "Holiday deleted",
   [ADMIN_EVENT_TYPES.companyUpdated]: "Company settings changed",
+  [ALLOWANCE_AUDIT_ACTIONS.sync]: "Allowance synced",
+  [INTEGRATION_EVENT_TYPES.webhookEndpointCreated]: "Webhook endpoint added",
+  [INTEGRATION_EVENT_TYPES.webhookEndpointUpdated]: "Webhook endpoint edited",
+  [INTEGRATION_EVENT_TYPES.webhookEndpointEnabled]: "Webhook endpoint turned on",
+  [INTEGRATION_EVENT_TYPES.webhookEndpointDisabled]: "Webhook endpoint turned off",
+  [INTEGRATION_EVENT_TYPES.webhookEndpointSecretRotated]: "Webhook secret replaced",
+  [INTEGRATION_EVENT_TYPES.webhookEndpointDeleted]: "Webhook endpoint deleted",
+  [INTEGRATION_EVENT_TYPES.webhookEndpointPinged]: "Webhook test event sent",
+  [INTEGRATION_EVENT_TYPES.webhookDeliveryRedelivered]: "Webhook sent again",
+  [INTEGRATION_EVENT_TYPES.apiKeyCreated]: "API key created",
+  [INTEGRATION_EVENT_TYPES.apiKeyRevoked]: "API key revoked",
 };
 
 export function isAuditAction(value: string): boolean {
@@ -61,7 +72,8 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 /**
  * The fields a change touched, in the order the snapshot lists them.
  *
- * - Both snapshots present: only fields whose value differs.
+ * - Both snapshots present: only fields whose value differs. A field only one side has
+ *   (a fact the change added, such as `sessionsRevoked` or `urlChanged`) has only that side.
  * - Only `after` (a creation): every field that has a value.
  * - Only `before` (a deletion): every field that had a value.
  */
@@ -70,7 +82,9 @@ export function diffAuditSnapshots(before: unknown, after: unknown): AuditFieldC
   const a = asRecord(after);
   if (a && b) {
     const fields = [...new Set([...Object.keys(b), ...Object.keys(a)])];
-    return fields.filter((f) => !same(b[f], a[f])).map((field) => ({ field, before: b[field], after: a[field] }));
+    return fields
+      .filter((f) => !same(b[f], a[f]))
+      .map((field) => ({ field, ...(Object.hasOwn(b, field) && { before: b[field] }), ...(Object.hasOwn(a, field) && { after: a[field] }) }));
   }
   if (a) return Object.keys(a).filter((f) => a[f] !== null && a[f] !== undefined).map((field) => ({ field, after: a[field] }));
   if (b) return Object.keys(b).filter((f) => b[f] !== null && b[f] !== undefined).map((field) => ({ field, before: b[field] }));
@@ -119,6 +133,15 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   sessionsRevoked: "Sessions ended",
   feedsRevoked: "Calendar links turned off",
   requestsReassigned: "Requests reassigned",
+  urlOrigin: "Address",
+  urlChanged: "Full address changed",
+  eventTypes: "Events",
+  enabled: "On",
+  prefix: "Key",
+  scopes: "Access",
+  revoked: "Revoked",
+  attempts: "Attempts",
+  source: "Source",
 };
 
 /** "carriedOverDays" → "Carried over days" for a field the viewer has no label for. */

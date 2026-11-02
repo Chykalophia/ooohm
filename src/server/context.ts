@@ -1,4 +1,7 @@
 import type { Database } from "@/db/types";
+import type { TargetPolicy } from "@/domain/webhook-target";
+import type { SecretBox } from "@/lib/integration-crypto";
+import type { AdapterRegistry } from "@/server/integrations/adapter";
 
 export interface MailMessage {
   to: string;
@@ -35,4 +38,13 @@ export interface ServiceContext {
    * asked for. Call it only after commit (the account must exist); it may throw.
    */
   issueSignInLink: (email: string) => Promise<string>;
+  /**
+   * Seals and opens webhook signing secrets (AES-256-GCM under `WEBHOOK_ENCRYPTION_KEY`).
+   * Processes without the key get a box that refuses, so a misconfiguration fails loudly.
+   */
+  secrets: SecretBox;
+  /** What webhook URLs may point at (`WEBHOOK_ALLOW_INSECURE`, `WEBHOOK_ALLOW_PRIVATE`). */
+  webhookTargets: TargetPolicy;
+  /** Registered integration adapters; empty in v1. */
+  adapters: AdapterRegistry;
 }

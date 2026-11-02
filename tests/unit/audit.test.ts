@@ -73,6 +73,18 @@ test("changes read in words, with ids named and unknown ids described, never sho
   assert.deepEqual(describeAuditChange({ name: "Ops" }, null, names), ["Name: was Ops"]);
 });
 
+test("a field only one snapshot has reads as a fact, not as a change from none; a null one still does", () => {
+  assert.deepEqual(diffAuditSnapshots({ urlOrigin: "https://a.example" }, { urlOrigin: "https://a.example", urlChanged: true }), [
+    { field: "urlChanged", after: true },
+  ]);
+  assert.deepEqual(describeAuditChange({ urlOrigin: "https://a.example" }, { urlOrigin: "https://a.example", urlChanged: true }, names), [
+    "Full address changed: yes",
+  ]);
+  assert.deepEqual(describeAuditChange({ isActive: true }, { isActive: false, sessionsRevoked: 2 }, names), ["Active: yes → no", "Sessions ended: 2"]);
+  assert.deepEqual(describeAuditChange({ managerId: null }, { managerId: "u2" }, names), ["Manager: none → Ben"]);
+  assert.deepEqual(describeAuditChange({ note: "x", extra: 1 }, { note: "x" }, names), ["Extra: was 1"]);
+});
+
 test("fields without a label are spelled out from camelCase", () => {
   assert.equal(auditFieldLabel("carriedOverDays"), "Carried over");
   assert.equal(auditFieldLabel("someNewField"), "Some new field");

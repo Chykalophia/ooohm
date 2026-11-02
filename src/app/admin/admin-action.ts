@@ -9,7 +9,8 @@ import { requireActor } from "@/lib/auth";
 import { serviceContext } from "@/server/runtime";
 import type { ServiceContext } from "@/server/context";
 import type { FormState } from "@/app/form-state";
-import { messageFor, runAction } from "@/app/run-action";
+import { messageFor, runAction, runActionWith } from "@/app/run-action";
+import type { RevealState } from "./reveal-state";
 
 /**
  * Runs one admin server action: resolves the session (redirecting to sign-in without
@@ -42,6 +43,35 @@ export async function adminAction<S extends z.ZodType>(
     messages,
   );
   if (state.status === "success") refresh();
+  return state;
+}
+
+/**
+ * {@link adminAction} for actions whose success reveals a secret once (a webhook signing
+ * secret, an API key): `work` returns the secret, the message to show with it and,
+ * optionally, where to go next. The secret goes back in this response only and is never
+ * logged.
+ */
+export async function adminRevealAction<S extends z.ZodType>(
+  event: string,
+  formData: FormData | Record<string, unknown>,
+  schema: S,
+  work: (ctx: ServiceContext, actor: Actor, input: z.infer<S>) => Promise<{ value: string; message: string; href?: string }>,
+  messages: Partial<Record<DomainErrorCode, string>> = {},
+): Promise<RevealState> {
+  const { actor } = await requireActor();
+  if (!actor) return { status: "error", message: messageFor("no_company") };
+  if (!canAdminister(actor)) return { status: "error", message: "Only admins can do that." };
+
+  const parsed = schema.safeParse(formData instanceof FormData ? Object.fromEntries(formData) : formData);
+  if (!parsed.success) return { status: "error", message: messageFor("invalid_input") };
+
+  const state = await runActionWith(
+    event,
+    async (): Promise<RevealState> => ({ status: "revealed", id: randomUUID(), ...(await work(serviceContext(), actor, parsed.data)) }),
+    messages,
+  );
+  if (state.status === "revealed") refresh();
   return state;
 }
 

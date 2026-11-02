@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, integrationEnvShape, nonEmptyEnv } from "./integration-env";
 
 const schema = z.object({
   DATABASE_URL: z.string().url(),
@@ -23,6 +24,9 @@ const schema = z.object({
   // How many reverse proxies in front of the app append to X-Forwarded-For. Rate limits
   // key on the client address only when this is set; see src/lib/client-address.ts.
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+
+  // Webhooks and logging (M6), shared with the outbox worker.
+  ...integrationEnvShape,
 });
 
 // `next build` imports server modules to collect route info. Real secrets are only
@@ -31,20 +35,19 @@ const isBuild = process.env.NEXT_PHASE === "phase-production-build";
 const buildPlaceholders = {
   DATABASE_URL: "postgres://build:build@localhost:5432/build",
   BETTER_AUTH_SECRET: "build-time-placeholder-secret-not-used-at-runtime",
+  WEBHOOK_ENCRYPTION_KEY: BUILD_PLACEHOLDER_ENCRYPTION_KEY,
 };
 
 function load() {
-  // Treat `KEY=` (empty) the same as unset so defaults apply.
-  const raw = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== ""));
+  const raw = nonEmptyEnv(process.env);
   const parsed = schema.safeParse(isBuild ? { ...buildPlaceholders, ...raw } : raw);
-  if (!parsed.success) {
-    // Fail fast with a readable list instead of a stack trace deep inside a request.
-    const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`);
-    throw new Error(`Invalid environment configuration:\n${issues.join("\n")}`);
-  }
-  // Defense in depth: the build placeholder must never sign real sessions.
+  if (!parsed.success) throw envError(parsed.error);
+  // Defense in depth: the build placeholders must never sign real sessions or seal real secrets.
   if (!isBuild && parsed.data.BETTER_AUTH_SECRET === buildPlaceholders.BETTER_AUTH_SECRET) {
     throw new Error("BETTER_AUTH_SECRET is still the build placeholder. Set a real secret.");
+  }
+  if (!isBuild && parsed.data.WEBHOOK_ENCRYPTION_KEY === BUILD_PLACEHOLDER_ENCRYPTION_KEY) {
+    throw new Error("WEBHOOK_ENCRYPTION_KEY is still the build placeholder. Set a real key.");
   }
   return parsed.data;
 }

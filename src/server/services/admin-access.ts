@@ -2,7 +2,7 @@ import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { DomainError } from "@/domain/errors";
-import type { AdminEventType } from "@/domain/events";
+import type { AdminEventType, IntegrationEventType } from "@/domain/events";
 import { recordChange } from "@/server/repositories/change-log";
 import { findMember } from "@/server/repositories/users";
 
@@ -32,7 +32,7 @@ export async function recordAdminChange(
   tx: Transaction,
   actor: Actor,
   change: {
-    type: AdminEventType;
+    type: AdminEventType | IntegrationEventType;
     entityType: string;
     entityId: string;
     subjectUserId?: string | null;

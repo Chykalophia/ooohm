@@ -90,6 +90,15 @@ export async function listAllLeaveTypes(ex: Executor, companyId: string): Promis
     .orderBy(sql`${leaveTypes.archivedAt} is not null`, asc(leaveTypes.sortOrder), asc(leaveTypes.name), asc(leaveTypes.id));
 }
 
+/** The company's leave type with this code (codes are stored uppercase), archived or not. */
+export async function findLeaveTypeByCode(ex: Executor, companyId: string, code: string): Promise<LeaveTypeRow | undefined> {
+  const [row] = await ex
+    .select(adminFields)
+    .from(leaveTypes)
+    .where(and(eq(leaveTypes.companyId, companyId), eq(leaveTypes.code, code)));
+  return row;
+}
+
 /** One leave type of the company with every admin setting, archived or not. */
 export async function findLeaveTypeForAdmin(ex: Executor, companyId: string, id: string): Promise<LeaveTypeRow | undefined> {
   const [row] = await ex

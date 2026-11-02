@@ -18,9 +18,11 @@ import {
   resendInvite,
   updatePerson,
 } from "@/server/services/admin-people";
+import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
 import { decideLeaveRequest, listApprovalInbox } from "@/server/services/approvals";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { createWebhookEndpoint, deleteWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { captureStderr, companyAudit, companyEvents, type PersonSpec, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
@@ -364,6 +366,35 @@ describe("admin: people", { skip }, () => {
     const again = await deactivatePerson(ctx, boss, mgr.id);
     assert.equal(again.requestsReassigned, 0);
     assert.equal((await companyAudit(t.db, co.companyId)).length, audit.length);
+  });
+
+  test("deactivating an admin reports the live API keys and webhook endpoints they created, which keep working", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, leaver: { role: "admin" }, emp: {} });
+    const ctx = createTestContext(t.db);
+    const { boss, leaver, emp } = co.people;
+    const hook = { description: "", eventTypes: ["leave.requested"] };
+    const kept = await createApiKey(ctx, leaver, { name: "Payroll" });
+    const revoked = await createApiKey(ctx, leaver, { name: "Old" });
+    await revokeApiKey(ctx, leaver, revoked.apiKey.id);
+    await createApiKey(ctx, boss, { name: "Boss's own" });
+    await createWebhookEndpoint(ctx, leaver, { ...hook, url: "https://hooks.example.com/a" });
+    const gone = await createWebhookEndpoint(ctx, leaver, { ...hook, url: "https://hooks.example.com/b" });
+    await deleteWebhookEndpoint(ctx, leaver, gone.endpoint.id);
+    await createWebhookEndpoint(ctx, boss, { ...hook, url: "https://hooks.example.com/c" });
+
+    const result = await deactivatePerson(ctx, boss, leaver.id);
+    assert.deepEqual([result.liveApiKeysCreated, result.liveWebhookEndpointsCreated], [1, 1], "only theirs, only live ones");
+    const [key] = await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, kept.apiKey.id));
+    assert.equal(key.revokedAt, null, "company keys are not revoked by a deactivation");
+    assert.deepEqual(
+      [(await deactivatePerson(ctx, boss, leaver.id)).liveApiKeysCreated, (await deactivatePerson(ctx, boss, leaver.id)).liveWebhookEndpointsCreated],
+      [1, 1],
+      "still reported when done again",
+    );
+
+    // Paired: someone who created nothing reports nothing.
+    const plain = await deactivatePerson(ctx, boss, emp.id);
+    assert.deepEqual([plain.liveApiKeysCreated, plain.liveWebhookEndpointsCreated], [0, 0]);
   });
 
   test("demoting an admin moves the requests they only had as admin; those they manage stay", async () => {

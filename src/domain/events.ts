@@ -74,8 +74,10 @@ export const BALANCE_EVENT_TYPES = {
  * - `admin_edit`: an admin set the year's `days` or `adjustmentDays` (never
  *   `carriedOverDays`, which the rollover owns). The admin's reason is in the audit
  *   row only.
+ * - `sync`: an integration adapter's inbound sync set the year's `days` (and
+ *   `adjustmentDays`, when it sent one). Same columns as `admin_edit`.
  */
-export type BalanceChangeReason = "carryover" | "allowance_created" | "admin_edit";
+export type BalanceChangeReason = "carryover" | "allowance_created" | "admin_edit" | "sync";
 
 /** Version 1 payload of `balance.adjusted`: the allowance row after the change. */
 export interface BalanceAdjustedPayload {
@@ -96,6 +98,7 @@ export const ALLOWANCE_AUDIT_ACTIONS: Readonly<Record<BalanceChangeReason, strin
   carryover: "allowance.carried_over",
   allowance_created: "allowance.created",
   admin_edit: "allowance.edited",
+  sync: "allowance.synced",
 };
 
 /** Calendar feed event types written to `events_outbox`. Public contract; never rename one. */
@@ -186,7 +189,11 @@ export interface UserEventPayload {
   managerId: string | null;
   canSelfApprove: boolean;
   isActive: boolean;
-  actorId: string;
+  /**
+   * The admin who made the change. For an integration adapter's inbound sync, the admin
+   * who pressed Sync now, or `null` for a scheduled sync.
+   */
+  actorId: string | null;
 }
 
 /** Version 1 payload of every `department.*` event: the department after the change (before, when deleted). */
@@ -227,5 +234,62 @@ export interface CompanyEventPayload {
   timezone: string;
   workingDays: number[];
   allowancePolicy: string;
+  actorId: string;
+}
+
+/**
+ * Integration event types written to `events_outbox` (M6). Public contract; never
+ * rename one. Each is also the `audit_log.action` of the same change, and the actor is
+ * always the admin who made it.
+ */
+export const INTEGRATION_EVENT_TYPES = {
+  webhookEndpointCreated: "webhook_endpoint.created",
+  webhookEndpointUpdated: "webhook_endpoint.updated",
+  webhookEndpointEnabled: "webhook_endpoint.enabled",
+  webhookEndpointDisabled: "webhook_endpoint.disabled",
+  webhookEndpointSecretRotated: "webhook_endpoint.secret_rotated",
+  webhookEndpointDeleted: "webhook_endpoint.deleted",
+  webhookEndpointPinged: "webhook_endpoint.pinged",
+  webhookDeliveryRedelivered: "webhook_delivery.redelivered",
+  apiKeyCreated: "api_key.created",
+  apiKeyRevoked: "api_key.revoked",
+} as const;
+export type IntegrationEventType = (typeof INTEGRATION_EVENT_TYPES)[keyof typeof INTEGRATION_EVENT_TYPES];
+
+/**
+ * Version 1 payload of every `webhook_endpoint.*` event: the endpoint after the change
+ * (before, when deleted). Carries only the URL's origin (`https://example.com`), never
+ * its path or query, which often hold a token (Slack, Zapier), and never the signing
+ * secret.
+ */
+export interface WebhookEndpointEventPayload {
+  endpointId: string;
+  urlOrigin: string;
+  description: string;
+  eventTypes: string[];
+  enabled: boolean;
+  /**
+   * `webhook_endpoint.updated` only: whether the full URL changed, so a move to another
+   * path on the same origin is visible. Never the URL itself.
+   */
+  urlChanged?: boolean;
+  actorId: string;
+}
+
+/** Version 1 payload of `webhook_delivery.redelivered`: the delivery an admin queued again. */
+export interface WebhookRedeliveredPayload {
+  endpointId: string;
+  deliveryId: string;
+  eventId: string;
+  eventType: string;
+  actorId: string;
+}
+
+/** Version 1 payload of every `api_key.*` event. Never the key or its hash; `prefix` is the part shown to admins. */
+export interface ApiKeyEventPayload {
+  apiKeyId: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
   actorId: string;
 }

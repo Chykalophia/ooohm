@@ -22,11 +22,15 @@ Next.js (App Router) · TypeScript · Postgres · Drizzle ORM · Tailwind · Doc
 ## Run it
 
 ```bash
-cp .env.example .env   # fill in the values
+cp .env.example .env   # fill in the values: BETTER_AUTH_SECRET and WEBHOOK_ENCRYPTION_KEY
+                       # (each: openssl rand -base64 32), and SEED_ADMIN_EMAIL
 docker compose up
 ```
 
 Then open http://localhost:3000. Outgoing email lands in Mailpit at http://localhost:8025.
+
+`docker compose up` runs five services: `db`, `migrate` (migrations, seed and year rollover, then exits), `app`,
+`worker` (the outbox worker, below) and `mailpit`.
 
 ### Setting up your company
 
@@ -55,14 +59,17 @@ for their approval move to another approver. There is always at least one active
 ### Year rollover
 
 Balances reset on Jan 1. Carryover (off by default, set per leave type) is applied by the year rollover job,
-which also creates each person's allowance rows for the new year. It is idempotent: `docker compose up` runs
-it every time after migrations, and you can run it by hand. Without regular restarts, run it daily from cron
-(not just on Jan 1), so late cancellations of last year's leave still update the carryover:
+which also creates each person's allowance rows for the new year. It is idempotent, and runs on its own: the
+`worker` service runs it once a day (however many workers you run, exactly one does), and `docker compose up`
+also runs it after migrations. You can still run it by hand:
 
 ```bash
 docker compose run --rm migrate pnpm job:rollover        # closes last year
 docker compose run --rm migrate pnpm job:rollover 2026   # closes a specific year
 ```
+
+A host cron is now optional. Use one only if you run OOOhm without the worker; then schedule it daily (not just
+on Jan 1), so late cancellations of last year's leave still update the carryover:
 
 ```cron
 # The company's time zone; cron otherwise uses the host's.
@@ -93,16 +100,55 @@ Behind a reverse proxy, set `TRUSTED_PROXY_HOPS` in `.env` to the number of prox
 `X-Forwarded-For`, so the feed's rate limit counts each client separately. Leave it at `0` when nothing in front
 rewrites that header: a client could otherwise pick its own address.
 
+### Integrations
+
+Other apps can follow and read OOOhm; [docs/api.md](docs/api.md) is the full reference.
+
+- **Webhooks** (**Admin → Integrations → Webhooks**): add an `https://` endpoint and pick events (leave, balances, people, …).
+  OOOhm POSTs each event as signed JSON (`OOOhm-Signature`, HMAC-SHA256) and retries a failed delivery 7 times
+  over about two days. The endpoint's page shows recent deliveries, sends a test event and resends one.
+- **REST API** (**Admin → Integrations → API keys**): create a read-only key, then
+  `curl -H "Authorization: Bearer ooohm_..." https://ooohm.example.com/api/v1/users`. The API is described at
+  `/api/v1/openapi.json`. Keys are shown once; OOOhm keeps only a hash.
+- **Connectors** (**Admin → Integrations → Connectors**): built-in integrations with other systems. None ship in v1.
+
+The **worker** service delivers the webhooks. It reads the events outbox, so nothing is lost while it is down:
+deliveries simply wait. It needs only `DATABASE_URL`, `WEBHOOK_ENCRYPTION_KEY` and, optionally, `LOG_LEVEL`,
+`WEBHOOK_ALLOW_INSECURE`, `WEBHOOK_ALLOW_PRIVATE`, `WORKER_POLL_INTERVAL_MS` and `WORKER_MAX_IDLE_MS`; it never
+gets the auth secret or mail credentials, and runs as an unprivileged user on a read-only filesystem. It does use
+the app's database role, so it can still read and write every table; keeping secrets out of its environment is
+not database isolation. You can run more than one (`docker compose up --scale worker=2`).
+
+`GET /api/v1/events` (event replay) shows an event only once every transaction that wrote before it has ended.
+Postgres tracks that **server-wide**, across every database on it: a long batch job, or a session left idle in a
+transaction after a write, in _any_ database on the same server holds replay back for every OOOhm company until
+it ends. Webhooks are not affected. Prefer a dedicated Postgres server, or set
+`idle_in_transaction_session_timeout` (e.g. `5min`) on a shared one.
+
+| Variable | |
+| --- | --- |
+| `WEBHOOK_ENCRYPTION_KEY` | Required by the app and the worker (same value): 32 random bytes in base64, `openssl rand -base64 32`. Encrypts webhook secrets at rest. Changing it makes existing endpoint secrets unreadable; replace each endpoint's secret afterwards. |
+| `WEBHOOK_ALLOW_INSECURE`, `WEBHOOK_ALLOW_PRIVATE` | Development only: allow `http://` endpoints, and endpoints on your own machine or network. Keep `false` in production. |
+| `LOG_LEVEL` | `debug`, `info` (default), `warn` or `error`. |
+| `WORKER_POLL_INTERVAL_MS`, `WORKER_MAX_IDLE_MS` | How often an idle worker looks for work (default 1000 ms, backing off to 10000 ms). |
+
+**Adding an adapter later** (say Gusto) touches no core code: write `src/server/integrations/adapters/gusto.ts`
+implementing the `Adapter` interface (`src/server/integrations/adapter.ts`), and list it in
+`src/server/integrations/installed.ts`. The worker then delivers the events it `handles` to it with the same
+retries as webhooks, and the Connectors screen (**Admin → Integrations → Connectors**) shows its health and,
+if it syncs people or allowances, a **Sync now** button. See [docs/architecture.md](docs/architecture.md#integrations-m6).
+
 ## Develop
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm test
 TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:integration
 pnpm job:rollover [year]   # year rollover against DATABASE_URL
+pnpm worker                # the outbox worker against DATABASE_URL (Ctrl+C stops it gracefully)
 ```
 
-How the code is organized, and how requests, approvals, balances, the year rollover, calendars and feeds, the admin screens, the audit log and the
-events outbox work, is in [docs/architecture.md](docs/architecture.md).
+How the code is organized, and how requests, approvals, balances, the year rollover, calendars and feeds, the admin screens, the audit log, the
+events outbox and the integration layer work, is in [docs/architecture.md](docs/architecture.md).
 
 ## License
 

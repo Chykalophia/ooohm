@@ -191,7 +191,7 @@ the event type, and `actorId` is the admin.
 | Event | When | Payload (v1) |
 | --- | --- | --- |
 | `user.created` | An admin invites someone | `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId`: the person after the change |
-| `user.updated` | An admin changes name, department, manager, role or self-approval | same |
+| `user.updated` | An admin changes name, department, manager, role or self-approval; or a person changes their own name on `/account` (actor = that person) | same |
 | `user.deactivated` | An admin deactivates someone | same |
 | `user.reactivated` | An admin reactivates someone | same |
 | `user.invite_resent` | An admin sends someone a new sign-in link | same |
@@ -502,7 +502,15 @@ CRON_TZ=America/Chicago
   department of the actor's company falls back to everyone. Deactivated people do not appear.
 - `/calendar/subscriptions`: the two feeds (below), linked from both pages.
 
-The header links Calendar and Team for every member of a company. No `proxy.ts` gates routes: each page calls
+The header links Calendar and Team for every member of a company, and on every page but the dashboard a **Request
+time off** link to the dashboard's form (`/#request`, an accent outline, so each screen keeps one filled main
+action). The person's name opens their own options (`AccountMenu`, a disclosure rather than an ARIA menu: Escape,
+an outside click or a navigation closes it): **Your account**, **Calendar subscriptions** and **Sign out**.
+`/account` shows their email, role, department and manager, and lets them change their display name
+(`renameSelf`, recorded as their own `user.updated`); everything else stays with admins, and the email is the
+sign-in identity.
+
+No `proxy.ts` gates routes: each page calls
 `requireActor()`, which redirects to `/sign-in` without a session, and the ICS route is public by design.
 
 ### Queries

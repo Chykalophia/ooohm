@@ -25,7 +25,7 @@ export default async function HolidaysPage({ searchParams }: { searchParams: Pro
       approvals={approvals}
       section="holidays"
       title="Holidays"
-      description="Holidays never count as leave days. Requests already sent keep the days they were counted with."
+      description="Holidays never count as leave days. Adding or deleting one recounts requests already sent on that date, this year and later, and emails the people affected."
     >
       <YearNav year={year} min={HOLIDAY_YEAR_MIN} max={HOLIDAY_YEAR_MAX} href={yearHref} />
 
@@ -62,7 +62,7 @@ export default async function HolidaysPage({ searchParams }: { searchParams: Pro
                   ariaLabel={`Delete ${h.name}`}
                   pendingLabel="Deleting…"
                   danger
-                  confirm={`Delete ${h.name}? Requests already sent keep their days.`}
+                  confirm={`Delete ${h.name}? Requests on that date will count it as a working day again.`}
                   confirmLabel="Yes, delete"
                 />
               </div>

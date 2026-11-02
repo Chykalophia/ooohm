@@ -1,6 +1,6 @@
 import "server-only";
 import { type DomainError, type DomainErrorCode, isDomainError } from "@/domain/errors";
-import { formatShortfall } from "@/lib/format";
+import { formatNoWorkingDays, formatShortfall } from "@/lib/format";
 import { log } from "@/lib/log";
 import type { FormState } from "./form-state";
 
@@ -56,6 +56,7 @@ export function messageFor(code: DomainErrorCode): string {
 export function messageForError(err: DomainError, event: string): string {
   if (MISCONFIGURATION.has(err.code)) log.error({ err }, `${event}_misconfigured`);
   if (err.code === "insufficient_balance" && err.details && "year" in err.details) return formatShortfall(err.details);
+  if (err.code === "zero_days" && err.details && "holidays" in err.details) return formatNoWorkingDays(err.details.holidays);
   return messageFor(err.code);
 }
 

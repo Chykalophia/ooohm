@@ -22,7 +22,7 @@ export default async function CompanyPage() {
       approvals={approvals}
       section="company"
       title="Company"
-      description="Working days and the time zone decide how leave is counted and when a year starts. Changes apply to requests from now on; requests already sent keep their days."
+      description="Working days and the time zone decide how leave is counted and when a year starts. New working days also recount requests already sent, this year and later, and email the people affected."
     >
       <section aria-label="Company settings" className={card}>
         <AdminForm action={updateCompanyAction} submitLabel="Save changes" pendingLabel="Saving…">

@@ -17,6 +17,7 @@ import {
 } from "@/server/repositories/leave-requests";
 import { findLeaveType } from "@/server/repositories/leave-types";
 import { findMember, listActiveAdmins } from "@/server/repositories/users";
+import { alsoOffFor } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify } from "./notify";
 
@@ -100,14 +101,18 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
  * every other pending request in the company. Earliest start date first.
  *
  * @param limit Most items to return; defaults to {@link INBOX_LIMIT}.
- * @returns At most `limit` `items`, and the `total` waiting, which is larger than
- *   `items.length` only when the list was cut. The count query runs only in that case.
+ * @returns At most `limit` `items`, each with `alsoOff`, who else is off on its dates
+ *   (`alsoOffFor`), and the `total` waiting, which is larger than `items.length` only
+ *   when the list was cut. The count query runs only in that case.
  */
 export async function listApprovalInbox(ctx: ServiceContext, actor: Actor, limit = INBOX_LIMIT) {
   const scope = scopeFor(actor);
-  const items = await listInbox(ctx.db, scope, limit);
-  const total = items.length < limit ? items.length : await countInbox(ctx.db, scope);
-  return { items, total };
+  const rows = await listInbox(ctx.db, scope, limit);
+  const [total, alsoOff] = await Promise.all([
+    rows.length < limit ? rows.length : countInbox(ctx.db, scope),
+    alsoOffFor(ctx.db, actor.companyId, rows.map((r) => ({ id: r.id, userId: r.requesterId, startDate: r.startDate, endDate: r.endDate }))),
+  ]);
+  return { items: rows.map((r) => ({ ...r, alsoOff: alsoOff.get(r.id) ?? null })), total };
 }
 
 /**

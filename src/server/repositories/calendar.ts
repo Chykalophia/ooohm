@@ -66,7 +66,7 @@ const entryFields = {
  * one that reaches `from` starts no earlier than {@link earliestOverlappingStart}: that
  * bound makes the index range two-sided.
  */
-function activeInRange(companyId: string, from: string, to: string): SQL | undefined {
+export function activeInRange(companyId: string, from: string, to: string): SQL | undefined {
   return and(
     eq(leaveRequests.companyId, companyId),
     inArray(leaveRequests.status, [...ACTIVE_STATUSES]),

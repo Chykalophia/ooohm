@@ -3,7 +3,7 @@
 Version 1.0
 
 Thank you for contributing to OOOhm. This agreement says what rights you give
-Chykalophia when you contribute, and what you promise about your contribution.
+Chykalophia Group, LLC when you contribute, and what you promise about your contribution.
 You keep ownership of your work; you give us a license to use it. You sign once,
 through the CLA Assistant check on your first pull request, and it covers all your
 future contributions to this repository.
@@ -11,7 +11,8 @@ future contributions to this repository.
 ## 1. Definitions
 
 - **"You"** means the individual who agrees to this agreement.
-- **"We"** or **"Chykalophia"** means Chykalophia, the owner and licensor of OOOhm.
+- **"We"** or **"Chykalophia"** means Chykalophia Group, LLC, an Illinois limited
+  liability company, the owner and licensor of OOOhm.
 - **"Project"** means OOOhm and any software, documentation or other material that
   we make available in the github.com/Chykalophia/ooohm repository.
 - **"Contribution"** means any original work of authorship, including any changes
@@ -103,3 +104,8 @@ continues to apply to Contributions You Submitted under it.
 If a court finds any part of this agreement unenforceable, the rest stays in
 effect, and that part is applied as far as the law allows. This agreement is the
 whole agreement between You and us about Your Contributions.
+
+The laws of the State of Illinois, USA, govern this agreement, without regard to
+its conflict-of-law rules. Any dispute about it will be decided by the state or
+federal courts located in Cook County, Illinois, and You and we consent to their
+jurisdiction.

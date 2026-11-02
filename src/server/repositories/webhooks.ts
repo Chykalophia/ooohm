@@ -108,10 +108,6 @@ export async function listDispatchTargets(ex: Executor, companyIds: readonly str
     .where(and(inArray(webhookEndpoints.companyId, [...companyIds]), eq(webhookEndpoints.enabled, true), isNull(webhookEndpoints.deletedAt)));
 }
 
-/* ------------------------------------------------------------------ */
-/* Deliveries                                                         */
-/* ------------------------------------------------------------------ */
-
 export type NewWebhookDelivery = {
   companyId: string;
   endpointId: string;

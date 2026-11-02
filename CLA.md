@@ -33,6 +33,10 @@ otherwise, under any terms we choose. These include the Project's current
 license (FSL-1.1-ALv2), the Apache License 2.0, other source-available or open
 source licenses, and commercial or proprietary licenses.
 
+To the extent the law allows, You waive, or agree not to assert, any moral rights
+You have in Your Contributions (such as the right to be named as author or to
+object to changes) against us and against recipients of software we distribute.
+
 ## 3. Patent license
 
 You grant us, and recipients of software we distribute, a perpetual, worldwide,
@@ -68,6 +72,9 @@ Contributions, and You may use them for any other purpose.
    separately, with its source, its license and any restrictions You know of.
    For example, mark it clearly in the pull request description.
 4. To Your knowledge, Your Contributions don't violate anyone else's rights.
+5. If You used tools to produce any part of a Contribution, including AI tools,
+   You have reviewed that part, and the promises above apply to it as they do to
+   anything else You Submit.
 
 ## 6. No warranty, no obligation
 
@@ -90,3 +97,9 @@ pull request in the Project's repository, while signed in to Your GitHub account
 We keep a record of the GitHub account, the version of this agreement and the
 date You accepted it. If we publish a new version, the version You accepted
 continues to apply to Contributions You Submitted under it.
+
+## 9. General
+
+If a court finds any part of this agreement unenforceable, the rest stays in
+effect, and that part is applied as far as the law allows. This agreement is the
+whole agreement between You and us about Your Contributions.

@@ -12,8 +12,9 @@ disclosure date with you before anything is published.
 
 ## Supported versions
 
-OOOhm has no versioned releases yet. Fixes land on `main`; self-hosters should update
-to the latest `main`.
+OOOhm has no versioned releases yet. Fixes land on `main`. To pick one up, upgrade to
+a known commit on `main` that includes it, following
+[Upgrades](docs/deploy.md#14-upgrades-10-min) in `docs/deploy.md`.
 
 ## Scope
 

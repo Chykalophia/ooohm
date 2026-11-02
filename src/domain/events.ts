@@ -201,7 +201,7 @@ export interface LeaveReassignedPayload extends LeaveEventPayload {
 }
 
 /**
- * Admin event types written to `events_outbox` (M5). Public contract; never rename
+ * Admin event types written to `events_outbox`. Public contract; never rename
  * one. Each is also the `audit_log.action` of the same change.
  */
 export const ADMIN_EVENT_TYPES = {
@@ -282,7 +282,7 @@ export interface CompanyEventPayload extends PersonAttribution {
 }
 
 /**
- * Integration event types written to `events_outbox` (M6). Public contract; never
+ * Integration event types written to `events_outbox`. Public contract; never
  * rename one. Each is also the `audit_log.action` of the same change, and the actor is
  * always the admin who made it.
  */

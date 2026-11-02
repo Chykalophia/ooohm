@@ -18,10 +18,6 @@ export const STRICT_TARGET_POLICY: TargetPolicy = { allowInsecure: false, allowP
 
 export const WEBHOOK_URL_MAX_LENGTH = 2048;
 
-/* ------------------------------------------------------------------ */
-/* Addresses                                                          */
-/* ------------------------------------------------------------------ */
-
 /** The four bytes of a dotted-quad IPv4 address, or `null`. Only the canonical form: no octal, hex or short forms. */
 export function parseIpv4(value: string): number[] | null {
   const parts = value.split(".");
@@ -175,10 +171,6 @@ export function isIpLiteral(hostname: string): boolean {
   if (hostname.startsWith("[") && hostname.endsWith("]")) return parseIpv6(hostname.slice(1, -1)) !== null;
   return parseIpv4(hostname) !== null;
 }
-
-/* ------------------------------------------------------------------ */
-/* URLs                                                               */
-/* ------------------------------------------------------------------ */
 
 const LOCAL_NAMES = /(^|\.)(localhost|local|internal|localdomain|home\.arpa)$/i;
 

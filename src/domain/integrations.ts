@@ -1,5 +1,5 @@
 /**
- * Pure rules of the integration layer (M6): the event envelope every consumer sees,
+ * Pure rules of the integration layer: the event envelope every consumer sees,
  * which events a webhook can subscribe to, the retry schedule shared by webhook and
  * adapter deliveries, and API key scopes. No I/O; the services and the worker apply
  * these.
@@ -14,10 +14,6 @@ import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
 } from "./events";
-
-/* ------------------------------------------------------------------ */
-/* Envelope                                                           */
-/* ------------------------------------------------------------------ */
 
 /**
  * The public integration guide (docs/api.md in the published source): auth, events,
@@ -74,10 +70,6 @@ export interface PingPayload {
   message: string;
 }
 
-/* ------------------------------------------------------------------ */
-/* Subscriptions                                                      */
-/* ------------------------------------------------------------------ */
-
 /** A group of event types, as the endpoint form shows them. */
 export interface EventTypeGroup {
   label: string;
@@ -130,10 +122,6 @@ export function normalizeEventTypes(input: readonly string[]): string[] {
   return WEBHOOK_EVENT_TYPES.filter((t) => chosen.has(t));
 }
 
-/* ------------------------------------------------------------------ */
-/* Endpoint and key fields                                            */
-/* ------------------------------------------------------------------ */
-
 export const WEBHOOK_DESCRIPTION_MAX_LENGTH = 200;
 export const API_KEY_NAME_MAX_LENGTH = 60;
 /** Most live (not deleted) webhook endpoints per company: every event fans out to each one. */
@@ -158,10 +146,6 @@ export function normalizeApiKeyName(raw: string): string {
   if (value.length === 0 || value.length > API_KEY_NAME_MAX_LENGTH) throw new DomainError("invalid_input");
   return value;
 }
-
-/* ------------------------------------------------------------------ */
-/* Retries                                                            */
-/* ------------------------------------------------------------------ */
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -189,10 +173,6 @@ export function retryDelayMs(attemptsMade: number, random: number): number | nul
   const r = Math.min(Math.max(random, 0), 1);
   return Math.round(base * (1 - RETRY_JITTER + 2 * RETRY_JITTER * r));
 }
-
-/* ------------------------------------------------------------------ */
-/* API keys                                                           */
-/* ------------------------------------------------------------------ */
 
 /**
  * What an API key may do. v1 issues `read` only and every endpoint is read-only; the

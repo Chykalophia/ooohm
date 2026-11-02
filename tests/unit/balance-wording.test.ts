@@ -48,7 +48,7 @@ test("a shortfall says exactly what is left, naming the year that falls short", 
 
 test("balance event and audit names are the public contract", () => {
   assert.deepEqual(Object.values(BALANCE_EVENT_TYPES), ["balance.adjusted"]);
-  // M5 added `admin_edit` and M6 `sync` (inbound adapter sync); the two from M3 keep their names.
+  // `sync` is written by inbound adapter sync.
   assert.deepEqual(ALLOWANCE_AUDIT_ACTIONS, {
     carryover: "allowance.carried_over",
     allowance_created: "allowance.created",

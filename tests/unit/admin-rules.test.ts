@@ -112,7 +112,7 @@ test("emails are trimmed, lowercased and checked by the rule Better Auth's magic
     "ana@example",
     "a na@example.com",
     `${"a".repeat(250)}@x.co`,
-    // Accepted by the old loose pattern, refused by Better Auth: the invite would
+    // Accepted by a loose pattern but refused by Better Auth: the invite would
     // create an account that can never get a sign-in link.
     "a!b@c.de",
     "jo@x.c",

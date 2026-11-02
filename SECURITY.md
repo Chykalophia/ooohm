@@ -17,7 +17,7 @@ to the latest `main`.
 
 ## Scope
 
-In scope: the OOOhm application and its deploy files in this repository (`deploy/`,
-`docker-compose.yml`, `vercel.json`). Out of scope: vulnerabilities in a hosting
+In scope: the OOOhm application and its build and deploy files in this repository
+(`Dockerfile`, `deploy/`, `docker-compose.yml`, `vercel.json`). Out of scope: vulnerabilities in a hosting
 provider, database or email service you run OOOhm on, and findings that need
 access an admin already has.

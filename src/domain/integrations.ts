@@ -9,6 +9,7 @@ import {
   ADMIN_EVENT_TYPES,
   BALANCE_EVENT_TYPES,
   CALENDAR_FEED_EVENT_TYPES,
+  IMPORT_EVENT_TYPES,
   INTEGRATION_EVENT_TYPES,
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
@@ -52,6 +53,7 @@ export interface OutboxEventSource {
   payload: unknown;
 }
 
+/** The public envelope of one outbox event, as webhooks, adapters and `/api/v1/events` deliver it. */
 export function buildEnvelope(event: OutboxEventSource): EventEnvelope {
   return {
     id: event.id,
@@ -108,6 +110,7 @@ export const WEBHOOK_EVENT_GROUPS: readonly EventTypeGroup[] = [
   },
   { label: "Calendar links", common: false, types: values(CALENDAR_FEED_EVENT_TYPES) },
   { label: "Integrations", common: false, types: values(INTEGRATION_EVENT_TYPES) },
+  { label: "Imports", common: false, types: values(IMPORT_EVENT_TYPES) },
 ];
 
 /** Every subscribable event type. */

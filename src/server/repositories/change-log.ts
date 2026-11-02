@@ -25,8 +25,8 @@ export interface OutboxEvent {
   payload: object;
 }
 
-/** The `audit_log` columns that record a source. */
-function sourceColumns(source: ChangeSource) {
+/** The `audit_log` columns that record a source. Also used by the import's bulk audit insert. */
+export function sourceColumns(source: ChangeSource) {
   switch (source.kind) {
     case "user":
       return { actorKind: source.kind, actorId: source.userId, apiKeyId: null, actorVia: source.via ?? null, actorProcess: null };

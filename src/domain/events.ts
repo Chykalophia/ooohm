@@ -327,6 +327,64 @@ export interface WebhookRedeliveredPayload extends PersonAttribution {
   eventType: string;
 }
 
+/**
+ * Import event types written to `events_outbox` (M7). Public contract; never rename one.
+ *
+ * An import writes one `import.completed` event, and only that: it does not replay the
+ * imported history (thousands of `leave.*`, `user.created` and `balance.adjusted` events
+ * about the past) to webhooks and adapters. Every imported row still has its own audit
+ * row (`import.*` actions, {@link IMPORT_AUDIT_ACTIONS}), so the trail is complete
+ * inside OOOhm; a system that mirrors OOOhm resyncs through the REST API when it
+ * receives this event.
+ */
+export const IMPORT_EVENT_TYPES = {
+  completed: "import.completed",
+} as const;
+
+/**
+ * Version 1 payload of `import.completed`. Counts and the source file's hash only: no
+ * names, emails or notes, since the outbox is delivered to other systems.
+ *
+ * An import is started by a person, so the actor is the admin who ran it (`--actor`),
+ * through the import: `actor` is `{ type: "user", id, via: "timeoff_import" }`.
+ */
+export interface ImportCompletedPayload extends PersonAttribution {
+  importRunId: string;
+  /** Which importer ran, e.g. `timeoff`. */
+  source: string;
+  /** SHA-256 (hex) of the imported file. */
+  sourceSha256: string;
+  counts: {
+    people: number;
+    departments: number;
+    leaveTypes: number;
+    holidays: number;
+    allowances: number;
+    leaveRequests: number;
+  };
+  /** Person-years whose balance differs from the source's (only non-zero with `--accept-mismatch`). */
+  mismatches: number;
+}
+
+/**
+ * Audit `action` for each kind of imported row. Imported rows are audited one by one in
+ * the import's transaction, under these actions rather than the live ones
+ * (`user.created`, `leave_request.approved`), so the audit viewer can tell history
+ * brought in from another system from changes made in OOOhm. Each row is attributed to
+ * the admin who ran the import, via `timeoff_import`, and its `after` holds
+ * `source: "import:timeoff"` and the source record's id.
+ */
+export const IMPORT_AUDIT_ACTIONS = {
+  company: "import.company",
+  department: "import.department",
+  leaveType: "import.leave_type",
+  holiday: "import.holiday",
+  user: "import.user",
+  allowance: "import.allowance",
+  leaveRequest: "import.leave_request",
+  completed: "import.completed",
+} as const;
+
 /** Version 1 payload of every `api_key.*` event. Never the key or its hash; `prefix` is the part shown to admins. */
 export interface ApiKeyEventPayload extends PersonAttribution {
   apiKeyId: string;

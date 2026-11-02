@@ -134,7 +134,7 @@ Ids are strings. Every payload says who or what made the change in two fields:
   ```
 
   `user` is a person; `via` is present only when they acted through something they started (an integration's
-  sync when they pressed **Sync now**). `api_key` is a change made with an API key: `id` is the person who created
+  sync when they pressed **Sync now**, or a one-time import they ran, `timeoff_import`). `api_key` is a change made with an API key: `id` is the person who created
   the key (the v1 API is read-only, so none are sent yet). `system` is a process with no person behind it.
   `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, and
   `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`). Expect more; treat an unknown one as
@@ -208,6 +208,22 @@ Never the link or its hash.
 to another path on the same host shows as `urlChanged: true` on `webhook_endpoint.updated` (a field added within
 version 1, as the versioning rule above allows). Never the path itself, a hash of it, the signing secret, an API
 key or its hash.
+
+**Imports** (added in M7)
+
+| Type | When | Payload |
+| --- | --- | --- |
+| `import.completed` | A one-time import from another leave tracker (v1: TimeOff.Management) committed | `importRunId, source ("timeoff"), sourceSha256, counts {people, departments, leaveTypes, holidays, allowances, leaveRequests}, mismatches, actorId, actor` |
+
+An import does **not** send the history it brings in: no `leave.*`, `user.created` or `balance.adjusted` event
+for any imported request, person or allowance, nor for a carried-over amount the import corrects while it runs
+(audited inside OOOhm only). That history predates the integration, and replaying thousands of
+past events would look like new activity to every receiver. A system that mirrors OOOhm should treat
+`import.completed` as "resync": read `/api/v1/users`, `/api/v1/leave-requests` and `/api/v1/balances` again.
+Events after the import are sent as usual. The payload holds counts and the source file's SHA-256 only, never a
+name or email. `mismatches` is the number of person-years whose balance differed from the source's and was
+committed anyway (only with `--accept-mismatch`; normally 0). An import is started by a person, so `actorId` is
+the admin who ran it and `actor` is `{ "type": "user", "id": "<that admin>", "via": "timeoff_import" }`.
 
 **Test event**
 

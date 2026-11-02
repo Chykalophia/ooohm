@@ -89,6 +89,39 @@ export function balanceInputs(
   };
 }
 
+/**
+ * Balances of many people, leave types and years at once, computed exactly as the
+ * dashboard computes each one: two queries (allowance rows and booked-day sums, in
+ * parallel), then pure lookups. For bulk checks such as the TimeOff import's
+ * reconciliation.
+ *
+ * @returns A lookup by person, leave type (one of `leaveTypes`) and year (one of `years`).
+ * @throws DomainError `policy_unavailable` when the policy is unknown.
+ */
+export async function loadBalances(
+  ex: Executor,
+  scope: {
+    allowancePolicy: string;
+    leaveTypes: readonly (LeaveTypeAllowanceSettings & { id: string })[];
+    userIds: readonly string[];
+    years: readonly number[];
+  },
+): Promise<(userId: string, leaveTypeId: string, year: number) => Balance> {
+  const policy = resolveAllowancePolicy(scope.allowancePolicy);
+  const leaveTypeIds = scope.leaveTypes.map((t) => t.id);
+  const [allowanceRows, bookedRows] = await Promise.all([
+    listAllowances(ex, { userIds: scope.userIds, years: allowanceYearsFor(scope.years), leaveTypeIds }),
+    sumBookedDays(ex, { userIds: scope.userIds, years: scope.years, leaveTypeIds }),
+  ]);
+  const inputs = balanceInputs(allowanceRows, bookedRows);
+  const types = new Map(scope.leaveTypes.map((t) => [t.id, t]));
+  return (userId, leaveTypeId, year) => {
+    const type = types.get(leaveTypeId);
+    if (!type) throw new Error(`Leave type ${leaveTypeId} was not loaded.`);
+    return inputs.balance(policy, type, userId, year);
+  };
+}
+
 /** A leave request checked against the calendar, the actor's other requests and their balance. */
 export interface LeaveAssessment {
   range: LeaveRange;

@@ -18,7 +18,10 @@ export const CHANGE_PROCESSES = {
   yearRollover: "year_rollover",
   /** Integration retention. It prunes delivery machinery and writes no audit rows today. */
   retention: "retention",
-  /** Reserved for the time-off import; nothing writes it yet. */
+  /**
+   * The TimeOff.Management import (M7). A person starts it, so it is only ever a `via`:
+   * the admin named by the CLI's `--actor`, through the import.
+   */
   timeoffImport: "timeoff_import",
 } as const;
 

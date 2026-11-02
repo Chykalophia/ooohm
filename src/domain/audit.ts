@@ -3,7 +3,13 @@
  * summary of what a change did, computed from the row's `before` and `after` JSON.
  * Pure, so the viewer's wording is unit tested without a database.
  */
-import { ADMIN_EVENT_TYPES, ALLOWANCE_AUDIT_ACTIONS, CALENDAR_FEED_EVENT_TYPES, INTEGRATION_EVENT_TYPES } from "./events";
+import {
+  ADMIN_EVENT_TYPES,
+  ALLOWANCE_AUDIT_ACTIONS,
+  CALENDAR_FEED_EVENT_TYPES,
+  IMPORT_AUDIT_ACTIONS,
+  INTEGRATION_EVENT_TYPES,
+} from "./events";
 
 /** Every `audit_log.action` the app writes, with how the viewer names it. */
 export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
@@ -45,6 +51,14 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   [INTEGRATION_EVENT_TYPES.webhookDeliveryRedelivered]: "Webhook sent again",
   [INTEGRATION_EVENT_TYPES.apiKeyCreated]: "API key created",
   [INTEGRATION_EVENT_TYPES.apiKeyRevoked]: "API key revoked",
+  [IMPORT_AUDIT_ACTIONS.company]: "Imported: company settings",
+  [IMPORT_AUDIT_ACTIONS.department]: "Imported: department",
+  [IMPORT_AUDIT_ACTIONS.leaveType]: "Imported: leave type",
+  [IMPORT_AUDIT_ACTIONS.holiday]: "Imported: holiday",
+  [IMPORT_AUDIT_ACTIONS.user]: "Imported: person",
+  [IMPORT_AUDIT_ACTIONS.allowance]: "Imported: allowance",
+  [IMPORT_AUDIT_ACTIONS.leaveRequest]: "Imported: leave",
+  [IMPORT_AUDIT_ACTIONS.completed]: "Import finished",
 };
 
 export function isAuditAction(value: string): boolean {
@@ -142,6 +156,18 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   revoked: "Revoked",
   attempts: "Attempts",
   source: "Source",
+  fileName: "File",
+  timeoffApproverId: "Approver in TimeOff",
+  sourceSha256: "File checksum (SHA-256)",
+  people: "People",
+  departments: "Departments",
+  leaveTypes: "Leave types",
+  holidays: "Holidays",
+  allowances: "Allowances",
+  leaveRequests: "Leave requests",
+  mismatches: "Balance differences",
+  warnings: "Warnings",
+  conflicts: "Conflicts",
 };
 
 /** "carriedOverDays" → "Carried over days" for a field the viewer has no label for. */
@@ -158,7 +184,7 @@ export interface AuditNames {
   leaveType(id: string): string | undefined;
 }
 
-const PERSON_FIELDS = new Set(["managerId", "approverId", "userId", "actorId", "previousApproverId"]);
+const PERSON_FIELDS = new Set(["managerId", "approverId", "userId", "actorId", "previousApproverId", "timeoffApproverId"]);
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** One value from a snapshot, as the viewer prints it. */

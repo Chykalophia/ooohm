@@ -18,6 +18,10 @@ export interface InviteEmail {
 
 export const INVITE_SUBJECT = "You're invited to OOOhm";
 
+/**
+ * The invite: who invited the person to which company, and their one-time sign-in link.
+ * The subject is fixed ({@link INVITE_SUBJECT}); names appear in the body only.
+ */
 export function renderInviteEmail(input: InviteEmail): EmailContent {
   const recipient = displayName(input.recipientName);
   const inviter = displayName(input.inviterName) || "An admin";

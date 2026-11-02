@@ -6,6 +6,13 @@ const nextConfig: NextConfig = {
   // Cache Components is off for v1: almost every page is per-user and per-request,
   // so the simpler fully-dynamic model is easier to reason about. Revisit after v1.
   cacheComponents: false,
+  // Production runs behind Caddy (deploy/Caddyfile), which compresses with zstd or gzip;
+  // compressing here too would only spend the app's CPU on bytes Caddy then passes through.
+  compress: false,
+  poweredByHeader: false,
+  // No serverActions.allowedOrigins: Caddy forwards the public host (Host and
+  // X-Forwarded-Host), so Next's origin check compares like with like. A proxy that
+  // rewrites the host would need its public host listed there.
   turbopack: {
     rules: {
       "*.css": {

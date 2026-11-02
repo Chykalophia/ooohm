@@ -11,6 +11,7 @@ import { createHash, randomBytes } from "node:crypto";
 export const FEED_TOKEN_BYTES = 32;
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 
+/** A new feed token: {@link FEED_TOKEN_BYTES} random bytes, base64url (43 characters). Store only its hash. */
 export function generateFeedToken(): string {
   return randomBytes(FEED_TOKEN_BYTES).toString("base64url");
 }

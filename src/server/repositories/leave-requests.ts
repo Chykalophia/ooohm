@@ -12,6 +12,7 @@ export async function insertLeaveRequest(ex: Executor, values: NewLeaveRequest):
   return row;
 }
 
+/** A request of the company; one of another company reads as missing (`undefined`). */
 export async function findLeaveRequest(ex: Executor, companyId: string, id: string) {
   const [row] = await ex
     .select()
@@ -208,6 +209,10 @@ function inboxWhere(scope: InboxScope): SQL | undefined {
   );
 }
 
+/**
+ * Pending requests the inbox shows for `scope`, earliest start first, with requester, leave
+ * type and assigned approver names joined in: at most `limit` rows, one query.
+ */
 export async function listInbox(ex: Executor, scope: InboxScope, limit: number) {
   return ex
     .select({
@@ -235,6 +240,7 @@ export async function listInbox(ex: Executor, scope: InboxScope, limit: number) 
     .limit(limit);
 }
 
+/** How many requests {@link listInbox} would show without its limit. */
 export async function countInbox(ex: Executor, scope: InboxScope): Promise<number> {
   const [row] = await ex.select({ n: count() }).from(leaveRequests).where(inboxWhere(scope));
   return row?.n ?? 0;

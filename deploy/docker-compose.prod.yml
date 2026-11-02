@@ -1,0 +1,175 @@
+# Production stack for one OOOhm deployment (e.g. ooohm.team on a Hetzner server).
+#
+#   docker compose --env-file .env.production -f deploy/docker-compose.prod.yml up -d --build
+#
+# Run from the repository root. Only Caddy publishes ports (80 and 443); the app, the
+# worker and Postgres are reachable inside their networks only. See docs/deploy.md.
+#
+# Every required setting uses ${VAR:?...}, so a missing one stops `docker compose` with
+# its name instead of starting a half-configured app.
+
+name: ooohm
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# POSTGRES_PASSWORD is placed inside a URL, so keep it URL-safe: `openssl rand -hex 24`.
+x-database-url: &database-url postgres://ooohm:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD (openssl rand -hex 24)}@db:5432/ooohm
+
+x-hardening: &hardening
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ooohm
+      POSTGRES_USER: ooohm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD (openssl rand -hex 24)}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # No ports: only the backend network reaches it. Backups use `docker compose exec`.
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ooohm -d ooohm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    shm_size: 128mb
+    mem_limit: 1g
+    logging: *logging
+
+  # Migrations, the first-run seed and the idempotent year rollover, then exits. It runs
+  # on every `up`, so an upgrade migrates before the new app starts. Only DATABASE_URL and
+  # SEED_*: never the auth secret, SMTP or OAuth credentials.
+  migrate:
+    build:
+      context: ..
+      target: builder
+    command:
+      - sh
+      - -c
+      - pnpm db:migrate && pnpm db:seed && { pnpm job:rollover || echo "Year rollover failed (see above); the app starts anyway." >&2; }
+    environment:
+      DATABASE_URL: *database-url
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:?Set SEED_ADMIN_EMAIL (the first admin)}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
+      SEED_COMPANY_NAME: ${SEED_COMPANY_NAME:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [backend]
+    mem_limit: 1g
+    logging: *logging
+
+  app:
+    build:
+      context: ..
+      target: runner
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: *database-url
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET (openssl rand -base64 32)}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Set BETTER_AUTH_URL, e.g. https://ooohm.team}
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST (your mail provider)}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      # Never send the SMTP password or a sign-in link over a connection STARTTLS failed to secure.
+      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:?Set MAIL_FROM, e.g. OOOhm <no-reply@ooohm.team>}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Caddy is the one proxy in front of the app and sets X-Forwarded-For itself, so
+      # rate limits key on the real client address. Never raise this without another proxy.
+      TRUSTED_PROXY_HOPS: "1"
+      WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY:?Set WEBHOOK_ENCRYPTION_KEY (openssl rand -base64 32)}
+      WEBHOOK_ALLOW_INSECURE: "false"
+      WEBHOOK_ALLOW_PRIVATE: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Not published: Caddy reaches it on the edge network. The image's HEALTHCHECK hits
+    # /api/health, which also checks the database.
+    expose: ["3000"]
+    networks: [edge, backend]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    <<: *hardening
+    mem_limit: 768m
+    logging: *logging
+
+  # The outbox worker (webhooks, the daily year rollover and retention). Same settings as
+  # the development compose: its own environment only, unprivileged, read-only.
+  worker:
+    build:
+      context: ..
+      target: builder
+    command: ["node_modules/.bin/tsx", "--conditions=react-server", "scripts/worker.mts"]
+    init: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+    user: node
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      DATABASE_URL: *database-url
+      WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY:?Set WEBHOOK_ENCRYPTION_KEY (openssl rand -base64 32)}
+      WEBHOOK_ALLOW_INSECURE: "false"
+      WEBHOOK_ALLOW_PRIVATE: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-1000}
+      WORKER_MAX_IDLE_MS: ${WORKER_MAX_IDLE_MS:-10000}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [backend]
+    <<: *hardening
+    mem_limit: 384m
+    logging: *logging
+
+  # TLS termination and the only public entry point. Automatic HTTPS (Let's Encrypt) for
+  # OOOHM_DOMAIN; `localhost` gets Caddy's internal CA, for trying the stack locally.
+  caddy:
+    image: caddy:2.11.7-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      OOOHM_DOMAIN: ${OOOHM_DOMAIN:?Set OOOHM_DOMAIN, e.g. ooohm.team}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL (Let's Encrypt expiry notices)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      app:
+        condition: service_healthy
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    logging: *logging
+
+networks:
+  # Caddy and the app.
+  edge:
+  # The app, the worker, migrations and Postgres. Caddy is not on it, so it cannot reach the database.
+  backend:
+
+volumes:
+  pgdata:
+  # Certificates and ACME account keys: keep this volume, or Let's Encrypt rate limits may bite on re-issue.
+  caddy_data:
+  caddy_config:

@@ -28,6 +28,7 @@ pnpm db:migrate
 pnpm db:seed        # idempotent; uses SEED_ADMIN_EMAIL
 pnpm job:rollover   # idempotent year rollover (carryover + new-year allowances)
 pnpm worker         # outbox worker: webhooks, adapter deliveries, daily rollover + retention
+pnpm import:timeoff -- --file <x.sqlite> --company <id> --actor <admin email> [--apply]   # one-time TimeOff import (dry run by default)
 pnpm test           # unit tests (no database)
 pnpm test:integration  # service tests; set TEST_DATABASE_URL (see docs/architecture.md#testing)
 docker compose up   # full stack: db, migrate+seed, app, mailpit (http://localhost:8025)
@@ -42,13 +43,15 @@ Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
 - `src/server/services/**`: use cases. Own transactions, data-dependent authorization, `recordLeaveChange`/`recordChange` for every state change, and email via `commitThenNotify` / `commitThenSend` (after commit, never throws). Admin use cases are `admin-*.ts` plus `audit-log.ts`; they record changes with `recordAdminChange` and take `lockCompany` first when a rule spans several people.
 - `src/server/repositories/**`: Drizzle queries only; each takes an executor (`db` or `tx`) first.
 - `src/server/integrations/**`: the adapter seam (`Adapter`, `adapterRegistry`); `installed.ts` lists adapters (none in v1). No database access: services write what adapters return.
+- `src/server/importers/**`: source readers for one-time imports (TimeOff's SQLite file → `src/domain/timeoff` records). Read files only; `timeoff-import.ts` (service) owns the transaction. See `docs/import.md`.
+- `deploy/`: the production compose file, Caddyfile, backup/restore scripts and systemd timer. Runbook: `docs/deploy.md`.
 - `src/app/api/v1/**`: the REST API. Routes are one line through `_lib/api-get.ts` → `_lib/handler.ts` (auth, rate limits, errors); keep `_lib/openapi.ts` in sync (a test checks).
 - `src/domain/**`: pure rules (approval rule, day counting, status machine, permissions, `DomainError`). No I/O, Next, Drizzle or env.
 - `src/server/context.ts` / `src/server/runtime.ts`: the injected `ServiceContext` type and the app's composition root.
 - `src/db/schema.ts`: every table. Better Auth's tables (`user`, `session`, `account`, `verification`) live here too.
 - `src/lib/auth.ts`: Better Auth config, `issueSignInLink()` (invite links, wired into `ServiceContext`), `requireUser()` and `requireActor()`, the entry points for pages and actions (`currentUser()` for route handlers, which answer 401 instead of redirecting).
 - `src/lib/env.ts`: validated env vars. Add new ones here, in `.env.example`, and in `docker-compose.yml`.
-- `scripts/*.mts`: migrate, seed and the year rollover (`pnpm job:rollover`), run in that order by the `migrate` compose service; and the outbox worker (`pnpm worker`, the `worker` service), which delivers webhooks and runs the daily jobs. The worker reads `src/lib/worker-env.ts`, never `env.ts`.
+- `scripts/*.mts`: migrate, seed and the year rollover (`pnpm job:rollover`), run in that order by the `migrate` compose service; and the outbox worker (`pnpm worker`, the `worker` service), which delivers webhooks and runs the daily jobs. The worker reads `src/lib/worker-env.ts`, never `env.ts`. `import-timeoff.mts` is the one-time TimeOff importer.
 - `docs/api.md`: the public integration reference (auth, endpoints, events and payloads, webhooks, signatures). Update it with any event or API change.
 - `tests/unit/**` (`pnpm test`) and `tests/integration/**` (`pnpm test:integration`, needs `TEST_DATABASE_URL`; fresh database per file). Both run under `--conditions=react-server` so `server-only` modules load.
 

@@ -1,0 +1,70 @@
+# Caddy in front of OOOhm: automatic HTTPS, security headers, compression, a body size
+# limit, and access logs that never hold a token. Values come from the caddy service's
+# environment in deploy/docker-compose.prod.yml.
+{
+	email {$ACME_EMAIL}
+
+	# Every log line that is not the site's access log (error logs while the app is down
+	# or restarting, redirect and TLS messages) goes through the same token filter, so no
+	# logger Caddy writes holds a feed token, a sign-in token or a redirect target.
+	log default {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "^(?:(/api/ics/)[^?]*|([^?]*))(?:\?.*)?$" "${1}${2}"
+				request>headers>Referer delete
+				resp_headers>Location delete
+			}
+		}
+	}
+}
+
+{$OOOHM_DOMAIN} {
+	# Next.js compression is off (next.config.ts), so this is the only encoder.
+	encode zstd gzip
+
+	# Server actions accept 1 MB by default; nothing in OOOhm posts more.
+	request_body {
+		max_size 2MB
+	}
+
+	# Next.js sets none of these. `?` only fills in a header the app did not set itself
+	# (the calendar feed answers Referrer-Policy: no-referrer).
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		?Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+		# Framing and plugin rules only: Next.js inlines its own scripts, so a script policy
+		# would need per-request nonces (see docs/deploy.md).
+		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+		-Server
+		-Via
+		-X-Powered-By
+	}
+
+	# Caddy keeps the Host header and sets X-Forwarded-For/-Proto/-Host to what the
+	# client really sent, replacing any it supplied (it trusts no upstream proxy). Next's
+	# server-action origin check compares Origin with that host.
+	reverse_proxy app:3000
+
+	# Calendar feed tokens are in the path (/api/ics/<token>.ics) and sign-in tokens in
+	# query strings (/api/auth/magic-link/verify?token=...). The access log keeps the path
+	# without any query string, drops the feed token, and drops the Referer header and
+	# the Location of redirects (the HTTP-to-HTTPS redirect repeats the full URL).
+	# Caddy never logs Cookie or Authorization values. The global `log default` above
+	# applies the same filter to every other logger.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "^(?:(/api/ics/)[^?]*|([^?]*))(?:\?.*)?$" "${1}${2}"
+				request>headers>Referer delete
+				resp_headers>Location delete
+			}
+		}
+	}
+}

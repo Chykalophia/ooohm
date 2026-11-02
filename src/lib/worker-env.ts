@@ -18,6 +18,12 @@ const schema = z.object({
 
 export type WorkerEnv = z.infer<typeof schema>;
 
+/**
+ * The outbox worker's settings, validated. Reads only what the worker needs, never the
+ * app's auth or mail secrets; empty values count as unset.
+ *
+ * @throws Error naming every invalid or missing variable.
+ */
 export function loadWorkerEnv(source: Record<string, string | undefined> = process.env): WorkerEnv {
   const parsed = schema.safeParse(nonEmptyEnv(source));
   if (!parsed.success) throw envError(parsed.error);

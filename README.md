@@ -4,7 +4,8 @@
 
 OOOhm is a calm, modern leave tracker for small teams. Employees can request time off in two clicks, managers can approve it, and everyone can see who's out. There's no HR suite attached.
 
-> Status: early development (v1 in progress). Not ready for production use yet.
+> Status: v1. Deploy it with [docs/deploy.md](docs/deploy.md); move from TimeOff.Management with
+> [docs/import.md](docs/import.md).
 
 ## What v1 does
 
@@ -138,6 +139,16 @@ implementing the `Adapter` interface (`src/server/integrations/adapter.ts`), and
 retries as webhooks, and the Connectors screen (**Admin → Integrations → Connectors**) shows its health and,
 if it syncs people or allowances, a **Sync now** button. See [docs/architecture.md](docs/architecture.md#integrations-m6).
 
+## Production and moving from TimeOff.Management
+
+`deploy/docker-compose.prod.yml` runs OOOhm behind Caddy with automatic HTTPS; [docs/deploy.md](docs/deploy.md) is
+the step-by-step runbook (DNS, firewall, Docker, configuration, email, backups, upgrades, rollback, cutover).
+Production settings are listed in `.env.production.example`.
+
+`pnpm import:timeoff` brings people, leave types, holidays, allowances and history over from TimeOff.Management's
+SQLite file, and refuses to commit unless every current-year balance matches TimeOff's (earlier years are
+reported; `--accept-mismatch` overrides). It is a dry run unless you pass `--apply`. See [docs/import.md](docs/import.md).
+
 ## Develop
 
 ```bash
@@ -145,6 +156,7 @@ pnpm typecheck && pnpm lint && pnpm test
 TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:integration
 pnpm job:rollover [year]   # year rollover against DATABASE_URL
 pnpm worker                # the outbox worker against DATABASE_URL (Ctrl+C stops it gracefully)
+pnpm import:timeoff -- --file timeoff.sqlite --company <id> --actor <your email>   # dry run of the TimeOff import (docs/import.md)
 ```
 
 How the code is organized, and how requests, approvals, balances, the year rollover, calendars and feeds, the admin screens, the audit log, the

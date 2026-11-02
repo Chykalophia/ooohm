@@ -35,6 +35,7 @@ export type LeaveEmail =
   | { kind: "cancelled_requester"; recipientName: string; leave: LeaveSummary; link: string }
   | { kind: "cancelled_approver"; recipientName: string; leave: LeaveSummary; link: string };
 
+/** Escapes `& < > " '` for HTML text and attribute values. */
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -96,6 +97,10 @@ function parts(email: LeaveEmail): Parts {
   }
 }
 
+/**
+ * Subject, text and HTML for one leave notification. Subjects are fixed per kind: names,
+ * notes and reasons appear in the body only (HTML-escaped there), never in a header.
+ */
 export function renderLeaveEmail(input: LeaveEmail): EmailContent {
   const email: LeaveEmail = {
     ...input,

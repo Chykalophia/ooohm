@@ -11,9 +11,11 @@ with per-directory `no-restricted-imports` rules in `eslint.config.mjs`; change 
 import specifiers, so imports across directories use the `@/` alias and a parent-relative (`../`) import is a
 lint error everywhere under `src/`. `src/server/email/**` (templates) and `src/server/context.ts` (the
 `ServiceContext` type) sit just below services: no Next.js, database, schema, Drizzle, `env`, `auth`, services or
-repositories. `src/server/integrations/**` (the adapter seam, M6) follows the same rules. `src/server/runtime.ts` is
-the composition root and imports no service or repository. `scripts/*.mts` (migrate, seed, rollover, the outbox
-worker) are composition roots for processes outside Next: each builds its own `ServiceContext`.
+repositories. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
+one-time imports, M7: they read another system's files into domain records and never touch OOOhm's database)
+follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
+`scripts/*.mts` (migrate, seed, rollover, the outbox worker, the TimeOff import) are composition roots for
+processes outside Next: each builds its own `ServiceContext`.
 
 | Layer | Path | Owns | May import |
 | --- | --- | --- | --- |
@@ -83,6 +85,10 @@ backfilled it for rows written before M5. It takes a `Transaction`, not the pool
 one. `audit_log.created_at` and `events_outbox.created_at` default to `clock_timestamp()`, so rows written in
 one transaction (e.g. `leave.requested` then `leave.approved` for a self-approved request) keep their order.
 
+The one documented exception is the one-time import (M7, below): each imported row is audited (`import.*`
+actions, written in bulk with `insertAuditEntries`) without a per-row event, and the import writes a single
+`import.completed` event instead.
+
 #### Attribution: who or what made a change
 
 Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-source.ts`), one of:
@@ -94,7 +100,7 @@ Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-so
 | `system` | A process with no person behind it (`process`) | "System: year rollover", "System: scheduled Gusto sync" |
 
 `via` and `process` share one vocabulary of stable identifiers: `year_rollover`, `retention`, `adapter_sync:<adapterId>`,
-and `timeoff_import` (reserved; nothing writes it yet). They are stored and published, so never rename one.
+and `timeoff_import`. They are stored and published, so never rename one.
 `changeSourceLabel` (pure) turns a source into the label above.
 
 How sources are chosen, type-enforced so a new call site cannot leave one out (every recorder takes a required
@@ -110,6 +116,10 @@ How sources are chosen, type-enforced so a new call site cannot leave one out (e
   (Sync now) records the admin `via: "adapter_sync:<id>"`; `{ kind: "schedule" }` records `system` /
   `adapter_sync:<id>`. No scheduled sync runs in v1; the trigger is there for the first adapter that needs one.
 - Retention prunes delivery machinery, not state, and writes no audit rows; `retention` is named for when it does.
+- The TimeOff import (M7) is started by a person, so it is that person's change: `{ kind: "user", userId: <admin>,
+  via: "timeoff_import" }` on every audit row it writes and on `import.completed`. The CLI's required `--actor <email>`
+  names the admin; it is resolved inside the import's transaction, after people are imported, and must be an
+  active admin of the target company (existing, or just imported with `--create-company`), or the import rolls back.
 
 Storage (`audit_log`, migration `0010`): `actor_kind` (`user` | `api_key` | `system`, not null), `actor_id` (the
 person), `api_key_id` (FK to `api_keys`, `set null`), `actor_via`, `actor_process`. A `CHECK` requires a `system` row
@@ -129,7 +139,8 @@ the actor's `via` instead), and `unknown` for anything else.
 Every event payload publishes the same source as **`actor`** (added within version 1), next to `actorId`, which
 stays the person or `null` for compatibility: `{ type: "user", id, via? }`, `{ type: "api_key", id, apiKeyId,
 via? }` (`id` is the key's creator) or `{ type: "system", process }`. `recordChange` writes both from `source`,
-so an event and its audit row can never disagree.
+so an event and its audit row can never disagree. The import's bulk `insertAuditEntries` takes one `source` for
+the whole batch and writes the same columns.
 
 Leave events (`src/domain/events.ts`) are a public contract for webhooks and adapters (M6):
 
@@ -203,6 +214,15 @@ hash.
 | `webhook_endpoint.updated` also | `urlChanged` (boolean): the full URL changed, even if `urlOrigin` did not |
 | `webhook_delivery.redelivered` | `endpointId, deliveryId, eventId, eventType, actorId` |
 | `api_key.created`, `api_key.revoked` | `apiKeyId, name, prefix, scopes, actorId` |
+
+Import events (M7), registered in `IMPORT_EVENT_TYPES`. The actor is `null` (the import runs from the command
+line). Every imported row has its own audit row (`import.company`, `.department`, `.leave_type`, `.holiday`,
+`.user`, `.allowance`, `.leave_request`), with no event of its own, including a carried-over amount the import's
+rollover step corrects.
+
+| Event | When | Audit `action` | Payload (v1) |
+| --- | --- | --- | --- |
+| `import.completed` | A one-time import (v1: TimeOff.Management) committed | `import.completed` (flat counts, file name and hash) | `importRunId, source, sourceSha256, counts {people, departments, leaveTypes, holidays, allowances, leaveRequests}, mismatches, actorId` |
 
 [docs/api.md](api.md#events) is the public catalogue of every type and payload, with the envelope they are
 delivered in.
@@ -986,18 +1006,76 @@ To add one: implement `Adapter` in `src/server/integrations/adapters/<name>.ts` 
 Nothing else changes. Configuration and credentials per company are not modelled yet; the first real adapter
 will add them to `AdapterContext`, not to core code.
 
+## Import from TimeOff.Management (M7)
+
+A one-time importer, run from the command line (`pnpm import:timeoff`, `scripts/import-timeoff.mts`). The
+runbook and the mapping rules are in [import.md](import.md); this is how it is built.
+
+```
+SQLite file ──(readTimeOffSqlite, node:sqlite, read-only)──► TimeOffSnapshot ──(buildImportPlan, pure)──► ImportPlan
+                                                                                                          │
+                     report ◄──(reconcile: loadBalances)◄── one transaction ◄──(importTimeOff)────────────┘
+```
+
+- **Reader** (`src/server/importers/timeoff/sqlite-reader.ts`): opens the file with Node's built-in `node:sqlite`
+  (Node 22.13+, no native dependency) read-only and returns plain records (`src/domain/timeoff/source.ts`). Table
+  and column names are matched against the spellings TimeOff's Sequelize models have used; a missing required one
+  stops the import with what the file does have.
+- **Plan** (`src/domain/timeoff/mapping.ts`, pure): people (email dedupe, roles, managers from department bosses,
+  loop breaking), departments, leave types (the allowance pool decision), holidays, allowance rows, requests (half
+  days split into single-day requests, days counted with OOOhm's `splitLeaveDaysByYear`), and TimeOff's own
+  balance for every person and year (`src/domain/timeoff/balance.ts`). Refusals are `DomainError("import_refused")`.
+- **Service** (`src/server/services/timeoff-import.ts`): one `db.transaction` for everything, with bulk writes from
+  `src/server/repositories/imports.ts`. It runs the year rollover's step for last year
+  (`recarryMemberLeaveType`, with a `record` hook that audits each change as `import.allowance` instead of the
+  rollover's `balance.adjusted` event) for every imported active person, so the reconciliation sees what the
+  nightly job will leave, then compares through `loadBalances` (the dashboard's balance code). Pending requests
+  are routed by `reassignApprover(new ManagerApprovalRule(), ...)` over the imported organisation, so they land in
+  the manager's inbox; decided ones keep TimeOff's decider. The plan counts leave against the target company's
+  existing holidays plus TimeOff's, so a holiday only OOOhm has shows as a mismatch. A dry run, or an `--apply` with
+  a current-year mismatch, throws a private `RollBack` carrying the report out of the transaction callback, so
+  Drizzle rolls back and the caller still gets the report.
+- **Ledger**: `import_runs` (migration 0011) records each committed import with the file's SHA-256 (unique), its
+  counts and the full report; the same file is refused afterwards.
+- **Audit and outbox**: every imported row gets an `audit_log` row (`import.*` actions, `IMPORT_AUDIT_ACTIONS`,
+  attributed to the `--actor` admin via `timeoff_import`; see [Attribution](#attribution-who-or-what-made-a-change)),
+  written in bulk by `insertAuditEntries(tx, source, entries)`, which writes no outbox event. This is the one place
+  where a state change is audited without its own event: the import announces itself with a single
+  `import.completed` (`IMPORT_EVENT_TYPES`, counts and hash only) instead of replaying the imported history to
+  webhooks. See [api.md](api.md#types-and-payloads-version-1).
+- **Invite-only**: people are inserted as rows only (`insertImportedAccounts`); no session, account link,
+  verification token or email. Active people sign in through the normal magic link.
+- **CLI-only**: `importTimeOff` takes no `Actor` (there is no session); it resolves `actorEmail` (`--actor`) to an
+  active admin of the target company inside the transaction, after people are imported, and refuses otherwise.
+  That names who made the change; it is not a sign-in, since whoever runs the CLI already holds the database
+  credentials. The lint rules forbid `src/app` from importing it or `src/server/importers/*`.
+
+## Production deployment (M7)
+
+`deploy/docker-compose.prod.yml` runs the same images as development behind Caddy (`deploy/Caddyfile`): automatic
+HTTPS, security headers, compression, a body size limit and access logs without query strings or feed tokens.
+Only Caddy publishes ports; Postgres sits on a network Caddy is not on. The app runs with `TRUSTED_PROXY_HOPS=1`.
+`deploy/backup.sh` and `deploy/restore.sh` dump and restore the database (custom-format `pg_dump`, gzipped), with a
+systemd timer in `deploy/systemd/`. The runbook is [deploy.md](deploy.md).
+
 ## Testing
 
 | Command | What | Needs |
 | --- | --- | --- |
-| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting) | nothing |
-| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention | `TEST_DATABASE_URL` |
+| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time) | nothing |
+| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import` | `TEST_DATABASE_URL` |
 
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
 IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,
 API key format) and runs the webhook transport against a local HTTP server (loopback refused by literal and by
 name, no redirects, 64 KB cap, timeout). `tests/e2e/` holds a signature-verifying webhook receiver and a setup
-script for trying the whole flow against a real build ([docs/api.md](api.md#try-it-locally)).
+script for trying the whole flow against a real build ([docs/api.md](api.md#try-it-locally)), a writer for the
+synthetic TimeOff file (`timeoff-fixture.mts`, [docs/import.md](import.md#try-it-locally)), and `explain-queries.mts`,
+which seeds two companies of 50 people with three years of leave into an empty migrated database, runs the
+dashboard, calendar, approvals, admin and REST API services, and prints each statement they send with its
+`EXPLAIN ANALYZE` plan, flagging sequential scans of the large tables. At M7 every read path sent a fixed number of
+statements (no N+1) and none needed a new index: the only sequential scans were on `leave_request_days` and
+`leave_requests` where the planner preferred them for small tables or for company-wide balance sums.
 
 Both run with Node's test runner through `tsx --conditions=react-server`. The `react-server` condition makes
 `import "server-only"` resolve to its empty module, the same way Next.js resolves it on the server, so tests

@@ -584,6 +584,38 @@ export const apiKeys = pgTable(
 );
 
 /**
+ * One applied import from another leave tracker (v1: TimeOff.Management's SQLite file).
+ * A dry run writes nothing, so every row here is an import that committed. The source
+ * file's SHA-256 is unique: importing the same file twice is refused, since a second
+ * run would duplicate every person's history.
+ */
+export const importRuns = pgTable(
+  "import_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    /** Which importer wrote it, e.g. `timeoff`. */
+    source: text("source").notNull(),
+    /** SHA-256 (hex) of the source file's bytes. */
+    sourceSha256: text("source_sha256").notNull(),
+    /** The file's base name, for people reading the run later; never a full path. */
+    sourceFileName: text("source_file_name").notNull(),
+    /** What was created, as the importer counted it. */
+    counts: jsonb("counts").notNull(),
+    /** The full report: warnings, conflicts and the balance reconciliation. */
+    report: jsonb("report").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("import_runs_source_sha256_uq").on(t.sourceSha256),
+    index("import_runs_company_idx").on(t.companyId, t.createdAt),
+    check("import_runs_sha256_format", sql`${t.sourceSha256} ~ '^[0-9a-f]{64}$'`),
+  ],
+);
+
+/**
  * Periodic jobs the outbox worker runs (the year rollover, retention). A worker claims
  * a due job with a compare-and-set on `next_run_at`, so of several workers exactly one
  * runs it, and a restart does not run it again early.

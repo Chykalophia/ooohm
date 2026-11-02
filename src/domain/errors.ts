@@ -63,7 +63,13 @@ export type DomainErrorCode =
   /** A webhook URL points at a loopback, private, link-local or otherwise non-public address. */
   | "blocked_address"
   /** The company already has as many of something (webhook endpoints, API keys) as it may. */
-  | "limit_reached";
+  | "limit_reached"
+  /**
+   * A one-time import (TimeOff.Management) cannot run as asked: the file was imported
+   * before, the target company already has data, the source is ambiguous or unusable.
+   * The message says why and which option changes it; only the import CLI raises it.
+   */
+  | "import_refused";
 
 /**
  * Facts behind an `insufficient_balance` error, so the presentation layer can say

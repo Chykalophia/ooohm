@@ -27,6 +27,12 @@ export interface LinkCapture {
   intercept(metadata: unknown, url: string): boolean;
 }
 
+/**
+ * A {@link LinkCapture} backed by process memory: each key is 256 random bits, valid for
+ * one `issue` call and removed straight after, so a request from outside cannot name one.
+ *
+ * @param newKey Key source; injectable for tests.
+ */
 export function createLinkCapture(newKey: () => string = () => randomBytes(32).toString("base64url")): LinkCapture {
   const pending = new Map<string, (url: string) => void>();
   return {

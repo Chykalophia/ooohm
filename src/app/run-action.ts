@@ -31,6 +31,7 @@ const MESSAGES: Record<DomainErrorCode, string> = {
   insecure_url: "Use an address that starts with https://.",
   blocked_address: "That address points inside a private network. Use a public address.",
   limit_reached: "You've reached the limit. Remove one you no longer use first.",
+  import_refused: "That import can't run. The import tool says why.",
 };
 
 /**

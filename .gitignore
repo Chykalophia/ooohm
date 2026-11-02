@@ -40,5 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# allow the example env file
+# allow the example env files
 !.env.example
+!.env.production.example

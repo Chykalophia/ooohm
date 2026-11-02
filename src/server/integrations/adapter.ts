@@ -84,6 +84,12 @@ export interface AdapterRegistry {
 
 const ADAPTER_ID = /^[a-z][a-z0-9_-]{1,39}$/;
 
+/**
+ * A registry holding `initial`. Ids must be unique and match `^[a-z][a-z0-9_-]{1,39}$`
+ * (they are stored with each delivery).
+ *
+ * @throws Error for an invalid or duplicate id.
+ */
 export function createAdapterRegistry(initial: readonly Adapter[] = []): AdapterRegistry {
   const adapters = new Map<string, Adapter>();
   const registry: AdapterRegistry = {

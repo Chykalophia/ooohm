@@ -17,6 +17,13 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  // Refuse to send over a plain connection when STARTTLS is missing (see
+  // src/lib/smtp-options.ts). On by default in production; Mailpit offers no TLS, so
+  // the development compose and .env.example turn it off.
+  SMTP_REQUIRE_TLS: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => (v === undefined ? process.env.NODE_ENV === "production" : v === "true")),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   MAIL_FROM: z.string().default("OOOhm <no-reply@ooohm.team>"),

@@ -12,6 +12,7 @@ const TRANSITIONS: Readonly<Record<LeaveStatus, readonly LeaveStatus[]>> = {
   cancelled: [],
 };
 
+/** Whether the status machine allows `from` → `to` (see the diagram in docs/architecture.md). */
 export function canTransition(from: LeaveStatus, to: LeaveStatus): boolean {
   return TRANSITIONS[from].includes(to);
 }

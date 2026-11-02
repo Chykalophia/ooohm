@@ -29,6 +29,9 @@ export interface RolloverResult {
 
 type LeaveTypeForRollover = LeaveTypeAllowanceSettings & { id: string };
 
+/** Records one allowance row the rollover created or changed; {@link recordAllowanceChange} by default. */
+export type AllowanceChangeRecorder = (tx: Transaction, change: Parameters<typeof recordAllowanceChange>[1]) => Promise<void>;
+
 interface MemberRollover {
   companyId: string;
   timezone: string;
@@ -44,6 +47,7 @@ interface MemberRollover {
   currentYear: number;
   /** Recorded on every row it writes: the rollover itself, or the edit that re-carried. */
   source: ChangeSource;
+  record: AllowanceChangeRecorder;
 }
 
 /** The nightly (or `pnpm job:rollover`) run has no person behind it. */
@@ -81,7 +85,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
       if (existing) {
         if (carry === null || existing.carriedOverDays === carry) continue;
         const after = await setCarriedOverDays(tx, existing.id, carry);
-        await recordAllowanceChange(tx, { companyId: job.companyId, reason: "carryover", before: existing, after, source: job.source });
+        await job.record(tx, { companyId: job.companyId, reason: "carryover", before: existing, after, source: job.source });
         carried++;
         continue;
       }
@@ -98,7 +102,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
       ]);
       if (!after) continue;
       const reason = carry ? "carryover" : "allowance_created";
-      await recordAllowanceChange(tx, { companyId: job.companyId, reason, before: null, after, source: job.source });
+      await job.record(tx, { companyId: job.companyId, reason, before: null, after, source: job.source });
       if (reason === "carryover") carried++;
       else created++;
     }
@@ -109,7 +113,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
     job.defaultTypes.map((t) => ({ userId: member.id, leaveTypeId: t.id, year: job.currentYear, days: t.defaultAllowanceDays })),
   );
   for (const after of createdRows) {
-    await recordAllowanceChange(tx, { companyId: job.companyId, reason: "allowance_created", before: null, after, source: job.source });
+    await job.record(tx, { companyId: job.companyId, reason: "allowance_created", before: null, after, source: job.source });
   }
   return { carried, created: created + createdRows.length };
 }
@@ -118,7 +122,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
  * Re-runs the year rollover's per-member step for one person and one leave type, inside
  * the caller's transaction: recomputes the carry out of `closingYear` into the next
  * year (and, for a type without a default, copies the row forward), exactly as
- * {@link runYearRollover} would, writing the same audit and outbox rows. Creates no
+ * {@link runYearRollover} would, writing the same audit and outbox rows (unless `record` says otherwise). Creates no
  * current-year default rows; the nightly run still owns those.
  *
  * For an admin's (or a sync's) edit of a closed year's allowance, so the next year's
@@ -140,6 +144,8 @@ export async function recarryMemberLeaveType(
     leaveType: LeaveTypeForRollover & { archivedAt: Date | null };
     closingYear: number;
     source: ChangeSource;
+    /** Overrides how each change is recorded (the import audits without outbox events). */
+    record?: AllowanceChangeRecorder;
   },
 ): Promise<{ carried: number; created: number }> {
   const t = job.leaveType;
@@ -156,6 +162,7 @@ export async function recarryMemberLeaveType(
     closingYear: job.closingYear,
     currentYear: job.closingYear + 1,
     source: job.source,
+    record: job.record ?? recordAllowanceChange,
   });
 }
 
@@ -232,6 +239,7 @@ export async function runYearRollover(ctx: ServiceContext, fromYear?: number): P
           closingYear,
           currentYear,
           source: ROLLOVER_SOURCE,
+          record: recordAllowanceChange,
         }),
       );
       carried += changes.carried;

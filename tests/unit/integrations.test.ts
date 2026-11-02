@@ -5,6 +5,7 @@ import {
   ADMIN_EVENT_TYPES,
   BALANCE_EVENT_TYPES,
   CALENDAR_FEED_EVENT_TYPES,
+  IMPORT_EVENT_TYPES,
   INTEGRATION_EVENT_TYPES,
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
@@ -237,6 +238,7 @@ describe("event catalogue and envelope", () => {
       ...Object.values(ADMIN_EVENT_TYPES),
       ...Object.values(CALENDAR_FEED_EVENT_TYPES),
       ...Object.values(INTEGRATION_EVENT_TYPES),
+      ...Object.values(IMPORT_EVENT_TYPES),
     ];
     assert.deepEqual([...WEBHOOK_EVENT_TYPES].sort(), [...all].sort());
     assert.equal(new Set(WEBHOOK_EVENT_TYPES).size, WEBHOOK_EVENT_TYPES.length);
@@ -251,6 +253,7 @@ describe("event catalogue and envelope", () => {
     assert.deepEqual(Object.values(LEAVE_EVENT_TYPES), ["leave.requested", "leave.approved", "leave.rejected", "leave.cancelled"]);
     assert.equal(BALANCE_EVENT_TYPES.adjusted, "balance.adjusted");
     assert.equal(ADMIN_EVENT_TYPES.userCreated, "user.created");
+    assert.equal(IMPORT_EVENT_TYPES.completed, "import.completed");
   });
 
   test("subscriptions are deduplicated into catalogue order; none or an unknown type is refused", () => {

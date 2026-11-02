@@ -50,7 +50,7 @@ const schema = z.object({
   // key on the client address only when this is set; see src/lib/client-address.ts.
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
 
-  // Webhooks and logging (M6), shared with the outbox worker.
+  // Webhooks and logging, shared with the outbox worker.
   ...integrationEnvShape,
 });
 

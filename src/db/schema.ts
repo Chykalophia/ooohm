@@ -26,9 +26,7 @@ const timestamps = {
     .$onUpdate(() => new Date()),
 };
 
-/* ------------------------------------------------------------------ */
-/* Enums                                                              */
-/* ------------------------------------------------------------------ */
+// Enums
 
 export const roleEnum = pgEnum("role", ["employee", "manager", "admin"]);
 
@@ -42,9 +40,7 @@ export const requestStatusEnum = pgEnum("leave_request_status", [
 /** Which part of a day a request covers. Half days apply to single-day requests. */
 export const dayPortionEnum = pgEnum("day_portion", ["full", "am", "pm"]);
 
-/* ------------------------------------------------------------------ */
-/* Tenancy                                                            */
-/* ------------------------------------------------------------------ */
+// Tenancy
 
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -72,9 +68,7 @@ export const departments = pgTable(
   (t) => [uniqueIndex("departments_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`)],
 );
 
-/* ------------------------------------------------------------------ */
-/* Auth (Better Auth core tables + OOOhm user fields)                 */
-/* ------------------------------------------------------------------ */
+// Auth (Better Auth core tables + OOOhm user fields)
 
 export const user = pgTable(
   "user",
@@ -158,9 +152,7 @@ export const verification = pgTable(
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
-/* ------------------------------------------------------------------ */
-/* Leave                                                              */
-/* ------------------------------------------------------------------ */
+// Leave
 
 export const leaveTypes = pgTable(
   "leave_types",
@@ -309,9 +301,7 @@ export const leaveRequestDays = pgTable(
   ],
 );
 
-/* ------------------------------------------------------------------ */
-/* Calendar feeds                                                     */
-/* ------------------------------------------------------------------ */
+// Calendar feeds
 
 /** Which calendar a feed serves: the owner's own leave, or the whole company's. */
 export const calendarFeedKindEnum = pgEnum("calendar_feed_kind", ["personal", "team"]);
@@ -345,9 +335,7 @@ export const calendarFeedTokens = pgTable(
   ],
 );
 
-/* ------------------------------------------------------------------ */
-/* Audit + integrations                                               */
-/* ------------------------------------------------------------------ */
+// Audit + integrations
 
 export const auditLog = pgTable(
   "audit_log",
@@ -420,7 +408,7 @@ export const eventsOutbox = pgTable(
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     payload: jsonb("payload").notNull(),
-    /** Unused since M6: retries are counted per delivery. Kept, as columns are never dropped from a public table. */
+    /** Unused: retries are counted per delivery. Kept, as columns are never dropped from a public table. */
     attempts: integer("attempts").notNull().default(0),
     /** When the worker dispatched the event (created its deliveries); `null` until then. */
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
@@ -430,7 +418,7 @@ export const eventsOutbox = pgTable(
      * The id of the transaction that wrote the row. The events API pages in
      * `(tx_id, created_at, id)` order and only shows rows of transactions older than every
      * one still running, so a slow transaction can never commit a row behind a reader's
-     * cursor. Rows written before M6 share the migration's id.
+     * cursor. Rows that predate the column share the migration's id.
      */
     txId: bigint("tx_id", { mode: "number" }).notNull().default(sql`pg_current_xact_id()::text::bigint`),
   },

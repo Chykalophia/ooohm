@@ -6,10 +6,6 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
  * except {@link apiKeyPrefix}.
  */
 
-/* ------------------------------------------------------------------ */
-/* Encryption at rest                                                 */
-/* ------------------------------------------------------------------ */
-
 /**
  * Seals and opens short secrets with AES-256-GCM. The signer needs a webhook secret's
  * plaintext, so it is encrypted rather than hashed; a copy of the database alone does
@@ -71,10 +67,6 @@ export function unavailableSecretBox(reason: string): SecretBox {
   };
   return { seal: refuse, open: refuse };
 }
-
-/* ------------------------------------------------------------------ */
-/* Webhook signatures                                                 */
-/* ------------------------------------------------------------------ */
 
 const WEBHOOK_SECRET_PREFIX = "whsec_";
 
@@ -142,10 +134,6 @@ export function verifyWebhookSignature(input: {
       return given.length === expected.length && timingSafeEqual(given, expected);
     });
 }
-
-/* ------------------------------------------------------------------ */
-/* API keys                                                           */
-/* ------------------------------------------------------------------ */
 
 const API_KEY_PREFIX = "ooohm_";
 const API_KEY_SHAPE = /^ooohm_[A-Za-z0-9_-]{43}$/;

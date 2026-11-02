@@ -1,6 +1,7 @@
 /**
- * End-to-end demo setup against a running database (DATABASE_URL), acting as the seeded
- * admin (SEED_ADMIN_EMAIL) through the same services the admin screens call:
+ * End-to-end demo setup against a database (DATABASE_URL, or OOOHM_DB=embedded while the
+ * app is stopped), acting as the seeded admin (SEED_ADMIN_EMAIL) through the same services
+ * the admin screens call:
  *
  *   tsx --conditions=react-server tests/e2e/demo-setup.mts key
  *   tsx --conditions=react-server tests/e2e/demo-setup.mts endpoint <url> <secret-file>
@@ -13,8 +14,8 @@
  */
 import { writeFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { resolveDatabaseConfig } from "../../src/db/config";
+import { openDatabase } from "../../src/db/connect";
 import * as schema from "../../src/db/schema";
 import { toActor } from "../../src/domain/actor";
 import { createSecretBox } from "../../src/lib/integration-crypto";
@@ -25,8 +26,8 @@ import { submitLeaveRequest } from "../../src/server/services/leave-requests";
 import { createWebhookEndpoint } from "../../src/server/services/webhooks";
 
 const [command, ...args] = process.argv.slice(2);
-const client = postgres(process.env.DATABASE_URL!, { max: 2, onnotice: () => {} });
-const db = drizzle(client, { schema, casing: "snake_case" });
+const handle = await openDatabase(resolveDatabaseConfig(process.env), { purpose: "the e2e demo setup", max: 2 });
+const { db } = handle;
 const ctx: ServiceContext = {
   db,
   mailer: async () => {},
@@ -61,5 +62,5 @@ try {
     throw new Error(`Unknown command "${command}"`);
   }
 } finally {
-  await client.end();
+  await handle.close();
 }

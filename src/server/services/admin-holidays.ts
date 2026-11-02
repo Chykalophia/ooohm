@@ -26,6 +26,7 @@ import {
   renameHoliday as renameHolidayRow,
 } from "@/server/repositories/holidays";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { inTransaction } from "./notify";
 
 function payload(row: HolidayRow): Unattributed<HolidayEventPayload> {
   return { holidayId: row.id, date: row.date, name: row.name };
@@ -73,7 +74,7 @@ export async function addHoliday(ctx: ServiceContext, actor: Actor, input: { dat
   assertYear(Number(input.date.slice(0, 4)));
   const name = normalizeHolidayName(input.name);
   try {
-    return await ctx.db.transaction(async (tx) => {
+    return await inTransaction(ctx, async (tx) => {
       await assertActiveAdmin(tx, actor);
       const [row] = await insertHolidays(tx, actor.companyId, [{ date: input.date, name }]);
       if (!row) throw new DomainError("already_exists");
@@ -96,7 +97,7 @@ export async function addHoliday(ctx: ServiceContext, actor: Actor, input: { dat
 export async function addUsFederalHolidays(ctx: ServiceContext, actor: Actor, year: number): Promise<HolidayRow[]> {
   assertCanAdminister(actor);
   assertYear(year);
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const added = await insertHolidays(tx, actor.companyId, usFederalHolidays(year));
     for (const row of added) await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, null, row);
@@ -109,7 +110,7 @@ export async function renameHoliday(ctx: ServiceContext, actor: Actor, id: strin
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
   const name = normalizeHolidayName(rawName);
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const before = await findHoliday(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");
@@ -125,7 +126,7 @@ export async function renameHoliday(ctx: ServiceContext, actor: Actor, id: strin
 export async function deleteHoliday(ctx: ServiceContext, actor: Actor, id: string): Promise<void> {
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
-  await ctx.db.transaction(async (tx) => {
+  await inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const before = await deleteHolidayRow(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");

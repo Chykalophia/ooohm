@@ -28,6 +28,7 @@ import {
   updateLeaveType as updateLeaveTypeRow,
 } from "@/server/repositories/leave-types";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { inTransaction } from "./notify";
 
 export type { LeaveTypeRow };
 
@@ -100,7 +101,7 @@ export async function createLeaveType(ctx: ServiceContext, actor: Actor, input: 
   assertCanAdminister(actor);
   const settings = normalizeLeaveTypeSettings(input);
   return uniqueCode(() =>
-    ctx.db.transaction(async (tx) => {
+    inTransaction(ctx, async (tx) => {
       // Serialises creates, so two cannot take the same next sort order.
       await lockCompany(tx, actor.companyId);
       await assertActiveAdmin(tx, actor);
@@ -125,7 +126,7 @@ export async function updateLeaveType(ctx: ServiceContext, actor: Actor, id: str
   if (!isUuid(id)) throw new DomainError("not_found");
   const settings = normalizeLeaveTypeSettings(input);
   return uniqueCode(() =>
-    ctx.db.transaction(async (tx) => {
+    inTransaction(ctx, async (tx) => {
       await assertActiveAdmin(tx, actor);
       const before = await findLeaveTypeForAdmin(tx, actor.companyId, id);
       if (!before) throw new DomainError("not_found");
@@ -152,7 +153,7 @@ export async function updateLeaveType(ctx: ServiceContext, actor: Actor, id: str
 export async function setLeaveTypeArchived(ctx: ServiceContext, actor: Actor, id: string, archived: boolean): Promise<LeaveTypeRow> {
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     await lockCompany(tx, actor.companyId);
     await assertActiveAdmin(tx, actor);
     const before = await findLeaveTypeForAdmin(tx, actor.companyId, id);
@@ -178,7 +179,7 @@ export async function moveLeaveType(ctx: ServiceContext, actor: Actor, id: strin
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
   if (direction !== "up" && direction !== "down") throw new DomainError("invalid_input");
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     // Serialises reorders, so two at once cannot interleave their renumbering.
     await lockCompany(tx, actor.companyId);
     await assertActiveAdmin(tx, actor);

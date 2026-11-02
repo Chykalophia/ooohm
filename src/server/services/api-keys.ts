@@ -28,6 +28,7 @@ import {
 } from "@/server/repositories/api-keys";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { inTransaction } from "./notify";
 
 /** `last_used_at` is written at most once per this window per key. */
 export const KEY_USE_STAMP_MS = 60_000;
@@ -62,7 +63,7 @@ export async function createApiKey(ctx: ServiceContext, actor: Actor, input: { n
   assertCanAdminister(actor);
   const name = normalizeApiKeyName(input.name);
   const generated = generateApiKey();
-  const apiKey = await ctx.db.transaction(async (tx) => {
+  const apiKey = await inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
     if ((await countLiveApiKeys(tx, actor.companyId)) >= MAX_API_KEYS) throw new DomainError("limit_reached");
@@ -97,7 +98,7 @@ export async function createApiKey(ctx: ServiceContext, actor: Actor, input: { n
 export async function revokeApiKey(ctx: ServiceContext, actor: Actor, id: string): Promise<boolean> {
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const before = await lockApiKey(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");

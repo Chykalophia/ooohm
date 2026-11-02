@@ -1,7 +1,9 @@
 /**
  * The outbox worker: `pnpm worker` (the `worker` service in docker-compose).
  *
- * Four loops share one small connection pool:
+ * Four loops share one small connection pool. Each runs one step of the shared tick
+ * (`runTick`, src/server/services/background-tick.ts), the same code the cron route and
+ * the app's inline mode run:
  *
  * - **dispatch**: fans new `events_outbox` rows out into webhook and adapter deliveries
  *   (`dispatchOutboxBatch`);
@@ -12,6 +14,9 @@
  *   delays webhooks;
  * - **jobs**: once a minute, runs whichever daily job is due (the year rollover, retention)
  *   if this worker wins its claim (`runDueJobs`).
+ *
+ * With the embedded database it refuses to start while the app has the data directory
+ * open: the app runs this work itself there.
  *
  * A loop that found work goes again at once; an idle one waits WORKER_POLL_INTERVAL_MS,
  * doubling up to WORKER_MAX_IDLE_MS. Any number of workers can run at once: every claim
@@ -24,33 +29,33 @@
  * then the pool closes. A second signal exits at once;
  * anything in flight is retried by the next worker after its lease.
  *
- * It needs only DATABASE_URL, WEBHOOK_ENCRYPTION_KEY and, optionally, LOG_LEVEL,
+ * It needs only the database settings, WEBHOOK_ENCRYPTION_KEY and, optionally, LOG_LEVEL,
  * WEBHOOK_ALLOW_INSECURE, WEBHOOK_ALLOW_PRIVATE and the two WORKER_* intervals (see
  * src/lib/worker-env.ts). It never sees the auth secret or SMTP credentials.
  */
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import * as schema from "../src/db/schema";
+import { openDatabase } from "../src/db/connect";
 import { createSecretBox } from "../src/lib/integration-crypto";
 import { log } from "../src/lib/log";
 import { createSafeFetch } from "../src/lib/safe-fetch";
 import { loadWorkerEnv } from "../src/lib/worker-env";
 import type { ServiceContext } from "../src/server/context";
 import { adapterRegistry } from "../src/server/integrations/adapter";
-import { deliverDueAdapterEvents } from "../src/server/services/adapter-delivery";
-import { dispatchOutboxBatch } from "../src/server/services/outbox-dispatch";
-import { runDueJobs } from "../src/server/services/scheduled-jobs";
-import { deliverDueWebhooks } from "../src/server/services/webhook-delivery";
+import { ping } from "../src/server/repositories/health";
+import { runTick, type TickStep } from "../src/server/services/background-tick";
+
+/** How long one loop pass may keep starting new work before the loop checks in again. */
+const STEP_BUDGET_MS = 30_000;
 
 const env = loadWorkerEnv();
 const webhookTargets = { allowInsecure: env.WEBHOOK_ALLOW_INSECURE, allowPrivate: env.WEBHOOK_ALLOW_PRIVATE };
-const client = postgres(env.DATABASE_URL, { max: 5, onnotice: () => {} });
+// Embedded mode: refuses (with who holds it) while the app has the data directory open.
+const handle = await openDatabase(env.database, { purpose: "pnpm worker", max: 5 });
 const refuse = (what: string) => async (): Promise<never> => {
   throw new Error(`The worker does not ${what}.`);
 };
 
 const ctx: ServiceContext = {
-  db: drizzle(client, { schema, casing: "snake_case" }),
+  db: handle.db,
   mailer: refuse("send email"),
   defer: (task) => void task(),
   appUrl: "",
@@ -108,7 +113,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
   });
 }
 
-await client`select 1`;
+await ping(handle.db);
 log.info(
   {
     pollIntervalMs: env.WORKER_POLL_INTERVAL_MS,
@@ -120,25 +125,28 @@ log.info(
   "worker_started",
 );
 
+/** One step of the shared tick (`runTick`), the same code the cron route and the app's inline ticks run. */
+const step = (only: TickStep) => runTick(ctx, { fetch, signal: stop.signal, steps: [only], budgetMs: STEP_BUDGET_MS });
+
 await Promise.all([
   loop("dispatch", async () => {
-    const r = await dispatchOutboxBatch(ctx);
-    if (r.events > 0) log.debug({ ...r }, "outbox_dispatched");
+    const r = await step("dispatch");
+    if (r.events > 0) log.debug({ events: r.events, webhookDeliveries: r.webhookDeliveriesCreated, adapterDeliveries: r.adapterDeliveriesCreated }, "outbox_dispatched");
     return r.events > 0;
   }),
-  loop("deliver", async () => (await deliverDueWebhooks(ctx, { fetch, signal: stop.signal })).attempted > 0),
+  loop("deliver", async () => (await step("webhooks")).webhooks.attempted > 0),
   // Its own loop: a slow or hanging adapter (up to 20 calls of 30 s each per pass) never
   // holds up webhook delivery.
-  loop("adapters", async () => (await deliverDueAdapterEvents(ctx, { signal: stop.signal })).attempted > 0),
+  loop("adapters", async () => (await step("adapters")).adapters.attempted > 0),
   loop(
     "jobs",
     async () => {
-      await runDueJobs(ctx);
+      await step("jobs");
       return false;
     },
     { min: 60_000, max: 60_000 },
   ),
 ]);
 
-await client.end({ timeout: 5 });
+await handle.close();
 log.info({}, "worker_stopped");

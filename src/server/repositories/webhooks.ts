@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
+import { executeRows } from "@/db/rows";
 import type { Executor, Transaction } from "@/db/types";
 
 /** An endpoint as services use it. `secretCiphertext` never leaves the service layer. */
@@ -240,7 +241,7 @@ export async function claimDueDeliveries(
   ex: Executor,
   input: { now: Date; leaseUntil: Date; limit: number },
 ): Promise<ClaimedWebhookDelivery[]> {
-  const rows = await ex.execute<{
+  const rows = await executeRows<{
     id: string;
     company_id: string;
     endpoint_id: string;
@@ -250,7 +251,9 @@ export async function claimDueDeliveries(
     attempts: number;
     url: string;
     secret_ciphertext: string;
-  }>(sql`
+  }>(
+    ex,
+    sql`
     update webhook_deliveries d
     set attempts = d.attempts + 1, next_attempt_at = ${input.leaseUntil.toISOString()}::timestamptz, last_attempt_at = ${input.now.toISOString()}::timestamptz, updated_at = ${input.now.toISOString()}::timestamptz
     from webhook_endpoints e
@@ -265,7 +268,8 @@ export async function claimDueDeliveries(
         for update of d2 skip locked
       )
     returning d.id, d.company_id, d.endpoint_id, d.event_id, d.event_type, d.body, d.attempts, e.url, e.secret_ciphertext
-  `);
+  `,
+  );
   return [...rows].map((r) => ({
     id: r.id,
     companyId: r.company_id,

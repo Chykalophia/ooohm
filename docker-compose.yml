@@ -21,6 +21,8 @@ x-app-env: &app-env
   WEBHOOK_ALLOW_INSECURE: ${WEBHOOK_ALLOW_INSECURE:-false}
   WEBHOOK_ALLOW_PRIVATE: ${WEBHOOK_ALLOW_PRIVATE:-false}
   LOG_LEVEL: ${LOG_LEVEL:-info}
+  # The `worker` service below delivers webhooks and runs the daily jobs.
+  OOOHM_BACKGROUND: worker
 
 services:
   db:

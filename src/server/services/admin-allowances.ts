@@ -26,6 +26,7 @@ import { lockMember } from "@/server/repositories/users";
 import { assertActiveAdmin } from "./admin-access";
 import { recordAllowanceChange } from "./allowance-changes";
 import { recarryMemberLeaveType } from "./rollover";
+import { inTransaction } from "./notify";
 
 export interface AllowanceOverrideInput extends AllowanceEdit {
   userId: string;
@@ -63,7 +64,7 @@ export async function setAllowanceOverride(ctx: ServiceContext, actor: Actor, in
   const edit = normalizeAllowanceEdit(input);
   if (!isUuid(input.leaveTypeId)) throw new DomainError("not_found");
 
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const company = await findCompany(tx, actor.companyId);
     if (!company) throw new DomainError("no_company");

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { and, asc, eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { LeaveStatus } from "@/domain/leave-request";
@@ -96,12 +95,12 @@ describe("calendar feeds", { skip }, () => {
     );
 
     // The token appears nowhere in the database: not in any table's text.
-    const [{ hits }] = await t.db.execute<{ hits: number }>(sql`
+    const [{ hits }] = await t.query<{ hits: number }>`
       select (
         (select count(*) from calendar_feed_tokens c where c::text like ${"%" + issued.token + "%"}) +
         (select count(*) from audit_log a where a::text like ${"%" + issued.token + "%"}) +
         (select count(*) from events_outbox e where e::text like ${"%" + issued.token + "%"})
-      )::int as hits`);
+      )::int as hits`;
     assert.equal(hits, 0);
 
     const audit = await feedAudit(t.db, co.companyId);
@@ -250,7 +249,7 @@ describe("calendar feeds", { skip }, () => {
     const { token: benToken } = await issueCalendarFeed(ctx, co.people.ben, "personal");
 
     let queries = 0;
-    const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+    const counting = t.withLogger({ logQuery: () => void queries++ });
     const countingCtx = createTestContext(counting);
     for (const bad of ["", "short", `${token}x`, token.replace(/.$/, "+"), "../../etc/passwd"]) {
       assert.equal(await renderCalendarFeed(countingCtx, bad), null, bad);
@@ -277,7 +276,7 @@ describe("calendar feeds", { skip }, () => {
       return row.lastUsedAt;
     };
     let queries = 0;
-    const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+    const counting = t.withLogger({ logQuery: () => void queries++ });
     const render = async () => {
       queries = 0;
       const feed = await renderCalendarFeed(createTestContext(counting), token);
@@ -312,7 +311,7 @@ describe("calendar feeds", { skip }, () => {
     const [row] = await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.tokenHash, sha256(token)));
 
     let queries = 0;
-    const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+    const counting = t.withLogger({ logQuery: () => void queries++ });
     const asked: string[] = [];
     await rejectsWith(
       renderCalendarFeed(createTestContext(counting), token, { admit: (id) => (asked.push(id), false) }),

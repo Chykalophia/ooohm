@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { type Adapter, createAdapterRegistry } from "@/server/integrations/adapter";
@@ -198,7 +197,7 @@ describe("admin: audit log viewer", { skip }, () => {
   test("a page costs five queries whatever it holds", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {} });
     let queries = 0;
-    const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+    const counting = t.withLogger({ logQuery: () => void queries++ });
     const ctx = createTestContext(counting);
     await getAuditLog(ctx, co.people.boss, {});
     const empty = queries;
@@ -221,11 +220,8 @@ describe("admin: audit log viewer", { skip }, () => {
   test("the page query runs on an index, newest first, without sorting the company's whole log", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     await writeAudit(t.db, Array.from({ length: 2000 }, (_, i) => ({ companyId: co.companyId, at: new Date(Date.UTC(2026, 0, 1) + i * 60_000).toISOString() })));
-    await t.client`analyze audit_log`;
-    const plan = await t.client.unsafe(
-      `explain select id from audit_log where company_id = $1 order by created_at desc, id desc limit 51`,
-      [co.companyId],
-    );
+    await t.query`analyze audit_log`;
+    const plan = await t.query<{ "QUERY PLAN": string }>`explain select id from audit_log where company_id = ${co.companyId} order by created_at desc, id desc limit 51`;
     const text = plan.map((r) => r["QUERY PLAN"]).join("\n");
     assert.match(text, /Index (Only )?Scan Backward using audit_log_company_created_idx/);
     assert.doesNotMatch(text, /Sort/);

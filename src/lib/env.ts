@@ -1,8 +1,26 @@
 import { z } from "zod";
+import { resolveDatabaseConfig } from "@/db/config";
+import { BACKGROUND_MODES, resolveBackgroundMode } from "./background-mode";
 import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, integrationEnvShape, nonEmptyEnv } from "./integration-env";
 
 const schema = z.object({
-  DATABASE_URL: z.string().url(),
+  // Checked in full by resolveDatabaseConfig (src/db/config.ts): a postgres:// URL, or
+  // pglite:<dir> / OOOHM_DB=embedded for the embedded database.
+  DATABASE_URL: z.string().optional(),
+  DATABASE_URL_UNPOOLED: z.string().optional(),
+  OOOHM_DB: z.enum(["postgres", "embedded"]).optional(),
+
+  // Background work (see src/lib/background-mode.ts and docs/architecture.md).
+  OOOHM_BACKGROUND: z.enum(BACKGROUND_MODES).optional(),
+  /** How long one tick may start new work, in milliseconds. */
+  OOOHM_TICK_BUDGET_MS: z.coerce.number().int().min(1_000).max(120_000).default(15_000),
+  /** Embedded mode: seconds between the in-process runner's ticks. */
+  OOOHM_TICK_INTERVAL_SECONDS: z.coerce.number().int().min(5).max(3_600).default(30),
+  /**
+   * Authorizes GET /api/cron/tick (`Authorization: Bearer <secret>`; Vercel Cron sends it).
+   * Optional: the route refuses every call while it is unset.
+   */
+  CRON_SECRET: z.string().min(32, "CRON_SECRET must be at least 32 characters (openssl rand -hex 32)").optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
 
@@ -56,7 +74,9 @@ function load() {
   if (!isBuild && parsed.data.WEBHOOK_ENCRYPTION_KEY === BUILD_PLACEHOLDER_ENCRYPTION_KEY) {
     throw new Error("WEBHOOK_ENCRYPTION_KEY is still the build placeholder. Set a real key.");
   }
-  return parsed.data;
+  const database = resolveDatabaseConfig(isBuild && !raw.DATABASE_URL && !raw.OOOHM_DB ? { ...raw, DATABASE_URL: buildPlaceholders.DATABASE_URL } : raw);
+  const background = resolveBackgroundMode(parsed.data.OOOHM_BACKGROUND, { vercel: Boolean(raw.VERCEL), embedded: database.kind === "embedded" });
+  return { ...parsed.data, database, background };
 }
 
 export const env = load();

@@ -34,6 +34,7 @@ import { findLeaveTypeByCode } from "@/server/repositories/leave-types";
 import { findPersonByEmail, insertPerson, lockMember, type PersonRow, updatePerson } from "@/server/repositories/users";
 import { assertActiveAdmin } from "./admin-access";
 import { writeAllowance } from "./admin-allowances";
+import { inTransaction } from "./notify";
 
 /**
  * Who started a sync, which decides both its authorization and what every change it
@@ -129,7 +130,7 @@ async function recordUser(tx: Transaction, input: InboundSyncInput, type: string
 async function syncUsers(ctx: ServiceContext, input: InboundSyncInput, result: InboundSyncResult): Promise<void> {
   const users = input.users ?? [];
   if (users.length === 0) return;
-  await ctx.db.transaction(async (tx) => {
+  await inTransaction(ctx, async (tx) => {
     if (!(await lockCompany(tx, input.companyId))) throw new DomainError("no_company");
     const admin = adminOf(input);
     if (admin) await assertActiveAdmin(tx, admin);
@@ -207,7 +208,7 @@ async function syncBalances(ctx: ServiceContext, input: InboundSyncInput, result
       continue;
     }
 
-    const outcome = await ctx.db.transaction(async (tx) => {
+    const outcome = await inTransaction(ctx, async (tx) => {
       const admin = adminOf(input);
       if (admin) await assertActiveAdmin(tx, admin);
       const person = await findPersonByEmail(tx, email);

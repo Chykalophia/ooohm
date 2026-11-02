@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import type { LeaveStatus } from "@/domain/leave-request";
+import { violatedConstraint } from "@/server/repositories/errors";
 import { getMonthCalendar, getTeamCalendar } from "@/server/services/calendar";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
@@ -48,7 +48,7 @@ async function book(db: Database, companyId: string, userId: string, leaveTypeId
 /** A drizzle handle on the same pool that counts every query it runs. */
 function countingDb(t: TestDatabase) {
   let queries = 0;
-  const db = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+  const db = t.withLogger({ logQuery: () => void queries++ });
   return {
     db,
     async count<T>(work: (db: Database) => Promise<T>): Promise<{ queries: number; result: T }> {
@@ -290,7 +290,7 @@ describe("calendar views", { skip }, () => {
 
     await assert.rejects(
       book(t.db, co.companyId, co.people.ana.id, co.pto, [{ startDate: "2025-11-04", endDate: "2026-11-05" }]),
-      (err: unknown) => (err as { cause?: { constraint_name?: string } }).cause?.constraint_name === "leave_requests_span_max",
+      (err: unknown) => violatedConstraint(err) === "leave_requests_span_max",
       "367 days is refused by the database, so the scan's lower bound never hides a request",
     );
   });

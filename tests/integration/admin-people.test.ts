@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { and, eq, isNull } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
@@ -586,7 +585,7 @@ describe("admin: people", { skip }, () => {
         await submitLeaveRequest(ctx, p, { leaveTypeId: co.pto, startDate: "2026-11-16", dayPortion: "full" });
       }
       let queries = 0;
-      const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+      const counting = t.withLogger({ logQuery: () => void queries++ });
       const { requestsReassigned } = await deactivatePerson(createTestContext(counting), co.people.boss, co.people.mgr.id);
       assert.equal(requestsReassigned, reports);
       return queries;

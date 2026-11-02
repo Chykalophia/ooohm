@@ -11,6 +11,7 @@ import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-t
 import { listActiveMembers, lockMember } from "@/server/repositories/users";
 import { recordAllowanceChange } from "./allowance-changes";
 import { balanceInputs } from "./balances";
+import { inTransaction } from "./notify";
 
 /** What one run changed. A second run over the same data reports zeros. */
 export interface RolloverResult {
@@ -226,7 +227,7 @@ export async function runYearRollover(ctx: ServiceContext, fromYear?: number): P
     let carried = 0;
     let created = 0;
     for (const member of members) {
-      const changes = await ctx.db.transaction((tx) =>
+      const changes = await inTransaction(ctx, (tx) =>
         rollMember(tx, {
           companyId: company.id,
           timezone: company.timezone,

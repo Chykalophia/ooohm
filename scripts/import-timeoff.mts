@@ -8,18 +8,18 @@
  * A dry run by default: everything is imported and reconciled inside a transaction that
  * is then rolled back, and the full report is printed. `--apply` commits, in the same
  * single transaction, only when every current-year balance matches TimeOff's. See
- * docs/import.md for the mapping and the runbook. Needs only DATABASE_URL.
+ * docs/import.md for the mapping and the runbook. Needs only the database settings.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import * as schema from "../src/db/schema";
+import { resolveDatabaseConfig } from "../src/db/config";
+import { openDatabase } from "../src/db/connect";
 import { isDomainError } from "../src/domain/errors";
 import { STRICT_TARGET_POLICY } from "../src/domain/webhook-target";
 import { unavailableSecretBox } from "../src/lib/integration-crypto";
+import { nonEmptyEnv } from "../src/lib/integration-env";
 import type { ServiceContext } from "../src/server/context";
 import { readTimeOffSqlite } from "../src/server/importers/timeoff/sqlite-reader";
 import { createAdapterRegistry } from "../src/server/integrations/adapter";
@@ -81,8 +81,12 @@ if (!options.actor) fail(`--actor is required: the email of the admin running th
 const timeoffCompany = options["timeoff-company"];
 if (timeoffCompany !== undefined && !/^\d+$/.test(timeoffCompany)) fail("--timeoff-company takes TimeOff's numeric company id.");
 
-const url = process.env.DATABASE_URL;
-if (!url) fail("DATABASE_URL is not set.");
+let config;
+try {
+  config = resolveDatabaseConfig(nonEmptyEnv(process.env));
+} catch (err) {
+  fail(err instanceof Error ? err.message : String(err));
+}
 
 let bytes: Buffer;
 try {
@@ -92,12 +96,12 @@ try {
 }
 const source = { sha256: createHash("sha256").update(bytes).digest("hex"), fileName: basename(options.file) };
 
-const client = postgres(url, { max: 2, onnotice: () => {} });
+const handle = await openDatabase(config, { purpose: "pnpm import:timeoff", max: 2 });
 const refuse = (what: string) => async (): Promise<never> => {
   throw new Error(`The importer does not ${what}.`);
 };
 const ctx: ServiceContext = {
-  db: drizzle(client, { schema, casing: "snake_case" }),
+  db: handle.db,
   mailer: refuse("send email"),
   defer: (task) => void task(),
   appUrl: "",
@@ -193,6 +197,6 @@ try {
     console.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 } finally {
-  await client.end();
+  await handle.close();
 }
 process.exitCode = exitCode;

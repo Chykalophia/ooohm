@@ -27,6 +27,7 @@ import {
 import { recordChange } from "@/server/repositories/change-log";
 import { lockMember } from "@/server/repositories/users";
 import { toTeamEntry } from "./calendar";
+import { inTransaction } from "./notify";
 
 /** A live feed as its owner sees it. The link itself is never shown again after issue. */
 export interface FeedSummary {
@@ -86,7 +87,7 @@ export async function listCalendarFeeds(
 
 /** Runs `work` for the actor under their member lock, refusing an inactive member. */
 async function asMember<T>(ctx: ServiceContext, actor: Actor, work: (tx: Transaction) => Promise<T>): Promise<T> {
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     // Serialises one person's feed changes, so two clicks at once cannot leave two live links.
     const member = await lockMember(tx, actor.companyId, actor.id);
     if (!member?.isActive) throw new DomainError("forbidden");

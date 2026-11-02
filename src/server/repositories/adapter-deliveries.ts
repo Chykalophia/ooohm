@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { adapterDeliveries } from "@/db/schema";
+import { executeRows } from "@/db/rows";
 import type { Executor, Transaction } from "@/db/types";
 
 export type NewAdapterDelivery = { companyId: string; adapterId: string; eventId: string; nextAttemptAt: Date };
@@ -32,7 +33,7 @@ export async function claimDueAdapterDeliveries(
   ex: Executor,
   input: { now: Date; leaseUntil: Date; limit: number },
 ): Promise<ClaimedAdapterDelivery[]> {
-  const rows = await ex.execute<{
+  const rows = await executeRows<{
     id: string;
     company_id: string;
     adapter_id: string;
@@ -41,7 +42,9 @@ export async function claimDueAdapterDeliveries(
     type: string;
     payload: unknown;
     created_ms: number;
-  }>(sql`
+  }>(
+    ex,
+    sql`
     update adapter_deliveries d
     set attempts = d.attempts + 1, next_attempt_at = ${input.leaseUntil.toISOString()}::timestamptz, last_attempt_at = ${input.now.toISOString()}::timestamptz, updated_at = ${input.now.toISOString()}::timestamptz
     from events_outbox o
@@ -54,7 +57,8 @@ export async function claimDueAdapterDeliveries(
         for update of d2 skip locked
       )
     returning d.id, d.company_id, d.adapter_id, d.attempts, o.id as event_id, o.type, o.payload, (extract(epoch from o.created_at) * 1000)::float8 as created_ms
-  `);
+  `,
+  );
   return [...rows].map((r) => ({
     id: r.id,
     companyId: r.company_id,

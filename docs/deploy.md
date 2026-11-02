@@ -2,7 +2,9 @@
 
 A runbook for one OOOhm deployment on a fresh Hetzner Cloud server running Ubuntu 24.04, served at
 `ooohm.team`. It uses `deploy/docker-compose.prod.yml`: Postgres, the migrations job, the app, the outbox worker
-and Caddy, which terminates HTTPS and is the only thing reachable from the internet.
+and Caddy, which terminates HTTPS and is the only thing reachable from the internet. It is one of several ways to
+run OOOhm: [hosting.md](hosting.md) compares them, and [deploy-vercel.md](deploy-vercel.md) is the runbook for Vercel
+with Neon.
 
 OOOhm is source-available under FSL-1.1-ALv2 (see [LICENSE.md](../LICENSE.md)).
 
@@ -262,7 +264,9 @@ Imported people get no email. Tell them to open `https://ooohm.team` and sign in
 ## 13. Backups (20 min)
 
 `deploy/backup.sh` dumps the database (`pg_dump` custom format, gzipped), names it by UTC time, checks it, and
-deletes backups older than `RETENTION_DAYS` (30). Install the nightly timer:
+deletes old ones: after each nightly run, no backup on the server is older than `RETENTION_DAYS` (30 days). That
+limit is what bounds how long a deleted person's data survives in backups, so keep the off-site copies (below) to
+the same limit. Install the nightly timer:
 
 ```bash
 sudo mkdir -p /var/backups/ooohm && sudo chmod 700 /var/backups/ooohm
@@ -296,6 +300,9 @@ encrypted="$(mktemp)"
 trap 'rm -f "$encrypted"' EXIT
 age -r "$recipient" -o "$encrypted" "$1"
 rclone copyto --config /root/.config/rclone/rclone.conf "$encrypted" "storagebox:ooohm/$(basename "$1").age"
+# Same limit as the local copies: backup.sh exports RETENTION_DAYS. An hour short of it, like
+# backup.sh, so the nightly run on the day a copy turns RETENTION_DAYS old removes it.
+rclone delete --config /root/.config/rclone/rclone.conf --min-age "$(( ${RETENTION_DAYS:-30} * 24 - 1 ))h" "storagebox:ooohm/"
 EOF
 sudo chmod 700 /usr/local/bin/ooohm-offsite
 ```
@@ -306,8 +313,9 @@ To restore from an off-site copy, download the `.age` file and decrypt it where 
 the server, so anyone with root there can read every copy.
 
 and uncomment `Environment=OFFSITE_HOOK=/usr/local/bin/ooohm-offsite` in the service file (then
-`daemon-reload`). Prune the remote separately (the Storage Box's snapshots, or `rclone delete --min-age 60d`).
-Also turn on Hetzner's server backups for whole-disk recovery.
+`daemon-reload`). The hook prunes the remote copies itself. Anything else that keeps a copy keeps the data too:
+give Storage Box snapshots a retention of at most 30 days, or a deleted person outlives the promise there. Also
+turn on Hetzner's server backups for whole-disk recovery (they keep seven slots, so they stay inside the limit).
 
 ### Restore
 

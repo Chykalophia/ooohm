@@ -1,9 +1,11 @@
 /**
  * A fixed-window rate limiter held in process memory.
  *
- * For cheap read endpoints where a per-process limit is enough (the app runs as one
- * standalone server); limits that must hold across restarts or instances, like
- * submit's, are counted in the database instead.
+ * For cheap read endpoints where a per-process limit is enough; limits that must hold
+ * across restarts or instances, like submit's, are counted in the database instead. On
+ * one long-running server (Docker, a VM, embedded) the limit is exact. On a serverless
+ * host (Vercel) each instance counts on its own and instances come and go, so there it
+ * is approximate: a client spread over several instances gets a few times the limit.
  */
 export interface RateLimiter {
   /** Counts one hit for `key`; false when `key` is already at the limit for this window. */

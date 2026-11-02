@@ -49,4 +49,17 @@ export function sourceColumns(source: ChangeSource) {
 export async function recordChange(tx: Transaction, change: { source: ChangeSource; audit: AuditEntry; event: OutboxEvent }): Promise<void> {
   await tx.insert(auditLog).values({ ...change.audit, ...sourceColumns(change.source) });
   await tx.insert(eventsOutbox).values({ ...change.event, payload: { ...change.event.payload, ...eventAttribution(change.source) } });
+  wroteEvents.add(tx);
+}
+
+/** Transactions that wrote at least one outbox event; weak, so a finished one is simply forgotten. */
+const wroteEvents = new WeakSet<Transaction>();
+
+/**
+ * Whether `tx` wrote an outbox event through {@link recordChange}, so that after it
+ * commits there is outbound work (webhooks, adapters) to run. Read by the services'
+ * after-commit seam (`inTransaction`).
+ */
+export function wroteOutboxEvents(tx: Transaction): boolean {
+  return wroteEvents.has(tx);
 }

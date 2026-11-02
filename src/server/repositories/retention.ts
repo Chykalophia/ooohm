@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { executeRows } from "@/db/rows";
 import type { Executor } from "@/db/types";
 
 /**
@@ -10,21 +11,27 @@ import type { Executor } from "@/db/types";
 
 /** Finished (delivered, failed or cancelled) webhook deliveries last touched before `before`. */
 export async function pruneFinishedWebhookDeliveries(ex: Executor, before: Date, batch: number): Promise<number> {
-  const rows = await ex.execute(sql`
+  const rows = await executeRows(
+    ex,
+    sql`
     delete from webhook_deliveries where id in (
       select id from webhook_deliveries where status <> 'pending' and updated_at < ${before.toISOString()}::timestamptz limit ${batch}
     ) returning id
-  `);
+  `,
+  );
   return rows.length;
 }
 
 /** Finished adapter deliveries last touched before `before`. */
 export async function pruneFinishedAdapterDeliveries(ex: Executor, before: Date, batch: number): Promise<number> {
-  const rows = await ex.execute(sql`
+  const rows = await executeRows(
+    ex,
+    sql`
     delete from adapter_deliveries where id in (
       select id from adapter_deliveries where status <> 'pending' and updated_at < ${before.toISOString()}::timestamptz limit ${batch}
     ) returning id
-  `);
+  `,
+  );
   return rows.length;
 }
 
@@ -33,13 +40,16 @@ export async function pruneFinishedAdapterDeliveries(ex: Executor, before: Date,
  * to deliver. Undispatched events are never pruned, however old.
  */
 export async function pruneDispatchedEvents(ex: Executor, before: Date, batch: number): Promise<number> {
-  const rows = await ex.execute(sql`
+  const rows = await executeRows(
+    ex,
+    sql`
     delete from events_outbox where id in (
       select o.id from events_outbox o
       where o.delivered_at is not null and o.created_at < ${before.toISOString()}::timestamptz
         and not exists (select 1 from adapter_deliveries a where a.event_id = o.id and a.status = 'pending')
       limit ${batch}
     ) returning id
-  `);
+  `,
+  );
   return rows.length;
 }

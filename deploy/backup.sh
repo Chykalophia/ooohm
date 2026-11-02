@@ -6,7 +6,10 @@
 #
 # Settings (environment):
 #   BACKUP_DIR        where backups go             (default /var/backups/ooohm)
-#   RETENTION_DAYS    delete backups older than    (default 30)
+#   RETENTION_DAYS    the most days a backup is kept (default 30): after each run no
+#                     local backup is older than this. Exported, so OFFSITE_HOOK can
+#                     prune its copies to the same limit. It is what bounds how long a
+#                     deleted person's data survives in backups.
 #   OOOHM_DIR         the repository checkout      (default: this script's parent)
 #   ENV_FILE          compose env file             (default $OOOHM_DIR/.env.production)
 #   PG_DUMP           the dump command; it must write a custom-format dump to stdout
@@ -27,8 +30,9 @@ ENV_FILE=${ENV_FILE:-$OOOHM_DIR/.env.production}
 PG_DUMP=${PG_DUMP:-docker compose --env-file "$ENV_FILE" -f "$OOOHM_DIR/deploy/docker-compose.prod.yml" exec -T db pg_dump -U ooohm -d ooohm}
 
 case $RETENTION_DAYS in
-  '' | *[!0-9]*) echo "RETENTION_DAYS must be a whole number of days." >&2; exit 2 ;;
+  '' | *[!0-9]* | 0) echo "RETENTION_DAYS must be a whole number of days, at least 1." >&2; exit 2 ;;
 esac
+export RETENTION_DAYS
 
 # Dumps hold every person's data: readable by the owner only.
 umask 077
@@ -65,5 +69,9 @@ if [ -n "${OFFSITE_HOOK:-}" ]; then
   echo "off-site copy done"
 fi
 
-# Prune only our own files, and only after a good backup exists.
-find "$BACKUP_DIR" -maxdepth 1 -type f -name 'ooohm-*.dump.gz' -mtime +"$RETENTION_DAYS" -print -delete
+# Prune only our own files, and only after a good backup exists. Minutes, not -mtime:
+# `-mtime +30` matches only files at least 31 whole days old, so backups lived 31 to 32
+# days. Deleting what is older than RETENTION_DAYS less an hour (the margin absorbs the
+# timer's start-time jitter) means the run on the day a backup turns RETENTION_DAYS old
+# removes it. -mmin works the same in GNU and BSD find.
+find "$BACKUP_DIR" -maxdepth 1 -type f -name 'ooohm-*.dump.gz' -mmin +"$((RETENTION_DAYS * 1440 - 60))" -print -delete

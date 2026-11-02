@@ -43,8 +43,9 @@ function, the app's base URL, a clock, `issueSignInLink` (makes a one-time sign-
 for invites), and, since M6, `secrets` (seals webhook secrets), `webhookTargets` (the URL policy) and `adapters`
 (the adapter registry). The app builds the real one in `src/server/runtime.ts` (`db`, nodemailer, `after()` from
 `next/server`, `BETTER_AUTH_URL`, Better Auth's magic-link endpoint, `WEBHOOK_ENCRYPTION_KEY`, the
-`WEBHOOK_ALLOW_*` flags, the installed adapters); the worker builds its own in `scripts/worker.mts`. Tests build
-theirs against a throwaway database. This keeps services free of Next.js and of the app's environment.
+`WEBHOOK_ALLOW_*` flags, the installed adapters, and `wake`, the inline background tick when that mode is on);
+`backgroundContext()` is the same without `after()` or `wake`, for ticks that run outside a request. The worker
+builds its own in `scripts/worker.mts`. Tests build theirs against a throwaway database. This keeps services free of Next.js and of the app's environment.
 
 ## Cross-cutting conventions
 
@@ -829,7 +830,7 @@ rows another transaction holds instead of waiting.
 ### The worker process
 
 Four loops share a pool of 5 connections: dispatch, deliver (webhooks), adapters (adapter deliveries), and jobs
-(each minute). Adapters get their own loop so a slow or hanging adapter (up to 20 calls of 30 seconds in one
+(each minute). Each loop runs one step of `runTick` (below), the same code the cron route and the app run. Adapters get their own loop so a slow or hanging adapter (up to 20 calls of 30 seconds in one
 pass) never holds up webhook delivery. A loop that found work goes again at once; an idle one sleeps `WORKER_POLL_INTERVAL_MS` (1 s), doubling to
 `WORKER_MAX_IDLE_MS` (10 s). A loop error is logged (`worker_loop_failed`) and the loop backs off; it never exits.
 `SIGTERM`/`SIGINT` stops the loops: no new batch or claim starts; webhook attempts in flight finish (at most the
@@ -1056,20 +1057,111 @@ SQLite file ──(readTimeOffSqlite, node:sqlite, read-only)──► TimeOffSn
   That names who made the change; it is not a sign-in, since whoever runs the CLI already holds the database
   credentials. The lint rules forbid `src/app` from importing it or `src/server/importers/*`.
 
+## Hosting: database and background modes
+
+OOOhm does not assume a host. The supported setups and what each needs are in [hosting.md](hosting.md); Peter's
+instance runs on Vercel with Neon ([deploy-vercel.md](deploy-vercel.md)). This is how the code makes that work.
+
+### Database modes
+
+`resolveDatabaseConfig` (`src/db/config.ts`, pure) decides from the environment, and `src/db/connect.ts` opens what it
+names; the app (`src/db/index.ts`), every script, the worker and the test harness go through these two, so pooler,
+pool-size and embedded handling cannot differ between them.
+
+- **Postgres** (`DATABASE_URL=postgres://...`, any Postgres 15+). postgres.js honours `sslmode` and the other URL
+  parameters. A transaction pooler (Neon's `-pooler` host, Supabase's port 6543, or `DATABASE_POOLER=transaction`)
+  gets `prepare: false`, since each transaction may land on another server connection. On a serverless host (`VERCEL`
+  or `DATABASE_SERVERLESS=true`) the pool is 3 connections with a 20-second idle timeout (`DATABASE_POOL_MAX`
+  overrides). Migrations connect to `DATABASE_URL_UNPOOLED` when set: DDL and the migrator want a real session.
+- **Embedded** (`OOOHM_DB=embedded`, or `DATABASE_URL=pglite:<dir>`): PGlite (Postgres 18 compiled to WebAssembly)
+  with drizzle's `pglite` driver, data in `OOOHM_DATA_DIR` (default `./data/pglite`). PGlite and that driver are
+  imported at run time only in this mode, with `webpackIgnore`, so they are neither bundled nor traced into the
+  Docker image or a Vercel function (`drizzle-orm` is a server external, so the app and the driver share one copy).
+  `src/instrumentation.ts` opens and migrates it before the server takes a request; until then `db` refuses. It is
+  single-process: every opener first creates `<dir>.lock` exclusively with its pid (`src/db/embedded-lock.ts`), and
+  another process (the worker, a script) fails naming the holder; a lock whose process has gone is taken over.
+
+The `Database` type is the driver-neutral `PgDatabase`. The query builder behaves the same on both drivers; what a raw
+`execute()` returns does not (postgres.js: an array of rows; PGlite: `{ rows }`), so the three statements the builder
+cannot express (the `UPDATE ... FROM ... SKIP LOCKED` delivery claims, the retention deletes) go through
+`executeRows` (`src/db/rows.ts`). Driver errors differ too: `violatedConstraint` (`src/server/repositories/errors.ts`)
+reads postgres.js's `constraint_name` and PGlite's `constraint` behind drizzle's wrapper.
+
+What embedded mode needed checking, and how each behaves on PGlite (`pnpm test:integration:embedded` runs every
+integration test on it):
+
+| Feature | On PGlite |
+| --- | --- |
+| `FOR UPDATE SKIP LOCKED`, `FOR NO KEY UPDATE` | Accepted. With one connection, transactions run one at a time, so there is never a locked row to skip or wait for: the claims stay correct, trivially |
+| `pg_current_xact_id()`, `pg_snapshot_xmin(pg_current_snapshot())` (the `/events` replay) | Work. With no concurrent writer, every committed row is below the snapshot's xmin, so the replay sees everything committed, in order |
+| `clock_timestamp()`, `gen_random_uuid()`, jsonb, partial indexes, check constraints, `EXPLAIN` | Work unchanged |
+| Advisory locks | Work (OOOhm uses none; row locks serialize instead) |
+| Concurrent transactions | Serialized by PGlite's single connection. Races the tests stage (two submits, two decisions) resolve as they do on a server, one after the other. Two tests that hold a lock on one connection while another works are skipped there (`needsServer`): "SKIP LOCKED passes over held rows" and "events written by a transaction still open never appear behind a cursor" |
+
+### Background modes
+
+Background work is one function, `runTick` (`src/server/services/background-tick.ts`): a bounded pass that
+dispatches outbox events, delivers due webhook deliveries, then due adapter deliveries, then runs a due daily job
+(and delivers what that job wrote), each step repeating while it finds work and the budget lasts (`OOOHM_TICK_BUDGET_MS`,
+15 s). When the budget runs out no new work starts; webhook attempts in flight finish (10 s at most) and an adapter
+call in flight is cut short and released, exactly as on a worker shutdown. Every claim underneath is `SKIP LOCKED` or
+a compare-and-set, so ticks are safe to run concurrently, repeatedly, and beside workers (`background-tick.test.ts`
+runs three at once over eight events: each dispatched and sent once).
+
+Who calls it is `OOOHM_BACKGROUND` (`src/lib/background-mode.ts`):
+
+- `worker` (the default; compose sets it): `scripts/worker.mts` runs each step in its own loop.
+- `inline` (the default on Vercel and in embedded mode): **after a transaction that wrote outbox events commits**,
+  the services' after-commit seam (`inTransaction` and `commitThenSend` in `src/server/services/notify.ts`, which every
+  service the app calls goes through to record a change) calls `ctx.defer(ctx.wake)`. `recordChange` marks the transaction that wrote an event,
+  so a refused or rolled-back change, or a read, wakes nothing. In the app `defer` is `after()`, so the tick runs after
+  the response and Vercel keeps the function alive for it (`waitUntil`); it never blocks or fails the request, and an
+  error is logged (`background_tick_failed`). Emails are queued before the wake, so mail never waits on a webhook.
+  `src/instrumentation-node.ts` registers `wake` at start-up; a per-process scheduler (`createTickScheduler`) folds
+  requests made during a tick into one more pass instead of running ticks side by side.
+- `cron`: only `GET /api/cron/tick` runs it.
+
+`GET /api/cron/tick` (`src/app/api/cron/tick`) works in every mode: `Authorization: Bearer <CRON_SECRET>` compared
+in constant time on SHA-256 digests (`isCronAuthorized`), a bare 401 otherwise (and always while `CRON_SECRET` is
+unset, logged as `cron_secret_unset`), the tick's counts as JSON with `Cache-Control: no-store`, `maxDuration` 60.
+`vercel.json` calls it daily (Hobby's limit). In embedded mode the app also runs a tick every
+`OOOHM_TICK_INTERVAL_SECONDS` (30) from an unref'd timer started in `register()`, Node.js runtime only and never
+during `next build`; that timer is what sends retries and runs the daily jobs there.
+
+Ticks run with `backgroundContext()`: `defer` runs at once (there is no request for `after()`), and `wake` is unset, so
+a tick never wakes another.
+
+**Rate limits** stay in process memory (`src/lib/rate-limit.ts`). On one server they are exact; on Vercel each
+instance counts separately, so they are approximate. The submit limit is counted in the database and holds anywhere.
+
+### Migrations per host
+
+`pnpm db:migrate` everywhere; compose runs it in `migrate`, embedded mode also on start. On Vercel the `vercel-build`
+script runs `scripts/migrate.mts --if-production && next build`: migrations run only when `VERCEL_ENV` is
+`production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never goes live on an old
+schema. Preview builds never migrate; keeping previews off the production database is a deployment setting
+([deploy-vercel.md](deploy-vercel.md#2-keep-previews-away-from-the-production-database)).
+
+Every environment value is trimmed when read (`nonEmptyEnv`), so a secret stored with a trailing newline (the
+`echo value | vercel env add` mistake) still works in OOOhm.
+
 ## Production deployment (M7)
 
 `deploy/docker-compose.prod.yml` runs the same images as development behind Caddy (`deploy/Caddyfile`): automatic
 HTTPS, security headers, compression, a body size limit and access logs without query strings or feed tokens.
 Only Caddy publishes ports; Postgres sits on a network Caddy is not on. The app runs with `TRUSTED_PROXY_HOPS=1`.
 `deploy/backup.sh` and `deploy/restore.sh` dump and restore the database (custom-format `pg_dump`, gzipped), with a
-systemd timer in `deploy/systemd/`. The runbook is [deploy.md](deploy.md).
+systemd timer in `deploy/systemd/`. After each nightly run no local backup is older than `RETENTION_DAYS` (30; `find
+-mmin`, since `-mtime +30` let files live 31 to 32 days), and the documented off-site hook prunes to the same limit:
+backup retention is what bounds how long a deleted person's data survives ([hosting.md](hosting.md#backups-bound-how-long-deleted-data-survives)). The runbook is [deploy.md](deploy.md).
 
 ## Testing
 
 | Command | What | Needs |
 | --- | --- | --- |
-| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time) | nothing |
-| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import` | `TEST_DATABASE_URL` |
+| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time; the hosting pieces: database and background-mode configuration, pooler detection, trimmed env values, the embedded directory lock, the cron route's authorization and the tick scheduler; the past-year cancel rule) | nothing |
+| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import`; past-year leave refused for the requester and an admin, in the company's time zone, including an imported 2025 request; the background tick: inline after a change (and not after a refused one), a due retry, three ticks at once, the budget, daily jobs | `TEST_DATABASE_URL` |
+| `pnpm test:integration:embedded` | The same suites on embedded PGlite (`TEST_DATABASE_URL=pglite:memory`: an in-memory database per file, migrated as embedded mode migrates). Two tests that need two connections at once are skipped (`needsServer`) | nothing |
 
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
 IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,
@@ -1097,6 +1189,9 @@ docker run -d --rm --name ooohm-test -e POSTGRES_PASSWORD=pw -p 127.0.0.1:55502:
 TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:integration
 docker stop ooohm-test
 ```
+
+The harness gives tests driver-neutral helpers: `t.query` (raw SQL as a tagged template), `t.withLogger` (a second
+handle that counts queries) and `t.migrate`. `t.client` (postgres.js itself) is only for the tests skipped on PGlite.
 
 Tests build a `ServiceContext` whose mailer records messages and whose `defer` queue runs only on
 `ctx.settle()`, mirroring `after()`: emails are asserted after commit, not before. Tests assert outcomes

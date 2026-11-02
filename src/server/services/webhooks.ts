@@ -46,6 +46,7 @@ import {
   type WebhookEndpointRow,
 } from "@/server/repositories/webhooks";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { inTransaction } from "./notify";
 
 /** Deliveries shown on an endpoint's page. */
 export const RECENT_DELIVERIES_LIMIT = 50;
@@ -106,7 +107,7 @@ function normalizeInput(ctx: ServiceContext, input: WebhookEndpointInput) {
 async function withEndpoint<T>(ctx: ServiceContext, actor: Actor, id: string, work: (tx: Transaction, row: WebhookEndpointRow) => Promise<T>): Promise<T> {
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const row = await lockEndpoint(tx, actor.companyId, id);
     if (!row) throw new DomainError("not_found");
@@ -164,7 +165,7 @@ export async function createWebhookEndpoint(
   const id = randomUUID();
   const secret = generateWebhookSecret();
   const secretCiphertext = ctx.secrets.seal(secret, id);
-  const row = await ctx.db.transaction(async (tx) => {
+  const row = await inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
     if ((await countLiveEndpoints(tx, actor.companyId)) >= MAX_WEBHOOK_ENDPOINTS) throw new DomainError("limit_reached");

@@ -18,7 +18,7 @@ OOOhm is a calm, modern leave tracker for small teams. Employees can request tim
 
 ## Stack
 
-Next.js (App Router) · TypeScript · Postgres · Drizzle ORM · Tailwind · Docker Compose
+Next.js (App Router) · TypeScript · Postgres (or embedded PGlite) · Drizzle ORM · Tailwind · Docker Compose or Vercel
 
 ## Run it
 
@@ -32,6 +32,11 @@ Then open http://localhost:3000. Outgoing email lands in Mailpit at http://local
 
 `docker compose up` runs five services: `db`, `migrate` (migrations, seed and year rollover, then exits), `app`,
 `worker` (the outbox worker, below) and `mailpit`.
+
+Docker is one option, not a requirement. OOOhm runs on any Postgres 15+ (your own, Neon, Supabase, RDS), on Vercel
+or a similar platform with no worker process, or with no database server at all (embedded Postgres, for a small
+team on one machine: `pnpm build && pnpm start:embedded`). [docs/hosting.md](docs/hosting.md) lists each setup and
+exactly what it needs.
 
 ### Setting up your company
 
@@ -69,7 +74,8 @@ docker compose run --rm migrate pnpm job:rollover        # closes last year
 docker compose run --rm migrate pnpm job:rollover 2026   # closes a specific year
 ```
 
-A host cron is now optional. Use one only if you run OOOhm without the worker; then schedule it daily (not just
+A host cron is optional. Without the worker, `/api/cron/tick` (or embedded mode's timer) runs it as one of its
+daily jobs ([docs/hosting.md](docs/hosting.md)). To run it from cron instead, schedule it daily (not just
 on Jan 1), so late changes to last year (an admin's adjustment, a withdrawn request) still update the carryover:
 
 ```cron
@@ -119,6 +125,9 @@ deliveries simply wait. It needs only `DATABASE_URL`, `WEBHOOK_ENCRYPTION_KEY` a
 gets the auth secret or mail credentials, and runs as an unprivileged user on a read-only filesystem. It does use
 the app's database role, so it can still read and write every table; keeping secrets out of its environment is
 not database isolation. You can run more than one (`docker compose up --scale worker=2`).
+Without a worker (Vercel, embedded mode, or `OOOHM_BACKGROUND=inline`), the app delivers a change's webhooks itself
+right after responding, and `GET /api/cron/tick` (or embedded mode's own timer) sends retries; see
+[docs/hosting.md](docs/hosting.md).
 
 `GET /api/v1/events` (event replay) shows an event only once every transaction that wrote before it has ended.
 Postgres tracks that **server-wide**, across every database on it: a long batch job, or a session left idle in a
@@ -145,6 +154,9 @@ if it syncs people or allowances, a **Sync now** button. See [docs/architecture.
 the step-by-step runbook (DNS, firewall, Docker, configuration, email, backups, upgrades, rollback, cutover).
 Production settings are listed in `.env.production.example`.
 
+On Vercel with Neon instead: [docs/deploy-vercel.md](docs/deploy-vercel.md) (environment variables, preview-database
+safety, the domain, the daily cron, seeding, the import and backups).
+
 `pnpm import:timeoff` brings people, leave types, holidays, allowances and history over from TimeOff.Management's
 SQLite file, and refuses to commit unless every current-year balance matches TimeOff's (earlier years are
 reported; `--accept-mismatch` overrides). It is a dry run unless you pass `--apply`. See [docs/import.md](docs/import.md).
@@ -154,6 +166,7 @@ reported; `--accept-mismatch` overrides). It is a dry run unless you pass `--app
 ```bash
 pnpm typecheck && pnpm lint && pnpm test
 TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:integration
+pnpm test:integration:embedded   # the same suites on embedded PGlite, no server needed
 pnpm job:rollover [year]   # year rollover against DATABASE_URL
 pnpm worker                # the outbox worker against DATABASE_URL (Ctrl+C stops it gracefully)
 pnpm import:timeoff -- --file timeoff.sqlite --company <id> --actor <your email>   # dry run of the TimeOff import (docs/import.md)

@@ -2,6 +2,7 @@ import type { Transaction } from "@/db/types";
 import { log } from "@/lib/log";
 import { type EmailContent, type LeaveEmail, renderLeaveEmail } from "@/server/email/leave-emails";
 import type { ServiceContext } from "@/server/context";
+import { wroteOutboxEvents } from "@/server/repositories/change-log";
 
 /** A rendered leave email and the address it goes to. */
 export interface Outgoing {
@@ -44,16 +45,49 @@ function sendAfterCommit(ctx: ServiceContext, outgoing: readonly DeferredEmail[]
 }
 
 /**
- * Runs `work` in a transaction, then queues the emails it returned. The only way
- * services send mail: ordering is fixed here, so no service can email about a change
- * that later rolls back.
+ * Runs `work` in a transaction and, once it has committed, wakes the background work
+ * (`ctx.wake`, through `defer`) if the transaction wrote outbox events. The one
+ * transaction entry point for services that record changes, so in `inline` mode every
+ * change's webhooks go out right after the response, with no worker. A rolled-back
+ * transaction wakes nothing.
+ */
+export async function inTransaction<T>(ctx: ServiceContext, work: (tx: Transaction) => Promise<T>): Promise<T> {
+  const { result, wrote } = await transact(ctx, work);
+  if (wrote) wakeAfterCommit(ctx);
+  return result;
+}
+
+async function transact<T>(ctx: ServiceContext, work: (tx: Transaction) => Promise<T>): Promise<{ result: T; wrote: boolean }> {
+  let wrote = false;
+  const result = await ctx.db.transaction(async (tx) => {
+    const value = await work(tx);
+    wrote = wroteOutboxEvents(tx);
+    return value;
+  });
+  return { result, wrote };
+}
+
+function wakeAfterCommit(ctx: ServiceContext): void {
+  const wake = ctx.wake;
+  if (wake) ctx.defer(wake);
+}
+
+/**
+ * Runs `work` in a transaction ({@link inTransaction}), then queues the emails it
+ * returned. The only way services send mail: ordering is fixed here, so no service can
+ * email about a change that later rolls back.
  */
 export async function commitThenSend<T>(
   ctx: ServiceContext,
   work: (tx: Transaction) => Promise<{ result: T; outgoing: readonly DeferredEmail[] }>,
 ): Promise<T> {
-  const { result, outgoing } = await ctx.db.transaction(work);
+  const {
+    result: { result, outgoing },
+    wrote,
+  } = await transact(ctx, work);
+  // Emails first: a sign-in or decision email should not wait behind a webhook timeout.
   sendAfterCommit(ctx, outgoing);
+  if (wrote) wakeAfterCommit(ctx);
   return result;
 }
 

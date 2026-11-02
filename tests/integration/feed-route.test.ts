@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { issueCalendarFeed, revokeCalendarFeed } from "@/server/services/calendar-feeds";
@@ -64,7 +63,7 @@ describe("ICS feed route", { skip }, () => {
     await t.db.update(schema.user).set({ isActive: false }).where(eq(schema.user.id, co.people.ben.id));
 
     let queries = 0;
-    const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+    const counting = t.withLogger({ logQuery: () => void queries++ });
     const countingCtx = createTestContext(counting);
     const limits = limitsAt({ now: 0 });
     const fetch = (file: string) => handleFeedFetch({ ctx: countingCtx, file, client: "198.51.100.2", limits });
@@ -113,7 +112,7 @@ describe("ICS feed route", { skip }, () => {
     const ana = await issueCalendarFeed(ctx, co.people.ana, "team");
 
     let queries = 0;
-    const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+    const counting = t.withLogger({ logQuery: () => void queries++ });
     const countingCtx = createTestContext(counting);
     const clock = { now: 0 };
     const limits = limitsAt(clock);

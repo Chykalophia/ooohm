@@ -15,9 +15,13 @@
     "import:timeoff": "tsx --conditions=react-server --no-warnings=ExperimentalWarning --env-file-if-exists=.env scripts/import-timeoff.mts",
     "worker": "tsx --conditions=react-server --env-file-if-exists=.env scripts/worker.mts",
     "test": "tsx --conditions=react-server --no-warnings=ExperimentalWarning --test \"tests/unit/**/*.test.ts\"",
-    "test:integration": "tsx --conditions=react-server --no-warnings=ExperimentalWarning --test \"tests/integration/**/*.test.ts\""
+    "test:integration": "tsx --conditions=react-server --no-warnings=ExperimentalWarning --test \"tests/integration/**/*.test.ts\"",
+    "test:integration:embedded": "TEST_DATABASE_URL=pglite:memory tsx --conditions=react-server --no-warnings=ExperimentalWarning --test \"tests/integration/**/*.test.ts\"",
+    "start:embedded": "OOOHM_DB=embedded pnpm db:migrate && OOOHM_DB=embedded pnpm db:seed && OOOHM_DB=embedded next start",
+    "vercel-build": "tsx scripts/migrate.mts --if-production && next build"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "better-auth": "^1.7.15",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.3",

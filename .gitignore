@@ -20,6 +20,9 @@
 # production
 /build
 
+# embedded database (OOOHM_DB=embedded): live data, never committed
+/data/
+
 # misc
 .DS_Store
 *.pem

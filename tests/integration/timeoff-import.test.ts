@@ -6,6 +6,7 @@ import path from "node:path";
 import { after, before, describe, test } from "node:test";
 import { createHash } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
+import { executeRows } from "@/db/rows";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { toActor } from "@/domain/actor";
@@ -522,7 +523,7 @@ describe("TimeOff import", { skip }, () => {
     assert.equal(report.counts.people.updated, 1);
     const [bob] = await db.select().from(schema.user).where(eq(schema.user.id, adminId));
     assert.deepEqual([bob.name, bob.role, bob.canSelfApprove], ["Bob Boss", "admin", true]);
-    const rows = await db.execute(sql`select year, days, carried_over_days from allowances a join leave_types t on t.id = a.leave_type_id where a.user_id = ${adminId} and t.code = 'HOLIDAY' order by year`);
+    const rows = await executeRows(db, sql`select year, days, carried_over_days from allowances a join leave_types t on t.id = a.leave_type_id where a.user_id = ${adminId} and t.code = 'HOLIDAY' order by year`);
     assert.deepEqual([...rows].map((r) => [r.year, Number(r.days), Number(r.carried_over_days)]), [[2025, 25, 0], [2026, 25, 5]]);
   });
 

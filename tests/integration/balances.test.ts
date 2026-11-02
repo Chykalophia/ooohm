@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import type { Actor } from "@/domain/actor";
 import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
@@ -263,7 +262,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     await addLeaveType(t.db, co.companyId, { code: "GONE", defaultAllowanceDays: 5, archived: true });
 
     let queries = 0;
-    const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+    const counting = t.withLogger({ logQuery: () => void queries++ });
     const queriesFor = async (now: Date) => {
       queries = 0;
       const dash = await getDashboard(createTestContext(counting, { now }), co.people.boss);

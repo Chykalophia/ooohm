@@ -12,6 +12,7 @@ import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "
 import type { ServiceContext } from "@/server/context";
 import { type CompanyRow, findCompany, lockCompany, updateCompany } from "@/server/repositories/companies";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { inTransaction } from "./notify";
 
 function snapshot(row: CompanyRow) {
   return { name: row.name, timezone: row.timezone, workingDays: row.workingDays, allowancePolicy: row.allowancePolicy };
@@ -43,7 +44,7 @@ export async function getCompanySettings(ctx: ServiceContext, actor: Actor) {
  */
 export async function updateCompanySettings(ctx: ServiceContext, actor: Actor, input: CompanySettingsInput): Promise<CompanyRow> {
   assertCanAdminister(actor);
-  return ctx.db.transaction(async (tx) => {
+  return inTransaction(ctx, async (tx) => {
     const before = await lockCompany(tx, actor.companyId);
     if (!before) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);

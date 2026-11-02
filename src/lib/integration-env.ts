@@ -28,9 +28,19 @@ export const integrationEnvShape = {
 /** A placeholder key for `next build`, which imports server modules but never encrypts anything. */
 export const BUILD_PLACEHOLDER_ENCRYPTION_KEY = Buffer.alloc(32, 0x5a).toString("base64");
 
-/** Treats `KEY=` (empty) as unset, so defaults apply. */
+/**
+ * Trims every value and treats `KEY=` (empty, or only whitespace) as unset, so defaults
+ * apply. Trimming matters on hosts whose secret stores keep a trailing newline pasted or
+ * piped in with a value (`echo value | vercel env add`): a newline in a key or password
+ * reaches HTTP headers and SMTP logins, where it fails far from its cause.
+ */
 export function nonEmptyEnv(source: Record<string, string | undefined>): Record<string, string> {
-  return Object.fromEntries(Object.entries(source).filter((e): e is [string, string] => e[1] !== undefined && e[1] !== ""));
+  const out: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(source)) {
+    const value = raw?.trim();
+    if (value) out[key] = value;
+  }
+  return out;
 }
 
 /** One readable error for a failed parse, instead of a stack trace deep inside a request. */

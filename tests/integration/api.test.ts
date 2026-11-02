@@ -3,7 +3,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import type { Actor } from "@/domain/actor";
 import type { ApiClient } from "@/domain/integrations";
@@ -24,7 +23,7 @@ import { openApiDocument } from "@/app/api/v1/_lib/openapi";
 import { balancesQuery, eventsQuery, holidaysQuery, leaveRequestsQuery, usersQuery } from "@/app/api/v1/_lib/query";
 import type { ServiceContext } from "@/server/context";
 import { companyEvents, eventsFor, setAllowance, seedCompany } from "./fixtures";
-import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
 
 /** What each route file does: the same one-line parse-and-call, without Next. */
 const ROUTES: Record<string, (ctx: ServiceContext, client: Parameters<typeof listUsersForApi>[1], q: URLSearchParams) => Promise<unknown>> = {
@@ -263,7 +262,7 @@ describe("REST API v1", { skip }, () => {
     assert.equal((await call("/api/v1/events", key, { after: "00000000-0000-4000-8000-000000000000" })).status, 400);
   });
 
-  test("events written by a transaction still open never appear behind a reader's cursor", async () => {
+  test("events written by a transaction still open never appear behind a reader's cursor", { skip: needsServer }, async () => {
     const { co, ctx, key } = await companyWithKey();
     const call = api(ctx);
     const read = async (query: Record<string, string>) => (await call("/api/v1/events", key, query)).body as unknown as Events;
@@ -296,7 +295,7 @@ describe("REST API v1", { skip }, () => {
       await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: co.pto, startDate: d, endDate: d, dayPortion: "full" });
     }
     let queries = 0;
-    const counting = drizzle(t.client, { schema, casing: "snake_case", logger: { logQuery: () => void queries++ } });
+    const counting = t.withLogger({ logQuery: () => void queries++ });
     const cctx = createTestContext(counting, { now: ctx.now() });
     const call = api(cctx);
     await call("/api/v1/users", key); // stamps last_used_at; later calls in the same minute do not

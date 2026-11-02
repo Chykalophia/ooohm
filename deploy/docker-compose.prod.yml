@@ -94,6 +94,8 @@ services:
       WEBHOOK_ALLOW_INSECURE: "false"
       WEBHOOK_ALLOW_PRIVATE: "false"
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # The `worker` service delivers webhooks and runs the daily jobs; the app does none of it.
+      OOOHM_BACKGROUND: worker
     # Not published: Caddy reaches it on the edge network. The image's HEALTHCHECK hits
     # /api/health, which also checks the database.
     expose: ["3000"]

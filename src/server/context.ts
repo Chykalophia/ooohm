@@ -47,4 +47,11 @@ export interface ServiceContext {
   webhookTargets: TargetPolicy;
   /** Registered integration adapters; empty in v1. */
   adapters: AdapterRegistry;
+  /**
+   * Runs the background work a committed change queued (fanning its events out to
+   * webhooks and adapters, and sending them). Set only where nothing else would do it
+   * soon: in the app's `inline` background mode. The services' after-commit seam calls it
+   * through `defer`, only after a transaction that wrote outbox events. Never throws.
+   */
+  wake?: () => Promise<void>;
 }

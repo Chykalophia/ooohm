@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type DatabaseConfig, resolveDatabaseConfig } from "@/db/config";
 import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, integrationEnvShape, nonEmptyEnv } from "./integration-env";
 
 /**
@@ -8,7 +9,8 @@ import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, integrationEnvShape, nonEmp
  * secrets, and docker-compose gives it none.
  */
 const schema = z.object({
-  DATABASE_URL: z.string().url(),
+  // Checked in full by resolveDatabaseConfig, like the app's.
+  DATABASE_URL: z.string().optional(),
   ...integrationEnvShape,
   /** How often an idle loop looks for work, in milliseconds. Busy loops go again at once. */
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(100).max(60_000).default(1_000),
@@ -16,16 +18,17 @@ const schema = z.object({
   WORKER_MAX_IDLE_MS: z.coerce.number().int().min(100).max(300_000).default(10_000),
 });
 
-export type WorkerEnv = z.infer<typeof schema>;
+export type WorkerEnv = z.infer<typeof schema> & { database: DatabaseConfig };
 
 /**
  * The outbox worker's settings, validated. Reads only what the worker needs, never the
- * app's auth or mail secrets; empty values count as unset.
+ * app's auth or mail secrets; empty values count as unset and every value is trimmed.
  *
  * @throws Error naming every invalid or missing variable.
  */
 export function loadWorkerEnv(source: Record<string, string | undefined> = process.env): WorkerEnv {
-  const parsed = schema.safeParse(nonEmptyEnv(source));
+  const raw = nonEmptyEnv(source);
+  const parsed = schema.safeParse(raw);
   if (!parsed.success) throw envError(parsed.error);
   if (parsed.data.WEBHOOK_ENCRYPTION_KEY === BUILD_PLACEHOLDER_ENCRYPTION_KEY) {
     throw new Error("WEBHOOK_ENCRYPTION_KEY is the build placeholder. Set a real key.");
@@ -33,5 +36,5 @@ export function loadWorkerEnv(source: Record<string, string | undefined> = proce
   if (parsed.data.WORKER_MAX_IDLE_MS < parsed.data.WORKER_POLL_INTERVAL_MS) {
     throw new Error("WORKER_MAX_IDLE_MS must be at least WORKER_POLL_INTERVAL_MS.");
   }
-  return parsed.data;
+  return { ...parsed.data, database: resolveDatabaseConfig(raw) };
 }

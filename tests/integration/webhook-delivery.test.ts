@@ -21,7 +21,7 @@ import {
   setWebhookEndpointEnabled,
 } from "@/server/services/webhooks";
 import { companyEvents, seedCompany } from "./fixtures";
-import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+import { createTestContext, createTestDatabase, needsServer, skip, type TestContext, type TestDatabase } from "./harness";
 
 const T0 = new Date("2026-11-02T15:00:00Z");
 
@@ -158,7 +158,7 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     assert.equal((await deliveriesOf(late.id)).length, 1);
   });
 
-  test("SKIP LOCKED: a worker passes over events another worker holds, without waiting for it", async () => {
+  test("SKIP LOCKED: a worker passes over events another worker holds, without waiting for it", { skip: needsServer }, async () => {
     const co = await company();
     const e = await endpoint(co.people.boss, ["leave.requested"]);
     await dispatchOutboxBatch(ctx); // the endpoint's own `webhook_endpoint.created`

@@ -22,6 +22,7 @@ import {
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { countDepartmentMembers } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { inTransaction } from "./notify";
 
 function payload(row: DepartmentRow): Unattributed<DepartmentEventPayload> {
   return { departmentId: row.id, name: row.name };
@@ -55,7 +56,7 @@ export async function createDepartment(ctx: ServiceContext, actor: Actor, rawNam
   assertCanAdminister(actor);
   const name = normalizeDepartmentName(rawName);
   return uniqueName(() =>
-    ctx.db.transaction(async (tx) => {
+    inTransaction(ctx, async (tx) => {
       await assertActiveAdmin(tx, actor);
       if (await findDepartmentByName(tx, actor.companyId, name)) throw new DomainError("already_exists");
       const row = await insertDepartment(tx, { companyId: actor.companyId, name });
@@ -80,7 +81,7 @@ export async function renameDepartment(ctx: ServiceContext, actor: Actor, id: st
   if (!isUuid(id)) throw new DomainError("not_found");
   const name = normalizeDepartmentName(rawName);
   return uniqueName(() =>
-    ctx.db.transaction(async (tx) => {
+    inTransaction(ctx, async (tx) => {
       await assertActiveAdmin(tx, actor);
       const before = await lockDepartment(tx, actor.companyId, id);
       if (!before) throw new DomainError("not_found");
@@ -113,7 +114,7 @@ export async function renameDepartment(ctx: ServiceContext, actor: Actor, id: st
 export async function deleteDepartment(ctx: ServiceContext, actor: Actor, id: string): Promise<void> {
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
-  await ctx.db.transaction(async (tx) => {
+  await inTransaction(ctx, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const before = await lockDepartment(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");

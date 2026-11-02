@@ -5,8 +5,8 @@ import path from "node:path";
 import { after, before, describe, test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { asc, eq } from "drizzle-orm";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/db/schema";
+import { violatedConstraint } from "@/server/repositories/errors";
 import { createTestDatabase, MIGRATIONS_FOLDER, skip, type TestDatabase } from "./harness";
 
 interface Journal {
@@ -68,7 +68,7 @@ describe("migration 0004: per-year request days", { skip }, () => {
     // Sat Dec 26 to Fri Jan 1 2027: only Dec 28-31 cost anything (Jan 1 is a holiday), all in 2026.
     const allInFirst = await insert("2026-12-26", "2027-01-01", 4);
 
-    await migrate(t.db, { migrationsFolder: MIGRATIONS_FOLDER });
+    await t.migrate();
 
     const rows = await t.db.select().from(schema.leaveRequestDays).orderBy(asc(schema.leaveRequestDays.year));
     const of = (id: string) => rows.filter((r) => r.requestId === id).map((r) => [r.year, r.days]);
@@ -99,7 +99,7 @@ describe("migration 0007: audit rows name their person", { skip }, () => {
 
   test("backfills subject_user_id from the leave request, allowance or feed each row audits", async () => {
     // Raw SQL: the app's schema already has the column this migration adds.
-    const sql = t.client;
+    const sql = t.query;
     const [{ id: companyId }] = await sql`insert into companies (name) values ('Backfill Co') returning id`;
     const ana = randomUUID();
     const ben = randomUUID();
@@ -122,13 +122,13 @@ describe("migration 0007: audit rows name their person", { skip }, () => {
       return id as string;
     };
     const rows = {
-      request: await audit("leave_request", requestId),
-      allowance: await audit("allowance", allowanceId),
-      feed: await audit("calendar_feed", feedId),
+      request: await audit("leave_request", requestId as string),
+      allowance: await audit("allowance", allowanceId as string),
+      feed: await audit("calendar_feed", feedId as string),
       gone: await audit("leave_request", randomUUID()),
     };
 
-    await migrate(t.db, { migrationsFolder: MIGRATIONS_FOLDER });
+    await t.migrate();
 
     const subjects = new Map(
       (await t.db.select({ id: schema.auditLog.id, subject: schema.auditLog.subjectUserId }).from(schema.auditLog)).map((r) => [r.id, r.subject]),
@@ -154,7 +154,7 @@ describe("migration 0010: every audit row says who or what made it", { skip }, (
 
   test("backfills a person's rows as theirs, the rollover's and a sync's by process, and the rest as unknown", async () => {
     // Raw SQL: the app's schema already has the columns this migration adds.
-    const sql = t.client;
+    const sql = t.query;
     const [{ id: companyId }] = await sql`insert into companies (name) values ('Backfill Co') returning id`;
     const boss = randomUUID();
     await sql`insert into "user" (id, name, email, company_id, role) values (${boss}, 'Boss', ${`${boss}@example.com`}, ${companyId}, 'admin')`;
@@ -176,7 +176,7 @@ describe("migration 0010: every audit row says who or what made it", { skip }, (
       untraceable: await audit(null, "holiday.created", { name: "y" }),
     };
 
-    await migrate(t.db, { migrationsFolder: MIGRATIONS_FOLDER });
+    await t.migrate();
 
     const stored = new Map(
       (await t.db.select().from(schema.auditLog)).map((r) => [r.id, [r.actorKind, r.actorId, r.actorVia, r.actorProcess]]),
@@ -191,12 +191,12 @@ describe("migration 0010: every audit row says who or what made it", { skip }, (
     assert.deepEqual(stored.get(rows.untraceable), ["system", null, null, "unknown"]);
 
     // The checks hold from now on: a system row names a process, and nobody...
-    await assert.rejects(sql`insert into audit_log (company_id, actor_kind, action, entity_type, entity_id) values (${companyId}, 'system', 'x', 'x', 'x')`, /audit_log_actor_shape/);
+    await assert.rejects(sql`insert into audit_log (company_id, actor_kind, action, entity_type, entity_id) values (${companyId}, 'system', 'x', 'x', 'x')`, (err: unknown) => violatedConstraint(err) === "audit_log_actor_shape");
     await assert.rejects(
       sql`insert into audit_log (company_id, actor_kind, actor_id, actor_process, action, entity_type, entity_id) values (${companyId}, 'system', ${boss}, 'year_rollover', 'x', 'x', 'x')`,
-      /audit_log_actor_shape/,
+      (err: unknown) => violatedConstraint(err) === "audit_log_actor_shape",
     );
-    await assert.rejects(sql`insert into audit_log (company_id, actor_kind, action, entity_type, entity_id) values (${companyId}, 'robot', 'x', 'x', 'x')`, /audit_log_actor_kind_known/);
+    await assert.rejects(sql`insert into audit_log (company_id, actor_kind, action, entity_type, entity_id) values (${companyId}, 'robot', 'x', 'x', 'x')`, (err: unknown) => violatedConstraint(err) === "audit_log_actor_kind_known");
     // ...and deleting a person (OOOhm never does; the foreign key allows it) keeps their rows a person's.
     await sql`delete from "user" where id = ${boss}`;
     assert.deepEqual(

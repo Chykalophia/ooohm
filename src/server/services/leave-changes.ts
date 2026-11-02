@@ -1,6 +1,14 @@
 import type { Transaction } from "@/db/types";
-import { LEAVE_EVENT_TYPES, leaveAuditAction, leaveEventPayload } from "@/domain/events";
-import { type LeaveSummary, personLabel } from "@/server/email/leave-emails";
+import type { PersonChangeSource } from "@/domain/change-source";
+import {
+  LEAVE_EVENT_TYPES,
+  LEAVE_REASSIGNED_EVENT_TYPE,
+  type LeaveReassignedPayload,
+  leaveAuditAction,
+  leaveEventPayload,
+} from "@/domain/events";
+import { personLabel } from "@/domain/person";
+import type { LeaveSummary } from "@/server/email/leave-emails";
 import { recordChange } from "@/server/repositories/change-log";
 import type { LeaveRequestRow } from "@/server/repositories/leave-requests";
 import { findContacts } from "@/server/repositories/users";
@@ -25,6 +33,7 @@ export function snapshot(row: LeaveRequestRow) {
  * Writes the audit row and outbox event for one leave transition, inside `tx`.
  *
  * @param before The request before the change, or `null` when it was just created.
+ * @param source The person who made it: the requester, the approver or an admin.
  */
 export async function recordLeaveChange(
   tx: Transaction,
@@ -32,25 +41,55 @@ export async function recordLeaveChange(
     event: keyof typeof LEAVE_EVENT_TYPES;
     before: LeaveRequestRow | null;
     after: LeaveRequestRow;
-    actorId: string;
+    source: PersonChangeSource;
   },
 ): Promise<void> {
-  const { after, actorId } = change;
+  const { after, source } = change;
   await recordChange(tx, {
+    source,
     audit: {
       companyId: after.companyId,
-      actorId,
       action: leaveAuditAction(change.event),
       entityType: "leave_request",
       entityId: after.id,
+      subjectUserId: after.userId,
       before: change.before ? snapshot(change.before) : null,
       after: snapshot(after),
     },
     event: {
       companyId: after.companyId,
       type: LEAVE_EVENT_TYPES[change.event],
-      payload: leaveEventPayload(after, actorId),
+      payload: leaveEventPayload(after, source),
     },
+  });
+}
+
+/**
+ * Writes the audit row (`leave_request.reassigned`) and the `leave.reassigned` event
+ * for a pending request moved to another approver, inside `tx`.
+ */
+export async function recordReassignment(
+  tx: Transaction,
+  change: { before: LeaveRequestRow; after: LeaveRequestRow; source: PersonChangeSource },
+): Promise<void> {
+  const { before, after, source } = change;
+  const payload: LeaveReassignedPayload = {
+    ...leaveEventPayload(after, source),
+    previousApproverId: before.approverId,
+    approverId: after.approverId,
+  };
+  await recordChange(tx, {
+    source,
+    audit: {
+      companyId: after.companyId,
+      action: leaveAuditAction("reassigned"),
+      entityType: "leave_request",
+      entityId: after.id,
+      subjectUserId: after.userId,
+      before: snapshot(before),
+      after: snapshot(after),
+    },
+    event: { companyId: after.companyId, type: LEAVE_REASSIGNED_EVENT_TYPE, payload },
   });
 }
 

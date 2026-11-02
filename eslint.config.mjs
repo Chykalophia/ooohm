@@ -19,7 +19,15 @@ const layers = [
   {
     files: ["src/app/**/*.{ts,tsx}"],
     paths: [pool, { name: "@/db/schema", message: "Pages and actions call services, not the schema." }],
-    patterns: [drizzle, relative, { group: ["@/server/repositories/*"], message: "Pages and actions call services, not repositories." }],
+    patterns: [
+      drizzle,
+      relative,
+      { group: ["@/server/repositories/*"], message: "Pages and actions call services, not repositories." },
+      {
+        group: ["@/server/importers/*", "@/server/importers/**", "@/server/services/timeoff-import"],
+        message: "The TimeOff import is CLI-only: it has no actor or authorization.",
+      },
+    ],
   },
   {
     files: ["src/server/services/**/*.ts"],
@@ -56,6 +64,35 @@ const layers = [
       { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
     ],
     patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowServices("Templates and the context type sit below services.")],
+  },
+  {
+    // The adapter seam sits beside services, like the context type: adapters see envelopes
+    // and an AdapterContext, never the database, configuration, session or framework.
+    // What they return is written by services (applyInboundSync).
+    files: ["src/server/integrations/**/*.ts"],
+    paths: [
+      ...next,
+      pool,
+      { name: "@/db/schema", message: "Adapters never query; services write what they return." },
+      { name: "@/lib/env", message: "Adapter configuration reaches them through the AdapterContext." },
+      { name: "@/lib/auth", message: "Adapters resolve nothing from the session." },
+      { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
+    ],
+    patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowServices("Adapters sit below services.")],
+  },
+  {
+    // Source readers for one-time imports turn another system's files into plain domain
+    // records. They read files only: never OOOhm's database, configuration or session.
+    files: ["src/server/importers/**/*.ts"],
+    paths: [
+      ...next,
+      pool,
+      { name: "@/db/schema", message: "Importers read the source; the import service writes OOOhm." },
+      { name: "@/lib/env", message: "Importers take what they need as arguments." },
+      { name: "@/lib/auth", message: "Importers resolve nothing from the session." },
+      { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
+    ],
+    patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowServices("Importers sit below services.")],
   },
   {
     // The composition root wires infrastructure into a ServiceContext; it calls no use case.

@@ -1,4 +1,7 @@
 import type { Database } from "@/db/types";
+import type { TargetPolicy } from "@/domain/webhook-target";
+import type { SecretBox } from "@/lib/integration-crypto";
+import type { AdapterRegistry } from "@/server/integrations/adapter";
 
 export interface MailMessage {
   to: string;
@@ -28,4 +31,27 @@ export interface ServiceContext {
   appUrl: string;
   /** Current instant; injectable so tests can pin `decided_at`. */
   now: () => Date;
+  /**
+   * Creates a one-time sign-in link for an existing account, without sending it, so a
+   * service can put it in its own email (an invite). In the app this is Better Auth's
+   * magic-link flow, so the link expires and is consumed exactly like one the person
+   * asked for. Call it only after commit (the account must exist); it may throw.
+   */
+  issueSignInLink: (email: string) => Promise<string>;
+  /**
+   * Seals and opens webhook signing secrets (AES-256-GCM under `WEBHOOK_ENCRYPTION_KEY`).
+   * Processes without the key get a box that refuses, so a misconfiguration fails loudly.
+   */
+  secrets: SecretBox;
+  /** What webhook URLs may point at (`WEBHOOK_ALLOW_INSECURE`, `WEBHOOK_ALLOW_PRIVATE`). */
+  webhookTargets: TargetPolicy;
+  /** Registered integration adapters; empty in v1. */
+  adapters: AdapterRegistry;
+  /**
+   * Runs the background work a committed change queued (fanning its events out to
+   * webhooks and adapters, and sending them). Set only where nothing else would do it
+   * soon: in the app's `inline` background mode. The services' after-commit seam calls it
+   * through `defer`, only after a transaction that wrote outbox events. Never throws.
+   */
+  wake?: () => Promise<void>;
 }

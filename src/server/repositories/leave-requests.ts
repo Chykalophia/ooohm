@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, gte, inArray, lte, ne, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
@@ -12,6 +12,7 @@ export async function insertLeaveRequest(ex: Executor, values: NewLeaveRequest):
   return row;
 }
 
+/** A request of the company; one of another company reads as missing (`undefined`). */
 export async function findLeaveRequest(ex: Executor, companyId: string, id: string) {
   const [row] = await ex
     .select()
@@ -60,11 +61,13 @@ export async function listActiveRequestsInRange(ex: Executor, userId: string, fr
 /**
  * Moves a request from `from` to `to` only if it is still in `from` (compare-and-set).
  * Two concurrent decisions on the same request cannot both succeed: the loser matches
- * no row and gets `undefined`.
+ * no row and gets `undefined`. With `approverId`, the request must also still be
+ * assigned to that person, so a decision resting on the assignment loses to a
+ * concurrent reassignment.
  */
 export async function updateStatusIfCurrent(
   ex: Executor,
-  where: { companyId: string; id: string; from: LeaveStatus },
+  where: { companyId: string; id: string; from: LeaveStatus; approverId?: string },
   set: { status: LeaveStatus; decidedAt?: Date; decisionNote?: string | null },
 ): Promise<LeaveRequestRow | undefined> {
   const [row] = await ex
@@ -75,6 +78,79 @@ export async function updateStatusIfCurrent(
         eq(leaveRequests.id, where.id),
         eq(leaveRequests.companyId, where.companyId),
         eq(leaveRequests.status, where.from),
+        where.approverId === undefined ? undefined : eq(leaveRequests.approverId, where.approverId),
+      ),
+    )
+    .returning();
+  return row;
+}
+
+/** Pending requests of the company assigned to `approverId`, other than their own, oldest first. */
+export async function listPendingAssignedTo(ex: Executor, companyId: string, approverId: string): Promise<LeaveRequestRow[]> {
+  return ex
+    .select()
+    .from(leaveRequests)
+    .where(
+      and(
+        eq(leaveRequests.companyId, companyId),
+        eq(leaveRequests.approverId, approverId),
+        eq(leaveRequests.status, "pending"),
+        ne(leaveRequests.userId, approverId),
+      ),
+    )
+    .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
+}
+
+/**
+ * A person's own pending requests, whoever they wait on: someone else, nobody, or
+ * themself (an admin's request routed to themself), oldest first.
+ */
+export async function listPendingRequestsOf(ex: Executor, companyId: string, userId: string): Promise<LeaveRequestRow[]> {
+  return ex
+    .select()
+    .from(leaveRequests)
+    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId), eq(leaveRequests.status, "pending")))
+    .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
+}
+
+/**
+ * The company's pending requests routed to their own requester, oldest first. The
+ * approval rule does that only for an admin with no active manager and no other active
+ * admin, so these are the requests to re-route when that stops being true.
+ */
+export async function listPendingSelfRouted(ex: Executor, companyId: string): Promise<LeaveRequestRow[]> {
+  return ex
+    .select()
+    .from(leaveRequests)
+    .where(
+      and(
+        eq(leaveRequests.companyId, companyId),
+        eq(leaveRequests.status, "pending"),
+        eq(leaveRequests.approverId, leaveRequests.userId),
+      ),
+    )
+    .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
+}
+
+/**
+ * Moves a pending request from one approver to another, only if it is still pending
+ * and still assigned to `from` (`null`: assigned to nobody) (compare-and-set, like
+ * {@link updateStatusIfCurrent}).
+ */
+export async function reassignIfCurrent(
+  ex: Executor,
+  where: { companyId: string; id: string; from: string | null },
+  approverId: string | null,
+): Promise<LeaveRequestRow | undefined> {
+  const [row] = await ex
+    .update(leaveRequests)
+    .set({ approverId })
+    .where(
+      and(
+        eq(leaveRequests.id, where.id),
+        eq(leaveRequests.companyId, where.companyId),
+        eq(leaveRequests.status, "pending"),
+        where.from === null ? isNull(leaveRequests.approverId) : eq(leaveRequests.approverId, where.from),
       ),
     )
     .returning();
@@ -119,7 +195,9 @@ export interface InboxScope {
 /**
  * Pending requests the decider may act on: those assigned to them, plus (for admins)
  * every other pending request in the company. A person's own requests appear only to
- * an admin who is its assigned approver, mirroring `canDecide`.
+ * an admin who is its assigned approver, mirroring `canDecide`. Unlike `canDecide`, it
+ * does not re-check that the approval rule still picks the assignee; admin changes
+ * re-route as they happen, so only a submit racing one can leave a stale assignment here.
  */
 function inboxWhere(scope: InboxScope): SQL | undefined {
   const assigned = eq(leaveRequests.approverId, scope.deciderId);
@@ -131,6 +209,10 @@ function inboxWhere(scope: InboxScope): SQL | undefined {
   );
 }
 
+/**
+ * Pending requests the inbox shows for `scope`, earliest start first, with requester, leave
+ * type and assigned approver names joined in: at most `limit` rows, one query.
+ */
 export async function listInbox(ex: Executor, scope: InboxScope, limit: number) {
   return ex
     .select({
@@ -158,6 +240,7 @@ export async function listInbox(ex: Executor, scope: InboxScope, limit: number) 
     .limit(limit);
 }
 
+/** How many requests {@link listInbox} would show without its limit. */
 export async function countInbox(ex: Executor, scope: InboxScope): Promise<number> {
   const [row] = await ex.select({ n: count() }).from(leaveRequests).where(inboxWhere(scope));
   return row?.n ?? 0;

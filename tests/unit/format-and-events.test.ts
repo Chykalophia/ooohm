@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { byUser } from "@/domain/change-source";
 import { LEAVE_EVENT_TYPES, leaveAuditAction, leaveEventPayload } from "@/domain/events";
 import { todayInTimeZone } from "@/lib/dates";
 import { formatDays, formatLeaveDates } from "@/lib/format";
@@ -50,7 +51,7 @@ test("event names and payload shape are the public contract", () => {
       days: 0.5,
       status: "pending",
     },
-    "u1",
+    byUser("u1"),
   );
   assert.deepEqual(payload, {
     requestId: "r1",
@@ -62,5 +63,6 @@ test("event names and payload shape are the public contract", () => {
     days: 0.5,
     status: "pending",
     actorId: "u1",
+    actor: { type: "user", id: "u1" },
   });
 });

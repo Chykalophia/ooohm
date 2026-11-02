@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the OOOhm database backup every night
+
+[Timer]
+# 02:30 server time, plus up to 10 minutes of jitter; a missed run (server off) runs at boot.
+OnCalendar=*-*-* 02:30:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

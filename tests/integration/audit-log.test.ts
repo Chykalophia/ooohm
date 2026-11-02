@@ -1,0 +1,229 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { after, before, describe, test } from "node:test";
+import { eq } from "drizzle-orm";
+import * as schema from "@/db/schema";
+import type { Database } from "@/db/types";
+import { type Adapter, createAdapterRegistry } from "@/server/integrations/adapter";
+import { updateCompanySettings } from "@/server/services/admin-company";
+import { invitePerson, updatePerson } from "@/server/services/admin-people";
+import { AUDIT_PAGE_SIZE, decodeAuditCursor, getAuditLog } from "@/server/services/audit-log";
+import { rejectsWith } from "./assertions";
+import { seedCompany } from "./fixtures";
+import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+/**
+ * Writes audit rows straight to the table, all stamped with the same instant unless `at`
+ * says otherwise. A row with an actor is theirs; one without is the year rollover's,
+ * unless the source columns are given.
+ */
+async function writeAudit(
+  db: Database,
+  rows: {
+    companyId: string;
+    actorId?: string | null;
+    actorKind?: "user" | "api_key" | "system";
+    apiKeyId?: string;
+    actorVia?: string;
+    actorProcess?: string;
+    subjectUserId?: string | null;
+    action?: string;
+    at: string;
+  }[],
+) {
+  await db.insert(schema.auditLog).values(
+    rows.map((r) => ({
+      companyId: r.companyId,
+      actorKind: r.actorKind ?? (r.actorId ? "user" : "system"),
+      actorId: r.actorId ?? null,
+      apiKeyId: r.apiKeyId ?? null,
+      actorVia: r.actorVia ?? null,
+      actorProcess: r.actorProcess ?? (r.actorId || r.actorKind ? null : "year_rollover"),
+      subjectUserId: r.subjectUserId ?? null,
+      action: r.action ?? "holiday.created",
+      entityType: "holiday",
+      entityId: randomUUID(),
+      before: null,
+      after: { name: "x" },
+      createdAt: new Date(r.at),
+    })),
+  );
+}
+
+describe("admin: audit log viewer", { skip }, () => {
+  let t: TestDatabase;
+  before(async () => {
+    t = await createTestDatabase();
+  });
+  after(async () => {
+    await t?.drop();
+  });
+
+  test("shows who, what and a readable summary, newest first, naming people through joins", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {}, ben: { role: "manager" } });
+    const ctx = createTestContext(t.db);
+    const { boss, ana, ben } = co.people;
+    await updatePerson(ctx, boss, ana.id, { name: "Ana", departmentId: null, managerId: ben.id, role: "employee", canSelfApprove: false });
+    await writeAudit(t.db, [{ companyId: co.companyId, action: "allowance.carried_over", subjectUserId: ana.id, at: "2020-01-01T00:00:00Z" }]);
+
+    const log = await getAuditLog(ctx, boss, {});
+    assert.deepEqual(
+      log.entries.map((e) => [e.label, e.actorLabel, e.subjectName, e.changes]),
+      [
+        ["Person edited", "Boss", "Ana", ["Manager: none → Ben"]],
+        ["Days carried over", "System: year rollover", "Ana", ["Name: x"]],
+      ],
+    );
+    assert.equal(log.timezone, "America/Chicago");
+    assert.equal(log.nextCursor, null);
+    assert.ok(log.people.some((p) => p.label === "Ben"));
+    assert.ok(log.actions.some((a) => a.value === "user.created"));
+  });
+
+  test("names who or what made each change, and filtering by a person finds every change with them behind it", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {}, gone: {} });
+    const fake: Adapter = { id: "fakehr", displayName: "Fake HR", handles: () => false, deliver: async () => {}, healthCheck: async () => ({ ok: true }) };
+    const ctx = createTestContext(t.db, { adapters: createAdapterRegistry([fake]) });
+    const { boss, ana, gone } = co.people;
+    const [key] = await t.db
+      .insert(schema.apiKeys)
+      .values({ companyId: co.companyId, name: "Zapier", prefix: "ooohm_AbCdEfGh", keyHash: "a".repeat(64), createdBy: boss.id })
+      .returning();
+    const c = co.companyId;
+    await writeAudit(t.db, [
+      { companyId: c, actorId: boss.id, at: "2026-10-01T12:00:06Z" },
+      { companyId: c, actorId: boss.id, actorVia: "adapter_sync:fakehr", at: "2026-10-01T12:00:05Z" },
+      { companyId: c, actorId: boss.id, actorKind: "api_key", apiKeyId: key.id, at: "2026-10-01T12:00:04Z" },
+      { companyId: c, actorKind: "system", actorProcess: "adapter_sync:fakehr", at: "2026-10-01T12:00:03Z" },
+      { companyId: c, actorKind: "system", actorProcess: "adapter_sync:retired", at: "2026-10-01T12:00:02Z" },
+      { companyId: c, actorId: gone.id, at: "2026-10-01T12:00:01Z" },
+      { companyId: c, actorId: ana.id, at: "2026-10-01T12:00:00Z" },
+    ]);
+    // People are deactivated, never deleted; if a row ever is, its changes stay a person's.
+    await t.db.delete(schema.user).where(eq(schema.user.id, gone.id));
+
+    const log = await getAuditLog(ctx, boss, {});
+    assert.deepEqual(
+      log.entries.map((e) => [e.actorKind, e.actorLabel]),
+      [
+        ["user", "Boss"],
+        ["user", "Boss, via Fake HR sync"],
+        ["api_key", "Boss, via API key ‘Zapier’ (ooohm_AbCdEfGh…)"],
+        ["system", "System: scheduled Fake HR sync"],
+        ["system", "System: scheduled retired sync"],
+        ["user", "A deleted person"],
+        ["user", "Ana"],
+      ],
+    );
+    const byBoss = await getAuditLog(ctx, boss, { actorId: boss.id });
+    assert.deepEqual(byBoss.entries.map((e) => e.actorLabel), ["Boss", "Boss, via Fake HR sync", "Boss, via API key ‘Zapier’ (ooohm_AbCdEfGh…)"]);
+  });
+
+  test("pages of 50 by (created_at, id): rows sharing an instant are neither skipped nor repeated", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" } });
+    const ctx = createTestContext(t.db);
+    // 120 rows in the same microsecond, plus a few around them.
+    await writeAudit(t.db, Array.from({ length: 120 }, () => ({ companyId: co.companyId, at: "2026-10-01T12:00:00.123456Z" })));
+    await writeAudit(t.db, [
+      { companyId: co.companyId, at: "2026-10-01T12:00:00.123457Z" },
+      { companyId: co.companyId, at: "2026-10-01T12:00:00.123455Z" },
+    ]);
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      const page = await getAuditLog(ctx, co.people.boss, { cursor });
+      assert.ok(page.entries.length <= AUDIT_PAGE_SIZE);
+      seen.push(...page.entries.map((e) => e.id));
+      cursor = page.nextCursor ?? undefined;
+      pages++;
+    } while (cursor);
+    assert.equal(pages, 3);
+    assert.equal(seen.length, 122);
+    assert.equal(new Set(seen).size, 122, "no row twice");
+    const times = await t.db.select({ id: schema.auditLog.id, at: schema.auditLog.createdAt }).from(schema.auditLog);
+    const order = new Map(times.map((r) => [r.id, r.at.getTime()]));
+    for (let i = 1; i < seen.length; i++) assert.ok(order.get(seen[i - 1])! >= order.get(seen[i])!, "newest first");
+    assert.equal(decodeAuditCursor("garbage"), undefined, "a bad cursor reads as the first page");
+
+    // A forged cursor of the right shape but an impossible instant is the first page too,
+    // not a database error.
+    const id = "00000000-0000-4000-8000-000000000000";
+    for (const at of ["2026-99-99T99:99:99.000000Z", "2026-02-30T12:00:00.000000Z", "2026-10-01T24:00:00.000000Z", "2026-10-01T12:60:00.000000Z"]) {
+      assert.equal(decodeAuditCursor(`${at}_${id}`), undefined, at);
+      const page = await getAuditLog(ctx, co.people.boss, { cursor: `${at}_${id}` });
+      assert.equal(page.entries[0]?.id, seen[0], `${at} reads as the first page`);
+    }
+    assert.deepEqual(decodeAuditCursor(`2026-10-01T12:00:00.123456Z_${id}`), { createdAt: "2026-10-01T12:00:00.123456Z", id });
+  });
+
+  test("filters by action, actor, person and days in the company's time zone", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {}, ben: {} });
+    const ctx = createTestContext(t.db);
+    const { boss, ana, ben } = co.people;
+    await writeAudit(t.db, [
+      // Sun Nov 1 23:59 in Chicago (CST after the DST change) and Mon Nov 2 00:00.
+      { companyId: co.companyId, actorId: ana.id, subjectUserId: ana.id, action: "leave_request.requested", at: "2026-11-02T05:59:00Z" },
+      { companyId: co.companyId, actorId: ben.id, subjectUserId: ana.id, action: "leave_request.approved", at: "2026-11-02T06:00:00Z" },
+      { companyId: co.companyId, actorId: boss.id, subjectUserId: ben.id, action: "user.updated", at: "2026-10-31T12:00:00Z" },
+    ]);
+    const actions = async (filter: Parameters<typeof getAuditLog>[2]) => (await getAuditLog(ctx, boss, filter)).entries.map((e) => e.action);
+
+    assert.deepEqual(await actions({ action: "user.updated" }), ["user.updated"]);
+    assert.deepEqual(await actions({ actorId: ben.id }), ["leave_request.approved"]);
+    assert.deepEqual(await actions({ subjectUserId: ana.id }), ["leave_request.approved", "leave_request.requested"]);
+    assert.deepEqual(await actions({ from: "2026-11-01", to: "2026-11-01" }), ["leave_request.requested"]);
+    assert.deepEqual(await actions({ from: "2026-11-02" }), ["leave_request.approved"]);
+    assert.deepEqual(await actions({ to: "2026-10-31" }), ["user.updated"]);
+    assert.deepEqual(await actions({ action: "not.an.action", from: "2026-13-01" }), ["leave_request.approved", "leave_request.requested", "user.updated"], "malformed filters are ignored");
+
+    // The day boundaries follow the company's zone: in UTC both leave rows are on Nov 2.
+    await updateCompanySettings(ctx, boss, { name: "Co", timezone: "UTC", workingDays: [1, 2, 3, 4, 5], allowancePolicy: "annual_calendar_year" });
+    assert.deepEqual(await actions({ from: "2026-11-02", to: "2026-11-02", subjectUserId: ana.id }), ["leave_request.approved", "leave_request.requested"]);
+  });
+
+  test("another company's rows never show, even when filtering by its people; non-admins are refused", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, emp: {} });
+    const other = await seedCompany(t.db, { theirs: { role: "admin" }, x: {} });
+    const ctx = createTestContext(t.db);
+    await invitePerson(ctx, other.people.theirs, { email: `n-${randomUUID().slice(0, 6)}@example.com`, name: "N", departmentId: null, managerId: null, role: "employee", canSelfApprove: false });
+    assert.deepEqual((await getAuditLog(ctx, co.people.boss, {})).entries, []);
+    assert.deepEqual((await getAuditLog(ctx, co.people.boss, { actorId: other.people.theirs.id })).entries, []);
+    assert.ok(!(await getAuditLog(ctx, co.people.boss, {})).people.some((p) => p.id === other.people.x.id));
+    await rejectsWith(getAuditLog(ctx, co.people.emp, {}), "forbidden");
+  });
+
+  test("a page costs five queries whatever it holds", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {} });
+    let queries = 0;
+    const counting = t.withLogger({ logQuery: () => void queries++ });
+    const ctx = createTestContext(counting);
+    await getAuditLog(ctx, co.people.boss, {});
+    const empty = queries;
+    await writeAudit(
+      t.db,
+      Array.from({ length: 80 }, (_, i) => ({
+        companyId: co.companyId,
+        actorId: i % 2 ? co.people.boss.id : co.people.ana.id,
+        subjectUserId: co.people.ana.id,
+        at: `2026-10-01T12:00:${String(i % 60).padStart(2, "0")}Z`,
+      })),
+    );
+    queries = 0;
+    const full = await getAuditLog(ctx, co.people.boss, { subjectUserId: co.people.ana.id });
+    assert.equal(full.entries.length, AUDIT_PAGE_SIZE);
+    assert.equal(empty, 5, "company, people, departments, leave types, then the page");
+    assert.equal(queries, empty, "no query per row");
+  });
+
+  test("the page query runs on an index, newest first, without sorting the company's whole log", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" } });
+    await writeAudit(t.db, Array.from({ length: 2000 }, (_, i) => ({ companyId: co.companyId, at: new Date(Date.UTC(2026, 0, 1) + i * 60_000).toISOString() })));
+    await t.query`analyze audit_log`;
+    const plan = await t.query<{ "QUERY PLAN": string }>`explain select id from audit_log where company_id = ${co.companyId} order by created_at desc, id desc limit 51`;
+    const text = plan.map((r) => r["QUERY PLAN"]).join("\n");
+    assert.match(text, /Index (Only )?Scan Backward using audit_log_company_created_idx/);
+    assert.doesNotMatch(text, /Sort/);
+  });
+});

@@ -1,9 +1,11 @@
+import { canAdminister } from "@/domain/admin-permissions";
 import type { Metadata } from "next";
 import { requireActor } from "@/lib/auth";
 import { formatDays, formatLeaveDates } from "@/lib/format";
 import { serviceContext } from "@/server/runtime";
 import { listApprovalInbox } from "@/server/services/approvals";
 import { AppHeader } from "@/app/app-header";
+import { NoCompany } from "@/app/no-company";
 import { DecisionForm } from "./decision-form";
 
 export const metadata: Metadata = { title: "Approvals · OOOhm" };
@@ -12,23 +14,14 @@ export default async function ApprovalsPage() {
   const { user, actor } = await requireActor();
   const userName = user.name || user.email;
 
-  if (!actor) {
-    return (
-      <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-        <AppHeader userName={userName} approvals={null} current="approvals" />
-        <main>
-          <p className="text-muted">Your account isn&apos;t part of a company yet. Ask an admin to finish setting it up.</p>
-        </main>
-      </div>
-    );
-  }
+  if (!actor) return <NoCompany userName={userName} current="approvals" />;
 
   const { items, total } = await listApprovalInbox(serviceContext(), actor);
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       {/* Keep the link visible while here, even when the last request was just decided. */}
-      <AppHeader userName={userName} approvals={{ visible: true, pending: total }} current="approvals" />
+      <AppHeader userName={userName} approvals={{ visible: true, pending: total }} current="approvals" admin={canAdminister(actor)} />
 
       <main className="space-y-6">
         <h1 className="text-2xl font-semibold tracking-tight">Approvals</h1>

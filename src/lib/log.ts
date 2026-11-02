@@ -1,16 +1,29 @@
 import "server-only";
 
-type Level = "info" | "warn" | "error";
+type Level = "debug" | "info" | "warn" | "error";
 type Fields = Record<string, unknown>;
 
+const SEVERITY: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
+
 /**
- * Structured JSON-lines logger for server code. `info` goes to stdout,
+ * The least severe level written, from `LOG_LEVEL` (`debug`, `info`, `warn`, `error`;
+ * default `info`). Read here rather than through `env.ts`, so processes that do not load
+ * the app's environment (the outbox worker, jobs) honour it too.
+ */
+function minimumLevel(): number {
+  const configured = process.env.LOG_LEVEL;
+  return configured && configured in SEVERITY ? SEVERITY[configured as Level] : SEVERITY.info;
+}
+
+/**
+ * Structured JSON-lines logger for server code. `debug`/`info` go to stdout,
  * `warn`/`error` to stderr, so log collectors can classify levels.
  */
 function write(level: Level, fields: Fields, event: string) {
+  if (SEVERITY[level] < minimumLevel()) return;
   // Caller fields go first so they can never overwrite the reserved keys.
   const line = JSON.stringify({ ...serialize(fields), time: new Date().toISOString(), level, event });
-  (level === "info" ? process.stdout : process.stderr).write(line + "\n");
+  (SEVERITY[level] <= SEVERITY.info ? process.stdout : process.stderr).write(line + "\n");
 }
 
 // Error objects have no enumerable fields, so JSON.stringify would drop them.
@@ -50,6 +63,7 @@ function serializeError(err: Error): Fields {
 }
 
 export const log = {
+  debug: (fields: Fields, event: string) => write("debug", fields, event),
   info: (fields: Fields, event: string) => write("info", fields, event),
   warn: (fields: Fields, event: string) => write("warn", fields, event),
   error: (fields: Fields, event: string) => write("error", fields, event),

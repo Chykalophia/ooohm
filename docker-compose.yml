@@ -9,11 +9,20 @@ x-app-env: &app-env
   SMTP_HOST: ${SMTP_HOST:-mailpit}
   SMTP_PORT: ${SMTP_PORT:-1025}
   SMTP_SECURE: ${SMTP_SECURE:-false}
+  # Mailpit offers no STARTTLS; a real provider needs this on (see .env.production.example).
+  SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-false}
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   MAIL_FROM: ${MAIL_FROM:-OOOhm <no-reply@ooohm.team>}
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+  WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY:?Set WEBHOOK_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
+  WEBHOOK_ALLOW_INSECURE: ${WEBHOOK_ALLOW_INSECURE:-false}
+  WEBHOOK_ALLOW_PRIVATE: ${WEBHOOK_ALLOW_PRIVATE:-false}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  # The `worker` service below delivers webhooks and runs the daily jobs.
+  OOOHM_BACKGROUND: worker
 
 services:
   db:
@@ -34,13 +43,19 @@ services:
       timeout: 3s
       retries: 20
 
-  # Runs migrations and the first-run seed, then exits.
+  # Runs migrations, the first-run seed and the (idempotent) year rollover, then exits.
+  # A failed rollover is reported but does not stop the app from starting: balances
+  # still work without it, only carryover waits. Re-run it with
+  # `docker compose run --rm migrate pnpm job:rollover [year]`.
   migrate:
     build:
       context: .
       target: builder
-    command: ["sh", "-c", "pnpm db:migrate && pnpm db:seed"]
-    # Only what migrations and the seed need; no auth secret or OAuth credentials.
+    command:
+      - sh
+      - -c
+      - pnpm db:migrate && pnpm db:seed && { pnpm job:rollover || echo "Year rollover failed (see above); the app starts anyway." >&2; }
+    # Only what migrations, the seed and the rollover need; no auth secret or OAuth credentials.
     environment:
       DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
@@ -58,6 +73,41 @@ services:
     environment: *app-env
     ports:
       - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # The outbox worker: dispatches events to webhooks (and adapters, none in v1), delivers
+  # them with retries, and runs the daily year rollover and retention. It gets only the
+  # database, the webhook encryption key and its own settings: never the auth secret,
+  # OAuth or SMTP credentials. Safe to scale (`--scale worker=2`): claims use SKIP LOCKED.
+  worker:
+    build:
+      context: .
+      target: builder
+    # tsx directly (not pnpm) so SIGTERM reaches the worker, which finishes in-flight
+    # deliveries before exiting; init reaps the child.
+    command: ["node_modules/.bin/tsx", "--conditions=react-server", "scripts/worker.mts"]
+    init: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+    # The one process that talks to admin-chosen hosts runs unprivileged (the image's
+    # `node` user), on a read-only filesystem with no capabilities; tsx caches in /tmp.
+    user: node
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
+      WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY:?Set WEBHOOK_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
+      WEBHOOK_ALLOW_INSECURE: ${WEBHOOK_ALLOW_INSECURE:-false}
+      WEBHOOK_ALLOW_PRIVATE: ${WEBHOOK_ALLOW_PRIVATE:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-1000}
+      WORKER_MAX_IDLE_MS: ${WORKER_MAX_IDLE_MS:-10000}
     depends_on:
       migrate:
         condition: service_completed_successfully

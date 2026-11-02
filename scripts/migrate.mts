@@ -1,12 +1,29 @@
-/** Applies pending migrations from ./drizzle. Safe to run on every start. */
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import postgres from "postgres";
+/**
+ * Applies pending migrations from ./drizzle. Safe to run on every start.
+ *
+ *   pnpm db:migrate                  any Postgres (DATABASE_URL_UNPOOLED when set), or embedded
+ *   tsx scripts/migrate.mts --if-production
+ *                                    the Vercel build step: migrates only when
+ *                                    VERCEL_ENV is "production", and does nothing otherwise,
+ *                                    so a preview build never touches the database
+ */
+import { resolveDatabaseConfig } from "../src/db/config";
+import { migrateDatabase } from "../src/db/connect";
+import { nonEmptyEnv } from "../src/lib/integration-env";
 
-const url = process.env.DATABASE_URL;
-if (!url) throw new Error("DATABASE_URL is not set");
+const args = process.argv.slice(2);
+const unknown = args.filter((a) => a !== "--if-production");
+if (unknown.length > 0) {
+  console.error(`Unknown argument: ${unknown.join(" ")}. Usage: migrate.mts [--if-production]`);
+  process.exit(2);
+}
 
-const client = postgres(url, { max: 1 });
-await migrate(drizzle(client), { migrationsFolder: "./drizzle" });
-await client.end();
-console.log("Migrations applied.");
+const env = nonEmptyEnv(process.env);
+if (args.includes("--if-production") && env.VERCEL_ENV !== "production") {
+  console.log(`Skipping migrations: VERCEL_ENV is "${env.VERCEL_ENV ?? "unset"}", not "production". Only production builds migrate.`);
+  process.exit(0);
+}
+
+const config = resolveDatabaseConfig(env);
+await migrateDatabase(config, { purpose: "pnpm db:migrate" });
+console.log(config.kind === "embedded" ? `Migrations applied to the embedded database at ${config.dataDir}.` : "Migrations applied.");

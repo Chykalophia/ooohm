@@ -29,6 +29,69 @@
       "when": 1793564722048,
       "tag": "0003_m2_inbox_indexes_event_order",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793567735242,
+      "tag": "0004_m3_leave_request_days",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793571212543,
+      "tag": "0005_m4_calendar_feed_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793572729514,
+      "tag": "0006_m4_leave_request_span",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793574558691,
+      "tag": "0007_m5_admin_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793577352159,
+      "tag": "0008_m5_department_name_ci",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793580301056,
+      "tag": "0009_m6_integrations",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793586190308,
+      "tag": "0010_m6_change_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793591217987,
+      "tag": "0011_m7_import_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793596704457,
+      "tag": "0012_m8_people_delete",
+      "breakpoints": true
     }
   ]
 }

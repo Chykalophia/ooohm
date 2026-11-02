@@ -11,13 +11,14 @@ Work one milestone at a time and keep each PR to a single milestone.
 - **The allowance policy is pluggable.** v1 ships only `annual_calendar_year`: a flat yearly allowance per leave type that resets Jan 1. Carryover is set per leave type and is OFF by default.
 - **Approvals:** one approver (the manager) per person. `user.can_self_approve` auto-approves that user's own requests.
 - **Integrations go through `events_outbox`.** Write a domain event in the same transaction as every state change. No adapters ship in v1.
-- **Audit everything.** Every request decision and every balance change writes an `audit_log` row.
+- **Audit everything.** Every request decision and every balance change writes an `audit_log` row, naming who or what made it (a person, a person through a sync or import, their API key, or a system process). Nothing is anonymous.
 - **Day counts are numeric with one decimal place** (half days = 0.5). Weekends and company holidays never count.
 
 ## Stack and commands
 
 Next.js 16 (App Router, `output: "standalone"`, Cache Components **off**), TypeScript, Postgres + Drizzle,
-Better Auth (magic link + optional Google), Tailwind v4, pnpm.
+Better Auth (magic link + optional Google), Tailwind v4, pnpm. Runs on any Postgres 15+ or embedded PGlite, with Docker,
+on Vercel, or on one machine (docs/hosting.md): never assume a host.
 
 ```bash
 pnpm dev            # local dev (needs Postgres + .env)
@@ -26,8 +27,13 @@ pnpm lint
 pnpm db:generate    # after editing src/db/schema.ts — commit the generated SQL in drizzle/
 pnpm db:migrate
 pnpm db:seed        # idempotent; uses SEED_ADMIN_EMAIL
+pnpm job:rollover   # idempotent year rollover (carryover + new-year allowances)
+pnpm worker         # outbox worker: webhooks, adapter deliveries, daily rollover + retention
+pnpm import:timeoff -- --file <x.sqlite> --company <id> --actor <admin email> [--apply]   # one-time TimeOff import (dry run by default)
 pnpm test           # unit tests (no database)
 pnpm test:integration  # service tests; set TEST_DATABASE_URL (see docs/architecture.md#testing)
+pnpm test:integration:embedded  # the same on embedded PGlite (no server); keep both green
+pnpm start:embedded # after pnpm build: migrate, seed and serve on embedded PGlite (docs/hosting.md)
 docker compose up   # full stack: db, migrate+seed, app, mailpit (http://localhost:8025)
 ```
 
@@ -36,14 +42,22 @@ docker compose up   # full stack: db, migrate+seed, app, mailpit (http://localho
 Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
 
 - `src/app/**`: presentation. Thin pages and server actions: zod-parse, `requireActor()`, call one service, map the result. No Drizzle here.
-- `src/server/services/**`: use cases. Own transactions, data-dependent authorization, `recordLeaveChange`/`recordChange` for every state change, and email via `commitThenNotify` (after commit, never throws).
+- `src/app/admin/**`: the admin screens. Pages start with `requireAdminPage()` (404 for non-admins); actions go through `adminAction()`. The services check the role again (`assertCanAdminister`), so never rely on the page alone.
+- `src/server/services/**`: use cases. Own transactions, data-dependent authorization, `recordLeaveChange`/`recordChange` for every state change, and email via `commitThenNotify` / `commitThenSend` (after commit, never throws). Admin use cases are `admin-*.ts` plus `audit-log.ts`; they record changes with `recordAdminChange` and take `lockCompany` first when a rule spans several people.
 - `src/server/repositories/**`: Drizzle queries only; each takes an executor (`db` or `tx`) first.
+- `src/server/integrations/**`: the adapter seam (`Adapter`, `adapterRegistry`); `installed.ts` lists adapters (none in v1). No database access: services write what adapters return.
+- `src/server/importers/**`: source readers for one-time imports (TimeOff's SQLite file → `src/domain/timeoff` records). Read files only; `timeoff-import.ts` (service) owns the transaction. See `docs/import.md`.
+- `deploy/`: the production compose file, Caddyfile, backup/restore scripts and systemd timer. Runbook: `docs/deploy.md`.
+- `src/app/api/v1/**`: the REST API. Routes are one line through `_lib/api-get.ts` → `_lib/handler.ts` (auth, rate limits, errors); keep `_lib/openapi.ts` in sync (a test checks).
 - `src/domain/**`: pure rules (approval rule, day counting, status machine, permissions, `DomainError`). No I/O, Next, Drizzle or env.
 - `src/server/context.ts` / `src/server/runtime.ts`: the injected `ServiceContext` type and the app's composition root.
+- `src/db/config.ts` / `src/db/connect.ts`: the one place a database is chosen and opened (Postgres with pooler detection, or embedded PGlite with its directory lock). Scripts, the worker and tests open it there too. Raw `execute()` results differ by driver: use the query builder, or `executeRows` (`src/db/rows.ts`).
 - `src/db/schema.ts`: every table. Better Auth's tables (`user`, `session`, `account`, `verification`) live here too.
-- `src/lib/auth.ts`: Better Auth config, `requireUser()` and `requireActor()`, the entry points for pages and actions.
-- `src/lib/env.ts`: validated env vars. Add new ones here, in `.env.example`, and in `docker-compose.yml`.
-- `scripts/*.mts`: migrate and seed, run by the `migrate` compose service.
+- `src/lib/auth.ts`: Better Auth config, `issueSignInLink()` (invite links, wired into `ServiceContext`), `requireUser()` and `requireActor()`, the entry points for pages and actions (`currentUser()` for route handlers, which answer 401 instead of redirecting).
+- `src/lib/env.ts`: validated env vars. Add new ones here, in `.env.example`, and in `docker-compose.yml`. Values are trimmed on read.
+- Background work is one function, `runTick` (`src/server/services/background-tick.ts`), run by the worker, `/api/cron/tick`, the inline after-change tick (`ctx.wake`, via the `inTransaction` / `commitThenSend` seam in `notify.ts`) or embedded mode's timer (`src/instrumentation-node.ts`). A service that records changes opens its transaction with `inTransaction(ctx, ...)` (or `commitThenSend`), never `ctx.db.transaction`, so inline mode sees its events.
+- `scripts/*.mts`: migrate, seed and the year rollover (`pnpm job:rollover`), run in that order by the `migrate` compose service; and the outbox worker (`pnpm worker`, the `worker` service), which delivers webhooks and runs the daily jobs. The worker reads `src/lib/worker-env.ts`, never `env.ts`. `import-timeoff.mts` is the one-time TimeOff importer.
+- `docs/api.md`: the public integration reference (auth, endpoints, events and payloads, webhooks, signatures). Update it with any event or API change.
 - `tests/unit/**` (`pnpm test`) and `tests/integration/**` (`pnpm test:integration`, needs `TEST_DATABASE_URL`; fresh database per file). Both run under `--conditions=react-server` so `server-only` modules load.
 
 ## License

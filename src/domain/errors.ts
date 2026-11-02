@@ -1,3 +1,5 @@
+import type { DeletionBlockers } from "./person-deletion";
+
 /**
  * Stable error codes raised by the domain and service layers.
  *
@@ -29,10 +31,77 @@ export type DomainErrorCode =
   | "forbidden"
   /** The requested status change is not allowed by the state machine. */
   | "invalid_transition"
+  /**
+   * Approved leave that ended before this year (in the company's time zone) cannot be
+   * cancelled by anyone; a past year is corrected with a balance adjustment instead.
+   */
+  | "past_year_closed"
   /** The record changed underneath the caller (e.g. a concurrent decision won). */
   | "conflict"
   /** The actor did this too often in a short window; they can retry later. */
-  | "rate_limited";
+  | "rate_limited"
+  /**
+   * A tracked leave type's balance cannot cover the request in some year (pending
+   * requests count as spent). Carries {@link BalanceShortfallDetails}.
+   */
+  | "insufficient_balance"
+  /**
+   * The company's `allowance_policy` names no known policy. A configuration fault, not
+   * a user mistake: the presentation layer logs it as well as showing a message.
+   */
+  | "policy_unavailable"
+  /** The change would leave the company without an active admin. */
+  | "last_admin"
+  /**
+   * Something with the same unique key already exists (an email, a department name, a
+   * leave type code, a holiday date). Each action words it for what it creates.
+   */
+  | "already_exists"
+  /** The chosen manager is not an active member of the company, or is the person themself. */
+  | "invalid_manager"
+  /** The chosen manager reports, directly or not, to the person: a reporting loop. */
+  | "manager_cycle"
+  /** A department still has people in it, so deleting it would silently move them. */
+  | "department_not_empty"
+  /** Admins cannot deactivate their own account; another admin has to. */
+  | "self_change_not_allowed"
+  /** A webhook URL is not `https://` (and plain `http://` is not allowed here). */
+  | "insecure_url"
+  /** A webhook URL points at a loopback, private, link-local or otherwise non-public address. */
+  | "blocked_address"
+  /** The company already has as many of something (webhook endpoints, API keys) as it may. */
+  | "limit_reached"
+  /**
+   * A one-time import (TimeOff.Management) cannot run as asked: the file was imported
+   * before, the target company already has data, the source is ambiguous or unusable.
+   * The message says why and which option changes it; only the import CLI raises it.
+   */
+  | "import_refused"
+  /**
+   * A person cannot be deleted yet: they are still active, manage people, have pending
+   * requests to decide, or are the last admin. Carries `blockers` ({@link DeletionBlockers}).
+   */
+  | "deletion_blocked"
+  /** The name typed to confirm a delete is not the person's full name. */
+  | "confirmation_mismatch";
+
+/**
+ * Facts behind an `insufficient_balance` error, so the presentation layer can say
+ * exactly what is left without parsing a message.
+ */
+export interface BalanceShortfallDetails {
+  /** The calendar year whose balance falls short. */
+  readonly year: number;
+  /** Days the request costs in that year. */
+  readonly requested: number;
+  /** Days left in that year before this request (may be 0 or negative). */
+  readonly remaining: number;
+  /** How many calendar years the request spans (1 or 2). */
+  readonly yearsSpanned: number;
+}
+
+/** Structured facts attached to some codes; see each code's documentation. */
+export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers;
 
 /**
  * An expected, user-correctable failure. Anything that is not a `DomainError` is a
@@ -40,11 +109,17 @@ export type DomainErrorCode =
  */
 export class DomainError extends Error {
   readonly code: DomainErrorCode;
+  /**
+   * Structured facts for wording the user message: the shortfall for
+   * `insufficient_balance`, what blocks the delete for `deletion_blocked`.
+   */
+  readonly details?: DomainErrorDetails;
 
-  constructor(code: DomainErrorCode, message?: string) {
+  constructor(code: DomainErrorCode, message?: string, details?: DomainErrorDetails) {
     super(message ?? code);
     this.name = "DomainError";
     this.code = code;
+    this.details = details;
   }
 }
 

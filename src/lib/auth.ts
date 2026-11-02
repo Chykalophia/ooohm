@@ -10,8 +10,12 @@ import { after } from "next/server";
 import { db, schema } from "@/db";
 import { type Actor, toActor } from "@/domain/actor";
 import { env, googleEnabled } from "@/lib/env";
+import { createLinkCapture, inviteLinkRequest } from "@/lib/link-capture";
 import { log } from "@/lib/log";
 import { sendMail } from "@/lib/mail";
+
+/** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
+const linkCapture = createLinkCapture();
 
 /**
  * OOOhm is invite-only: people sign in with an account an admin created for them.
@@ -75,7 +79,8 @@ export const auth = betterAuth({
     magicLink({
       disableSignUp: true,
       expiresIn: 60 * 15,
-      sendMagicLink: async ({ email, url }) => {
+      sendMagicLink: async ({ email, url, metadata }) => {
+        if (linkCapture.intercept(metadata, url)) return;
         // The API answers 200 for every address, so it can't be used to discover who
         // works here. The lookup and the send both run after the response is sent:
         // awaiting them would make real accounts answer measurably slower (timing leak),
@@ -107,11 +112,31 @@ export const auth = betterAuth({
 
 export type Session = typeof auth.$Infer.Session;
 
+/**
+ * A sign-in link for an existing account, made by Better Auth's own magic-link
+ * endpoint (same token store, 15-minute expiry, single use, `disableSignUp`) but
+ * returned rather than emailed, so an invite can carry it in its own message.
+ * Server-side only: nothing reachable over HTTP can ask for it. A failed link (expired,
+ * used) lands on `/sign-in`, which says so.
+ *
+ * @throws Error when Better Auth did not produce a link.
+ */
+export async function issueSignInLink(email: string): Promise<string> {
+  return linkCapture.issue((key) => auth.api.signInMagicLink({ body: inviteLinkRequest(email, key), headers: new Headers() }));
+}
+
+/** The signed-in, active user, or `null`. For route handlers, which answer 401 rather than redirect. */
+export async function currentUser(): Promise<Session["user"] | null> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session || session.user.isActive === false) return null;
+  return session.user;
+}
+
 /** Data access layer entry point: the signed-in user, or a redirect to /sign-in. */
 export async function requireUser() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session || session.user.isActive === false) redirect("/sign-in");
-  return session.user;
+  const user = await currentUser();
+  if (!user) redirect("/sign-in");
+  return user;
 }
 
 /**

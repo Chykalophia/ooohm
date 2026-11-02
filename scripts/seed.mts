@@ -10,15 +10,15 @@
  */
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { z } from "zod";
+import { resolveDatabaseConfig } from "../src/db/config";
+import { openDatabase } from "../src/db/connect";
 import * as schema from "../src/db/schema";
+import { nonEmptyEnv } from "../src/lib/integration-env";
 import { yearInTimeZone } from "../src/lib/dates";
 
-const url = process.env.DATABASE_URL;
+const config = resolveDatabaseConfig(nonEmptyEnv(process.env));
 const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
-if (!url) throw new Error("DATABASE_URL is not set");
 if (adminEmail && !z.email().safeParse(adminEmail).success) {
   throw new Error(`SEED_ADMIN_EMAIL is not a valid email address: "${adminEmail}"`);
 }
@@ -33,13 +33,13 @@ const DEFAULT_LEAVE_TYPES = [
   { code: "BONUS", name: "Bonus Time Off", color: "#7c3aed", defaultAllowanceDays: 0 },
 ] as const;
 
-const client = postgres(url, { max: 1 });
-const db = drizzle(client, { schema, casing: "snake_case" });
+const handle = await openDatabase(config, { purpose: "pnpm db:seed", max: 1 });
+const { db } = handle;
 
 if (!adminEmail) {
   // Invite-only: on a fresh database the seed admin is the only way anyone can sign in.
   const [anyUser] = await db.select({ id: schema.user.id }).from(schema.user).limit(1);
-  await client.end();
+  await handle.close();
   if (!anyUser) {
     console.error("SEED_ADMIN_EMAIL is not set and no users exist yet, so nobody could sign in. Set it in .env.");
     process.exit(1);
@@ -107,5 +107,5 @@ await db.transaction(async (tx) => {
   }
 });
 
-await client.end();
+await handle.close();
 console.log("Seed complete.");

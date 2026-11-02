@@ -13,17 +13,39 @@ export function canCancel(actor: Actor, request: RequestOwnership): boolean {
 }
 
 /**
- * Whether `actor` may approve or reject `request`: its assigned approver, or any admin
- * of the same company.
- *
- * Nobody decides their own request. The one exception is an admin whose request was
- * routed to themself, which the approval rule only does when no other active admin
- * exists; without it that request could never be decided. The exception lasts only
- * while they are still an admin: once demoted, the stored assignment grants nothing.
+ * Whether `actor`'s right to decide `request` rests on its stored assignment rather
+ * than on being an admin: true for anyone who is not an admin, and for an admin
+ * deciding their own request. Only then does {@link canDecide} need to know who the
+ * approval rule would pick now.
  */
-export function canDecide(actor: Actor, request: RequestOwnership): boolean {
+export function decidesByAssignment(actor: Actor, request: RequestOwnership): boolean {
+  return !isAdmin(actor) || request.userId === actor.id;
+}
+
+/**
+ * Whether `actor` may approve or reject `request`: any admin of the same company, or
+ * its assigned approver while the assignment still matches the approval rule.
+ *
+ * A stored assignment can go stale: a submit racing a demotion or deactivation can
+ * route a request to someone who has just lost the reason to decide it, and a request
+ * an only admin routed to themself stays assigned to them after a second admin
+ * arrives. So the assignment counts only while `currentApproverId` (who the approval
+ * rule, minus self-approval, picks for the requester now: `reassignApprover`) is still
+ * the actor. Anything else is left to the company's admins, who see every pending
+ * request.
+ *
+ * Nobody decides their own request. The one exception is an admin whose request is
+ * routed to themself, which the approval rule only does while they have no active
+ * manager and no other active admin exists; without it that request could never be
+ * decided.
+ *
+ * @param currentApproverId Read fresh in the deciding transaction. Ignored (pass
+ *   `null`) when {@link decidesByAssignment} is false.
+ */
+export function canDecide(actor: Actor, request: RequestOwnership, currentApproverId: string | null): boolean {
   if (request.companyId !== actor.companyId) return false;
-  const isAssigned = request.approverId === actor.id;
-  if (request.userId === actor.id) return isAssigned && isAdmin(actor);
-  return isAssigned || isAdmin(actor);
+  if (!decidesByAssignment(actor, request)) return true;
+  const holdsAssignment = request.approverId === actor.id && currentApproverId === actor.id;
+  if (request.userId === actor.id) return holdsAssignment && isAdmin(actor);
+  return holdsAssignment;
 }

@@ -27,7 +27,7 @@ export function SignOutButton() {
           Couldn&apos;t sign out. Try again.
         </span>
       )}
-      <button className="text-muted hover:text-foreground" onClick={signOut}>
+      <button type="button" className="text-muted hover:text-foreground" onClick={signOut}>
         Sign out
       </button>
     </span>

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
+import { decideLeaveRequest } from "@/server/services/approvals";
 import { cancelLeaveRequest, getDashboard, SUBMIT_LIMIT, submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
 import { auditFor, eventsFor, requestsOf, seedCompany } from "./fixtures";
@@ -56,6 +57,7 @@ describe("leave requests: submit and cancel", { skip }, () => {
       days: 4,
       status: "pending",
       actorId: ana.id,
+      actor: { type: "user", id: ana.id },
     });
 
     // Email goes out only after commit, and only to the approver.
@@ -288,6 +290,64 @@ describe("leave requests: submit and cancel", { skip }, () => {
     await cancelLeaveRequest(ctx, co.people.ana, req.id);
     await rejectsWith(cancelLeaveRequest(ctx, co.people.ana, req.id), "invalid_transition");
     assert.deepEqual((await auditFor(t.db, req.id)).map((a) => a.action), ["leave_request.requested", "leave_request.cancelled"]);
+  });
+
+  test("approved leave from a past year cannot be cancelled by the requester; nothing is written and it shows no Cancel", async () => {
+    const co = await seedCompany(t.db, { manager: { role: "manager" }, ana: { managerKey: "manager" } });
+    const in2025 = createTestContext(t.db, { now: new Date("2025-06-02T15:00:00Z") });
+    const now = createTestContext(t.db); // 2026-11-01
+    const { ana, manager } = co.people;
+    // Mon Jun 16 2025: approved. Tue Jun 17: still pending (never decided).
+    const taken = await submitLeaveRequest(in2025, ana, { leaveTypeId: co.pto, startDate: "2025-06-16", dayPortion: "full" });
+    await decideLeaveRequest(in2025, manager, { requestId: taken.id, decision: "approve" });
+    const undecided = await submitLeaveRequest(in2025, ana, { leaveTypeId: co.pto, startDate: "2025-06-17", dayPortion: "full" });
+    const thisYear = await submitLeaveRequest(now, ana, { leaveTypeId: co.pto, startDate: "2026-11-09", dayPortion: "full" });
+    await decideLeaveRequest(now, manager, { requestId: thisYear.id, decision: "approve" });
+    await in2025.settle();
+    await now.settle();
+    const mailBefore = now.sent.length;
+
+    const cancellable = new Map((await getDashboard(now, ana)).requests.map((r) => [r.id, r.cancellable]));
+    assert.deepEqual([cancellable.get(taken.id), cancellable.get(undecided.id), cancellable.get(thisYear.id)], [false, true, true]);
+
+    await rejectsWith(cancelLeaveRequest(now, ana, taken.id), "past_year_closed");
+    const [row] = await requestsOf(t.db, ana.id).then((rs) => rs.filter((r) => r.id === taken.id));
+    assert.equal(row.status, "approved");
+    assert.deepEqual((await auditFor(t.db, taken.id)).map((a) => a.action), ["leave_request.requested", "leave_request.approved"]);
+    await now.settle();
+    assert.equal(now.sent.length, mailBefore, "no email");
+
+    // The rule covers approved leave only: the undecided one is withdrawn, this year's cancelled.
+    assert.equal((await cancelLeaveRequest(now, ana, undecided.id)).status, "cancelled");
+    assert.equal((await cancelLeaveRequest(now, ana, thisYear.id)).status, "cancelled");
+  });
+
+  test("approved leave from a past year cannot be cancelled by an admin either, their own or anyone's", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin", canSelfApprove: true }, ana: { managerKey: "boss" } });
+    const in2025 = createTestContext(t.db, { now: new Date("2025-03-03T15:00:00Z") });
+    const now = createTestContext(t.db);
+    const { boss, ana } = co.people;
+    const own = await submitLeaveRequest(in2025, boss, { leaveTypeId: co.pto, startDate: "2025-03-10", dayPortion: "full" });
+    assert.equal(own.status, "approved", "self-approved");
+    const theirs = await submitLeaveRequest(in2025, ana, { leaveTypeId: co.pto, startDate: "2025-03-11", dayPortion: "full" });
+    await decideLeaveRequest(in2025, boss, { requestId: theirs.id, decision: "approve" });
+
+    assert.equal((await getDashboard(now, boss)).requests.find((r) => r.id === own.id)?.cancellable, false);
+    await rejectsWith(cancelLeaveRequest(now, boss, own.id), "past_year_closed");
+    await rejectsWith(cancelLeaveRequest(now, boss, theirs.id), "forbidden");
+    await rejectsWith(cancelLeaveRequest(now, ana, theirs.id), "past_year_closed");
+  });
+
+  test("the year closes at midnight in the company's time zone, not the server's", async () => {
+    const co = await seedCompany(t.db, { owner: { role: "admin", canSelfApprove: true } });
+    const { owner } = co.people;
+    const dec = createTestContext(t.db, { now: new Date("2025-12-01T15:00:00Z") });
+    const req = await submitLeaveRequest(dec, owner, { leaveTypeId: co.pto, startDate: "2025-12-31", dayPortion: "full" });
+    // 03:00 UTC on Jan 1 2026 is still Dec 31 in Chicago (the company's zone): last year is still open.
+    const newYearsEveInChicago = createTestContext(t.db, { now: new Date("2026-01-01T03:00:00Z") });
+    assert.equal((await getDashboard(newYearsEveInChicago, owner)).requests.find((r) => r.id === req.id)?.cancellable, true);
+    await t.db.update(schema.companies).set({ timezone: "UTC" }).where(eq(schema.companies.id, co.companyId));
+    await rejectsWith(cancelLeaveRequest(newYearsEveInChicago, owner, req.id), "past_year_closed");
   });
 
   test("a mail outage never fails the request; the change is committed and the failure logged", async () => {

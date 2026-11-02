@@ -1,0 +1,1 @@
+ALTER TABLE "leave_requests" ADD CONSTRAINT "leave_requests_span_max" CHECK ("leave_requests"."end_date" - "leave_requests"."start_date" < 366);

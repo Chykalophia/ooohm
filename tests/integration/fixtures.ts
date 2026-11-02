@@ -3,6 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor, Role } from "@/domain/actor";
+import { byUser } from "@/domain/change-source";
 
 export interface PersonSpec {
   role?: Role;
@@ -57,6 +58,7 @@ export async function seedCompany(db: Database, people: Record<string, PersonSpe
       companyId: company.id,
       role: spec.role ?? "employee",
       canSelfApprove: spec.canSelfApprove ?? false,
+      source: byUser(ids[key]),
       email,
       name: key[0].toUpperCase() + key.slice(1),
     };
@@ -79,6 +81,39 @@ export async function auditFor(db: Database, requestId: string) {
     .orderBy(asc(schema.auditLog.createdAt));
 }
 
+/** A company's audit rows, oldest first, optionally only those whose action starts with `prefix`. */
+export async function companyAudit(db: Database, companyId: string, prefix = "") {
+  const rows = await db
+    .select()
+    .from(schema.auditLog)
+    .where(eq(schema.auditLog.companyId, companyId))
+    .orderBy(asc(schema.auditLog.createdAt));
+  return rows.filter((r) => r.action.startsWith(prefix));
+}
+
+/** A company's outbox events, oldest first, optionally only those whose type starts with `prefix`. */
+export async function companyEvents(db: Database, companyId: string, prefix = "") {
+  const rows = await db
+    .select()
+    .from(schema.eventsOutbox)
+    .where(eq(schema.eventsOutbox.companyId, companyId))
+    .orderBy(asc(schema.eventsOutbox.createdAt));
+  return rows.filter((r) => r.type.startsWith(prefix));
+}
+
+/** Captures what `work` writes to stderr (the error log), restoring it afterwards. */
+export async function captureStderr(work: () => Promise<void>): Promise<string[]> {
+  const stderr = process.stderr.write.bind(process.stderr);
+  const logged: string[] = [];
+  process.stderr.write = ((chunk: string) => (logged.push(String(chunk)), true)) as typeof process.stderr.write;
+  try {
+    await work();
+  } finally {
+    process.stderr.write = stderr;
+  }
+  return logged;
+}
+
 /** Outbox events whose payload names this request, in insertion order. */
 export async function eventsFor(db: Database, companyId: string, requestId: string) {
   const rows = await db
@@ -91,4 +126,65 @@ export async function eventsFor(db: Database, companyId: string, requestId: stri
 
 export async function requestsOf(db: Database, userId: string) {
   return db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.userId, userId));
+}
+
+export interface LeaveTypeSpec {
+  code: string;
+  defaultAllowanceDays?: number | null;
+  countsAgainstAllowance?: boolean;
+  carryoverEnabled?: boolean;
+  carryoverMaxDays?: number | null;
+  sortOrder?: number;
+  archived?: boolean;
+}
+
+/** Adds a leave type with balance settings to a seeded company; returns its id. */
+export async function addLeaveType(db: Database, companyId: string, spec: LeaveTypeSpec): Promise<string> {
+  const [row] = await db
+    .insert(schema.leaveTypes)
+    .values({
+      companyId,
+      code: spec.code,
+      name: spec.code,
+      defaultAllowanceDays: spec.defaultAllowanceDays ?? null,
+      countsAgainstAllowance: spec.countsAgainstAllowance ?? true,
+      carryoverEnabled: spec.carryoverEnabled ?? false,
+      carryoverMaxDays: spec.carryoverMaxDays ?? null,
+      sortOrder: spec.sortOrder ?? 10,
+      archivedAt: spec.archived ? new Date() : null,
+    })
+    .returning();
+  return row.id;
+}
+
+/** Sets (inserting or replacing) a person's allowance row for one type and year. */
+export async function setAllowance(
+  db: Database,
+  values: { userId: string; leaveTypeId: string; year: number; days: number; carriedOverDays?: number; adjustmentDays?: number },
+) {
+  const row = { carriedOverDays: 0, adjustmentDays: 0, ...values };
+  await db
+    .insert(schema.allowances)
+    .values(row)
+    .onConflictDoUpdate({
+      target: [schema.allowances.userId, schema.allowances.leaveTypeId, schema.allowances.year],
+      set: { days: row.days, carriedOverDays: row.carriedOverDays, adjustmentDays: row.adjustmentDays },
+    });
+}
+
+/** A person's allowance rows, as `{ leaveTypeId, year, days, carriedOverDays, adjustmentDays }`, sorted. */
+export async function allowancesOf(db: Database, userId: string) {
+  const rows = await db.select().from(schema.allowances).where(eq(schema.allowances.userId, userId));
+  return rows
+    .map(({ leaveTypeId, year, days, carriedOverDays, adjustmentDays }) => ({ leaveTypeId, year, days, carriedOverDays, adjustmentDays }))
+    .sort((a, b) => a.year - b.year || a.leaveTypeId.localeCompare(b.leaveTypeId));
+}
+
+/** What a request costs per year, as stored at submit. */
+export async function requestDaysOf(db: Database, requestId: string) {
+  const rows = await db
+    .select({ year: schema.leaveRequestDays.year, days: schema.leaveRequestDays.days })
+    .from(schema.leaveRequestDays)
+    .where(eq(schema.leaveRequestDays.requestId, requestId));
+  return rows.sort((a, b) => a.year - b.year);
 }

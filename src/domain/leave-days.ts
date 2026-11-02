@@ -1,5 +1,4 @@
 import { type CalendarDate, eachDate, fromEpochDay, isoWeekday, toEpochDay } from "./calendar-date";
-import { DomainError } from "./errors";
 import { assertValidRange, type LeaveRange } from "./leave-request";
 
 /** The parts of a company's calendar that decide which days cost leave. */
@@ -14,20 +13,44 @@ export interface WorkCalendar {
  * Working days a range consumes: every working weekday from start to end inclusive
  * that is not a company holiday. A half day (am/pm) counts 0.5.
  *
- * May return 0 (e.g. a weekend-only range); callers that must reject that use
- * {@link requireLeaveDays}.
+ * May return 0 (e.g. a weekend-only range). Submit and the live preview refuse such a
+ * request with `zero_days` when the allowance policy's split
+ * ({@link splitLeaveDaysByYear} in v1) comes back empty.
  *
  * @throws DomainError from {@link assertValidRange} for a malformed range.
  */
 export function countLeaveDays(range: LeaveRange, calendar: WorkCalendar): number {
+  return splitLeaveDaysByYear(range, calendar).reduce((sum, part) => sum + part.days, 0);
+}
+
+/** The days a request costs in one calendar year. */
+export interface YearDays {
+  year: number;
+  days: number;
+}
+
+/**
+ * {@link countLeaveDays}, split by calendar year: a request from Thu Dec 31 to Mon
+ * Jan 4 costs 1 day in the first year and 1 in the next (weekend and Jan 1 aside, if
+ * Jan 1 is a holiday). Years in which the range has no working day are left out, so
+ * every entry has `days > 0`. Ordered by year; the sum equals {@link countLeaveDays}.
+ *
+ * @throws DomainError from {@link assertValidRange} for a malformed range.
+ */
+export function splitLeaveDaysByYear(range: LeaveRange, calendar: WorkCalendar): YearDays[] {
   assertValidRange(range);
   const working = new Set(calendar.workingDays);
   const holidays = new Set(calendar.holidays);
-  let days = 0;
+  const perDay = range.dayPortion === "full" ? 1 : 0.5;
+  const out: YearDays[] = [];
   for (const date of eachDate(range.startDate, range.endDate)) {
-    if (working.has(isoWeekday(date)) && !holidays.has(date)) days++;
+    if (!working.has(isoWeekday(date)) || holidays.has(date)) continue;
+    const year = Number(date.slice(0, 4));
+    const last = out.at(-1);
+    if (last?.year === year) last.days += perDay;
+    else out.push({ year, days: perDay });
   }
-  return range.dayPortion === "full" ? days : days * 0.5;
+  return out;
 }
 
 /** How far {@link nextWorkingDay} looks ahead, in calendar days, including `from`. */
@@ -49,16 +72,4 @@ export function nextWorkingDay(from: CalendarDate, calendar: WorkCalendar): Cale
     if (working.has(isoWeekday(date)) && !holidays.has(date)) return date;
   }
   return from;
-}
-
-/**
- * {@link countLeaveDays}, but a request that costs nothing is an error: it would
- * never show on a balance and almost always means the wrong dates were picked.
- *
- * @throws DomainError `zero_days` when the range has no working days.
- */
-export function requireLeaveDays(range: LeaveRange, calendar: WorkCalendar): number {
-  const days = countLeaveDays(range, calendar);
-  if (days <= 0) throw new DomainError("zero_days");
-  return days;
 }

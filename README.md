@@ -198,4 +198,8 @@ OOOhm is **source-available** under the [Functional Source License, Version 1.1,
 - You can't offer it, or something substantially similar built from it, as a competing commercial product or service.
 - Two years after each version is released, that version becomes available under the Apache License 2.0.
 
-Copyright 2026 Chykalophia.
+Copyright 2026 Chykalophia Group, LLC.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Contributors sign the [Contributor License Agreement](CLA.md) once, on their first pull request.

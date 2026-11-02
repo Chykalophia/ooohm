@@ -6,7 +6,7 @@ FSL-1.1-ALv2
 
 ## Notice
 
-Copyright 2026 Chykalophia
+Copyright 2026 Chykalophia Group, LLC
 
 ## Terms and Conditions
 

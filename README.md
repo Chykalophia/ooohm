@@ -26,7 +26,17 @@ cp .env.example .env   # fill in the values
 docker compose up
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:3000. Outgoing email lands in Mailpit at http://localhost:8025.
+
+## Develop
+
+```bash
+pnpm typecheck && pnpm lint && pnpm test
+TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:integration
+```
+
+How the code is organized, and how requests, approvals, the audit log and the events outbox work, is in
+[docs/architecture.md](docs/architecture.md).
 
 ## License
 

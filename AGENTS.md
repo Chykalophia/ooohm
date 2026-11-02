@@ -26,15 +26,25 @@ pnpm lint
 pnpm db:generate    # after editing src/db/schema.ts — commit the generated SQL in drizzle/
 pnpm db:migrate
 pnpm db:seed        # idempotent; uses SEED_ADMIN_EMAIL
+pnpm test           # unit tests (no database)
+pnpm test:integration  # service tests; set TEST_DATABASE_URL (see docs/architecture.md#testing)
 docker compose up   # full stack: db, migrate+seed, app, mailpit (http://localhost:8025)
 ```
 
 ## Layout
 
+Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
+
+- `src/app/**`: presentation. Thin pages and server actions: zod-parse, `requireActor()`, call one service, map the result. No Drizzle here.
+- `src/server/services/**`: use cases. Own transactions, data-dependent authorization, `recordLeaveChange`/`recordChange` for every state change, and email via `commitThenNotify` (after commit, never throws).
+- `src/server/repositories/**`: Drizzle queries only; each takes an executor (`db` or `tx`) first.
+- `src/domain/**`: pure rules (approval rule, day counting, status machine, permissions, `DomainError`). No I/O, Next, Drizzle or env.
+- `src/server/context.ts` / `src/server/runtime.ts`: the injected `ServiceContext` type and the app's composition root.
 - `src/db/schema.ts`: every table. Better Auth's tables (`user`, `session`, `account`, `verification`) live here too.
-- `src/lib/auth.ts`: Better Auth config and `requireUser()`, the data-access entry point for pages.
+- `src/lib/auth.ts`: Better Auth config, `requireUser()` and `requireActor()`, the entry points for pages and actions.
 - `src/lib/env.ts`: validated env vars. Add new ones here, in `.env.example`, and in `docker-compose.yml`.
 - `scripts/*.mts`: migrate and seed, run by the `migrate` compose service.
+- `tests/unit/**` (`pnpm test`) and `tests/integration/**` (`pnpm test:integration`, needs `TEST_DATABASE_URL`; fresh database per file). Both run under `--conditions=react-server` so `server-only` modules load.
 
 ## License
 

@@ -1,11 +1,7 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
+import { serviceContext } from "@/server/runtime";
+import { isDatabaseReachable } from "@/server/services/health";
 
 export async function GET() {
-  try {
-    await db.execute(sql`select 1`);
-    return Response.json({ status: "ok" });
-  } catch {
-    return Response.json({ status: "error", db: "unreachable" }, { status: 503 });
-  }
+  if (await isDatabaseReachable(serviceContext())) return Response.json({ status: "ok" });
+  return Response.json({ status: "error", db: "unreachable" }, { status: 503 });
 }

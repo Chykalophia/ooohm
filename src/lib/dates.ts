@@ -6,3 +6,15 @@
 export function yearInTimeZone(timeZone: string, now: Date = new Date()): number {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric" }).format(now));
 }
+
+/** Today's calendar date (`YYYY-MM-DD`) at `now` in the given IANA time zone. */
+export function todayInTimeZone(timeZone: string, now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const get = (type: "year" | "month" | "day") => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}

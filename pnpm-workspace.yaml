@@ -1,3 +1,13 @@
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+
+# Security overrides for dev tooling with no fixed upstream release yet (Dependabot):
+# - drizzle-kit's config loader (@esbuild-kit/core-utils) pins esbuild ~0.18, affected by
+#   GHSA-67mh-4wv8-2f99. It only calls esbuild's transform API, which 0.25 keeps.
+# - @typescript-eslint/typescript-estree takes minimatch ^10, affected by
+#   GHSA-g3hv-75wg-m249. It only uses the named `minimatch` export, which 11 keeps.
+# Remove each once the upstream package depends on a fixed version.
+overrides:
+  "@esbuild-kit/core-utils>esbuild": "^0.25.12"
+  "minimatch@^10": "^11.0.4"

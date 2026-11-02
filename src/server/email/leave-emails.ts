@@ -1,5 +1,6 @@
 import { displayName } from "@/domain/person";
-import { formatDays, formatLeaveDates } from "@/lib/format";
+import { formatDays, formatLeaveDates, formatRecountCause } from "@/lib/format";
+import type { RecountCause } from "@/lib/format";
 
 export { displayName, personLabel } from "@/domain/person";
 
@@ -29,11 +30,29 @@ export interface LeaveSummary {
 }
 
 export type LeaveEmail =
-  | { kind: "requested"; recipientName: string; leave: LeaveSummary; link: string }
+  | {
+      kind: "requested";
+      recipientName: string;
+      leave: LeaveSummary;
+      /** Who else is off on those dates (`formatAlsoOff`), when anyone is. */
+      alsoOff?: string | null;
+      link: string;
+    }
   | { kind: "approved"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
   | { kind: "rejected"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
   | { kind: "cancelled_requester"; recipientName: string; leave: LeaveSummary; link: string }
-  | { kind: "cancelled_approver"; recipientName: string; leave: LeaveSummary; link: string };
+  | { kind: "cancelled_approver"; recipientName: string; leave: LeaveSummary; link: string }
+  | {
+      kind: "recounted";
+      recipientName: string;
+      /** The request after the recount: `days` is the new count. */
+      leave: LeaveSummary;
+      previousDays: number;
+      cause: RecountCause;
+      /** Set when the new count leaves the person over their balance, e.g. "1 day over your PTO balance for 2026". */
+      overdrawn: string | null;
+      link: string;
+    };
 
 /** Escapes `& < > " '` for HTML text and attribute values. */
 export function escapeHtml(value: string): string {
@@ -61,6 +80,7 @@ function parts(email: LeaveEmail): Parts {
       return {
         subject: "Time off request to review",
         intro: `${leave.requesterName} asked for time off.`,
+        extra: email.alsoOff ? { label: "Also off then", value: email.alsoOff } : undefined,
         showNote: true,
         action: "Review it in OOOhm",
       };
@@ -94,6 +114,24 @@ function parts(email: LeaveEmail): Parts {
         showNote: false,
         action: "Open OOOhm",
       };
+    case "recounted": {
+      const cause = formatRecountCause(email.cause);
+      if (leave.days === 0) {
+        return {
+          subject: "Your time off was recounted",
+          intro: `${cause}, so the time off below no longer takes any days, and nothing comes off your balance. You can cancel it in OOOhm if you don't need it.`,
+          showNote: false,
+          action: "Open OOOhm",
+        };
+      }
+      return {
+        subject: "Your time off was recounted",
+        intro: `${cause}, so the time off below now takes ${formatDays(leave.days)} instead of ${formatDays(email.previousDays)}.`,
+        extra: email.overdrawn ? { label: "Balance", value: `This leaves you ${email.overdrawn}.` } : undefined,
+        showNote: false,
+        action: "Open OOOhm",
+      };
+    }
   }
 }
 

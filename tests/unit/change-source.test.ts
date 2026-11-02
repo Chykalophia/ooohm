@@ -22,7 +22,14 @@ const names: ChangeSourceNames = {
 };
 
 test("process identifiers are stable strings; an adapter sync carries its adapter id", () => {
-  assert.deepEqual(Object.values(CHANGE_PROCESSES), ["year_rollover", "retention", "timeoff_import", "scheduled_scrub"]);
+  assert.deepEqual(Object.values(CHANGE_PROCESSES), [
+    "year_rollover",
+    "retention",
+    "timeoff_import",
+    "scheduled_scrub",
+    "holiday_change",
+    "working_days_change",
+  ]);
   assert.equal(adapterSyncProcess("gusto"), "adapter_sync:gusto");
   assert.equal(adapterIdOf("adapter_sync:gusto"), "gusto");
   assert.equal(adapterIdOf("adapter_sync:"), null);
@@ -46,6 +53,8 @@ test("labels name the person, what they acted through, the key, or the process",
   assert.equal(label(byUser("u1")), "Peter Krzyzek");
   assert.equal(label(byUser("u1", adapterSyncProcess("gusto"))), "Peter Krzyzek, via Gusto sync");
   assert.equal(label(byUser("u1", "timeoff_import")), "Peter Krzyzek, via time-off import");
+  assert.equal(label(byUser("u1", "holiday_change")), "Peter Krzyzek, via holiday change");
+  assert.equal(label(byUser("u1", "working_days_change")), "Peter Krzyzek, via working days change");
   assert.equal(label(byApiKey({ userId: "u1", apiKeyId: "k1" })), "Peter Krzyzek, via API key ‘Zapier’ (ooohm_ab12cd34…)");
   assert.equal(label(byApiKey({ userId: "u1", apiKeyId: "k1" }, "timeoff_import")), "Peter Krzyzek, via time-off import with API key ‘Zapier’ (ooohm_ab12cd34…)");
   assert.equal(label(bySystem("year_rollover")), "System: year rollover");

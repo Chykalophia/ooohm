@@ -108,7 +108,7 @@ export function leaveEventPayload(request: LeaveEventSource, source: PersonChang
 }
 
 /** Audit log `action` for each leave transition, e.g. `leave_request.approved`. */
-export function leaveAuditAction(event: "requested" | "reassigned" | LeaveStatus): string {
+export function leaveAuditAction(event: "requested" | "reassigned" | "recounted" | LeaveStatus): string {
   return `leave_request.${event}`;
 }
 
@@ -196,6 +196,21 @@ export function calendarFeedAuditAction(event: keyof typeof CALENDAR_FEED_EVENT_
  * always the admin who made that change. Public contract; never rename it.
  */
 export const LEAVE_REASSIGNED_EVENT_TYPE = "leave.reassigned";
+
+/**
+ * `leave.recounted`: a pending or approved request now costs a different number of days,
+ * because an admin added or deleted a company holiday on its dates or changed the
+ * company's working days. Only the years still open are recounted. The actor is that
+ * admin, `via` `holiday_change` or `working_days_change`. A request left with no
+ * working days is cancelled instead (`leave.cancelled`, same actor). Public contract;
+ * never rename it.
+ */
+export const LEAVE_RECOUNTED_EVENT_TYPE = "leave.recounted";
+
+/** Version 1 payload of `leave.recounted`: the leave fields (with the new `days`) plus the old count. */
+export interface LeaveRecountedPayload extends LeaveEventPayload {
+  previousDays: number;
+}
 
 /** Version 1 payload of `leave.reassigned`: the leave fields plus who it moved from and to. */
 export interface LeaveReassignedPayload extends LeaveEventPayload {

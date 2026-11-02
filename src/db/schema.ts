@@ -67,7 +67,8 @@ export const departments = pgTable(
     name: text("name").notNull(),
     ...timestamps,
   },
-  (t) => [uniqueIndex("departments_company_name_uq").on(t.companyId, t.name)],
+  // Names are unique per company ignoring case, so "Sales" and "sales" can never both exist.
+  (t) => [uniqueIndex("departments_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`)],
 );
 
 /* ------------------------------------------------------------------ */
@@ -186,7 +187,11 @@ export const leaveTypes = pgTable(
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,
   },
-  (t) => [uniqueIndex("leave_types_company_code_uq").on(t.companyId, t.code)],
+  (t) => [
+    uniqueIndex("leave_types_company_code_uq").on(t.companyId, t.code),
+    check("leave_types_default_allowance_nonneg", sql`${t.defaultAllowanceDays} >= 0`),
+    check("leave_types_carryover_max_nonneg", sql`${t.carryoverMaxDays} >= 0`),
+  ],
 );
 
 /** Per-user allowance for one leave type in one calendar year. */
@@ -211,7 +216,10 @@ export const allowances = pgTable(
       .default(0),
     ...timestamps,
   },
-  (t) => [uniqueIndex("allowances_user_type_year_uq").on(t.userId, t.leaveTypeId, t.year)],
+  (t) => [
+    uniqueIndex("allowances_user_type_year_uq").on(t.userId, t.leaveTypeId, t.year),
+    check("allowances_days_nonneg", sql`${t.days} >= 0`),
+  ],
 );
 
 export const holidays = pgTable(
@@ -347,12 +355,26 @@ export const auditLog = pgTable(
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id").notNull(),
+    /**
+     * The person the change is about, when there is one: the requester of a leave
+     * request, the owner of an allowance or calendar link, the person an admin edited.
+     * Lets the audit viewer filter by person with one index.
+     */
+    subjectUserId: text("subject_user_id").references(() => user.id, { onDelete: "set null" }),
     before: jsonb("before"),
     after: jsonb("after"),
     // clock_timestamp(), not now(): rows written in one transaction keep their write order.
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   },
-  (t) => [index("audit_log_entity_idx").on(t.entityType, t.entityId)],
+  (t) => [
+    index("audit_log_entity_idx").on(t.entityType, t.entityId),
+    // The audit viewer pages newest first by (created_at, id) within a company, with at
+    // most one of these filters narrowing the scan; each index serves one of them.
+    index("audit_log_company_created_idx").on(t.companyId, t.createdAt, t.id),
+    index("audit_log_company_action_idx").on(t.companyId, t.action, t.createdAt, t.id),
+    index("audit_log_company_actor_idx").on(t.companyId, t.actorId, t.createdAt, t.id),
+    index("audit_log_company_subject_idx").on(t.companyId, t.subjectUserId, t.createdAt, t.id),
+  ],
 );
 
 /**

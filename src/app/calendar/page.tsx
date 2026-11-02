@@ -1,3 +1,4 @@
+import { canAdminister } from "@/domain/admin-permissions";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { AgendaItem, CalendarDay } from "@/domain/calendar";
@@ -120,7 +121,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-      <AppHeader userName={userName} approvals={approvals} current="calendar" />
+      <AppHeader userName={userName} approvals={approvals} current="calendar" admin={canAdminister(actor)} />
 
       <main className="space-y-6">
         <h1 className="text-2xl font-semibold tracking-tight">Your calendar</h1>

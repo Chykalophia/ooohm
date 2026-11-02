@@ -112,6 +112,19 @@ export function formatInstantDate(instant: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(instant);
 }
 
+/** An instant as date and time in `timeZone`, e.g. "Nov 1, 2026, 9:05 AM CST". */
+export function formatInstantDateTime(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(instant);
+}
+
 export const STATUS_LABEL = {
   pending: "Waiting for approval",
   approved: "Approved",

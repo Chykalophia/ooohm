@@ -64,6 +64,8 @@ export async function createTestDatabase(options: { migrationsFolder?: string } 
 export interface TestContext extends ServiceContext {
   /** Emails delivered so far (after `settle()`). */
   sent: MailMessage[];
+  /** Addresses `issueSignInLink` was asked for, in order. */
+  signInLinks: string[];
   /** Number of deferred tasks scheduled so far, run or not. */
   deferred(): number;
   /**
@@ -75,9 +77,10 @@ export interface TestContext extends ServiceContext {
 
 export function createTestContext(
   db: Database,
-  options: { now?: Date; mailer?: (m: MailMessage) => Promise<void> } = {},
+  options: { now?: Date; mailer?: (m: MailMessage) => Promise<void>; issueSignInLink?: (email: string) => Promise<string> } = {},
 ): TestContext {
   const sent: MailMessage[] = [];
+  const signInLinks: string[] = [];
   const queue: (() => Promise<void>)[] = [];
   let scheduled = 0;
   return {
@@ -89,7 +92,14 @@ export function createTestContext(
       scheduled++;
       queue.push(task);
     },
+    issueSignInLink:
+      options.issueSignInLink ??
+      (async (email) => {
+        signInLinks.push(email);
+        return `https://ooohm.test/api/auth/magic-link/verify?token=test-${signInLinks.length}&callbackURL=%2F`;
+      }),
     sent,
+    signInLinks,
     deferred: () => scheduled,
     settle: async () => {
       while (queue.length > 0) await queue.shift()!();

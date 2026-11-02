@@ -1,7 +1,9 @@
+import type { Transaction } from "@/db/types";
 import { type Actor, isAdmin } from "@/domain/actor";
+import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
-import { canDecide } from "@/domain/leave-permissions";
+import { canDecide, decidesByAssignment } from "@/domain/leave-permissions";
 import { normalizeNote } from "@/domain/leave-request";
 import { assertTransition } from "@/domain/request-status";
 import type { ServiceContext } from "@/server/context";
@@ -14,6 +16,7 @@ import {
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
 import { findLeaveType } from "@/server/repositories/leave-types";
+import { findMember, listActiveAdmins } from "@/server/repositories/users";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify } from "./notify";
 
@@ -34,14 +37,30 @@ function scopeFor(actor: Actor): InboxScope {
 }
 
 /**
+ * Who the approval rule (minus self-approval) picks for `requesterId`'s pending
+ * requests now, read inside `tx`: three reads at most.
+ */
+async function currentApprover(tx: Transaction, companyId: string, requesterId: string): Promise<string | null> {
+  const [requester, admins] = await Promise.all([findMember(tx, companyId, requesterId), listActiveAdmins(tx, companyId)]);
+  if (!requester) return null;
+  const manager =
+    requester.managerId && requester.managerId !== requester.id ? ((await findMember(tx, companyId, requester.managerId)) ?? null) : null;
+  return reassignApprover(new ManagerApprovalRule(), { requester, manager, admins });
+}
+
+/**
  * Approves or rejects a pending request.
  *
  * The status change is a compare-and-set on `pending`, so when two people decide the
- * same request at once exactly one succeeds and the other gets `conflict`.
+ * same request at once exactly one succeeds and the other gets `conflict`. A decision
+ * that rests on the stored assignment ({@link decidesByAssignment}: a non-admin
+ * approver, or an admin's own request routed to themself) first checks that the
+ * approval rule still picks the actor, and its compare-and-set also requires the
+ * request to still be assigned to them, so it loses to a concurrent reassignment.
  *
  * @throws DomainError `invalid_input` (reason too long), `not_found`, `forbidden`
- *   (neither the assigned approver nor an admin, or deciding one's own request),
- *   `invalid_transition` (no longer pending), or `conflict`.
+ *   (neither an admin nor an assigned approver the rule still picks, or deciding one's
+ *   own request), `invalid_transition` (no longer pending), or `conflict`.
  */
 export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, input: DecideInput): Promise<LeaveRequestRow> {
   const reason = normalizeNote(input.reason);
@@ -52,12 +71,14 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
   return commitThenNotify(ctx, async (tx) => {
     const before = await findLeaveRequest(tx, actor.companyId, input.requestId);
     if (!before) throw new DomainError("not_found");
-    if (!canDecide(actor, before)) throw new DomainError("forbidden");
+    const byAssignment = decidesByAssignment(actor, before);
+    const current = byAssignment && before.approverId === actor.id ? await currentApprover(tx, actor.companyId, before.userId) : null;
+    if (!canDecide(actor, before, current)) throw new DomainError("forbidden");
     assertTransition(before.status, to);
 
     const after = await updateStatusIfCurrent(
       tx,
-      { companyId: actor.companyId, id: before.id, from: "pending" },
+      { companyId: actor.companyId, id: before.id, from: "pending", approverId: byAssignment ? actor.id : undefined },
       { status: to, decidedAt: ctx.now(), decisionNote: reason },
     );
     if (!after) throw new DomainError("conflict");

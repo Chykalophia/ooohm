@@ -20,7 +20,7 @@ import {
   listRequestsForUser,
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
-import { findLeaveType, listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findMember, listActiveAdmins, lockMember } from "@/server/repositories/users";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
@@ -189,7 +189,7 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
 /**
  * Everything the dashboard renders for the actor, in one call, in six queries
  * whatever the number of types or requests:
- * company settings, active leave types and the actor's requests in parallel; then
+ * company settings, leave types and the actor's requests in parallel; then
  * the balances' allowance rows and booked-day sums, and the look-ahead holidays, in
  * parallel. The form's leave types and the balances share the one leave-type read.
  *
@@ -202,7 +202,7 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
 export async function getDashboard(ctx: ServiceContext, actor: Actor) {
   const [settings, types, requests] = await Promise.all([
     findCompanySettings(ctx.db, actor.companyId),
-    listActiveLeaveTypesWithAllowance(ctx.db, actor.companyId),
+    listLeaveTypesWithAllowance(ctx.db, actor.companyId),
     listRequestsForUser(ctx.db, actor.companyId, actor.id, DASHBOARD_REQUEST_LIMIT),
   ]);
   if (!settings) throw new DomainError("no_company");
@@ -228,7 +228,7 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
      */
     defaultDate: nextWorkingDay(today, { workingDays: settings.workingDays, holidays }),
     /** Active leave types in display order; the first is the form's default. */
-    leaveTypes: types.map(({ id, name, code, color }) => ({ id, name, code, color })),
+    leaveTypes: types.filter((t) => !t.archived).map(({ id, name, code, color }) => ({ id, name, code, color })),
     requests,
     balances,
   };

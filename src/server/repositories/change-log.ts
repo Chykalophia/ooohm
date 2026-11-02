@@ -10,6 +10,8 @@ export interface AuditEntry {
   action: string;
   entityType: string;
   entityId: string;
+  /** The person the change is about (a request's requester, an allowance's owner, an edited person), if any. */
+  subjectUserId: string | null;
   before: unknown;
   after: unknown;
 }

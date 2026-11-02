@@ -1,5 +1,6 @@
 import type { CalendarDate } from "./calendar-date";
 import type { FeedKind } from "./calendar-feed";
+import type { Role } from "./actor";
 import type { DayPortion, LeaveStatus } from "./leave-request";
 
 /**
@@ -55,7 +56,7 @@ export function leaveEventPayload(request: LeaveEventSource, actorId: string): L
 }
 
 /** Audit log `action` for each leave transition, e.g. `leave_request.approved`. */
-export function leaveAuditAction(event: "requested" | LeaveStatus): string {
+export function leaveAuditAction(event: "requested" | "reassigned" | LeaveStatus): string {
   return `leave_request.${event}`;
 }
 
@@ -70,8 +71,11 @@ export const BALANCE_EVENT_TYPES = {
  * - `carryover`: the year rollover set `carriedOverDays` from the previous year.
  * - `allowance_created`: a row was created from the leave type's default, or copied
  *   from the person's latest row for a type without a default.
+ * - `admin_edit`: an admin set the year's `days` or `adjustmentDays` (never
+ *   `carriedOverDays`, which the rollover owns). The admin's reason is in the audit
+ *   row only.
  */
-export type BalanceChangeReason = "carryover" | "allowance_created";
+export type BalanceChangeReason = "carryover" | "allowance_created" | "admin_edit";
 
 /** Version 1 payload of `balance.adjusted`: the allowance row after the change. */
 export interface BalanceAdjustedPayload {
@@ -91,6 +95,7 @@ export interface BalanceAdjustedPayload {
 export const ALLOWANCE_AUDIT_ACTIONS: Readonly<Record<BalanceChangeReason, string>> = {
   carryover: "allowance.carried_over",
   allowance_created: "allowance.created",
+  admin_edit: "allowance.edited",
 };
 
 /** Calendar feed event types written to `events_outbox`. Public contract; never rename one. */
@@ -105,8 +110,9 @@ export type CalendarFeedEventType = (typeof CALENDAR_FEED_EVENT_TYPES)[keyof typ
  *
  * - `regenerated`: its owner asked for a new link, which replaced it.
  * - `turned_off`: its owner turned the feed off.
+ * - `deactivated`: an admin deactivated its owner; the admin is the actor.
  */
-export type CalendarFeedRevokeReason = "regenerated" | "turned_off";
+export type CalendarFeedRevokeReason = "regenerated" | "turned_off" | "deactivated";
 
 /**
  * Version 1 payload of the `calendar_feed.*` events. Never carries the token or its
@@ -124,4 +130,102 @@ export interface CalendarFeedEventPayload {
 /** Audit log `action` for each feed change: `calendar_feed.issued` or `calendar_feed.revoked`. */
 export function calendarFeedAuditAction(event: keyof typeof CALENDAR_FEED_EVENT_TYPES): string {
   return CALENDAR_FEED_EVENT_TYPES[event];
+}
+
+/**
+ * `leave.reassigned`: a pending request moved to another approver because an admin
+ * changed who may decide it: its approver was deactivated or demoted from admin, the
+ * requester's manager changed, or someone was invited as admin, promoted to admin or
+ * reactivated who can now take a request an admin had routed to themself. The actor is
+ * always the admin who made that change. Public contract; never rename it.
+ */
+export const LEAVE_REASSIGNED_EVENT_TYPE = "leave.reassigned";
+
+/** Version 1 payload of `leave.reassigned`: the leave fields plus who it moved from and to. */
+export interface LeaveReassignedPayload extends LeaveEventPayload {
+  previousApproverId: string | null;
+  /** The new approver, chosen by the approval rule; `null` when nobody qualifies. */
+  approverId: string | null;
+}
+
+/**
+ * Admin event types written to `events_outbox` (M5). Public contract; never rename
+ * one. Each is also the `audit_log.action` of the same change.
+ */
+export const ADMIN_EVENT_TYPES = {
+  userCreated: "user.created",
+  userUpdated: "user.updated",
+  userDeactivated: "user.deactivated",
+  userReactivated: "user.reactivated",
+  userInviteResent: "user.invite_resent",
+  departmentCreated: "department.created",
+  departmentRenamed: "department.renamed",
+  departmentDeleted: "department.deleted",
+  leaveTypeCreated: "leave_type.created",
+  leaveTypeUpdated: "leave_type.updated",
+  leaveTypeArchived: "leave_type.archived",
+  leaveTypeUnarchived: "leave_type.unarchived",
+  leaveTypeReordered: "leave_type.reordered",
+  holidayCreated: "holiday.created",
+  holidayRenamed: "holiday.renamed",
+  holidayDeleted: "holiday.deleted",
+  companyUpdated: "company.updated",
+} as const;
+export type AdminEventType = (typeof ADMIN_EVENT_TYPES)[keyof typeof ADMIN_EVENT_TYPES];
+
+/**
+ * Version 1 payload of every `user.*` event: the person after the change. Never holds
+ * a session, token or sign-in link.
+ */
+export interface UserEventPayload {
+  userId: string;
+  email: string;
+  name: string;
+  role: Role;
+  departmentId: string | null;
+  managerId: string | null;
+  canSelfApprove: boolean;
+  isActive: boolean;
+  actorId: string;
+}
+
+/** Version 1 payload of every `department.*` event: the department after the change (before, when deleted). */
+export interface DepartmentEventPayload {
+  departmentId: string;
+  name: string;
+  actorId: string;
+}
+
+/** Version 1 payload of every `leave_type.*` event: the leave type after the change. */
+export interface LeaveTypeEventPayload {
+  leaveTypeId: string;
+  code: string;
+  name: string;
+  color: string;
+  isPaid: boolean;
+  countsAgainstAllowance: boolean;
+  defaultAllowanceDays: number | null;
+  carryoverEnabled: boolean;
+  carryoverMaxDays: number | null;
+  sortOrder: number;
+  archived: boolean;
+  actorId: string;
+}
+
+/** Version 1 payload of every `holiday.*` event: the holiday after the change (before, when deleted). */
+export interface HolidayEventPayload {
+  holidayId: string;
+  date: CalendarDate;
+  name: string;
+  actorId: string;
+}
+
+/** Version 1 payload of `company.updated`: the settings after the change. */
+export interface CompanyEventPayload {
+  companyId: string;
+  name: string;
+  timezone: string;
+  workingDays: number[];
+  allowancePolicy: string;
+  actorId: string;
 }

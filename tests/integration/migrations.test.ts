@@ -84,3 +84,58 @@ describe("migration 0004: per-year request days", { skip }, () => {
     }
   });
 });
+
+describe("migration 0007: audit rows name their person", { skip }, () => {
+  let t: TestDatabase;
+  let earlier: string;
+  before(async () => {
+    earlier = await migrationsBefore("0007_m5_admin_audit");
+    t = await createTestDatabase({ migrationsFolder: earlier });
+  });
+  after(async () => {
+    await t?.drop();
+    if (earlier) await rm(earlier, { recursive: true, force: true });
+  });
+
+  test("backfills subject_user_id from the leave request, allowance or feed each row audits", async () => {
+    // Raw SQL: the app's schema already has the column this migration adds.
+    const sql = t.client;
+    const [{ id: companyId }] = await sql`insert into companies (name) values ('Backfill Co') returning id`;
+    const ana = randomUUID();
+    const ben = randomUUID();
+    for (const id of [ana, ben]) {
+      await sql`insert into "user" (id, name, email, company_id) values (${id}, 'x', ${`${id}@example.com`}, ${companyId})`;
+    }
+    const [{ id: typeId }] = await sql`insert into leave_types (company_id, code, name) values (${companyId}, 'PTO', 'PTO') returning id`;
+    const [{ id: requestId }] = await sql`
+      insert into leave_requests (company_id, user_id, leave_type_id, start_date, end_date, days)
+      values (${companyId}, ${ana}, ${typeId}, '2026-11-02', '2026-11-02', 1) returning id`;
+    const [{ id: allowanceId }] = await sql`
+      insert into allowances (user_id, leave_type_id, year, days) values (${ben}, ${typeId}, 2026, 10) returning id`;
+    const [{ id: feedId }] = await sql`
+      insert into calendar_feed_tokens (company_id, user_id, kind, token_hash)
+      values (${companyId}, ${ben}, 'team', ${"a".repeat(64)}) returning id`;
+    const audit = async (entityType: string, entityId: string) => {
+      const [{ id }] = await sql`
+        insert into audit_log (company_id, actor_id, action, entity_type, entity_id)
+        values (${companyId}, ${ana}, 'x', ${entityType}, ${entityId}) returning id`;
+      return id as string;
+    };
+    const rows = {
+      request: await audit("leave_request", requestId),
+      allowance: await audit("allowance", allowanceId),
+      feed: await audit("calendar_feed", feedId),
+      gone: await audit("leave_request", randomUUID()),
+    };
+
+    await migrate(t.db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+    const subjects = new Map(
+      (await t.db.select({ id: schema.auditLog.id, subject: schema.auditLog.subjectUserId }).from(schema.auditLog)).map((r) => [r.id, r.subject]),
+    );
+    assert.equal(subjects.get(rows.request), ana);
+    assert.equal(subjects.get(rows.allowance), ben);
+    assert.equal(subjects.get(rows.feed), ben);
+    assert.equal(subjects.get(rows.gone), null, "an entity that no longer exists names nobody");
+  });
+});

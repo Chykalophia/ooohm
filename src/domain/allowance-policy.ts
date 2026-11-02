@@ -172,6 +172,9 @@ const POLICIES: ReadonlyMap<string, AllowancePolicy> = new Map(
   [new AnnualCalendarYearPolicy()].map((policy) => [policy.key, policy]),
 );
 
+/** Every registered policy key, for the company settings form and its validation. */
+export const ALLOWANCE_POLICY_KEYS: readonly string[] = [...POLICIES.keys()];
+
 /**
  * The policy a company is configured with.
  *

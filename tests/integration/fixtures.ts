@@ -79,6 +79,39 @@ export async function auditFor(db: Database, requestId: string) {
     .orderBy(asc(schema.auditLog.createdAt));
 }
 
+/** A company's audit rows, oldest first, optionally only those whose action starts with `prefix`. */
+export async function companyAudit(db: Database, companyId: string, prefix = "") {
+  const rows = await db
+    .select()
+    .from(schema.auditLog)
+    .where(eq(schema.auditLog.companyId, companyId))
+    .orderBy(asc(schema.auditLog.createdAt));
+  return rows.filter((r) => r.action.startsWith(prefix));
+}
+
+/** A company's outbox events, oldest first, optionally only those whose type starts with `prefix`. */
+export async function companyEvents(db: Database, companyId: string, prefix = "") {
+  const rows = await db
+    .select()
+    .from(schema.eventsOutbox)
+    .where(eq(schema.eventsOutbox.companyId, companyId))
+    .orderBy(asc(schema.eventsOutbox.createdAt));
+  return rows.filter((r) => r.type.startsWith(prefix));
+}
+
+/** Captures what `work` writes to stderr (the error log), restoring it afterwards. */
+export async function captureStderr(work: () => Promise<void>): Promise<string[]> {
+  const stderr = process.stderr.write.bind(process.stderr);
+  const logged: string[] = [];
+  process.stderr.write = ((chunk: string) => (logged.push(String(chunk)), true)) as typeof process.stderr.write;
+  try {
+    await work();
+  } finally {
+    process.stderr.write = stderr;
+  }
+  return logged;
+}
+
 /** Outbox events whose payload names this request, in insertion order. */
 export async function eventsFor(db: Database, companyId: string, requestId: string) {
   const rows = await db

@@ -1,3 +1,4 @@
+import { canAdminister } from "@/domain/admin-permissions";
 import type { Metadata } from "next";
 import { requireActor } from "@/lib/auth";
 import { formatInstantDate } from "@/lib/format";
@@ -25,7 +26,7 @@ export default async function SubscriptionsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-      <AppHeader userName={userName} approvals={approvals} current="calendar" />
+      <AppHeader userName={userName} approvals={approvals} current="calendar" admin={canAdminister(actor)} />
 
       <main className="space-y-6">
         <div className="space-y-2">

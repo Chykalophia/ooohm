@@ -1,3 +1,4 @@
+import { canAdminister } from "@/domain/admin-permissions";
 import type { Metadata } from "next";
 import { requireActor } from "@/lib/auth";
 import { formatDays, formatLeaveDates } from "@/lib/format";
@@ -20,7 +21,7 @@ export default async function ApprovalsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       {/* Keep the link visible while here, even when the last request was just decided. */}
-      <AppHeader userName={userName} approvals={{ visible: true, pending: total }} current="approvals" />
+      <AppHeader userName={userName} approvals={{ visible: true, pending: total }} current="approvals" admin={canAdminister(actor)} />
 
       <main className="space-y-6">
         <h1 className="text-2xl font-semibold tracking-tight">Approvals</h1>

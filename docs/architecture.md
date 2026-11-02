@@ -35,8 +35,9 @@ Rules of thumb:
 ### Composition root
 
 Services receive a `ServiceContext` (`src/server/context.ts`): the database handle, a mailer, a `defer`
-function, the app's base URL and a clock. The app builds the real one in `src/server/runtime.ts`
-(`db`, nodemailer, `after()` from `next/server`, `BETTER_AUTH_URL`). Tests build their own against a
+function, the app's base URL, a clock, and `issueSignInLink` (makes a one-time sign-in link without sending it,
+for invites). The app builds the real one in `src/server/runtime.ts` (`db`, nodemailer, `after()` from
+`next/server`, `BETTER_AUTH_URL`, Better Auth's magic-link endpoint). Tests build their own against a
 throwaway database. This keeps services free of Next.js and of the app's environment.
 
 ## Cross-cutting conventions
@@ -69,7 +70,10 @@ its codes and command but not the server's reply, which quotes the recipient's a
 ### Audit log and events outbox
 
 Every state change calls `recordChange(tx, { audit, event })` (`src/server/repositories/change-log.ts`) in
-the same transaction as the change. It takes a `Transaction`, not the pool, so it cannot be called outside
+the same transaction as the change. The audit row names the person the change is about in
+`subject_user_id` (a request's requester, an allowance's or feed's owner, a person an admin edited; `null` for
+company-wide things such as holidays), so the audit viewer can filter by person on one index. Migration `0007`
+backfilled it for rows written before M5. It takes a `Transaction`, not the pool, so it cannot be called outside
 one. `audit_log.created_at` and `events_outbox.created_at` default to `clock_timestamp()`, so rows written in
 one transaction (e.g. `leave.requested` then `leave.approved` for a self-approved request) keep their order.
 
@@ -91,6 +95,7 @@ Balance events (M3):
 | --- | --- | --- |
 | `balance.adjusted` | The year rollover sets a carried-over amount (`reason: "carryover"`) | `allowance.carried_over` |
 | `balance.adjusted` | The year rollover creates an allowance row from the leave type default, or copies it from the person's latest row for a type without a default (`reason: "allowance_created"`) | `allowance.created` |
+| `balance.adjusted` | An admin sets a person's allowance `days` or `adjustmentDays` for a year (`reason: "admin_edit"`, M5). The admin's typed reason is in the audit row's `after.reason` only, never the payload | `allowance.edited` |
 
 Payload (v1): `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId`,
 the row after the change. A system job has no actor: `actorId` is `null` in both the payload and
@@ -101,10 +106,35 @@ Calendar feed events (M4):
 | Event | When | Audit `action` |
 | --- | --- | --- |
 | `calendar_feed.issued` | A person creates a feed link, or gets a new one | `calendar_feed.issued` |
-| `calendar_feed.revoked` | A person gets a new link (`reason: "regenerated"`, written before the `issued` for the new one) or turns the feed off (`reason: "turned_off"`) | `calendar_feed.revoked` |
+| `calendar_feed.revoked` | A person gets a new link (`reason: "regenerated"`, written before the `issued` for the new one) or turns the feed off (`reason: "turned_off"`), or an admin deactivates the person (`reason: "deactivated"`, actor = the admin, M5) | `calendar_feed.revoked` |
 
 Payload (v1): `feedId, userId, kind, reason, actorId` (`reason` is `null` on `issued`). Neither the payload nor
 the audit row (`kind, createdAt, revokedAt`) ever holds the token or its hash.
+
+Admin events (M5), registered in `ADMIN_EVENT_TYPES` (`src/domain/events.ts`). For each, the audit `action` is
+the event type, and `actorId` is the admin.
+
+| Event | When | Payload (v1) |
+| --- | --- | --- |
+| `user.created` | An admin invites someone | `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId`: the person after the change |
+| `user.updated` | An admin changes name, department, manager, role or self-approval | same |
+| `user.deactivated` | An admin deactivates someone | same |
+| `user.reactivated` | An admin reactivates someone | same |
+| `user.invite_resent` | An admin sends someone a new sign-in link | same |
+| `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
+| `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
+| `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
+| `company.updated` | | `companyId, name, timezone, workingDays, allowancePolicy, actorId` |
+
+One more event comes with M5 but is not an admin event: it is `LEAVE_REASSIGNED_EVENT_TYPE`, outside
+`ADMIN_EVENT_TYPES`, and its audit `action` follows the leave request actions instead of the event type.
+
+| Event | When | Audit `action` | Payload (v1) |
+| --- | --- | --- | --- |
+| `leave.reassigned` | A pending request moves to another approver: its approver was deactivated or demoted from admin, the requester's manager changed, or someone was invited as admin, promoted to admin or reactivated who can now take a request an admin had routed to themself (actor = the admin) | `leave_request.reassigned` | the `leave.*` payload plus `previousApproverId, approverId` (either may be `null`) |
+
+No payload ever holds a session, token, sign-in link or the admin's free-text reason. Emails are in `user.*`
+payloads because integrations sync people by address.
 
 ### Dates
 
@@ -172,10 +202,23 @@ pending ──► approved ──► cancelled
 ```
 
 Nothing else is legal (`src/domain/request-status.ts`). The requester may cancel a pending or approved
-request. The assigned approver or any admin of the company may approve or reject a pending request, with an
+request. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
 optional reason (max 500 characters) stored in `decision_note`. Every status change is a compare-and-set
 (`UPDATE ... WHERE status = <expected>`), so of two concurrent decisions exactly one wins and the other gets
 `conflict`.
+
+**A stored assignment grants the right to decide only while it still matches the approval rule** (`canDecide`,
+`src/domain/leave-permissions.ts`). When the right rests on the assignment (a non-admin approver, or an admin
+deciding their own request routed to themself), `decideLeaveRequest` reads the requester, their manager and the
+active admins in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
+`forbidden` and the request is left to the admins, who see every pending request. Its compare-and-set then also
+requires `approver_id` to still be the actor, so it loses (`conflict`) to a concurrent re-route. This closes the
+window a submit leaves open: submit reads the manager and the admins without locking them (a shared lock on the
+approver would bring back the deadlock between two people who approve each other, see step 2 of
+[Submitting](#submitting)), so a submit racing a deactivation or demotion can still store an approver that the
+admin change meant to remove. Nothing re-routes that request, and its review email may have gone to the
+person just removed; but they cannot decide it, and every admin sees it in their inbox. Admins deciding someone
+else's request skip the check (no extra reads).
 
 ### Emails
 
@@ -256,7 +299,7 @@ carried into the next year, so carryover cannot be spent twice. The check runs i
 the submit transaction under the requester's member lock (`lockMember`, `FOR NO KEY UPDATE`), so concurrent
 submits by one person run one after another and each sees the days the previous one booked. **Every writer of
 a person's balance inputs takes that lock first**: submit and the year rollover do; admin allowance edits (M5)
-must too. Approving never changes remaining (pending and approved both count), and rejecting or cancelling only
+do too. Approving never changes remaining (pending and approved both count), and rejecting or cancelling only
 frees days, so neither needs it.
 
 ### Live preview
@@ -310,8 +353,8 @@ a year that has not ended in a company's time zone, and resolves every company's
 anything.
 
 **The rollover owns `carried_over_days`.** Every run recomputes it from the closing year, so a hand edit there
-is overwritten (and audited with actor `null`) by the next run or restart. Balance corrections, including the
-M5 allowance editor, go in `adjustment_days`, which the rollover never touches.
+is overwritten (and audited with actor `null`) by the next run or restart. Admin overrides (M5) write `days` and
+`adjustment_days`, which the rollover never touches, and never `carried_over_days`.
 
 Run it with `pnpm job:rollover [year]` (default: the previous year in each company's time zone; needs only
 `DATABASE_URL`). The compose `migrate` service runs it after the seed on every start; a failure there is
@@ -400,12 +443,12 @@ revoked_at)`, migration `0005`.
 - Listing, regenerating and turning off match the person and kind, not the person's current company, like the
   unique index. A link issued before a company move is listed, revoked by "Get a new link" or "Turn off", and its
   revoke is recorded under the company it was issued in. Otherwise it would block a new link (unique index) and
-  come back to life if the person moved back. When M5 adds moving people between companies, it should revoke
-  their live feeds in the same transaction.
+  come back to life if the person moved back. v1 has no way to move people between companies (one
+  company per deployment); if one is added, it should revoke their live feeds in the same transaction.
 - `GET /api/ics/<token>.ics` needs no session (calendar apps cannot sign in). It answers a bare 404 for a
   malformed token (before any query), an unknown or revoked one, and one whose owner is inactive or no longer in
-  the feed's company, so deactivating someone stops their feeds at once. Reactivating them revives links they
-  never revoked.
+  the feed's company, so deactivating someone stops their feeds at once. Deactivation (M5) also revokes every live
+  link (audited, reason `deactivated`), so reactivating someone revives none: they create new ones.
 - Two in-memory limits, both 429 with `Retry-After: 60`. **Fetches per link:** 30 a minute, keyed by the feed's
   id after the lookup (the service's `admit` hook), so only live links occupy that limiter. **Misses per
   client:** 60 fetches a minute that find no live link, per client key. The token is looked up first (one probe
@@ -457,12 +500,183 @@ revoked_at)`, migration `0005`.
 Google Calendar only subscribes to a publicly reachable `https` URL and refreshes on its own schedule (often
 several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
 
+## Admin (M5)
+
+v1 runs one company per deployment. Every admin use case lives in `src/server/services/admin-*.ts` (people,
+departments, leave types, allowances, holidays, company) and `audit-log.ts`, and every one of them:
+
+- starts with `assertCanAdminister(actor)` (`src/domain/admin-permissions.ts`): admins only, refused with
+  `forbidden` whatever the page did;
+- for writes, re-reads the actor inside the transaction (`assertActiveAdmin`, `src/server/services/admin-access.ts`),
+  so an admin demoted or deactivated a moment ago is already refused;
+- scopes every query by `actor.companyId`; an id from another company reads as `not_found`;
+- writes `audit_log` and an `events_outbox` row in the same transaction (`recordAdminChange`), and records
+  nothing when a save changes nothing.
+
+Pages under `/admin/**` call `requireAdminPage()` (`src/app/admin/admin-shell.tsx`), which answers 404 to
+non-admins. Server actions go through `adminAction()` (`src/app/admin/admin-action.ts`): session, admin check,
+zod parse of the form, one service call through `runAction`, then `refresh()`. Next.js server actions only run
+for `POST`s whose `Origin` matches the host (see `node_modules/next/dist/docs/01-app/02-guides/data-security.md`,
+"Allowed origins"), and Better Auth's session cookie is `SameSite=Lax`, which covers CSRF; no extra token is
+needed. Behind a proxy that rewrites `Host`, set `serverActions.allowedOrigins` in `next.config.ts`.
+
+### Locks
+
+Rules that span several people take the **company lock** (`lockCompany`, `FOR NO KEY UPDATE` on the
+`companies` row) first: role and active changes (so two admins cannot demote each other past the last-admin
+guard), manager changes (so two edits cannot close a reporting loop between them), invites (so the invite limit
+counts exactly), leave type creation, archiving and reordering (sort order), and company settings. It is always
+the first lock taken, so it cannot deadlock with the member locks taken after it. Allowance overrides take the
+person's **member lock** (`lockMember`), as the M3 rule requires of every writer of balance inputs.
+
+### People
+
+- **Invite** (`invitePerson`): creates the `user` row directly (email trimmed, lowercased and checked; name one
+  line, 1 to 100 characters; role; department and manager of the same company; self-approval), then, after
+  commit, emails a sign-in link. People are never created through Better Auth, whose sign-up stays disabled, so
+  access stays invite-only. An email that already has an account, in this company or another, gets one answer
+  ("can't be invited"), which says no more about other companies than an admin needs.
+- **The sign-in link** comes from Better Auth's own magic-link endpoint, called server-side by
+  `issueSignInLink` (`src/lib/auth.ts`): same token table, 15-minute expiry, single use. `sendMagicLink` hands
+  the URL back instead of mailing it when the call's `metadata` carries a key that `issueSignInLink` registered
+  in process memory (256 random bits, removed straight after; `createLinkCapture` in `src/lib/link-capture.ts`,
+  unit-tested against Better Auth's real endpoint). A failed invite link (expired, used) lands on `/sign-in`
+  (`errorCallbackURL`), which says so, like the sign-in page's own links. Emails must pass the same rule Better
+  Auth's endpoint applies (zod's `z.email()`, copied into `normalizeEmail`), or the invite would create an
+  account that can never get a link; the public endpoint's callers control `metadata`
+  but cannot guess a live key, so their requests keep the anti-enumeration path (always 200, mail only to active
+  people, after the response). The link is issued in the deferred send, after commit, since its account must
+  exist first; a failure is logged as `invite_email_failed` with the person's id and never fails the invite. The
+  first sign-in marks the email verified. After 15 minutes the invitee asks for a link on the sign-in page, or an
+  admin sends one from their page (**Send a new sign-in link**, audited as `user.invite_resent`).
+- **Invite limit**: 30 invites and resends per admin per hour, counted from the audit log under the company
+  lock (`rate_limited` beyond that), so it holds across restarts.
+- **Edit** (`updatePerson`): name, department, manager, role, self-approval. The email is the sign-in identity
+  and is not editable. Manager rules (`assertValidManager`, `src/domain/people.ts`): none is fine (an admin
+  approves); otherwise an active member of the company, not the person, and not someone who reports to them,
+  directly or through others (the walk follows inactive people too, since reactivating one would close the
+  loop). A current manager who has since been deactivated stays pickable and is kept when the form is saved
+  unchanged; choosing them anew is refused. Approval rights follow the edit at once, in the same transaction
+  (`rerouteApprovals`, the same re-routing deactivation uses, below): demoting an admin re-routes the pending
+  requests assigned to them (those whose requester they still manage stay with them) and their own pending
+  requests; changing someone's manager re-routes that person's own pending requests, so the old manager can no
+  longer decide them and the new one sees them; promoting someone to admin re-routes every request an admin had
+  routed to themself (below). Each moved request writes `leave_request.reassigned` / `leave.reassigned` and
+  emails its new approver after commit; the save message says how many moved.
+- **Requests an admin routed to themself.** The approval rule routes an admin's request to themself only while
+  they have no active manager and no other active admin exists. Whatever ends that re-routes the request in the
+  same transaction: giving them a manager, demoting them, inviting or promoting another admin, or reactivating
+  someone (their manager, or an admin). The rule decides where it goes; when it still picks the requester (say,
+  their manager is cleared and they are still the only admin) it stays. Decision time checks the same thing, so a
+  stale self-assignment never lets an admin approve their own leave (see [Status machine](#status-machine)).
+- **Last admin** (`assertKeepsAnActiveAdmin`): no change may leave the company without an active admin
+  (`last_admin`). Admins cannot deactivate themselves (`self_change_not_allowed`).
+- **Deactivate** (`deactivatePerson`), in one transaction: `is_active = false`; every session deleted (and the
+  session hook already refuses new ones); every live calendar link revoked (`calendar_feed.revoked`, reason
+  `deactivated`); their own requests untouched. **Pending requests they were assigned to approve are
+  reassigned** (`reassignApprover`, `src/domain/approval-rule.ts`): the same rule as at submit minus
+  self-approval, so the requester's active manager, else the longest-standing other active admin, else the
+  requester if they are an admin, else nobody (`approver_id` null; admins see every pending request anyway).
+  Each move is a compare-and-set on `pending` and the old approver, writes `leave.reassigned`, and emails the
+  new approver after commit. The reads behind it (requesters, their managers, admins, contacts, leave types) are
+  batched, so the company lock is held for a fixed number of reads plus three statements per moved request. Then `user.deactivated`, whose audit `after` counts sessions, links and requests.
+  Known gap: a request submitted in the same instant can still be routed to the person being deactivated or
+  demoted (submit reads the manager and admins without a lock, by design, to avoid deadlocks), and its review
+  email may go to them. They cannot decide it (a stored assignment counts only while the approval rule still
+  picks its holder, checked at decision time), and it shows in every admin's inbox.
+- **Reactivate**: `is_active = true`. Sessions and calendar links do not come back. Requests that moved off them
+  while they were away stay where they are, except requests an admin had routed to themself, which are
+  re-routed (a returning manager or admin takes them back).
+- **Self-approval is per person, not per role.** The handover allowed either. With small teams a per-person
+  toggle is a few clicks, and a role-wide setting would be a second source of truth the approval rule would have
+  to reconcile with the person's flag (which wins when they disagree?), while a one-off "apply to all managers"
+  action would silently change many people at once. The invite form sets it for each new person.
+
+### Departments
+
+Create, rename (unique per company, ignoring case: the service checks first for a calm message, and the unique
+index `departments_company_lower_name_uq` on `(company_id, lower(name))`, migration 0008, settles a race) and delete. **A department with anyone in it, active or
+not, cannot be deleted** (`department_not_empty`): emptying it would change each of those people with no audit
+row of their own. The department row is locked (`FOR UPDATE`) during the delete, so nobody can be moved into it
+in between. Departments have no manager: approvals follow each person's manager.
+
+### Leave types
+
+Create (code: uppercase letters, digits, `-` or `_`, at most 12, unique per company; colour `#rrggbb`, `#rgb`
+expanded; calendars pick black or white text by contrast, so any colour stays legible), edit, archive, restore
+and reorder. Types are never deleted. Archived types leave the request form (`leave_type_unavailable` on submit)
+but history and calendars keep them, and so do balances: an archived type shows (marked "archived") on the
+dashboard, the admin person page and the allowance editor for any year the person has an allowance row or
+approved or pending days of it, so its allowance can still be corrected. The year rollover skips archived types
+(no new-year rows, no carryover into a type nobody can book). A restored type goes last. Reorder moves one place up or down,
+then renumbers the active types 0, 1, 2…; each type that moved writes `leave_type.reordered`. Balance settings
+(counting against allowance, the default, carryover) take effect for every balance computed from then on: balances
+are computed, not stored. Changing them does not take everyone's member lock: lowering a default can only make a
+remaining go negative, which the M3 rules already allow for a lowered allowance.
+
+### Allowance overrides
+
+`setAllowanceOverride` sets one person's `days` (0 to 366, tenths) and `adjustment_days` (-366 to 366) for one
+leave type and year, with a required reason (up to 500 characters). It takes the member lock, upserts the row
+(a new one starts with nothing carried), never writes `carried_over_days` itself, and records `allowance.edited`
+(the reason in the audit `after`) plus `balance.adjusted` (`reason: "admin_edit"`). Amounts that already match
+change and record nothing, and the admin is told so rather than shown "Saved."
+
+Only **last year, this year and later years** can be edited (`firstEditableAllowanceYear`); the page still shows
+older years, read-only. The carry out of a year lives in the next year's `carried_over_days`, which only the
+rollover computes, and the nightly run closes only last year, so an edit further back would leave every later
+carry stale for good. An edit to last year re-runs the rollover's step for that person and type in the same
+transaction (`recarryMemberLeaveType`), so this year's carry follows at once (`allowance.carried_over`, actor
+`null`). Lowering
+below what is booked is allowed; the balance shows "N days over". The person's admin page shows their balances
+with the same `summarizeBalances` the dashboard uses.
+
+### Holidays
+
+List by year (2000 to 2100), add (one per date), rename, delete, and add the eleven US federal holidays for a
+year on their observed dates (`usFederalHolidays`, `src/domain/holidays.ts`: Saturday → Friday, Sunday → Monday,
+so a Saturday New Year's Day belongs to Dec 31 of the year before), skipping dates that already have one. As M3
+fixed, a submitted request keeps its stored day split, so holiday changes never move a past balance; the page says
+so.
+
+### Company
+
+Name, time zone, working days and allowance policy. Time zones are those in `Intl.supportedValuesOf("timeZone")`
+plus `UTC` (which that list omits); a stored zone outside the list (an alias saved before this check) is kept
+when unchanged but cannot be chosen anew. Working days: at least one ISO weekday. The policy must be registered
+(`ALLOWANCE_POLICY_KEYS`; only `annual_calendar_year` today). Changes affect future counting only.
+
+### Audit log viewer
+
+`/admin/audit` (`getAuditLog`): newest first, 50 a page, read-only. Filters: action (from the known list),
+who did it, who it is about (`subject_user_id`), and a date range in the company's time zone (converted in SQL
+with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malformed filters are ignored.
+
+- **Keyset pagination** on `(created_at, id)`: the cursor carries `created_at` printed in UTC to the
+  microsecond, because a JS `Date` keeps only milliseconds and would skip or repeat rows written in the same one.
+- **Indexes** (migration `0007`): `audit_log_company_created_idx (company_id, created_at, id)` and one per
+  filter, `(company_id, action | actor_id | subject_user_id, created_at, id)`, so a page reads about 50 index
+  entries in order instead of sorting the company's log. `audit-log.test.ts` checks the plan.
+- **Five queries a page**, whatever it holds: company (time zone), people, departments and leave types in
+  parallel (for the pickers and for naming ids inside before/after snapshots), then the page, whose actor and
+  subject names come from joins.
+- Summaries are pure (`describeAuditChange`, `src/domain/audit.ts`): changed fields only, ids named ("Manager:
+  Ana → Ben"), an unknown id described rather than shown.
+
+### Screens
+
+`/admin` opens People. A sub-nav (People, Departments, Leave types, Holidays, Company, Audit log) sits under
+the header, which shows **Admin** to admins only. One main action per screen (Invite someone, Save changes, Add
+…); secondary actions are quiet text buttons, and destructive ones (deactivate, delete, archive) ask first.
+Per-row edits (rename, change an allowance) open in place. Refused saves keep what was typed (forms submit
+without React's automatic reset) and show the reason with `role="alert"` in `text-red-700 dark:text-red-400`.
+
 ## Testing
 
 | Command | What | Needs |
 | --- | --- | --- |
-| `pnpm test` | Unit tests in `tests/unit/` (domain rules, allowance policy, year split, calendar grid, ICS writer, email templates, formatting) | nothing |
-| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres | `TEST_DATABASE_URL` |
+| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, email templates, formatting) | nothing |
+| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan | `TEST_DATABASE_URL` |
 
 Both run with Node's test runner through `tsx --conditions=react-server`. The `react-server` condition makes
 `import "server-only"` resolve to its empty module, the same way Next.js resolves it on the server, so tests

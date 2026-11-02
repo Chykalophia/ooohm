@@ -22,6 +22,12 @@ const MESSAGES: Record<DomainErrorCode, string> = {
   rate_limited: "That's a lot of requests in a few minutes. Wait a little, then try again.",
   insufficient_balance: "There aren't enough days left for that.",
   policy_unavailable: "Balances aren't set up correctly yet. Ask an admin to check the company's allowance policy.",
+  last_admin: "There has to be at least one active admin. Make someone else an admin first.",
+  already_exists: "That already exists.",
+  invalid_manager: "Pick a manager who is an active member of the company, other than this person.",
+  manager_cycle: "That manager reports to this person, directly or through others. Pick someone else.",
+  department_not_empty: "That department still has people in it. Move them to another department first.",
+  self_change_not_allowed: "You can't deactivate your own account. Ask another admin.",
 };
 
 /**
@@ -74,9 +80,17 @@ export async function runActionWith<S>(
 }
 
 /** {@link runActionWith} for forms whose success is a message and a fresh form key. */
-export async function runAction(event: string, work: () => Promise<{ message: string; id: string }>): Promise<FormState> {
-  return runActionWith(event, async () => {
-    const { message, id } = await work();
-    return { status: "success", message, id } as const;
-  });
+export async function runAction(
+  event: string,
+  work: () => Promise<{ message: string; id: string }>,
+  messages: Partial<Record<DomainErrorCode, string>> = {},
+): Promise<FormState> {
+  return runActionWith(
+    event,
+    async () => {
+      const { message, id } = await work();
+      return { status: "success", message, id } as const;
+    },
+    messages,
+  );
 }

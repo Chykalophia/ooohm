@@ -18,6 +18,7 @@ import {
   findLiveFeedByHash,
   insertFeed,
   listLiveFeeds,
+  revokeAllLiveFeeds,
   revokeLiveFeed,
   touchFeed,
 } from "@/server/repositories/calendar-feeds";
@@ -49,6 +50,7 @@ async function recordFeedChange(
       action: calendarFeedAuditAction(change.event),
       entityType: "calendar_feed",
       entityId: after.id,
+      subjectUserId: after.userId,
       before: change.before ? snapshot(change.before) : null,
       after: snapshot(after),
     },
@@ -133,6 +135,21 @@ export async function revokeCalendarFeed(ctx: ServiceContext, actor: Actor, kind
     await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, actorId: actor.id, reason: "turned_off" });
     return true;
   });
+}
+
+/**
+ * Turns off every live feed link of a person being deactivated, inside the caller's
+ * transaction (which holds their member lock). Each revoke writes `audit_log` and a
+ * `calendar_feed.revoked` event with reason `deactivated` and the admin as actor.
+ *
+ * @returns How many links were turned off.
+ */
+export async function revokeFeedsOnDeactivation(tx: Transaction, userId: string, adminId: string, at: Date): Promise<number> {
+  const revoked = await revokeAllLiveFeeds(tx, userId, at);
+  for (const row of revoked) {
+    await recordFeedChange(tx, { event: "revoked", before: { ...row, revokedAt: null }, after: row, actorId: adminId, reason: "deactivated" });
+  }
+  return revoked.length;
 }
 
 /** How often a feed's `last_used_at` is rewritten at most. */

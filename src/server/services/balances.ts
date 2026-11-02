@@ -20,7 +20,7 @@ import type { ServiceContext } from "@/server/context";
 import { type AllowanceRow, listAllowances, sumBookedDays } from "@/server/repositories/balances";
 import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
 import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
-import { findActiveLeaveType, listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { findActiveLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 
 /** The date and type part of a leave request, before it is stored. */
 export interface LeaveDraft {
@@ -68,6 +68,8 @@ export function balanceInputs(
     history.get(`${userId}|${leaveTypeId}`)?.find((r) => r.year <= year);
   return {
     allowanceRow: (userId: string, leaveTypeId: string, year: number) => allowance.get(key(userId, leaveTypeId, year)),
+    /** Whether the person has approved or pending days of the type in `year`. */
+    hasBooked: (userId: string, leaveTypeId: string, year: number) => booked.has(key(userId, leaveTypeId, year)),
     latestRow,
     balance(policy: AllowancePolicy, leaveType: LeaveTypeAllowanceSettings & { id: string }, userId: string, year: number): Balance {
       const row = allowance.get(key(userId, leaveType.id, year));
@@ -173,6 +175,10 @@ export interface BalanceSummaryItem {
   name: string;
   color: string;
   balance: Balance;
+  /** The type is archived: no new requests, but its balance still shows where it has history. */
+  archived: boolean;
+  /** The person's own allowance row for the year, if they have one (admins edit it). */
+  row: { days: number; carriedOverDays: number; adjustmentDays: number } | null;
 }
 
 export interface BalanceSummary {
@@ -180,42 +186,54 @@ export interface BalanceSummary {
   items: BalanceSummaryItem[];
 }
 
-/** Active leave types with their allowance settings, as {@link summarizeBalances} takes them. */
-export type LeaveTypeWithAllowance = Awaited<ReturnType<typeof listActiveLeaveTypesWithAllowance>>[number];
+/** Leave types (archived ones flagged) with their allowance settings, as {@link summarizeBalances} takes them. */
+export type LeaveTypeWithAllowance = Awaited<ReturnType<typeof listLeaveTypesWithAllowance>>[number];
 
 /**
  * {@link getBalanceSummary} for a caller that already loaded the company's settings
- * and active leave types (the dashboard): two queries, allowance rows and booked-day
- * sums (aggregated in SQL), in parallel, whatever the number of types or requests.
+ * and leave types (the dashboard, an admin's view of a person): two queries, allowance
+ * rows and booked-day sums (aggregated in SQL), in parallel, whatever the number of
+ * types or requests.
+ *
+ * Every active type gets an item. An archived type gets one only when the person has
+ * an allowance row or approved or pending days of it in the year, so retiring a type
+ * never hides days already granted or used, and quietly drops it everywhere else.
  *
  * @throws DomainError `policy_unavailable`, before any query, when the policy is unknown.
  */
 export async function summarizeBalances(
   ex: Executor,
-  actor: Actor,
+  person: { id: string },
   loaded: { allowancePolicy: string; types: readonly LeaveTypeWithAllowance[]; year: number },
 ): Promise<BalanceSummary> {
   const policy = resolveAllowancePolicy(loaded.allowancePolicy);
   const { year } = loaded;
   const [allowanceRows, bookedRows] = await Promise.all([
-    listAllowances(ex, { userIds: [actor.id], years: allowanceYearsFor([year]) }),
-    sumBookedDays(ex, { userIds: [actor.id], years: [year] }),
+    listAllowances(ex, { userIds: [person.id], years: allowanceYearsFor([year]) }),
+    sumBookedDays(ex, { userIds: [person.id], years: [year] }),
   ]);
   const inputs = balanceInputs(allowanceRows, bookedRows);
   return {
     year,
-    items: loaded.types.map((t) => ({
-      leaveTypeId: t.id,
-      name: t.name,
-      color: t.color,
-      balance: inputs.balance(policy, t, actor.id, year),
-    })),
+    items: loaded.types.flatMap((t) => {
+      const row = inputs.allowanceRow(person.id, t.id, year);
+      if (t.archived && !row && !inputs.hasBooked(person.id, t.id, year)) return [];
+      return {
+        leaveTypeId: t.id,
+        name: t.name,
+        color: t.color,
+        archived: t.archived,
+        balance: inputs.balance(policy, t, person.id, year),
+        row: row ? { days: row.days, carriedOverDays: row.carriedOverDays, adjustmentDays: row.adjustmentDays } : null,
+      };
+    }),
   };
 }
 
 /**
- * The actor's balance for every active leave type in one year: by default the
- * current year in the company's time zone.
+ * The actor's balance for every active leave type in one year (plus archived types
+ * they have history with, see {@link summarizeBalances}): by default the current year
+ * in the company's time zone.
  *
  * Four queries whatever the number of types or requests: company settings and leave
  * types, then allowance rows and booked-day sums, each pair in parallel.
@@ -226,7 +244,7 @@ export async function summarizeBalances(
 export async function getBalanceSummary(ctx: ServiceContext, actor: Actor, year?: number): Promise<BalanceSummary> {
   const [settings, types] = await Promise.all([
     findCompanySettings(ctx.db, actor.companyId),
-    listActiveLeaveTypesWithAllowance(ctx.db, actor.companyId),
+    listLeaveTypesWithAllowance(ctx.db, actor.companyId),
   ]);
   if (!settings) throw new DomainError("no_company");
   return summarizeBalances(ctx.db, actor, {

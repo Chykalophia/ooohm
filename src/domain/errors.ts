@@ -42,7 +42,22 @@ export type DomainErrorCode =
    * The company's `allowance_policy` names no known policy. A configuration fault, not
    * a user mistake: the presentation layer logs it as well as showing a message.
    */
-  | "policy_unavailable";
+  | "policy_unavailable"
+  /** The change would leave the company without an active admin. */
+  | "last_admin"
+  /**
+   * Something with the same unique key already exists (an email, a department name, a
+   * leave type code, a holiday date). Each action words it for what it creates.
+   */
+  | "already_exists"
+  /** The chosen manager is not an active member of the company, or is the person themself. */
+  | "invalid_manager"
+  /** The chosen manager reports, directly or not, to the person: a reporting loop. */
+  | "manager_cycle"
+  /** A department still has people in it, so deleting it would silently move them. */
+  | "department_not_empty"
+  /** Admins cannot deactivate their own account; another admin has to. */
+  | "self_change_not_allowed";
 
 /**
  * Facts behind an `insufficient_balance` error, so the presentation layer can say

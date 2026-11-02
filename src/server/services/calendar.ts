@@ -17,13 +17,8 @@ import { DomainError } from "@/domain/errors";
 import { teamLabel } from "@/domain/person";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import {
-  findCompanySettings,
-  listDepartments,
-  listHolidays,
-  listPersonalEntries,
-  listTeamEntries,
-} from "@/server/repositories/calendar";
+import { findCompanySettings, listHolidays, listPersonalEntries, listTeamEntries } from "@/server/repositories/calendar";
+import { listDepartments } from "@/server/repositories/departments";
 
 /** Where a month view sits and where its links go. */
 export interface MonthNav {

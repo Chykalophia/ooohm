@@ -1,5 +1,11 @@
 import type { Transaction } from "@/db/types";
-import { LEAVE_EVENT_TYPES, leaveAuditAction, leaveEventPayload } from "@/domain/events";
+import {
+  LEAVE_EVENT_TYPES,
+  LEAVE_REASSIGNED_EVENT_TYPE,
+  type LeaveReassignedPayload,
+  leaveAuditAction,
+  leaveEventPayload,
+} from "@/domain/events";
 import { personLabel } from "@/domain/person";
 import type { LeaveSummary } from "@/server/email/leave-emails";
 import { recordChange } from "@/server/repositories/change-log";
@@ -44,6 +50,7 @@ export async function recordLeaveChange(
       action: leaveAuditAction(change.event),
       entityType: "leave_request",
       entityId: after.id,
+      subjectUserId: after.userId,
       before: change.before ? snapshot(change.before) : null,
       after: snapshot(after),
     },
@@ -52,6 +59,35 @@ export async function recordLeaveChange(
       type: LEAVE_EVENT_TYPES[change.event],
       payload: leaveEventPayload(after, actorId),
     },
+  });
+}
+
+/**
+ * Writes the audit row (`leave_request.reassigned`) and the `leave.reassigned` event
+ * for a pending request moved to another approver, inside `tx`.
+ */
+export async function recordReassignment(
+  tx: Transaction,
+  change: { before: LeaveRequestRow; after: LeaveRequestRow; actorId: string },
+): Promise<void> {
+  const { before, after, actorId } = change;
+  const payload: LeaveReassignedPayload = {
+    ...leaveEventPayload(after, actorId),
+    previousApproverId: before.approverId,
+    approverId: after.approverId,
+  };
+  await recordChange(tx, {
+    audit: {
+      companyId: after.companyId,
+      actorId,
+      action: leaveAuditAction("reassigned"),
+      entityType: "leave_request",
+      entityId: after.id,
+      subjectUserId: after.userId,
+      before: snapshot(before),
+      after: snapshot(after),
+    },
+    event: { companyId: after.companyId, type: LEAVE_REASSIGNED_EVENT_TYPE, payload },
   });
 }
 

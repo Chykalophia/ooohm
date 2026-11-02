@@ -1,3 +1,4 @@
+import { canAdminister } from "@/domain/admin-permissions";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireActor } from "@/lib/auth";
@@ -42,7 +43,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-      <AppHeader userName={userName} approvals={approvals} current="team" />
+      <AppHeader userName={userName} approvals={approvals} current="team" admin={canAdminister(actor)} />
 
       <main className="space-y-6">
         <h1 className="text-2xl font-semibold tracking-tight">Who&apos;s out</h1>

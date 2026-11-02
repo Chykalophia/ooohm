@@ -32,6 +32,9 @@ const ctx: ServiceContext = {
   defer: (task) => void task(),
   appUrl: "",
   now: () => new Date(),
+  issueSignInLink: async () => {
+    throw new Error("The rollover job does not sign anyone in.");
+  },
 };
 
 try {

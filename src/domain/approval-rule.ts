@@ -73,3 +73,29 @@ export class ManagerApprovalRule implements ApprovalRule {
     throw new DomainError("no_approver", "Nobody can approve this request. Ask an admin to set your manager.");
   }
 }
+
+/**
+ * Who should decide an already-submitted pending request now, by the same rule that
+ * routed it, minus self-approval: the request was submitted as someone else's
+ * decision, so it is never approved by this. In order: the requester's active
+ * manager, the longest-standing other active admin, the requester themself when they
+ * are an admin, else `null`, which leaves the request with no assigned approver
+ * (every admin still sees it in their inbox).
+ *
+ * Used to re-route pending requests when an admin change moves the right to decide
+ * them (the approver is deactivated or demoted from admin, the requester's manager
+ * changes, or someone who can take an admin's self-routed request is invited as admin,
+ * promoted to admin or reactivated), and at
+ * decision time to check that a stored assignment still holds (`canDecide`).
+ *
+ * @param context Read after the change that prompted it (inside its transaction), so
+ *   it reflects who is active, who is an admin and who manages the requester now.
+ */
+export function reassignApprover(rule: ApprovalRule, context: ApprovalContext): string | null {
+  try {
+    return rule.resolve({ ...context, requester: { ...context.requester, canSelfApprove: false } }).approverId;
+  } catch (err) {
+    if (err instanceof DomainError && err.code === "no_approver") return null;
+    throw err;
+  }
+}

@@ -100,3 +100,35 @@ export async function setCarriedOverDays(tx: Transaction, id: string, carriedOve
   const [row] = await tx.update(allowances).set({ carriedOverDays }).where(eq(allowances.id, id)).returning();
   return row;
 }
+
+/** A person's allowance row for one leave type and year, if any. */
+export async function findAllowance(
+  ex: Executor,
+  where: { userId: string; leaveTypeId: string; year: number },
+): Promise<AllowanceRow | undefined> {
+  const [row] = await ex
+    .select()
+    .from(allowances)
+    .where(and(eq(allowances.userId, where.userId), eq(allowances.leaveTypeId, where.leaveTypeId), eq(allowances.year, where.year)));
+  return row;
+}
+
+/**
+ * Writes an admin's override: `days` and `adjustmentDays` only. A new row starts with
+ * nothing carried over; an existing row keeps its `carried_over_days`, which belongs
+ * to the year rollover.
+ */
+export async function writeAllowanceOverride(
+  tx: Transaction,
+  values: { userId: string; leaveTypeId: string; year: number; days: number; adjustmentDays: number },
+): Promise<AllowanceRow> {
+  const [row] = await tx
+    .insert(allowances)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [allowances.userId, allowances.leaveTypeId, allowances.year],
+      set: { days: values.days, adjustmentDays: values.adjustmentDays },
+    })
+    .returning();
+  return row;
+}

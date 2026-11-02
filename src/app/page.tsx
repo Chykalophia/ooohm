@@ -1,3 +1,4 @@
+import { canAdminister } from "@/domain/admin-permissions";
 import { isCancellable } from "@/domain/request-status";
 import { requireActor } from "@/lib/auth";
 import { formatDays, formatLeaveDates } from "@/lib/format";
@@ -24,7 +25,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-      <AppHeader userName={userName} approvals={approvals} current="home" />
+      <AppHeader userName={userName} approvals={approvals} current="home" admin={canAdminister(actor)} />
 
       <main className="space-y-10">
         <h1 className="sr-only">Your time off</h1>

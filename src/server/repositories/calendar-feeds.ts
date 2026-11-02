@@ -93,6 +93,15 @@ export async function revokeLiveFeed(
   return row;
 }
 
+/** Revokes every live feed of the person, of any kind, and returns them after the change. */
+export async function revokeAllLiveFeeds(tx: Transaction, userId: string, at: Date): Promise<CalendarFeedRow[]> {
+  return tx
+    .update(calendarFeedTokens)
+    .set({ revokedAt: at })
+    .where(and(eq(calendarFeedTokens.userId, userId), isNull(calendarFeedTokens.revokedAt)))
+    .returning();
+}
+
 export async function insertFeed(
   tx: Transaction,
   values: { companyId: string; userId: string; kind: FeedKind; tokenHash: string; createdAt: Date },

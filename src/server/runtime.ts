@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { db } from "@/db";
+import { issueSignInLink } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { sendMail } from "@/lib/mail";
 import type { ServiceContext } from "./context";
@@ -16,5 +17,6 @@ export function serviceContext(): ServiceContext {
     defer: (task) => after(task),
     appUrl: env.BETTER_AUTH_URL.replace(/\/+$/, ""),
     now: () => new Date(),
+    issueSignInLink,
   };
 }

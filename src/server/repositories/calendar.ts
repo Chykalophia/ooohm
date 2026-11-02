@@ -40,15 +40,6 @@ export async function listHolidays(ex: Executor, companyId: string, from: string
     .orderBy(asc(holidays.date));
 }
 
-/** The company's departments, by name. */
-export async function listDepartments(ex: Executor, companyId: string) {
-  return ex
-    .select({ id: departments.id, name: departments.name })
-    .from(departments)
-    .where(eq(departments.companyId, companyId))
-    .orderBy(asc(departments.name), asc(departments.id));
-}
-
 /**
  * What a calendar may show of a request. No note, decision note or approver: calendars
  * are seen by people other than the requester and their approver.

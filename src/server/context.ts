@@ -28,4 +28,11 @@ export interface ServiceContext {
   appUrl: string;
   /** Current instant; injectable so tests can pin `decided_at`. */
   now: () => Date;
+  /**
+   * Creates a one-time sign-in link for an existing account, without sending it, so a
+   * service can put it in its own email (an invite). In the app this is Better Auth's
+   * magic-link flow, so the link expires and is consumed exactly like one the person
+   * asked for. Call it only after commit (the account must exist); it may throw.
+   */
+  issueSignInLink: (email: string) => Promise<string>;
 }

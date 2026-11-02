@@ -1,26 +1,14 @@
 import type { Transaction } from "@/db/types";
 import { type AllowancePolicy, type LeaveTypeAllowanceSettings, resolveAllowancePolicy } from "@/domain/allowance-policy";
 import { DomainError } from "@/domain/errors";
-import {
-  ALLOWANCE_AUDIT_ACTIONS,
-  BALANCE_EVENT_TYPES,
-  type BalanceAdjustedPayload,
-  type BalanceChangeReason,
-} from "@/domain/events";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import {
-  type AllowanceRow,
-  insertMissingAllowances,
-  listAllowances,
-  setCarriedOverDays,
-  sumBookedDays,
-} from "@/server/repositories/balances";
+import { insertMissingAllowances, listAllowances, setCarriedOverDays, sumBookedDays } from "@/server/repositories/balances";
 import { listCompanies } from "@/server/repositories/calendar";
-import { recordChange } from "@/server/repositories/change-log";
 import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { listActiveMembers, lockMember } from "@/server/repositories/users";
+import { recordAllowanceChange } from "./allowance-changes";
 import { balanceInputs } from "./balances";
 
 /** What one run changed. A second run over the same data reports zeros. */
@@ -39,48 +27,6 @@ export interface RolloverResult {
 }
 
 type LeaveTypeForRollover = LeaveTypeAllowanceSettings & { id: string };
-
-function allowanceSnapshot(row: AllowanceRow) {
-  return {
-    userId: row.userId,
-    leaveTypeId: row.leaveTypeId,
-    year: row.year,
-    days: row.days,
-    carriedOverDays: row.carriedOverDays,
-    adjustmentDays: row.adjustmentDays,
-  };
-}
-
-/** Writes the audit row and the `balance.adjusted` event for one allowance change, inside `tx`. */
-async function recordAllowanceChange(
-  tx: Transaction,
-  change: { companyId: string; reason: BalanceChangeReason; before: AllowanceRow | null; after: AllowanceRow },
-): Promise<void> {
-  const { after } = change;
-  const payload: BalanceAdjustedPayload = {
-    allowanceId: after.id,
-    userId: after.userId,
-    leaveTypeId: after.leaveTypeId,
-    year: after.year,
-    days: after.days,
-    carriedOverDays: after.carriedOverDays,
-    adjustmentDays: after.adjustmentDays,
-    reason: change.reason,
-    actorId: null,
-  };
-  await recordChange(tx, {
-    audit: {
-      companyId: change.companyId,
-      actorId: null,
-      action: ALLOWANCE_AUDIT_ACTIONS[change.reason],
-      entityType: "allowance",
-      entityId: after.id,
-      before: change.before ? allowanceSnapshot(change.before) : null,
-      after: allowanceSnapshot(after),
-    },
-    event: { companyId: change.companyId, type: BALANCE_EVENT_TYPES.adjusted, payload },
-  });
-}
 
 interface MemberRollover {
   companyId: string;
@@ -129,7 +75,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
       if (existing) {
         if (carry === null || existing.carriedOverDays === carry) continue;
         const after = await setCarriedOverDays(tx, existing.id, carry);
-        await recordAllowanceChange(tx, { companyId: job.companyId, reason: "carryover", before: existing, after });
+        await recordAllowanceChange(tx, { companyId: job.companyId, reason: "carryover", before: existing, after, actorId: null });
         carried++;
         continue;
       }
@@ -146,7 +92,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
       ]);
       if (!after) continue;
       const reason = carry ? "carryover" : "allowance_created";
-      await recordAllowanceChange(tx, { companyId: job.companyId, reason, before: null, after });
+      await recordAllowanceChange(tx, { companyId: job.companyId, reason, before: null, after, actorId: null });
       if (reason === "carryover") carried++;
       else created++;
     }
@@ -157,9 +103,50 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
     job.defaultTypes.map((t) => ({ userId: member.id, leaveTypeId: t.id, year: job.currentYear, days: t.defaultAllowanceDays })),
   );
   for (const after of createdRows) {
-    await recordAllowanceChange(tx, { companyId: job.companyId, reason: "allowance_created", before: null, after });
+    await recordAllowanceChange(tx, { companyId: job.companyId, reason: "allowance_created", before: null, after, actorId: null });
   }
   return { carried, created: created + createdRows.length };
+}
+
+/**
+ * Re-runs the year rollover's per-member step for one person and one leave type, inside
+ * the caller's transaction: recomputes the carry out of `closingYear` into the next
+ * year (and, for a type without a default, copies the row forward), exactly as
+ * {@link runYearRollover} would, writing the same audit and outbox rows. Creates no
+ * current-year default rows; the nightly run still owns those.
+ *
+ * For an admin's edit of a closed year's allowance, so the next year's
+ * `carried_over_days` is right at once rather than after the next nightly run. The
+ * caller must hold the member lock. Archived types and inactive members are skipped,
+ * as the rollover skips them.
+ *
+ * @returns How many rows changed.
+ */
+export async function recarryMemberLeaveType(
+  tx: Transaction,
+  job: {
+    companyId: string;
+    timezone: string;
+    policy: AllowancePolicy;
+    member: { id: string; createdAt: Date };
+    leaveType: LeaveTypeForRollover & { archivedAt: Date | null };
+    closingYear: number;
+  },
+): Promise<{ carried: number; created: number }> {
+  const t = job.leaveType;
+  if (t.archivedAt !== null || !t.countsAgainstAllowance) return { carried: 0, created: 0 };
+  return rollMember(tx, {
+    companyId: job.companyId,
+    timezone: job.timezone,
+    policy: job.policy,
+    memberId: job.member.id,
+    memberCreatedAt: job.member.createdAt,
+    carryTypes: t.carryoverEnabled ? [t] : [],
+    noDefaultTypes: t.defaultAllowanceDays === null ? [t] : [],
+    defaultTypes: [],
+    closingYear: job.closingYear,
+    currentYear: job.closingYear + 1,
+  });
 }
 
 /**

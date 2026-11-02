@@ -3,6 +3,7 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { isDomainError } from "@/domain/errors";
+import { updateStatusIfCurrent } from "@/server/repositories/leave-requests";
 import { decideLeaveRequest, getApprovalNav, listApprovalInbox } from "@/server/services/approvals";
 import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
@@ -152,6 +153,47 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     assert.deepEqual((await listApprovalInbox(ctx, newAdmin)).items.map((r) => r.id), [req.id]);
     const approved = await decideLeaveRequest(ctx, newAdmin, { requestId: req.id, decision: "approve" });
     assert.equal(approved.status, "approved");
+  });
+
+  test("a stored assignment the approval rule no longer backs grants nothing; an admin still decides", async () => {
+    // A submit racing an admin edit can leave a request with an approver the edit was
+    // meant to remove, since nothing re-routes it. Simulated with raw writes.
+    const { co, ctx, req } = await pendingRequest();
+    assert.equal(req.approverId, co.people.manager.id);
+    await t.db.update(schema.user).set({ managerId: null }).where(eq(schema.user.id, co.people.ana.id));
+    await rejectsWith(decideLeaveRequest(ctx, co.people.manager, { requestId: req.id, decision: "approve" }), "forbidden");
+    assert.deepEqual((await auditFor(t.db, req.id)).map((a) => a.action), ["leave_request.requested"]);
+
+    // Its pair: put the manager back and the same assignment decides again.
+    await t.db.update(schema.user).set({ managerId: co.people.manager.id }).where(eq(schema.user.id, co.people.ana.id));
+    const approved = await decideLeaveRequest(ctx, co.people.manager, { requestId: req.id, decision: "approve" });
+    assert.equal(approved.status, "approved");
+  });
+
+  test("an admin demoted while a request was being routed to them cannot decide it", async () => {
+    const co = await seedCompany(t.db, {
+      a1: { role: "admin", createdAt: "2025-01-01T00:00:00Z" },
+      a2: { role: "admin", createdAt: "2026-01-01T00:00:00Z" },
+      emp: {},
+    });
+    const ctx = createTestContext(t.db, { now: new Date("2026-11-03T09:00:00Z") });
+    const req = await submitLeaveRequest(ctx, co.people.emp, { leaveTypeId: co.pto, startDate: "2026-11-09", dayPortion: "full" });
+    assert.equal(req.approverId, co.people.a1.id);
+    // The demotion committed without seeing the request (no re-route ran).
+    await t.db.update(schema.user).set({ role: "employee" }).where(eq(schema.user.id, co.people.a1.id));
+    const demoted = { ...co.people.a1, role: "employee" as const };
+    await rejectsWith(decideLeaveRequest(ctx, demoted, { requestId: req.id, decision: "approve" }), "forbidden");
+    const decided = await decideLeaveRequest(ctx, co.people.a2, { requestId: req.id, decision: "reject" });
+    assert.equal(decided.status, "rejected");
+  });
+
+  test("a decision resting on the assignment loses to a concurrent reassignment", async () => {
+    const { co, req } = await pendingRequest();
+    const where = { companyId: co.companyId, id: req.id, from: "pending" as const };
+    const lost = await updateStatusIfCurrent(t.db, { ...where, approverId: co.people.boss.id }, { status: "approved" });
+    assert.equal(lost, undefined, "assigned to the manager, not the boss");
+    const won = await updateStatusIfCurrent(t.db, { ...where, approverId: co.people.manager.id }, { status: "approved" });
+    assert.equal(won?.status, "approved");
   });
 
   test("decided, cancelled and approved-then-cancelled requests cannot be decided", async () => {

@@ -8,7 +8,7 @@ OOOhm is a calm, modern leave tracker for small teams. Employees can request tim
 
 ## What v1 does
 
-- Leave requests (full or half day) with manager approval, and optional self-approval for specific roles or users
+- Leave requests (full or half day) with manager approval, and optional self-approval for specific people
 - Balances per leave type: a yearly allowance that resets Jan 1, with optional carryover
 - A who's-out calendar plus personal and team ICS feeds for Google Calendar
 - Per-company working days and public holidays
@@ -27,6 +27,30 @@ docker compose up
 ```
 
 Then open http://localhost:3000. Outgoing email lands in Mailpit at http://localhost:8025.
+
+### Setting up your company
+
+The first start creates one company, the admin named by `SEED_ADMIN_EMAIL`, and four leave types (PTO,
+Emergency, Sick, Bonus). Sign in as that admin (the sign-in link arrives by email), click **Admin** in the
+header, and set the rest up there. Nothing needs the database.
+
+1. **Company**: the name, the time zone (it decides what "today" is and when each year starts) and the
+   working days. Only working days count as leave.
+2. **Departments**: optional groups, used to filter the team view.
+3. **Leave types**: add, edit, reorder (the first is the request form's default) or archive. Each has a
+   short code for calendars, a colour, a yearly allowance (blank means you set it per person) and optional
+   carryover.
+4. **Holidays**: add your company's days off, or the US federal holidays for a year in one click. Holidays
+   never count as leave; requests already sent keep the days they were counted with.
+5. **People**: **Invite someone** with their email, name, role, department and manager. They get an email
+   with a sign-in link (valid 15 minutes; after that they can ask for a new one on the sign-in page, or you
+   can send one from their page). Nobody can sign up on their own.
+6. **Allowances**: on a person's page, **Change allowances** sets their allowance for a year (last year or
+   later; older years are closed), or adds or takes away days, with a reason.
+
+Every change is in the **Audit log**, with who made it and when. To retire someone, **Deactivate** them on
+their page: they are signed out, their calendar links stop working, their requests stay, and requests waiting
+for their approval move to another approver. There is always at least one active admin.
 
 ### Year rollover
 
@@ -77,7 +101,7 @@ TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:inte
 pnpm job:rollover [year]   # year rollover against DATABASE_URL
 ```
 
-How the code is organized, and how requests, approvals, balances, the year rollover, calendars and feeds, the audit log and the
+How the code is organized, and how requests, approvals, balances, the year rollover, calendars and feeds, the admin screens, the audit log and the
 events outbox work, is in [docs/architecture.md](docs/architecture.md).
 
 ## License

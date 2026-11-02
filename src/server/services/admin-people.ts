@@ -90,7 +90,7 @@ export interface InviteInput extends PersonInput {
 }
 
 /** The audited view of a person. */
-function personSnapshot(p: PersonRow) {
+export function personSnapshot(p: PersonRow) {
   return {
     name: p.name,
     email: p.email,
@@ -102,7 +102,8 @@ function personSnapshot(p: PersonRow) {
   };
 }
 
-function personPayload(p: PersonRow): Unattributed<UserEventPayload> {
+/** The `user.*` event payload for a person, before attribution. */
+export function personPayload(p: PersonRow): Unattributed<UserEventPayload> {
   return {
     userId: p.id,
     email: p.email,

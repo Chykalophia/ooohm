@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
-import { SignOutButton } from "./sign-out-button";
 import { focusRing } from "@/app/styles";
+import { AccountMenu } from "./account-menu";
+import { REQUEST_FORM_ID } from "./anchors";
 
-export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "admin";
+export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "admin" | "account";
+
+/**
+ * Accent outline rather than a filled button: it is a way back to the dashboard's form,
+ * not the screen's main action, which stays the one filled button on each page.
+ */
+const requestLink = `inline-flex items-center rounded-lg border border-accent px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/10 ${focusRing}`;
 
 function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
@@ -21,6 +28,10 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
  * Shared top bar for signed-in pages. Calendar and Team are always there for members
  * of a company; the Approvals link appears only when it is useful, and Admin only for
  * admins (the admin pages and services check the role again themselves).
+ *
+ * "Request time off" is on every page but the dashboard, where the form itself is, so
+ * nobody has to know the logo leads to it. The person's name opens their own options
+ * ({@link AccountMenu}).
  */
 export function AppHeader({
   userName,
@@ -70,8 +81,12 @@ export function AppHeader({
             Admin
           </NavLink>
         )}
-        <span className="text-muted">{userName}</span>
-        <SignOutButton />
+        <AccountMenu userName={userName} member={member} active={current === "account"} />
+        {member && current !== "home" && (
+          <Link href={`/#${REQUEST_FORM_ID}`} className={requestLink}>
+            Request time off
+          </Link>
+        )}
       </nav>
     </header>
   );

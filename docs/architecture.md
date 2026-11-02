@@ -20,7 +20,8 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 
 | Layer | Path | Owns | May import |
 | --- | --- | --- | --- |
-| Presentation | `src/app/**` | Pages, layouts, client components, server actions, route handlers | services, `@/server/runtime`, domain types, constants and pure functions, `lib` |
+| Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | services, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
+| Shared UI | `src/components/**` | Reusable components and class recipes that render what a page passes in | domain types and pure functions, `lib` (not `env`, `db`, `auth`); never `src/app` or `src/server` |
 | Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/email`, `lib` (not `env`, `db`, `auth`) |
 | Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
 | Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
@@ -28,14 +29,52 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 
 Rules of thumb:
 
-- **Pages and actions are thin.** Parse input with zod, call `requireActor()`, call one service function, map
-  the result to UI. No Drizzle in `src/app`.
+- **Pages and actions are thin.** A page calls its loader, one or two service functions, and renders shared
+  components; an action is a zod schema and one service call. No Drizzle in `src/app`. See
+  [Presentation](#presentation).
 - **Services own the transaction.** A service opens `db.transaction`, re-reads what it needs inside it, checks
   permissions against that data, writes, and records the change. Email is returned from the transaction
   callback and sent by `commitThenNotify` after commit, so a rolled-back change never emails anyone.
 - **Repositories have no rules.** They take ids that the service already scoped to the actor's company.
 - **The domain decides.** `ManagerApprovalRule`, `countLeaveDays`, the status state machine and the
   permission checks are pure functions with unit tests.
+
+### Presentation
+
+Every screen is built from the same pieces, so a rule about how something looks or behaves lives in one file.
+
+**Pages** start with a loader from `src/app/_lib/page-context.ts`: `requireMemberPage()` (the session, or a
+redirect to sign-in; the service context; what the header needs) or `requireAdminPage()` (the same, or a 404 for
+non-admins). A person whose account has no company gets `actor: null`, and the page returns
+`<NoCompany nav={page.nav} …/>`. The header's approvals count starts loading in the loader and is awaited by
+the header, so it runs alongside the page's own queries. Detail pages wrap their read in `orNotFound()`, which
+turns `not_found` into the 404 page. A page then renders inside `AppPage` (or `AdminShell`, which adds the admin
+sub-navigation): the header, the page's one `h1` with its description and main action, then its content.
+
+**Server actions** are a zod schema and one service call, run through the pipeline in
+`src/app/_lib/server-action.ts`: session, company, role (for `who: "admin"`), parse, the service call through
+`runAction`, then `refresh()` after a success. `runFormAction` returns a calm message (`FormState`),
+`runStateAction` returns an action's own state (a revealed secret, a new calendar link) and `runActionThenGo`
+navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these with `who: "admin"`.
+
+**Shared components** live in `src/components`, by kind; route-specific ones sit beside their route
+(`src/app/admin/people/delete-person-dialog.tsx`):
+
+| Folder | Holds |
+| --- | --- |
+| `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField` |
+| `forms/` | Forms bound to server actions: `useFormAction` (no automatic reset, so a refused submit keeps what was typed), `ActionForm`, `InlineAction` (a quiet action on a record, optionally confirmed first), `Reveal`, `RevealForm` (a secret shown once), `FormStatus` and `ErrorMessage` |
+| `layout/` | The page frame: `AppPage`, `AppHeader`, `AccountMenu`, `NoCompany`, the logo |
+| `navigation/` | `PillNav`, `MonthNav`, `YearNav` |
+| `leave/` | Leave and balance displays: `StatusBadge`, `LeaveChip`, `BalanceSummary`, `BalanceList`, `BalanceFigures`, `LeaveTypeName` |
+
+Components render what they are given: they never load data, read the session or import from `src/app` or
+`src/server` (`pnpm lint` enforces this). Controls take their classes from the recipes in
+`src/components/ui/styles.ts` (`buttonClass(variant, size)`, `field`, `textLink`, `errorText`…) rather than
+spelling out Tailwind classes again, so the one accent colour, the focus ring and the error colour stay the same
+everywhere; `cx()` joins optional classes. Two classes that set the same property (`p-4` and `p-5`) must never be
+combined, since which one wins depends on stylesheet order: a component offers a variant instead (`Card`'s
+`padding`). Theme colours are the tokens in `src/app/globals.css`.
 
 ### Composition root
 
@@ -63,7 +102,7 @@ indistinguishable from one that does not exist (`not_found`).
 ### Errors
 
 Expected failures throw `DomainError` with a stable `code` (`src/domain/errors.ts`). Server actions run
-service calls through `runAction` (`src/app/run-action.ts`), which maps each code to a calm message and logs
+service calls through `runAction` (`src/app/_lib/run-action.ts`), which maps each code to a calm message and logs
 anything else as `<event>_failed`, returning a generic retry message. Stack traces never reach the browser.
 
 Some codes carry structured `details` so the message can be specific without parsing text:
@@ -676,9 +715,10 @@ departments, leave types, allowances, holidays, company) and `audit-log.ts`, and
 - writes `audit_log` and an `events_outbox` row in the same transaction (`recordAdminChange`), and records
   nothing when a save changes nothing.
 
-Pages under `/admin/**` call `requireAdminPage()` (`src/app/admin/admin-shell.tsx`), which answers 404 to
-non-admins. Server actions go through `adminAction()` (`src/app/admin/admin-action.ts`): session, admin check,
-zod parse of the form, one service call through `runAction`, then `refresh()`. Next.js server actions only run
+Pages under `/admin/**` call `requireAdminPage()` (`src/app/_lib/page-context.ts`), which answers 404 to
+non-admins, and render inside `AdminShell` (`src/app/admin/admin-shell.tsx`). Server actions go through
+`adminAction()` (`src/app/admin/admin-action.ts`), the shared action pipeline with the admin role required:
+session, admin check, zod parse of the form, one service call through `runAction`, then `refresh()`. Next.js server actions only run
 for `POST`s whose `Origin` matches the host (see `node_modules/next/dist/docs/01-app/02-guides/data-security.md`,
 "Allowed origins"), and Better Auth's session cookie is `SameSite=Lax`, which covers CSRF; no extra token is
 needed. Behind a proxy that rewrites `Host`, set `serverActions.allowedOrigins` in `next.config.ts`.
@@ -1103,7 +1143,7 @@ from another company, or a deleted endpoint, is `not_found`), and `audit_log` + 
   local name such as `localhost`, `*.local`, `*.internal` or a single label (`blocked_address`). Event types must
   come from `WEBHOOK_EVENT_TYPES` (every outbox type, grouped for the form; `ping` is never subscribable).
 - **The secret** is `whsec_` and 32 random bytes, generated in the service, returned once (shown with a copy
-  button by `RevealForm`, `src/app/admin/reveal-once.tsx`), and stored sealed with AES-256-GCM under
+  button by `RevealForm`, `src/components/forms/reveal-form.tsx`), and stored sealed with AES-256-GCM under
   `WEBHOOK_ENCRYPTION_KEY` (`createSecretBox`, `src/lib/integration-crypto.ts`): a fresh 12-byte IV per seal, a
   16-byte tag, and the **endpoint id as additional data**, so a sealed value copied onto another row does not
   open. `v1.<iv>.<ciphertext>.<tag>` leaves room for a key rotation scheme later. It is encrypted, not hashed,

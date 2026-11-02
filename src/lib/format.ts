@@ -153,6 +153,18 @@ export const STATUS_LABEL = {
   cancelled: "Cancelled",
 } as const;
 
+export const ROLE_LABEL = { employee: "Employee", manager: "Manager", admin: "Admin" } as const;
+
+/** Weekday names, Monday first, indexed by ISO weekday minus one. */
+export const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+
+/** What is left, in words, with an overdrawn balance said plainly rather than as a negative. */
+export function formatRemaining(balance: Balance): string {
+  if (!balance.tracked) return "No limit";
+  if (balance.remaining < 0) return `${formatDays(-balance.remaining)} over`;
+  return `${formatDays(balance.remaining)} left`;
+}
+
 /** Why submitted leave was recounted: the holidays on its dates that changed, or the working days. */
 export type RecountCause =
   | {

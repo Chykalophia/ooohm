@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { focusRing } from "@/app/styles";
-import { SignOutButton } from "./sign-out-button";
+import { focusRing } from "@/components/ui/styles";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 
 const item = `block w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-background ${focusRing}`;
 
@@ -78,7 +78,11 @@ export function AccountMenu({ userName, member, active }: { userName: string; me
                   </Link>
                 </li>
                 <li>
-                  <Link href="/calendar/subscriptions" className={item} aria-current={pathname === "/calendar/subscriptions" ? "page" : undefined}>
+                  <Link
+                    href="/calendar/subscriptions"
+                    className={item}
+                    aria-current={pathname === "/calendar/subscriptions" ? "page" : undefined}
+                  >
                     Calendar subscriptions
                   </Link>
                 </li>

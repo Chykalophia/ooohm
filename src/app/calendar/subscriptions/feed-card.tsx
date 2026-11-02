@@ -1,14 +1,17 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useId, useState } from "react";
 import type { FeedKind } from "@/domain/calendar-feed";
-import { CopyField } from "@/app/copy-field";
-import { focusRing, subtleButton as subtle } from "@/app/styles";
+import { ErrorMessage } from "@/components/forms/form-status";
+import { useFormAction } from "@/components/forms/use-form-action";
+import { Card } from "@/components/ui/card";
+import { CopyField } from "@/components/ui/copy-field";
+import { buttonClass, cx, dangerButton, subtleButton as subtle } from "@/components/ui/styles";
 import { feedAction } from "./actions";
 import { FEED_IDLE, type FeedState } from "./feed-state";
 
 // The page holds two feeds; outlined buttons keep "Copy link" the one solid accent on screen.
-const create = `rounded-lg border border-accent px-4 py-2 font-medium text-accent hover:bg-accent/10 disabled:opacity-60 ${focusRing}`;
+const create = buttonClass("accent");
 
 /** The feed's live link, as the server reports it. Dates are already formatted. */
 export interface FeedStatus {
@@ -45,7 +48,7 @@ export function FeedCard({
   status: FeedStatus | null;
 }) {
   const [confirming, setConfirming] = useState<"issue" | "revoke" | null>(null);
-  const [state, formAction, pending] = useActionState<FeedState, FormData>(async (prev, formData) => {
+  const { state, dispatch, pending, onSubmit } = useFormAction<FeedState>(async (prev, formData) => {
     const next = await feedAction(prev, formData);
     if (next.status !== "error") setConfirming(null);
     return next;
@@ -54,7 +57,7 @@ export function FeedCard({
   const live = status !== null;
 
   const form = (intent: "issue" | "revoke", label: string, className: string) => (
-    <form action={formAction}>
+    <form action={dispatch} onSubmit={onSubmit}>
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="intent" value={intent} />
       <button type="submit" disabled={pending} className={className}>
@@ -64,7 +67,7 @@ export function FeedCard({
   );
 
   return (
-    <section aria-labelledby={headingId} className="space-y-5 rounded-2xl border border-border bg-surface p-6">
+    <Card aria-labelledby={headingId} className="space-y-5">
       <div className="space-y-1">
         <h2 id={headingId} className="text-lg font-semibold tracking-tight">
           {title}
@@ -106,8 +109,8 @@ export function FeedCard({
           </p>
           <div className="flex flex-wrap items-center gap-5">
             {confirming === "issue"
-              ? form("issue", pending ? "Creating…" : "Yes, get a new link", `${subtle} font-medium text-foreground`)
-              : form("revoke", pending ? "Turning off…" : "Yes, turn it off", `${subtle} font-medium text-red-700 hover:text-red-800 dark:text-red-400`)}
+              ? form("issue", pending ? "Creating…" : "Yes, get a new link", cx(subtle, "font-medium text-foreground"))
+              : form("revoke", pending ? "Turning off…" : "Yes, turn it off", dangerButton)}
             <button type="button" onClick={() => setConfirming(null)} className={subtle}>
               Keep it
             </button>
@@ -116,10 +119,10 @@ export function FeedCard({
       )}
 
       {state.status === "error" && (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <ErrorMessage as="p" className="text-sm">
           {state.message}
-        </p>
+        </ErrorMessage>
       )}
-    </section>
+    </Card>
   );
 }

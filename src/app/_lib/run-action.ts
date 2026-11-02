@@ -2,7 +2,7 @@ import "server-only";
 import { type DomainError, type DomainErrorCode, isDomainError } from "@/domain/errors";
 import { formatNoWorkingDays, formatShortfall } from "@/lib/format";
 import { log } from "@/lib/log";
-import type { FormState } from "./form-state";
+import type { FormState } from "@/components/forms/form-state";
 
 /** What people see for each expected failure. Calm, specific, and never technical. */
 const MESSAGES: Record<DomainErrorCode, string> = {

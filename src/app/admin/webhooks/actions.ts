@@ -13,9 +13,9 @@ import {
   setWebhookEndpointEnabled,
   updateWebhookEndpoint,
 } from "@/server/services/webhooks";
-import type { FormState } from "@/app/form-state";
+import type { FormState } from "@/components/forms/form-state";
 import { adminAction, adminRevealAction, formFields } from "@/app/admin/admin-action";
-import type { RevealState } from "@/app/admin/reveal-state";
+import type { RevealState } from "@/components/forms/reveal-state";
 
 const MESSAGES = {
   not_found: "That endpoint doesn't exist any more.",

@@ -1,79 +1,84 @@
-import { canAdminister } from "@/domain/admin-permissions";
-import { requireActor } from "@/lib/auth";
 import { formatDays, formatLeaveDates } from "@/lib/format";
-import { serviceContext } from "@/server/runtime";
-import { getApprovalNav } from "@/server/services/approvals";
 import { getDashboard } from "@/server/services/leave-requests";
-import { AppHeader } from "./app-header";
-import { BalanceSummary } from "./balance-summary";
-import { CancelRequestButton } from "./cancel-request-button";
-import { NoCompany } from "./no-company";
+import { InlineAction } from "@/components/forms/inline-action";
+import { AppPage } from "@/components/layout/app-page";
+import { NoCompany } from "@/components/layout/no-company";
+import { BalanceSummary } from "@/components/leave/balance-summary";
+import { StatusBadge } from "@/components/leave/status-badge";
+import { Item, ItemList } from "@/components/ui/card";
+import { ColorLabel } from "@/components/ui/color-label";
+import { Section } from "@/components/ui/section";
+import { dangerButton } from "@/components/ui/styles";
+import { requireMemberPage } from "./_lib/page-context";
+import { cancelLeaveAction } from "./actions";
 import { RequestLeaveForm } from "./request-leave-form";
-import { StatusBadge } from "./status-badge";
 
+/** Focus lands on this heading after a cancel, when the cancel button itself disappears. */
 const REQUESTS_HEADING_ID = "mine-heading";
 
 export default async function HomePage() {
-  const { user, actor } = await requireActor();
-  const userName = user.name || user.email;
+  const page = await requireMemberPage();
+  if (!page.actor) return <NoCompany nav={page.nav} current="home" />;
 
-  if (!actor) return <NoCompany userName={userName} current="home" />;
-
-  const ctx = serviceContext();
-  const [dashboard, approvals] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor)]);
+  const { actor } = page;
+  const dashboard = await getDashboard(page.ctx, actor);
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-      <AppHeader userName={userName} approvals={approvals} current="home" admin={canAdminister(actor)} />
+    <AppPage nav={page.nav} current="home" title="Your time off" titleHidden className="space-y-10">
+      {dashboard.leaveTypes.length === 0 ? (
+        <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
+      ) : (
+        <RequestLeaveForm leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+      )}
 
-      <main className="space-y-10">
-        <h1 className="sr-only">Your time off</h1>
-        {dashboard.leaveTypes.length === 0 ? (
-          <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
+      <BalanceSummary summary={dashboard.balances} />
+
+      <Section title="Your requests" headingId={REQUESTS_HEADING_ID}>
+        {dashboard.requests.length === 0 ? (
+          <p className="text-muted">Nothing yet. Your requests will show up here.</p>
         ) : (
-          <RequestLeaveForm leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+          <ItemList>
+            {dashboard.requests.map((r) => (
+              <Item key={r.id} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <ColorLabel color={r.leaveTypeColor} className="font-medium">
+                    {formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}
+                  </ColorLabel>
+                  <p className="text-sm text-muted">
+                    {r.leaveTypeName} · {formatDays(r.days)}
+                    {r.status === "pending" && r.approverName && r.approverId !== actor.id && ` · with ${r.approverName}`}
+                  </p>
+                  {r.note && <p className="text-sm text-muted break-words">{r.note}</p>}
+                  {r.decisionNote && (
+                    <p className="text-sm break-words">
+                      <span className="text-muted">{r.status === "rejected" ? "Reason: " : "Note from approver: "}</span>
+                      {r.decisionNote}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+                  <StatusBadge status={r.status} />
+                  {r.cancellable && (
+                    // Two steps, so approved time off is never dropped by a stray click.
+                    <InlineAction
+                      action={cancelLeaveAction}
+                      fields={{ requestId: r.id }}
+                      label="Cancel"
+                      ariaLabel={`Cancel ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
+                      pendingLabel="Cancelling…"
+                      confirm="Cancel this request?"
+                      confirmLabel="Yes, cancel it"
+                      confirmClassName={dangerButton}
+                      showSuccess={false}
+                      focusOnSuccess={REQUESTS_HEADING_ID}
+                    />
+                  )}
+                </div>
+              </Item>
+            ))}
+          </ItemList>
         )}
-
-        <BalanceSummary summary={dashboard.balances} />
-
-        <section aria-labelledby={REQUESTS_HEADING_ID} className="space-y-4">
-          {/* Focus lands here after a cancel, when the cancel button itself disappears. */}
-          <h2 id={REQUESTS_HEADING_ID} tabIndex={-1} className="text-lg font-semibold tracking-tight outline-none">
-            Your requests
-          </h2>
-          {dashboard.requests.length === 0 ? (
-            <p className="text-muted">Nothing yet. Your requests will show up here.</p>
-          ) : (
-            <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
-              {dashboard.requests.map((r) => (
-                <li key={r.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <p className="flex items-center gap-2 font-medium">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: r.leaveTypeColor }} aria-hidden />
-                      {formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}
-                    </p>
-                    <p className="text-sm text-muted">
-                      {r.leaveTypeName} · {formatDays(r.days)}
-                      {r.status === "pending" && r.approverName && r.approverId !== actor.id && ` · with ${r.approverName}`}
-                    </p>
-                    {r.note && <p className="text-sm text-muted break-words">{r.note}</p>}
-                    {r.decisionNote && (
-                      <p className="text-sm break-words">
-                        <span className="text-muted">{r.status === "rejected" ? "Reason: " : "Note from approver: "}</span>
-                        {r.decisionNote}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                    <StatusBadge status={r.status} />
-                    {r.cancellable && <CancelRequestButton requestId={r.id} focusAfterCancel={REQUESTS_HEADING_ID} />}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </main>
-    </div>
+      </Section>
+    </AppPage>
   );
 }

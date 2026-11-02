@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { API_GUIDE_URL } from "@/domain/integrations";
-import { formatInstantDateTime } from "@/lib/format";
+import { formatCount, formatInstantDateTime } from "@/lib/format";
 import { listWebhookEndpoints } from "@/server/services/webhooks";
-import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { primaryButton, textLink } from "@/app/styles";
+import { AdminShell } from "@/app/admin/admin-shell";
+import { requireAdminPage } from "@/app/_lib/page-context";
+import { Item, ItemList } from "@/components/ui/card";
+import { primaryButton, textLink } from "@/components/ui/styles";
 import { DeliveryStatusText } from "@/app/admin/webhooks/delivery-status";
 
 export const metadata: Metadata = { title: "Webhooks · Admin · OOOhm" };
 
 export default async function WebhooksPage() {
-  const { actor, ctx, userName, approvals } = await requireAdminPage();
+  const { actor, ctx, nav } = await requireAdminPage();
   const { endpoints, timezone } = await listWebhookEndpoints(ctx, actor);
 
   return (
     <AdminShell
-      userName={userName}
-      approvals={approvals}
+      nav={nav}
       section="webhooks"
       title="Webhooks"
       description="When something changes in OOOhm, it sends a signed POST to each endpoint that wants that event, and retries for about two days if the endpoint is down."
@@ -29,9 +30,9 @@ export default async function WebhooksPage() {
       {endpoints.length === 0 ? (
         <p className="text-muted">No endpoints yet. Add one to send leave and people events to another app.</p>
       ) : (
-        <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+        <ItemList>
           {endpoints.map((e) => (
-            <li key={e.id} className="space-y-2 p-4">
+            <Item key={e.id} className="space-y-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <Link href={`/admin/webhooks/${e.id}`} className={`${textLink} font-medium break-all`}>
                   {e.url}
@@ -40,7 +41,7 @@ export default async function WebhooksPage() {
               </div>
               {e.description && <p className="text-sm break-words">{e.description}</p>}
               <p className="text-sm text-muted">
-                {e.eventTypes.length === 1 ? "1 event" : `${e.eventTypes.length} events`}
+                {formatCount(e.eventTypes.length, "event", "events")}
                 {" · "}
                 {e.latest ? (
                   <>
@@ -50,9 +51,9 @@ export default async function WebhooksPage() {
                   "Nothing sent yet"
                 )}
               </p>
-            </li>
+            </Item>
           ))}
-        </ul>
+        </ItemList>
       )}
       <p className="text-sm text-muted">
         Each request carries <code className="font-mono">OOOhm-Signature</code>, an HMAC of its timestamp and body with the

@@ -1,23 +1,31 @@
 import Link from "next/link";
-import { Logo } from "@/components/logo";
-import { focusRing } from "@/app/styles";
-import { AccountMenu } from "./account-menu";
 import { REQUEST_FORM_ID } from "./anchors";
+import { buttonClass, cx, focusRing } from "@/components/ui/styles";
+import { AccountMenu } from "./account-menu";
+import { Logo } from "./logo";
 
 export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "admin" | "account";
 
-/**
- * Accent outline rather than a filled button: it is a way back to the dashboard's form,
- * not the screen's main action, which stays the one filled button on each page.
- */
-const requestLink = `inline-flex items-center rounded-lg border border-accent px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/10 ${focusRing}`;
+/** Whether to show the Approvals link, and how many requests wait there. */
+export type ApprovalNav = { visible: boolean; pending: number };
+
+/** Who the header is for: everything it needs to decide which links to show. */
+export type HeaderNav = {
+  userName: string;
+  /** Unresolved while it loads alongside the page's own data; `null` without a company. */
+  approvals: ApprovalNav | Promise<ApprovalNav> | null;
+  /** True for members of a company; false shows only the person's own menu. */
+  member: boolean;
+  /** True for admins: shows the Admin link. */
+  admin: boolean;
+};
 
 function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`rounded-md ${focusRing} hover:text-foreground ${active ? "font-medium text-foreground" : "text-muted"}`}
+      className={cx("rounded-md hover:text-foreground", focusRing, active ? "font-medium text-foreground" : "text-muted")}
     >
       {children}
     </Link>
@@ -26,35 +34,25 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
 
 /**
  * Shared top bar for signed-in pages. Calendar and Team are always there for members
- * of a company; the Approvals link appears only when it is useful, and Admin only for
+ * of a company; the Approvals link appears only when it is useful (and always on the
+ * Approvals page itself, even after its last request is decided), and Admin only for
  * admins (the admin pages and services check the role again themselves).
  *
  * "Request time off" is on every page but the dashboard, where the form itself is, so
- * nobody has to know the logo leads to it. The person's name opens their own options
+ * nobody has to know the logo leads to it. It is an accent outline, so each page's own
+ * main action stays the one filled button. The person's name opens their own options
  * ({@link AccountMenu}).
  */
-export function AppHeader({
-  userName,
-  approvals,
-  current,
-  member = true,
-  admin = false,
-}: {
-  userName: string;
-  approvals: { visible: boolean; pending: number } | null;
-  current: HeaderSection;
-  /** False while the account has no company, so there is nothing to link to. */
-  member?: boolean;
-  /** True for admins: shows the Admin link. */
-  admin?: boolean;
-}) {
+export async function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSection }) {
+  const approvals = await nav.approvals;
+  const showApprovals = approvals !== null && (approvals.visible || current === "approvals");
   return (
     <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
-      <Link href="/" className={`rounded-md ${focusRing}`}>
+      <Link href="/" className={cx("rounded-md", focusRing)}>
         <Logo />
       </Link>
       <nav aria-label="Main" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-        {member && (
+        {nav.member && (
           <>
             <NavLink href="/calendar" active={current === "calendar"}>
               Calendar
@@ -64,7 +62,7 @@ export function AppHeader({
             </NavLink>
           </>
         )}
-        {approvals?.visible && (
+        {showApprovals && (
           <NavLink href="/approvals" active={current === "approvals"}>
             Approvals
             {approvals.pending > 0 && " "}
@@ -76,14 +74,14 @@ export function AppHeader({
             )}
           </NavLink>
         )}
-        {admin && (
+        {nav.admin && (
           <NavLink href="/admin/people" active={current === "admin"}>
             Admin
           </NavLink>
         )}
-        <AccountMenu userName={userName} member={member} active={current === "account"} />
-        {member && current !== "home" && (
-          <Link href={`/#${REQUEST_FORM_ID}`} className={requestLink}>
+        <AccountMenu userName={nav.userName} member={nav.member} active={current === "account"} />
+        {nav.member && current !== "home" && (
+          <Link href={`/#${REQUEST_FORM_ID}`} className={buttonClass("accent", "sm")}>
             Request time off
           </Link>
         )}

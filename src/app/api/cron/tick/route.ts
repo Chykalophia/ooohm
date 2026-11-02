@@ -1,4 +1,4 @@
-import { runAppTick, tickCounts } from "@/app/background";
+import { runAppTick, tickCounts } from "@/app/_lib/background";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { handleCronTick } from "./handler";

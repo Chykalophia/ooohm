@@ -4,7 +4,7 @@ import { z } from "zod";
 import { COMPANY_NAME_MAX_LENGTH } from "@/domain/company-settings";
 import { formatRecountOutcome } from "@/lib/format";
 import { updateCompanySettings } from "@/server/services/admin-company";
-import type { FormState } from "@/app/form-state";
+import type { FormState } from "@/components/forms/form-state";
 import { adminAction, formFields } from "@/app/admin/admin-action";
 
 const companySchema = z.object({

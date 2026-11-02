@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { formatCount } from "@/lib/format";
 import { syncAdapterNow } from "@/server/services/integrations";
-import type { FormState } from "@/app/form-state";
+import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
 
 export async function syncAdapterAction(_prev: FormState, formData: FormData): Promise<FormState> {

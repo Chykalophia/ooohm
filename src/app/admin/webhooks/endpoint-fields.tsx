@@ -1,6 +1,7 @@
 import { WEBHOOK_DESCRIPTION_MAX_LENGTH, WEBHOOK_EVENT_GROUPS } from "@/domain/integrations";
 import { WEBHOOK_URL_MAX_LENGTH } from "@/domain/webhook-target";
-import { TextField } from "@/app/admin/fields";
+import { TextField } from "@/components/ui/fields";
+import { nativeCheck } from "@/components/ui/styles";
 
 /**
  * The fields of a webhook endpoint form: URL, description, and the event types grouped
@@ -16,7 +17,7 @@ export function EndpointFields({ endpoint }: { endpoint?: { url: string; descrip
       <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
         {g.types.map((type) => (
           <label key={type} className="flex cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" name="eventTypes" value={type} defaultChecked={chosen.has(type)} className="h-4 w-4 shrink-0 accent-[var(--accent)]" />
+            <input type="checkbox" name="eventTypes" value={type} defaultChecked={chosen.has(type)} className={nativeCheck} />
             <code className="font-mono text-[13px]">{type}</code>
           </label>
         ))}

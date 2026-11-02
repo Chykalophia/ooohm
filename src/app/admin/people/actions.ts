@@ -9,7 +9,7 @@ import { DELETION_MODES, type DeletionBlockers, type DeletionMode, deletionBlock
 import { setAllowanceOverride } from "@/server/services/admin-allowances";
 import { deactivatePerson, invitePerson, reactivatePerson, resendInvite, updatePerson } from "@/server/services/admin-people";
 import { cancelScheduledDeletion, deletePerson } from "@/server/services/admin-people-deletion";
-import type { FormState } from "@/app/form-state";
+import type { FormState } from "@/components/forms/form-state";
 import { adminAction, adminActionThenGo, formFields } from "@/app/admin/admin-action";
 import { deactivationMessage } from "@/app/admin/people/deactivation-message";
 

@@ -413,8 +413,12 @@ frees days, so neither needs it.
 
 The request form asks `GET /api/leave-preview?leaveTypeId=&startDate=&endDate=&dayPortion=` 300 ms after the
 last change, and shows the answer in an `aria-live="polite"` line that the submit button also references
-(`aria-describedby`): "This is 3 days. You'll have 12 days left for 2026.", or the exact message submit would
-give ("That's 5 days, but you only have 2 days left for 2026.", "Those dates are all weekends or holidays...").
+(`aria-describedby`): "This request takes 3 days. Afterwards you'd have 12 days left for 2026.", or the exact
+message submit would give ("That's 5 days, but you only have 2 days left for 2026.", "Those dates are all
+weekends or holidays..."). After a successful submit the fields reset and the line stays empty until the draft
+changes (`showsPreview`), so it never describes the blank form as if it were the request just sent; the
+confirmation next to the button names what was sent ("Sent for approval: Mon, Nov 9 to Fri, Nov 13, 2026
+(5 days).").
 The route handler calls `previewLeaveRequest`, which runs `assessLeaveRequest` without writing; the client
 does no day counting. A newer draft aborts the previous request, so answers never arrive out of order. It is
 a route handler rather than a server action because Next.js runs a client's server actions one at a time,

@@ -6,7 +6,7 @@
  * confirm it exists. Each page costs a fixed number of queries whatever it holds (pinned
  * by `tests/integration/api.test.ts`). Leave request notes and decision notes are never
  * returned: an API key is a company-wide machine credential, and the calendar privacy
- * rule (M4) already keeps notes between a person and their approver.
+ * rule already keeps notes between a person and their approver.
  */
 import { resolveAllowancePolicy } from "@/domain/allowance-policy";
 import type { CalendarDate } from "@/domain/calendar-date";
@@ -64,8 +64,6 @@ async function companyYear(ctx: ServiceContext, client: ApiClient, year: number 
   return { settings, year: year ?? yearInTimeZone(settings.timezone, ctx.now()) };
 }
 
-/* ------------------------------------------------------------------ */
-
 export interface ApiUser {
   id: string;
   name: string;
@@ -99,8 +97,6 @@ export async function listUsersForApi(ctx: ServiceContext, client: ApiClient, q:
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 /** Every leave type, archived ones too (flagged), in display order. One query. */
 export async function listLeaveTypesForApi(ctx: ServiceContext, client: ApiClient) {
   assertScope(client, "read");
@@ -121,8 +117,6 @@ export async function listLeaveTypesForApi(ctx: ServiceContext, client: ApiClien
     })),
   };
 }
-
-/* ------------------------------------------------------------------ */
 
 export interface LeaveRequestQuery {
   from?: CalendarDate;
@@ -169,8 +163,6 @@ export async function listLeaveRequestsForApi(ctx: ServiceContext, client: ApiCl
     (r) => ({ s: r.startDate, i: r.id }),
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 export interface ApiBalance {
   userId: string;
@@ -227,8 +219,6 @@ export async function listBalancesForApi(ctx: ServiceContext, client: ApiClient,
   return { year, data };
 }
 
-/* ------------------------------------------------------------------ */
-
 /** The company's holidays in one year (default: the current year in its time zone), by date. Two queries. */
 export async function listHolidaysForApi(ctx: ServiceContext, client: ApiClient, q: { year?: number }) {
   assertScope(client, "read");
@@ -236,8 +226,6 @@ export async function listHolidaysForApi(ctx: ServiceContext, client: ApiClient,
   const rows = await listHolidayRows(ctx.db, client.companyId, `${year}-01-01`, `${year}-12-31`);
   return { year, data: rows.map((h) => ({ id: h.id, date: h.date, name: h.name })) };
 }
-
-/* ------------------------------------------------------------------ */
 
 /**
  * The company's events after event `after` (from the oldest kept without it), in the

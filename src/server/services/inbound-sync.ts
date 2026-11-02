@@ -2,7 +2,7 @@
  * Inbound sync: applies people and allowances an adapter read from another system.
  *
  * Writes go through the same rules as an admin's edits: people under the company lock
- * (as invites take it), allowances under each person's member lock (the M3 rule for
+ * (as invites take it), allowances under each person's member lock (the rule for
  * every writer of balance inputs), and every change records `audit_log` + its outbox
  * event (`user.created`, `user.updated`, `balance.adjusted` with `reason: "sync"`) in the
  * same transaction, attributed by {@link SyncTrigger}: the admin who pressed Sync now,

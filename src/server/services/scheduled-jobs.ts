@@ -1,5 +1,5 @@
 /**
- * Daily jobs the outbox worker runs, so a host cron is optional: the M3 year rollover
+ * Daily jobs the outbox worker runs, so a host cron is optional: the year rollover
  * and integration retention.
  *
  * Each job is claimed with a compare-and-set on its `scheduled_jobs` row before it runs,

@@ -237,8 +237,9 @@ export async function getPersonFormOptions(ctx: ServiceContext, actor: Actor, pe
 
 /**
  * One person as their admin page shows them, with their balance per active leave type
- * (plus archived types they have an allowance or booked days for) for `year` (default: the current year in the company's time zone), computed by the
- * same balance code as their dashboard. `balances` is `null` when the company's
+ * (plus archived types they have an allowance or booked days for) for `year` (default:
+ * the current year in the company's time zone), computed by the same balance code as
+ * their dashboard. `balances` is `null` when the company's
  * allowance policy is unknown.
  *
  * @throws DomainError `forbidden` for a non-admin, `not_found` for someone outside the

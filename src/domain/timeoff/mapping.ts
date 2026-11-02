@@ -340,7 +340,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
   const conflicts: ImportIssue[] = [];
   const warn = (issue: ImportIssue) => warnings.push(issue);
 
-  // ---- Company ------------------------------------------------------------------
+  // Company
   const company = selectTimeOffCompany(snapshot, options.timeoffCompanyId);
   const companySchedule = snapshot.schedules.find((s) => s.userId === null && s.companyId === company.id);
   let workingDays = companySchedule ? scheduleWorkingDays(companySchedule) : [...TIMEOFF_DEFAULT_WORKING_DAYS];
@@ -378,7 +378,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
   const leaveCount = new Map<number, number>();
   for (const l of leaves) leaveCount.set(l.userId, (leaveCount.get(l.userId) ?? 0) + 1);
 
-  // ---- Holidays -----------------------------------------------------------------
+  // Holidays
   const holidays: PlannedHoliday[] = [];
   const holidayDates = new Set<CalendarDate>();
   for (const h of snapshot.bankHolidays.filter((b) => b.companyId === company.id).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)) {
@@ -404,7 +404,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
   const extraHolidays = [...ooohmHolidays].filter((d) => !holidayDates.has(d));
   const companyCalendar = { workingDays, holidays: ooohmHolidays };
 
-  // ---- Departments --------------------------------------------------------------
+  // Departments
   const departments: PlannedDepartment[] = [];
   const departmentKey = new Map<number, number>();
   const byName = new Map<string, number>();
@@ -444,7 +444,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
     });
   }
 
-  // ---- People -------------------------------------------------------------------
+  // People
   // TimeOff decides employment from `end_date` alone (still employed while it is in the
   // future). Its `activated` flag only records that the account has signed in once.
   const timeoffActive = (u: TimeOffUser) => u.endDate === null || u.endDate > options.today;
@@ -534,7 +534,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
     };
   });
 
-  // ---- Leave types ----------------------------------------------------------------
+  // Leave types
   const typeName = (t: TimeOffLeaveType) => t.name.replace(/\s+/g, " ").trim().slice(0, LEAVE_TYPE_NAME_MAX_LENGTH) || `Type ${t.id}`;
   const poolCandidates = leaveTypes.filter((t) => t.useAllowance);
   let poolSource: TimeOffLeaveType | undefined;
@@ -639,7 +639,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
   }
   const poolKey = poolSource ? typeKeyOf.get(poolSource.id)! : null;
 
-  // ---- Working calendars per person ------------------------------------------------
+  // Working calendars per person
   const calendarOf = new Map<number, TimeOffWorkCalendar>();
   const ownSchedule = new Set<number>();
   for (const { user: u, email } of kept) {
@@ -657,7 +657,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
   }
   const companyWork: TimeOffWorkCalendar = { workingDays: new Set(workingDays), holidays: holidayDates };
 
-  // ---- Leave --------------------------------------------------------------------
+  // Leave
   const requests: PlannedRequest[] = [];
   const differences: LeaveCostDifference[] = [];
   let skippedLeaves = 0;
@@ -744,7 +744,7 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
     });
   }
 
-  // ---- Allowances and TimeOff's balances -------------------------------------------
+  // Allowances and TimeOff's balances
   const allowances: PlannedAllowance[] = [];
   const expected: ExpectedBalance[] = [];
   const adjustmentOf = new Map(snapshot.adjustments.map((a) => [`${a.userId}|${a.year}`, a]));

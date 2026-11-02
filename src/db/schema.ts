@@ -358,7 +358,7 @@ export const auditLog = pgTable(
     apiKeyId: uuid("api_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
     /** `user` and `api_key` rows: what the person acted through (`adapter_sync:<id>`), if anything. */
     actorVia: text("actor_via"),
-    /** `system` rows: the process (`year_rollover`, `adapter_sync:<id>`; `unknown` for some rows written before M6). */
+    /** `system` rows: the process (`year_rollover`, `adapter_sync:<id>`; `unknown` for some rows written before attribution existed). */
     actorProcess: text("actor_process"),
     /** e.g. "leave_request.approved", "allowance.adjusted". */
     action: text("action").notNull(),

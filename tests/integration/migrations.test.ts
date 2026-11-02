@@ -168,7 +168,7 @@ describe("migration 0010: every audit row says who or what made it", { skip }, (
       edit: await audit(boss, "holiday.created", { name: "x" }),
       carried: await audit(null, "allowance.carried_over", { days: 1 }),
       created: await audit(null, "allowance.created", { days: 1 }),
-      // What M6's inbound sync wrote before this migration: a marker in the audit row.
+      // What the inbound sync wrote before this migration: a marker in the audit row.
       scheduledUser: await audit(null, "user.created", { name: "N", source: "adapter:fakehr" }),
       syncNowUser: await audit(boss, "user.updated", { name: "N", source: "adapter:fakehr" }),
       scheduledAllowance: await audit(null, "allowance.synced", { days: 3, reason: "Synced from adapter:fakehr" }),

@@ -328,7 +328,7 @@ export interface WebhookRedeliveredPayload extends PersonAttribution {
 }
 
 /**
- * Import event types written to `events_outbox` (M7). Public contract; never rename one.
+ * Import event types written to `events_outbox`. Public contract; never rename one.
  *
  * An import writes one `import.completed` event, and only that: it does not replay the
  * imported history (thousands of `leave.*`, `user.created` and `balance.adjusted` events

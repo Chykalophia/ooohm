@@ -5,7 +5,8 @@
  * carryover into the next year and creates missing allowance rows (current-year rows
  * from leave type defaults; next-year rows copied forward for types without one).
  * Idempotent, so it is safe to run on every start (the compose `migrate` service
- * does) and daily from cron (see README). Needs only the database settings.
+ * does); the worker or the `/api/cron/tick` route runs it daily. Needs only the
+ * database settings.
  */
 import { resolveDatabaseConfig } from "../src/db/config";
 import { openDatabase } from "../src/db/connect";

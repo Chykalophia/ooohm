@@ -14,12 +14,12 @@
 
 /** Identifiers of the processes a change can be made by, or run through. */
 export const CHANGE_PROCESSES = {
-  /** The year rollover: carryover and missing allowance rows (M3). */
+  /** The year rollover: carryover and missing allowance rows. */
   yearRollover: "year_rollover",
   /** Integration retention. It prunes delivery machinery and writes no audit rows today. */
   retention: "retention",
   /**
-   * The TimeOff.Management import (M7). A person starts it, so it is only ever a `via`:
+   * The TimeOff.Management import. A person starts it, so it is only ever a `via`:
    * the admin named by the CLI's `--actor`, through the import.
    */
   timeoffImport: "timeoff_import",

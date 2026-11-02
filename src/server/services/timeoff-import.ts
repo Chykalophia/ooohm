@@ -229,7 +229,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     refuse(`This file was already imported on ${previous.createdAt.toISOString()} (import run ${previous.id}). Importing it again would duplicate everyone's history.`);
   }
 
-  // ---- Target company -------------------------------------------------------------
+  // Target company
   const timeoffCompany = selectTimeOffCompany(input.snapshot, input.timeoffCompanyId);
   const audit: AuditEntry[] = [];
   let company: CompanyRow;
@@ -284,7 +284,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
   const warnings = [...plan.warnings];
   const conflicts = [...plan.conflicts];
 
-  // ---- People: who is imported, who already exists --------------------------------
+  // People: who is imported, who already exists
   const existingByEmail = new Map((await findAccountsByEmail(tx, plan.people.map((p) => p.email))).map((a) => [a.email, a]));
   const excluded = new Set<number>();
   for (const p of plan.people) {
@@ -308,7 +308,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     refuse("After the import the company would have no active admin, so nobody could manage it. Make someone an admin in TimeOff, or seed an admin first (SEED_ADMIN_EMAIL).");
   }
 
-  // ---- Company settings -------------------------------------------------------------
+  // Company settings
   const settings = { name: company.name, timezone, workingDays: plan.company.workingDays, allowancePolicy: company.allowancePolicy };
   if (created || settings.timezone !== company.timezone || settings.workingDays.join() !== company.workingDays.join()) {
     const before = created ? null : { name: company.name, timezone: company.timezone, workingDays: company.workingDays };
@@ -323,7 +323,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     );
   }
 
-  // ---- Departments ----------------------------------------------------------------
+  // Departments
   const departmentsByName = await listDepartmentsByName(tx, company.id);
   const departmentId = new Map<number, string>();
   let departmentsCreated = 0;
@@ -339,7 +339,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     audit.push(entry(company.id, IMPORT_AUDIT_ACTIONS.department, "department", row.id, null, null, { name: row.name, timeoffDepartmentId: d.key }));
   }
 
-  // ---- Leave types ----------------------------------------------------------------
+  // Leave types
   const existingTypes = await listAllLeaveTypes(tx, company.id);
   const usedTypeIds = new Set<string>();
   const takenCodes = new Set(existingTypes.map((t) => t.code));
@@ -391,7 +391,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     audit.push(entry(company.id, IMPORT_AUDIT_ACTIONS.leaveType, "leave_type", row.id, null, leaveTypeSnapshot(e), leaveTypeSnapshot(row)));
   }
 
-  // ---- Holidays -------------------------------------------------------------------
+  // Holidays
   const holidayRows = await insertHolidays(
     tx,
     company.id,
@@ -401,7 +401,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     audit.push(entry(company.id, IMPORT_AUDIT_ACTIONS.holiday, "holiday", h.id, null, null, { date: h.date, name: h.name }));
   }
 
-  // ---- People ---------------------------------------------------------------------
+  // People
   const newAccounts = people.filter((p) => !existingByEmail.has(p.email));
   await insertImportedAccounts(
     tx,
@@ -438,12 +438,12 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     );
   }
 
-  // ---- Who is running it ------------------------------------------------------------
+  // Who is running it
   // After people are imported, so a new company's TimeOff admin can be named; nothing
   // has been audited yet, and a refusal rolls everything back.
   const source = await importActorSource(tx, company, input.actorEmail);
 
-  // ---- Allowances -----------------------------------------------------------------
+  // Allowances
   const allowancePlan = plan.allowances.filter((a) => !excluded.has(a.personKey));
   if (poolRow && allowancePlan.length > 0) {
     const before = new Map(
@@ -477,7 +477,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     }
   }
 
-  // ---- Leave requests ---------------------------------------------------------------
+  // Leave requests
   const requestPlan = plan.requests.filter((r) => !excluded.has(r.personKey));
   // Pending requests go to whoever OOOhm's approval rule picks in the imported org (the
   // manager, else an admin), not TimeOff's stored approver; decided ones keep TimeOff's decider.
@@ -537,7 +537,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
   }
   await insertAuditEntries(tx, source, audit);
 
-  // ---- What the nightly year rollover will do to last year's carry ---------------------
+  // What the nightly year rollover will do to last year's carry
   // Audited like every imported row, and attributed the same way (the import caused the
   // carry, so it is the import's change, not the nightly process's), without the
   // rollover's `balance.adjusted` events: the import announces itself with
@@ -577,7 +577,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     await insertAuditEntries(tx, source, recarryAudit);
   }
 
-  // ---- Reconciliation --------------------------------------------------------------------
+  // Reconciliation
   const reconciliation = await reconcile(tx, {
     plan,
     excluded,

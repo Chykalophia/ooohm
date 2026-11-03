@@ -145,7 +145,7 @@ test("the recount email says why and what changed, including when nothing is tak
   assert.equal(recounted.subject, "Your time off was recounted");
   assert.match(
     recounted.text,
-    /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\), so the time off below now takes 4 days instead of 5 days\./,
+    /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\), so your PTO for .+, 2026 now takes 4 days instead of 5 days\./,
   );
   assert.doesNotMatch(recounted.text, /Balance:/);
 
@@ -177,7 +177,7 @@ test("the request email to an approver carries the who-else-is-off line, when th
     alsoOff: "Victor is off then too.",
     link: "https://ooohm.test/approvals",
   });
-  assert.match(withHint.text, /^Who else is off: Victor is off then too\.$/m);
+  assert.match(withHint.text, /^Victor is off then too\.$/m);
   const without = renderLeaveEmail({
     kind: "requested",
     recipientName: "Boss",
@@ -185,5 +185,5 @@ test("the request email to an approver carries the who-else-is-off line, when th
     alsoOff: null,
     link: "https://ooohm.test/approvals",
   });
-  assert.doesNotMatch(without.text, /Who else is off/);
+  assert.doesNotMatch(without.text, /off then too/);
 });

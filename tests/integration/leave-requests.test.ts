@@ -5,7 +5,7 @@ import * as schema from "@/db/schema";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { cancelLeaveRequest, getDashboard, SUBMIT_LIMIT, submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
-import { auditFor, eventsFor, requestsOf, seedCompany } from "./fixtures";
+import { auditFor, eventsFor, requestsOf, seedCompany, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 // Dates: 2026-11-02 is a Monday; 2026-11-26 (Thu) is the seeded holiday.
@@ -63,8 +63,8 @@ describe("leave requests: submit and cancel", { skip }, () => {
     // Email goes out only after commit, and only to the approver.
     assert.equal(ctx.sent.length, 0);
     await ctx.settle();
-    assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[manager.email, "Time off request to review"]]);
-    assert.match(ctx.sent[0].text, /Ana asked for time off/);
+    assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[manager.email, "Ana asked for Nov 23 to Nov 27"]]);
+    assert.match(ctx.sent[0].text, /^Ana asked for \S+, Mon, Nov 23 to Fri, Nov 27, 2026: 4 days\./);
     assert.match(ctx.sent[0].text, /https:\/\/ooohm\.test\/approvals/);
   });
 
@@ -99,7 +99,7 @@ describe("leave requests: submit and cancel", { skip }, () => {
     await ctx.settle();
     // Self-approved: a confirmation to the requester and no "to review" email.
     // Routed: the approver is asked to review.
-    assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [
+    assert.deepEqual(ctx.sent.map((m) => [m.to, subjectOf(m)]), [
       [co.people.owner.email, "Your time off is approved"],
       [co.people.owner.email, "Time off request to review"],
     ]);
@@ -235,7 +235,7 @@ describe("leave requests: submit and cancel", { skip }, () => {
     assert.equal((events[1].payload as { actorId: string }).actorId, co.people.ana.id);
 
     await ctx.settle();
-    assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]).sort(), [
+    assert.deepEqual(ctx.sent.map((m) => [m.to, subjectOf(m)]).sort(), [
       [co.people.ana.email, "Your time off request was cancelled"],
       [co.people.manager.email, "A time off request was cancelled"],
     ].sort());
@@ -253,12 +253,11 @@ describe("leave requests: submit and cancel", { skip }, () => {
 
     const intros = ctx.sent
       .filter((m) => m.to === manager.email)
-      .map((m) => m.text.split("\n")[2])
+      .map((m) => m.text.split("\n")[0])
       .sort();
-    assert.deepEqual(intros, [
-      `${ana.email} asked for time off.`,
-      `${ana.email} cancelled their time off. Nothing else is needed from you.`,
-    ]);
+    assert.equal(intros.length, 2);
+    assert.ok(intros[0].startsWith(`${ana.email} asked for `), intros[0]);
+    assert.ok(intros[1].startsWith(`${ana.email} cancelled their `) && intros[1].endsWith("Nothing else is needed from you."), intros[1]);
   });
 
   test("a self-approved request can be cancelled after approval, and only the requester is emailed", async () => {

@@ -169,3 +169,11 @@ function readAccent(stored: string | null): string | null {
 export function followsDarkMode(appearance: Pick<Appearance, "theme" | "accentColor">): boolean {
   return appearance.theme === "classic" && appearance.accentColor === null;
 }
+
+/**
+ * The company's one accent as stored: the admin's custom colour, or the theme's own.
+ * An unknown theme falls back to the default, as in {@link readAppearance}.
+ */
+export function companyAccent(stored: { theme: string; accentColor: string | null }): string {
+  return readAccent(stored.accentColor) ?? THEMES[isThemeKey(stored.theme) ? stored.theme : DEFAULT_THEME].accent;
+}

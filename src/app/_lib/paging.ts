@@ -29,9 +29,18 @@ export function readPageParams(params: SearchParams): PageParams {
 }
 
 /**
+ * A link to a list at `path` with `params` in its query (empty values dropped) and
+ * `#fragment` when given: how a list's filter, sort and page links are built.
+ */
+export function listHref(path: string, params: Record<string, string | undefined>, fragment?: string): string {
+  const query = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => Boolean(e[1]))).toString();
+  return `${path}${query ? `?${query}` : ""}${fragment ? `#${fragment}` : ""}`;
+}
+
+/**
  * The {@link Pager}'s links for one page of a list at `path`. Each keeps `keep` (the
- * list's filters, empty values dropped) and ends in `#fragment` when given, so a list
- * lower down the page stays in view.
+ * list's filters and view, empty values dropped) and ends in `#fragment` when given, so
+ * a list lower down the page stays in view.
  */
 export function pagerLinks(
   path: string,
@@ -39,22 +48,14 @@ export function pagerLinks(
   number: number,
   { keep = {}, fragment }: { keep?: Record<string, string | undefined>; fragment?: string } = {},
 ): PagerLinks {
-  const kept = Object.entries(keep).filter((e): e is [string, string] => Boolean(e[1]));
-  const href = (extra: [string, string][]) => {
-    const query = new URLSearchParams([...kept, ...extra]).toString();
-    return `${path}${query ? `?${query}` : ""}${fragment ? `#${fragment}` : ""}`;
-  };
-  const at = (cursor: PageCursor, n: number) =>
-    href([
-      [cursor.direction, cursor.token],
-      ["page", String(n)],
-    ]);
+  const href = (extra: Record<string, string> = {}) => listHref(path, { ...keep, ...extra }, fragment);
+  const at = (cursor: PageCursor, n: number) => href({ [cursor.direction]: cursor.token, page: String(n) });
   // Without a previous page this is page 1, whatever the link said.
   const shown = page.previous ? Math.max(number, 2) : 1;
   return {
     number: shown,
-    first: shown > 2 ? href([]) : null,
-    previous: page.previous ? (shown === 2 ? href([]) : at(page.previous, shown - 1)) : null,
+    first: shown > 2 ? href() : null,
+    previous: page.previous ? (shown === 2 ? href() : at(page.previous, shown - 1)) : null,
     next: page.next ? at(page.next, shown + 1) : null,
   };
 }

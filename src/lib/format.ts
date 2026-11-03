@@ -146,6 +146,37 @@ export function formatInstantDateTime(instant: Date, timeZone: string): string {
   }).format(instant);
 }
 
+/**
+ * An instant as a short date and time in `timeZone`, for a table cell: "Nov 2, 10:42 AM",
+ * with the year only when it is not `now`'s ("Dec 30, 2025, 4:05 PM"). No zone: the
+ * page says which one once.
+ */
+export function formatInstantShort(instant: Date, timeZone: string, now: Date): string {
+  const year = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric" }).format(d);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    year: year(instant) === year(now) ? undefined : "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(instant);
+}
+
+/** An instant to the second, with its zone, e.g. "Nov 2, 2026, 10:42:07 AM CST": the full record. */
+export function formatInstantFull(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZoneName: "short",
+  }).format(instant);
+}
+
 export const STATUS_LABEL = {
   pending: "Waiting for approval",
   approved: "Approved",

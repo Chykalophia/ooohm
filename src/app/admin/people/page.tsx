@@ -66,7 +66,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           {NOTICES[notice]}
         </p>
       )}
-      <FilterBar label="Filter people" clearHref="/admin/people" filtered={filtered} className="flex flex-wrap items-end gap-3">
+      <FilterBar label="Filter people" path="/admin/people" filtered={filtered} className="flex flex-wrap items-end gap-3">
         <TextField label="Name or email" type="search" name="q" defaultValue={query} maxLength={100} className="min-w-48 flex-1" />
         {departments.length > 0 && (
           <SelectField

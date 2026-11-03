@@ -158,6 +158,31 @@ describe("admin: audit log viewer", { skip }, () => {
     assert.deepEqual(backward, forward.slice(0, -1));
   });
 
+  test("oldest first walks the same rows the other way; rows a page are 25, 50 or 100, anything else 25", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" } });
+    const ctx = createTestContext(t.db);
+    await writeAudit(t.db, Array.from({ length: 60 }, (_, i) => ({ companyId: co.companyId, at: `2026-10-01T12:${String(i).padStart(2, "0")}:00Z` })));
+    const all = async (filter: { oldestFirst?: boolean; size?: number }) => {
+      const ids: string[] = [];
+      const sizes: number[] = [];
+      let page: PageCursor | undefined;
+      do {
+        const p = await getAuditLog(ctx, co.people.boss, { ...filter, page });
+        ids.push(...p.entries.map((e) => e.id));
+        sizes.push(p.size);
+        page = p.next ?? undefined;
+      } while (page);
+      return { ids, pages: sizes.length, size: sizes[0] };
+    };
+    const newest = await all({});
+    const oldest = await all({ oldestFirst: true });
+    assert.deepEqual(oldest.ids, [...newest.ids].reverse());
+    assert.equal(newest.ids.length, 60);
+    assert.deepEqual([newest.pages, newest.size], [3, 25]);
+    assert.deepEqual([(await all({ size: 50 })).pages, (await all({ size: 100 })).pages], [2, 1]);
+    for (const size of [0, 7, 1000, Number.NaN]) assert.deepEqual([(await all({ size })).size], [25], String(size));
+  });
+
   test("a cursor that is not one the log made reads as the first page, not an error", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);

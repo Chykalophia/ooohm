@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { COMPANY_NAME_MAX_LENGTH } from "@/domain/company-settings";
+import { formatRecountOutcome } from "@/lib/format";
 import { updateCompanySettings } from "@/server/services/admin-company";
 import type { FormState } from "@/app/form-state";
 import { adminAction, formFields } from "@/app/admin/admin-action";
@@ -21,8 +22,9 @@ export async function updateCompanyAction(_prev: FormState, formData: FormData):
     { ...Object.fromEntries(formData), workingDays: formData.getAll("workingDays") },
     companySchema,
     async (ctx, actor, input) => {
-      await updateCompanySettings(ctx, actor, input);
-      return "Saved.";
+      const { recount } = await updateCompanySettings(ctx, actor, input);
+      const changes = formatRecountOutcome(recount);
+      return changes ? `Saved. ${changes}` : "Saved.";
     },
     { invalid_input: "Give the company a name, pick a time zone from the list, and tick at least one working day." },
   );

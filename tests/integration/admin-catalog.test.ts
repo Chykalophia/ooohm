@@ -233,21 +233,24 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.deepEqual(await companyAudit(t.db, co.companyId), []);
   });
 
-  test("holidays: add, rename, delete, each audited; a date holds one holiday; past requests keep their days", async () => {
+  test("holidays: add, rename, delete, each audited; a date holds one holiday; requests on it are recounted", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { canSelfApprove: true } });
     const ctx = createTestContext(t.db);
     const { boss, ana } = co.people;
     const request = await submitLeaveRequest(ctx, ana, { leaveTypeId: co.pto, startDate: "2026-12-21", endDate: "2026-12-25", dayPortion: "full" });
     assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 5 }]);
 
-    const xmas = await addHoliday(ctx, boss, { date: "2026-12-25", name: " Christmas " });
+    const { holiday: xmas, recount } = await addHoliday(ctx, boss, { date: "2026-12-25", name: " Christmas " });
     assert.equal(xmas.name, "Christmas");
+    assert.deepEqual(recount, { recounted: 1, nowFree: 0, overdrawn: [] });
     await rejectsWith(addHoliday(ctx, boss, { date: "2026-12-25", name: "Again" }), "already_exists");
     await rejectsWith(addHoliday(ctx, boss, { date: "2026-02-30", name: "Nope" }), "invalid_input");
-    assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 5 }], "the stored split never moves");
+    assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 4 }], "Christmas no longer counts");
 
     await renameHoliday(ctx, boss, xmas.id, "Christmas Day");
-    await deleteHoliday(ctx, boss, xmas.id);
+    assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 4 }], "a rename changes no count");
+    assert.deepEqual(await deleteHoliday(ctx, boss, xmas.id), { recounted: 1, nowFree: 0, overdrawn: [] });
+    assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 5 }], "deleting it counts the day again");
     assert.deepEqual((await listHolidaysForAdmin(ctx, boss, 2026)).holidays.map((h) => h.date), ["2026-11-26"]);
 
     const audit = await companyAudit(t.db, co.companyId, "holiday.");
@@ -273,9 +276,9 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);
     // The fixture already has 2026-11-26 ("Thanksgiving").
-    const added = await addUsFederalHolidays(ctx, co.people.boss, 2026);
+    const { added } = await addUsFederalHolidays(ctx, co.people.boss, 2026);
     assert.equal(added.length, 10);
-    assert.deepEqual(await addUsFederalHolidays(ctx, co.people.boss, 2026), []);
+    assert.deepEqual(await addUsFederalHolidays(ctx, co.people.boss, 2026), { added: [], recount: { recounted: 0, nowFree: 0, overdrawn: [] } });
     const { holidays: all, year } = await listHolidaysForAdmin(ctx, co.people.boss);
     assert.equal(year, 2026, "the current year in the company's zone");
     assert.equal(all.length, 11);
@@ -288,7 +291,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     const co = await seedCompany(t.db, { boss: { role: "admin" }, emp: {} });
     const other = await seedCompany(t.db, { theirs: { role: "admin" } });
     const ctx = createTestContext(t.db);
-    const theirs = await addHoliday(ctx, other.people.theirs, { date: "2026-12-24", name: "Eve" });
+    const { holiday: theirs } = await addHoliday(ctx, other.people.theirs, { date: "2026-12-24", name: "Eve" });
     await rejectsWith(addHoliday(ctx, co.people.emp, { date: "2026-12-24", name: "Eve" }), "forbidden");
     await rejectsWith(addUsFederalHolidays(ctx, co.people.emp, 2026), "forbidden");
     await rejectsWith(renameHoliday(ctx, co.people.boss, theirs.id, "Mine"), "not_found");
@@ -297,7 +300,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.deepEqual(await companyAudit(t.db, co.companyId), []);
   });
 
-  test("company settings: saved, audited, and used for counting from then on", async () => {
+  test("company settings: saved, audited, and new working days recount open requests", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { canSelfApprove: true } });
     const ctx = createTestContext(t.db);
     const { boss, ana } = co.people;
@@ -306,17 +309,20 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.deepEqual(settings.allowancePolicies, ["annual_calendar_year"]);
 
     const before = await submitLeaveRequest(ctx, ana, { leaveTypeId: co.pto, startDate: "2026-11-16", endDate: "2026-11-22", dayPortion: "full" });
-    const saved = await updateCompanySettings(ctx, boss, {
+    const { company: saved, recount } = await updateCompanySettings(ctx, boss, {
       name: " Acme  Inc ",
       timezone: "Europe/Warsaw",
       workingDays: [6, 1, 2, 3, 4, 5],
       allowancePolicy: "annual_calendar_year",
     });
     assert.deepEqual([saved.name, saved.timezone, saved.workingDays], ["Acme Inc", "Europe/Warsaw", [1, 2, 3, 4, 5, 6]]);
-    await updateCompanySettings(ctx, boss, { name: "Acme Inc", timezone: "Europe/Warsaw", workingDays: [1, 2, 3, 4, 5, 6], allowancePolicy: "annual_calendar_year" });
+    assert.deepEqual(recount, { recounted: 1, nowFree: 0, overdrawn: [] });
+    const same = await updateCompanySettings(ctx, boss, { name: "Acme Inc", timezone: "Europe/Warsaw", workingDays: [1, 2, 3, 4, 5, 6], allowancePolicy: "annual_calendar_year" });
+    assert.deepEqual(same.recount, { recounted: 0, nowFree: 0, overdrawn: [] });
 
     const after = await submitLeaveRequest(ctx, ana, { leaveTypeId: co.pto, startDate: "2026-11-30", endDate: "2026-12-06", dayPortion: "full" });
-    assert.deepEqual([before.days, after.days], [5, 6], "Saturdays count from now on; the earlier request keeps 5");
+    assert.deepEqual(await requestDaysOf(t.db, before.id), [{ year: 2026, days: 6 }], "the earlier request now counts its Saturday");
+    assert.equal(after.days, 6, "and so do new ones");
 
     const audit = await companyAudit(t.db, co.companyId, "company.");
     assert.equal(audit.length, 1, "saving the same settings records nothing");

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { auditActionLabel, auditFieldLabel, describeAuditChange, diffAuditSnapshots, isAuditAction } from "@/domain/audit";
 import { ADMIN_EVENT_TYPES, ALLOWANCE_AUDIT_ACTIONS, CALENDAR_FEED_EVENT_TYPES, leaveAuditAction } from "@/domain/events";
+import { LEAVE_STATUSES } from "@/domain/leave-request";
 
 const names = {
   person: (id: string) => ({ u1: "Ana", u2: "Ben" })[id],
@@ -11,7 +12,8 @@ const names = {
 
 test("every action the app writes has a label", () => {
   const written = [
-    ...["requested", "approved", "rejected", "cancelled", "reassigned"].map((e) => leaveAuditAction(e as "requested")),
+    // Every leave transition: the non-status events, and each status a request can move into.
+    ...(["requested", "reassigned", "recounted", ...LEAVE_STATUSES.filter((s) => s !== "pending")] as const).map((e) => leaveAuditAction(e)),
     ...Object.values(ALLOWANCE_AUDIT_ACTIONS),
     ...Object.values(CALENDAR_FEED_EVENT_TYPES),
     ...Object.values(ADMIN_EVENT_TYPES),

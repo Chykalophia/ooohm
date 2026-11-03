@@ -100,8 +100,17 @@ export interface BalanceShortfallDetails {
   readonly yearsSpanned: number;
 }
 
+/**
+ * Facts behind a `zero_days` error: the company holidays inside the requested dates, so
+ * the message can name them rather than say "weekends or holidays". Empty when only
+ * non-working days were asked for.
+ */
+export interface NoWorkingDaysDetails {
+  readonly holidays: readonly { readonly date: string; readonly name: string }[];
+}
+
 /** Structured facts attached to some codes; see each code's documentation. */
-export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers;
+export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers | NoWorkingDaysDetails;
 
 /**
  * An expected, user-correctable failure. Anything that is not a `DomainError` is a
@@ -111,7 +120,8 @@ export class DomainError extends Error {
   readonly code: DomainErrorCode;
   /**
    * Structured facts for wording the user message: the shortfall for
-   * `insufficient_balance`, what blocks the delete for `deletion_blocked`.
+   * `insufficient_balance`, what blocks the delete for `deletion_blocked`, the holidays
+   * in the dates for `zero_days`.
    */
   readonly details?: DomainErrorDetails;
 

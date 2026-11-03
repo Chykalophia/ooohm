@@ -28,6 +28,16 @@ export const CHANGE_PROCESSES = {
    * An admin asked for it, so its source names them as `requestedBy`.
    */
   scheduledScrub: "scheduled_scrub",
+  /**
+   * Recounting submitted requests after an admin added or deleted a company holiday.
+   * An admin starts it, so it is only ever a `via`.
+   */
+  holidayChange: "holiday_change",
+  /**
+   * Recounting submitted requests after an admin changed the company's working days.
+   * An admin starts it, so it is only ever a `via`.
+   */
+  workingDaysChange: "working_days_change",
 } as const;
 
 const ADAPTER_SYNC_PREFIX = "adapter_sync:";
@@ -151,6 +161,10 @@ function processLabel(process: string, names: ChangeSourceNames, scheduled: bool
       return "time-off import";
     case CHANGE_PROCESSES.scheduledScrub:
       return "scheduled deletion";
+    case CHANGE_PROCESSES.holidayChange:
+      return "holiday change";
+    case CHANGE_PROCESSES.workingDaysChange:
+      return "working days change";
     case UNKNOWN_PROCESS:
       return "unknown process";
     default:

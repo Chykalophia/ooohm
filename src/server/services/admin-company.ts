@@ -12,7 +12,8 @@ import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "
 import type { ServiceContext } from "@/server/context";
 import { type CompanyRow, findCompany, lockCompany, updateCompany } from "@/server/repositories/companies";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { inTransaction } from "./notify";
+import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "./leave-recount";
+import { commitThenSend } from "./notify";
 
 function snapshot(row: CompanyRow) {
   return {
@@ -41,21 +42,29 @@ export async function getCompanySettings(ctx: ServiceContext, actor: Actor) {
 }
 
 /**
- * Saves the company's settings. A new time zone or new working days change how days are
- * counted and which day is "today" from now on; submitted requests keep the day split
- * stored with them, so past balances do not move.
+ * Saves the company's settings. A new time zone changes which day is "today" from now
+ * on. New working days change how days are counted, so the pending and approved
+ * requests in years still open are recounted with them ({@link recountLeave}); past
+ * years keep their counts.
  *
- * @returns The settings after the change (unchanged, with nothing recorded, when nothing differs).
- * @throws DomainError `forbidden`, `no_company`, or `invalid_input`.
+ * @returns The settings after the change (unchanged, with nothing recorded, when nothing
+ *   differs) and what the recount changed.
+ * @throws DomainError `forbidden`, `no_company`, `invalid_input`, or as {@link recountLeave}.
  */
-export async function updateCompanySettings(ctx: ServiceContext, actor: Actor, input: CompanySettingsInput): Promise<CompanyRow> {
+export async function updateCompanySettings(
+  ctx: ServiceContext,
+  actor: Actor,
+  input: CompanySettingsInput,
+): Promise<{ company: CompanyRow; recount: RecountOutcome }> {
   assertCanAdminister(actor);
-  return inTransaction(ctx, async (tx) => {
+  return commitThenSend(ctx, async (tx) => {
     const before = await lockCompany(tx, actor.companyId);
     if (!before) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);
     const settings = { deletionGrace: before.deletionGrace, ...normalizeCompanySettings(input, before.timezone) };
-    if (JSON.stringify(snapshot({ ...before, ...settings })) === JSON.stringify(snapshot(before))) return before;
+    if (JSON.stringify(snapshot({ ...before, ...settings })) === JSON.stringify(snapshot(before))) {
+      return { result: { company: before, recount: NOTHING_RECOUNTED }, outgoing: [] };
+    }
     const after = await updateCompany(tx, actor.companyId, settings);
     const payload: Unattributed<CompanyEventPayload> = { companyId: after.id, ...snapshot(after) };
     await recordAdminChange(tx, actor, {
@@ -66,6 +75,9 @@ export async function updateCompanySettings(ctx: ServiceContext, actor: Actor, i
       after: snapshot(after),
       payload,
     });
-    return after;
+    const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);
+    if (!workingDaysChanged) return { result: { company: after, recount: NOTHING_RECOUNTED }, outgoing: [] };
+    const { outcome, outgoing } = await recountLeave(tx, ctx, actor, { kind: "working_days", previous: before.workingDays });
+    return { result: { company: after, recount: outcome }, outgoing };
   });
 }

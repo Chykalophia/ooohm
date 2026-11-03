@@ -152,3 +152,84 @@ export const STATUS_LABEL = {
   rejected: "Declined",
   cancelled: "Cancelled",
 } as const;
+
+/** Why submitted leave was recounted: the holidays on its dates that changed, or the working days. */
+export type RecountCause =
+  | {
+      kind: "holidays";
+      added: readonly { date: string; name: string }[];
+      removed: readonly { date: string; name: string }[];
+    }
+  | { kind: "working_days" };
+
+/**
+ * The cause of a recount as the start of a sentence, e.g. "Thu, Dec 24, 2026 is now a
+ * company holiday (Christmas Eve)" or "The company's working days changed".
+ */
+export function formatRecountCause(cause: RecountCause): string {
+  if (cause.kind === "working_days") return "The company's working days changed";
+  const { added, removed } = cause;
+  if (added.length === 1 && removed.length === 0) {
+    return `${formatLeaveDates(added[0].date, added[0].date)} is now a company holiday (${added[0].name})`;
+  }
+  if (removed.length === 1 && added.length === 0) {
+    return `${formatLeaveDates(removed[0].date, removed[0].date)} is no longer a company holiday`;
+  }
+  if (removed.length === 0) return `${added.map((h) => h.name).join(", ")} are now company holidays`;
+  return "The company holidays during your time off changed";
+}
+
+/**
+ * Why a request has nothing to count: "Fri, Dec 25, 2026 is Christmas Day, a company
+ * holiday, so there's nothing to request." when the dates are one holiday, the holidays
+ * named when there are several, and the plain message when there are none.
+ */
+export function formatNoWorkingDays(holidays: readonly { date: string; name: string }[]): string {
+  if (holidays.length === 0) return "Those dates are all weekends or days off, so there's nothing to request.";
+  if (holidays.length === 1) {
+    const [h] = holidays;
+    return `${formatLeaveDates(h.date, h.date)} is ${h.name}, a company holiday, so there's nothing to request.`;
+  }
+  return `Those dates are days off or company holidays (${holidays.map((h) => h.name).join(", ")}), so there's nothing to request.`;
+}
+
+/**
+ * The confirmation an admin sees after a calendar change recounted submitted leave, e.g.
+ * "2 requests were recounted; 1 now takes no days. Ana Test is now 1 day over on PTO
+ * for 2026." Empty when nothing changed.
+ */
+export function formatRecountOutcome(outcome: {
+  recounted: number;
+  nowFree: number;
+  overdrawn: readonly { personName: string; leaveTypeName: string; year: number; over: number }[];
+}): string {
+  const parts: string[] = [];
+  if (outcome.recounted > 0) {
+    const free = outcome.nowFree > 0 ? `; ${outcome.nowFree} now ${outcome.nowFree === 1 ? "takes" : "take"} no days` : "";
+    parts.push(`${formatCount(outcome.recounted, "request was", "requests were")} recounted${free}.`);
+  }
+  for (const o of outcome.overdrawn) {
+    parts.push(`${o.personName} is now ${formatDays(o.over)} over on ${o.leaveTypeName} for ${o.year}.`);
+  }
+  return parts.join(" ");
+}
+
+/** How many people the "also off then" hint names before it says "and N more". */
+export const ALSO_OFF_SHOWN = 5;
+
+/**
+ * Who else is off during a request, for its approver, e.g. "Victor: Mon, Dec 21 to Tue,
+ * Dec 22, 2026; Chrismer: Wed, Dec 23, 2026 (afternoon, pending); and 2 more". `null`
+ * when nobody is.
+ */
+export function formatAlsoOff(
+  entries: readonly { name: string; startDate: string; endDate: string; dayPortion: "full" | "am" | "pm"; pending: boolean }[],
+): string | null {
+  if (entries.length === 0) return null;
+  const shown = entries.slice(0, ALSO_OFF_SHOWN).map((e) => {
+    const marks = [e.dayPortion === "full" ? null : PORTION_LABEL[e.dayPortion], e.pending ? "pending" : null].filter(Boolean);
+    return `${e.name}: ${formatLeaveDates(e.startDate, e.endDate)}${marks.length > 0 ? ` (${marks.join(", ")})` : ""}`;
+  });
+  const more = entries.length - shown.length;
+  return more > 0 ? `${shown.join("; ")}; and ${more} more` : shown.join("; ");
+}

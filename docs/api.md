@@ -139,9 +139,9 @@ Ids are strings. Every payload says who or what made the change in two fields:
   the key (the v1 API is read-only, so none are sent yet). `system` is a process with no person behind it;
   `requestedBy` (added within version 1) is present when a person asked for that run ahead of time (an admin who
   scheduled a deletion), and is not the actor.
-  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`, and
-  `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`). Expect more; treat an unknown one as
-  opaque.
+  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`,
+  `holiday_change`, `working_days_change`, and `adapter_sync:<adapterId>` (a scheduled sync when it is a
+  `process`). Expect more; treat an unknown one as opaque.
 - **`actorId`** is kept for compatibility: the person, when there is one (`actor.id`), or `null` for a `system`
   change. Prefer `actor`.
 
@@ -155,8 +155,9 @@ For example, the year rollover's `balance.adjusted` carries `"actorId": null, "a
 | `leave.requested` | A request is submitted (also for self-approved ones, followed by `leave.approved`) |
 | `leave.approved` | An approver or admin approves, or a request is self-approved |
 | `leave.rejected` | An approver or admin declines |
-| `leave.cancelled` | The requester cancels a pending or approved request. Approved leave that ended before the current year (in the company's time zone) cannot be cancelled, so no `leave.cancelled` follows for it |
+| `leave.cancelled` | The requester cancels a pending or approved request. Approved leave that ended before the current year (in the company's time zone) cannot be cancelled, so no `leave.cancelled` follows for it. |
 | `leave.reassigned` | A pending request moves to another approver (adds `previousApproverId`, `approverId`) |
+| `leave.recounted` | A pending or approved request costs a different number of days because an admin added or deleted a company holiday on its dates, or changed the working days. `days` is the new count (it can be `0` when the request now falls entirely on holidays; the request stays as it was otherwise); adds `previousDays`. Only the current and later years are recounted. The actor is the admin, with `via` `holiday_change` or `working_days_change`. Endpoints subscribe to event types explicitly, so an integration that mirrors leave days should add this one |
 
 Payload: `requestId, userId, leaveTypeId, startDate, endDate, dayPortion ("full" | "am" | "pm"), days, status, actorId, actor`.
 

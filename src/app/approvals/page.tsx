@@ -51,6 +51,7 @@ export default async function ApprovalsPage() {
                       {r.approverId !== actor.id && ` · Assigned to ${r.approverName || "someone else"}`}
                     </p>
                     {r.note && <p className="text-sm break-words">{r.note}</p>}
+                    {r.alsoOff && <p className="text-sm text-muted">Also off then: {r.alsoOff}</p>}
                   </div>
                   <DecisionForm requestId={r.id} />
                 </li>

@@ -3,7 +3,9 @@ import type { PersonChangeSource } from "@/domain/change-source";
 import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
+  LEAVE_RECOUNTED_EVENT_TYPE,
   type LeaveReassignedPayload,
+  type LeaveRecountedPayload,
   leaveAuditAction,
   leaveEventPayload,
 } from "@/domain/events";
@@ -90,6 +92,31 @@ export async function recordReassignment(
       after: snapshot(after),
     },
     event: { companyId: after.companyId, type: LEAVE_REASSIGNED_EVENT_TYPE, payload },
+  });
+}
+
+/**
+ * Writes the audit row (`leave_request.recounted`) and the `leave.recounted` event for a
+ * request whose day count changed with the company calendar, inside `tx`.
+ */
+export async function recordRecount(
+  tx: Transaction,
+  change: { before: LeaveRequestRow; after: LeaveRequestRow; source: PersonChangeSource },
+): Promise<void> {
+  const { before, after, source } = change;
+  const payload: LeaveRecountedPayload = { ...leaveEventPayload(after, source), previousDays: before.days };
+  await recordChange(tx, {
+    source,
+    audit: {
+      companyId: after.companyId,
+      action: leaveAuditAction("recounted"),
+      entityType: "leave_request",
+      entityId: after.id,
+      subjectUserId: after.userId,
+      before: snapshot(before),
+      after: snapshot(after),
+    },
+    event: { companyId: after.companyId, type: LEAVE_RECOUNTED_EVENT_TYPE, payload },
   });
 }
 

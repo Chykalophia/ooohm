@@ -13,6 +13,7 @@ import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { insertRequestDays } from "@/server/repositories/balances";
 import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
+import { shareLockCompany } from "@/server/repositories/companies";
 import {
   countRecentRequests,
   findLeaveRequest,
@@ -24,6 +25,7 @@ import {
 import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findMember, listActiveAdmins, lockMember } from "@/server/repositories/users";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
+import { alsoOffFor } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify, type Outgoing } from "./notify";
 
@@ -76,6 +78,10 @@ export async function submitLeaveRequest(
   if (!isUuid(input.leaveTypeId)) throw new DomainError("leave_type_unavailable");
 
   return commitThenNotify(ctx, async (tx) => {
+    // Shared with other submits, exclusive with a holiday or working-days change, which
+    // recounts submitted requests: a request is never counted with a calendar that is
+    // being replaced. Taken before the member lock, the order every service locks in.
+    await shareLockCompany(tx, actor.companyId);
     const requester = await lockMember(tx, actor.companyId, actor.id);
     if (!requester?.isActive) throw new DomainError("forbidden");
     // Counted under the member lock, so parallel submits cannot all slip under the cap.
@@ -129,9 +135,10 @@ export async function submitLeaveRequest(
         mail.push({ to: me.email, email: { kind: "approved", recipientName: me.name, leave, reason: null, link: `${ctx.appUrl}/` } });
       }
     } else if (approver && approver.id !== actor.id) {
+      const alsoOff = (await alsoOffFor(tx, actor.companyId, [{ ...final, userId: actor.id }])).get(final.id) ?? null;
       mail.push({
         to: approver.email,
-        email: { kind: "requested", recipientName: approver.name, leave, link: `${ctx.appUrl}/approvals` },
+        email: { kind: "requested", recipientName: approver.name, leave, alsoOff, link: `${ctx.appUrl}/approvals` },
       });
     }
     return { result: final, outgoing: mail };

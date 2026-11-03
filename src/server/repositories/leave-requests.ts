@@ -1,8 +1,9 @@
 import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { leaveRequests, leaveTypes, user } from "@/db/schema";
-import type { Executor } from "@/db/types";
+import type { Executor, Transaction } from "@/db/types";
 import type { LeaveStatus } from "@/domain/leave-request";
+import { activeInRange } from "./calendar";
 
 export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
 export type NewLeaveRequest = typeof leaveRequests.$inferInsert;
@@ -244,4 +245,40 @@ export async function listInbox(ex: Executor, scope: InboxScope, limit: number) 
 export async function countInbox(ex: Executor, scope: InboxScope): Promise<number> {
   const [row] = await ex.select({ n: count() }).from(leaveRequests).where(inboxWhere(scope));
   return row?.n ?? 0;
+}
+
+/**
+ * Locks and returns the company's pending and approved requests that include any of
+ * `dates`, or (with `{ from }`) every one ending on or after `from`; oldest start first.
+ * Locked `FOR UPDATE`, so a decision, cancel or reassignment of one of them waits until
+ * the caller's transaction ends. Requests on none of the dates are neither read nor
+ * locked, even between two of them.
+ */
+export async function lockActiveRequestsOnDates(
+  tx: Transaction,
+  companyId: string,
+  dates: readonly string[] | { from: string },
+): Promise<LeaveRequestRow[]> {
+  let where: SQL | undefined;
+  if ("from" in dates) {
+    where = and(eq(leaveRequests.companyId, companyId), inArray(leaveRequests.status, ["pending", "approved"]), gte(leaveRequests.endDate, dates.from));
+  } else {
+    if (dates.length === 0) return [];
+    const sorted = [...dates].sort();
+    where = and(
+      activeInRange(companyId, sorted[0], sorted[sorted.length - 1]),
+      or(...sorted.map((d) => and(lte(leaveRequests.startDate, d), gte(leaveRequests.endDate, d)))),
+    );
+  }
+  return tx.select().from(leaveRequests).where(where).orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id)).for("update");
+}
+
+/** Sets a request's total `days`; its per-year split is replaced separately ({@link replaceRequestDays}). */
+export async function updateRequestDays(tx: Transaction, companyId: string, id: string, days: number): Promise<LeaveRequestRow> {
+  const [row] = await tx
+    .update(leaveRequests)
+    .set({ days })
+    .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId)))
+    .returning();
+  return row;
 }

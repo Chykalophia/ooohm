@@ -20,12 +20,14 @@ import {
   type CalendarFeedRow,
   findLiveFeedByHash,
   insertFeed,
+  hasLiveFeedIn,
   listLiveFeeds,
   revokeAllLiveFeeds,
   revokeLiveFeed,
   touchFeed,
 } from "@/server/repositories/calendar-feeds";
 import { recordChange } from "@/server/repositories/change-log";
+import { hasApprovedRequest } from "@/server/repositories/leave-requests";
 import { lockMember } from "@/server/repositories/users";
 import { toTeamEntry } from "./calendar";
 import { inTransaction } from "./notify";
@@ -43,7 +45,13 @@ function snapshot(row: CalendarFeedRow) {
 
 async function recordFeedChange(
   tx: Transaction,
-  change: { event: "issued" | "revoked"; before: CalendarFeedRow | null; after: CalendarFeedRow; source: PersonChangeSource; reason: CalendarFeedRevokeReason | null },
+  change: {
+    event: "issued" | "revoked";
+    before: CalendarFeedRow | null;
+    after: CalendarFeedRow;
+    source: PersonChangeSource;
+    reason: CalendarFeedRevokeReason | null;
+  },
 ): Promise<void> {
   const { after, source } = change;
   const payload: Unattributed<CalendarFeedEventPayload> = { feedId: after.id, userId: after.userId, kind: after.kind, reason: change.reason };
@@ -74,10 +82,7 @@ export async function listCalendarFeeds(
   ctx: ServiceContext,
   actor: Actor,
 ): Promise<{ timezone: string; feeds: Record<FeedKind, FeedSummary | null> }> {
-  const [settings, rows] = await Promise.all([
-    findCompanySettings(ctx.db, actor.companyId),
-    listLiveFeeds(ctx.db, actor.id),
-  ]);
+  const [settings, rows] = await Promise.all([findCompanySettings(ctx.db, actor.companyId), listLiveFeeds(ctx.db, actor.id)]);
   if (!settings) throw new DomainError("no_company");
   const summary = (kind: FeedKind) => {
     const row = rows.find((r) => r.kind === kind);
@@ -97,11 +102,17 @@ async function asMember<T>(ctx: ServiceContext, actor: Actor, work: (tx: Transac
 }
 
 /**
- * Whether the person has any live calendar link, so Home stops suggesting one once
- * they have it. One query.
+ * Whether Home should suggest a calendar link: the person has had time off approved in
+ * their company (at any time, not only among the requests Home lists) and has no live
+ * link issued in that company. A link left over from a company they have since left
+ * doesn't count, since it serves nothing here. Two queries.
  */
-export async function hasCalendarFeed(ctx: ServiceContext, actor: Actor): Promise<boolean> {
-  return (await listLiveFeeds(ctx.db, actor.id)).length > 0;
+export async function shouldSuggestCalendarFeed(ctx: ServiceContext, actor: Actor): Promise<boolean> {
+  const [approved, linked] = await Promise.all([
+    hasApprovedRequest(ctx.db, actor.companyId, actor.id),
+    hasLiveFeedIn(ctx.db, actor.companyId, actor.id),
+  ]);
+  return approved && !linked;
 }
 
 /**
@@ -118,7 +129,11 @@ export async function hasCalendarFeed(ctx: ServiceContext, actor: Actor): Promis
  *   the caller's hands; show it once.
  * @throws DomainError `invalid_input` (unknown kind) or `forbidden` (inactive member).
  */
-export async function issueCalendarFeed(ctx: ServiceContext, actor: Actor, kind: FeedKind): Promise<{ token: string; url: string; feed: FeedSummary }> {
+export async function issueCalendarFeed(
+  ctx: ServiceContext,
+  actor: Actor,
+  kind: FeedKind,
+): Promise<{ token: string; url: string; feed: FeedSummary }> {
   if (!isFeedKind(kind)) throw new DomainError("invalid_input");
   return asMember(ctx, actor, async (tx) => {
     const now = ctx.now();

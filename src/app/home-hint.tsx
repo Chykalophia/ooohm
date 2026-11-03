@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 /**
  * A quiet, dismissible note on Home (days about to expire, or a nudge to subscribe to
  * the calendar). "Got it" hides it in this browser for good; the key decides what
- * counts as the same note, so next year's expiry note shows again.
+ * counts as the same note, so next year's expiry note shows again. Keys name the person
+ * and company, so someone else signing in on the same browser still sees theirs.
  *
  * Hidden until mounted, because the dismissal lives in the browser: rendering it on
  * the server would flash it for people who dismissed it.

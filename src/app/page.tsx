@@ -3,7 +3,7 @@ import { requireActor } from "@/lib/auth";
 import { formatDays, formatExpiring, formatLeaveDates } from "@/lib/format";
 import { serviceContext } from "@/server/runtime";
 import { getApprovalNav } from "@/server/services/approvals";
-import { hasCalendarFeed } from "@/server/services/calendar-feeds";
+import { shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
 import { getDashboard } from "@/server/services/leave-requests";
 import { AppHeader } from "./app-header";
 import { BalanceSummary } from "./balance-summary";
@@ -22,9 +22,12 @@ export default async function HomePage() {
   if (!actor) return <NoCompany userName={userName} current="home" />;
 
   const ctx = serviceContext();
-  const [dashboard, approvals] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor)]);
   // Once someone has approved time off, suggest putting it in their own calendar, until they have.
-  const suggestFeed = dashboard.requests.some((r) => r.status === "approved") && !(await hasCalendarFeed(ctx, actor));
+  const [dashboard, approvals, suggestFeed] = await Promise.all([
+    getDashboard(ctx, actor),
+    getApprovalNav(ctx, actor),
+    shouldSuggestCalendarFeed(ctx, actor),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
@@ -39,7 +42,10 @@ export default async function HomePage() {
         )}
 
         {dashboard.expiring.length > 0 && dashboard.balances && (
-          <HomeHint storageKey={`ooohm:expiring:${dashboard.balances.year}`} link={{ href: "/calendar", label: "Pick days" }}>
+          <HomeHint
+            storageKey={`ooohm:${actor.companyId}:${actor.id}:expiring:${dashboard.balances.year}`}
+            link={{ href: "/calendar", label: "Pick days" }}
+          >
             {formatExpiring(dashboard.expiring, dashboard.balances.year + 1)} Book them by December 31.
           </HomeHint>
         )}
@@ -52,7 +58,10 @@ export default async function HomePage() {
             Your requests
           </h2>
           {suggestFeed && (
-            <HomeHint storageKey="ooohm:calendar-feed" link={{ href: "/calendar/subscriptions", label: "Add to my calendar" }}>
+            <HomeHint
+              storageKey={`ooohm:${actor.companyId}:${actor.id}:calendar-feed`}
+              link={{ href: "/calendar/subscriptions", label: "Add to my calendar" }}
+            >
               Put your time off in Google Calendar, Apple Calendar or Outlook, and keep it up to date there.
             </HomeHint>
           )}

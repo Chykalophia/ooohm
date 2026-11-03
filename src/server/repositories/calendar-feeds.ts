@@ -44,12 +44,7 @@ export async function touchFeed(ex: Executor, id: string, at: Date, staleBefore:
   await ex
     .update(calendarFeedTokens)
     .set({ lastUsedAt: at })
-    .where(
-      and(
-        eq(calendarFeedTokens.id, id),
-        or(isNull(calendarFeedTokens.lastUsedAt), lt(calendarFeedTokens.lastUsedAt, staleBefore)),
-      ),
-    );
+    .where(and(eq(calendarFeedTokens.id, id), or(isNull(calendarFeedTokens.lastUsedAt), lt(calendarFeedTokens.lastUsedAt, staleBefore))));
 }
 
 /**
@@ -67,10 +62,18 @@ export async function listLiveFeeds(ex: Executor, userId: string) {
       lastUsedAt: calendarFeedTokens.lastUsedAt,
     })
     .from(calendarFeedTokens)
-    .where(
-      and(eq(calendarFeedTokens.userId, userId), isNull(calendarFeedTokens.revokedAt)),
-    )
+    .where(and(eq(calendarFeedTokens.userId, userId), isNull(calendarFeedTokens.revokedAt)))
     .orderBy(asc(calendarFeedTokens.createdAt));
+}
+
+/** Whether the person has a live feed issued in this company (one a feed reader can use now). */
+export async function hasLiveFeedIn(ex: Executor, companyId: string, userId: string): Promise<boolean> {
+  const [row] = await ex
+    .select({ id: calendarFeedTokens.id })
+    .from(calendarFeedTokens)
+    .where(and(eq(calendarFeedTokens.companyId, companyId), eq(calendarFeedTokens.userId, userId), isNull(calendarFeedTokens.revokedAt)))
+    .limit(1);
+  return row !== undefined;
 }
 
 /**
@@ -78,17 +81,11 @@ export async function listLiveFeeds(ex: Executor, userId: string) {
  * Matches by person and kind only, like the live-feed unique index, so a link issued
  * in a company the person has since left is revoked too.
  */
-export async function revokeLiveFeed(
-  tx: Transaction,
-  where: { userId: string; kind: FeedKind },
-  at: Date,
-): Promise<CalendarFeedRow | undefined> {
+export async function revokeLiveFeed(tx: Transaction, where: { userId: string; kind: FeedKind }, at: Date): Promise<CalendarFeedRow | undefined> {
   const [row] = await tx
     .update(calendarFeedTokens)
     .set({ revokedAt: at })
-    .where(
-      and(eq(calendarFeedTokens.userId, where.userId), eq(calendarFeedTokens.kind, where.kind), isNull(calendarFeedTokens.revokedAt)),
-    )
+    .where(and(eq(calendarFeedTokens.userId, where.userId), eq(calendarFeedTokens.kind, where.kind), isNull(calendarFeedTokens.revokedAt)))
     .returning();
   return row;
 }

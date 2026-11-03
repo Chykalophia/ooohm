@@ -5,6 +5,11 @@ import { useEffect, useRef, useState } from "react";
 
 export type JumpItem = { href: string; label: string };
 
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+}
+
 /**
  * ⌘K (Ctrl+K elsewhere) opens a small list of the screens this person can reach: type
  * to filter, arrows to move, Enter to go. Nothing shows until someone presses the keys,
@@ -20,7 +25,8 @@ export function JumpMenu({ items }: { items: JumpItem[] }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k") {
+      // In a text field the keys keep their own meaning (Ctrl+K deletes to the line's end on a Mac).
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k" && !isTyping(e.target)) {
         e.preventDefault();
         setQuery("");
         setActive(0);
@@ -77,7 +83,11 @@ export function JumpMenu({ items }: { items: JumpItem[] }) {
           className="w-full rounded-lg border border-border bg-background px-3 py-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
         <ul id="jump-list" role="listbox" aria-label="Screens" className="mt-2 max-h-72 overflow-y-auto">
-          {matches.length === 0 && <li className="px-3 py-2 text-sm text-muted">Nothing matches.</li>}
+          {matches.length === 0 && (
+            <li role="option" aria-selected={false} aria-disabled="true" className="px-3 py-2 text-sm text-muted">
+              Nothing matches.
+            </li>
+          )}
           {matches.map((item, i) => (
             <li
               key={item.href}
@@ -93,7 +103,9 @@ export function JumpMenu({ items }: { items: JumpItem[] }) {
           ))}
         </ul>
       </div>
-      <p className="border-t border-border px-4 py-2 text-xs text-muted">On Approvals: J and K move between requests, A approves, D declines with a reason.</p>
+      <p className="border-t border-border px-4 py-2 text-xs text-muted">
+        On Approvals: J and K move between requests, A approves, D declines with a reason.
+      </p>
     </dialog>
   );
 }

@@ -150,6 +150,16 @@ const approver = alias(user, "approver");
 const requester = alias(user, "requester");
 
 /** A person's own requests, newest dates first, with display names resolved. */
+/** Whether the person has ever had time off approved in this company, however long ago. */
+export async function hasApprovedRequest(ex: Executor, companyId: string, userId: string): Promise<boolean> {
+  const [row] = await ex
+    .select({ id: leaveRequests.id })
+    .from(leaveRequests)
+    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId), eq(leaveRequests.status, "approved")))
+    .limit(1);
+  return row !== undefined;
+}
+
 export async function listRequestsForUser(ex: Executor, companyId: string, userId: string, limit: number) {
   return ex
     .select({

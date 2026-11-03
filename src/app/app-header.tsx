@@ -26,7 +26,9 @@ const ADMIN_JUMPS: JumpItem[] = [
   ["company", "Company"],
   ["appearance", "Appearance"],
   ["audit", "Audit log"],
-  ["webhooks", "Integrations"],
+  ["webhooks", "Webhooks"],
+  ["api-keys", "API keys"],
+  ["integrations", "Connectors"],
 ].map(([path, label]) => ({ href: `/admin/${path}`, label: `Admin · ${label}` }));
 
 /**
@@ -54,7 +56,6 @@ export function AppHeader({
     ? [
         { href: "/", label: "Home" },
         { href: "/calendar", label: "Calendar" },
-        { href: "/calendar?view=year", label: "Calendar · Year" },
         { href: "/calendar/subscriptions", label: "Calendar · Subscribe" },
         { href: "/team", label: "Team" },
         ...(approvals?.visible

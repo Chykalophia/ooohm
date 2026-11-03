@@ -18,13 +18,13 @@ follow the same rules. `src/server/runtime.ts` is the composition root and impor
 processes outside Next: the rollover, the worker and the TimeOff import build their `ServiceContext` with
 `scriptContext` (`scripts/script-context.mts`).
 
-| Layer | Path | Owns | May import |
-| --- | --- | --- | --- |
-| Presentation | `src/app/**` | Pages, layouts, client components, server actions, route handlers | services, `@/server/runtime`, domain types, constants and pure functions, `lib` |
-| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/email`, `lib` (not `env`, `db`, `auth`) |
-| Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
-| Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
-| Infrastructure | `src/lib/**`, `src/db/**` | Env, logging, mail transport, auth, formatting, schema, the connection pool | `domain` (pure functions and types, e.g. `toActor` for `requireActor`) |
+| Layer                      | Path                         | Owns                                                                                            | May import                                                                                  |
+| -------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Presentation               | `src/app/**`                 | Pages, layouts, client components, server actions, route handlers                               | services, `@/server/runtime`, domain types, constants and pure functions, `lib`             |
+| Application (services)     | `src/server/services/**`     | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/email`, `lib` (not `env`, `db`, `auth`) |
+| Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first                     | `@/db/schema`, `@/db/types`, domain types                                                   |
+| Domain                     | `src/domain/**`              | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env                          | nothing outside `src/domain`                                                                |
+| Infrastructure             | `src/lib/**`, `src/db/**`    | Env, logging, mail transport, auth, formatting, schema, the connection pool                     | `domain` (pure functions and types, e.g. `toActor` for `requireActor`)                      |
 
 Rules of thumb:
 
@@ -95,11 +95,11 @@ actions, written in bulk with `insertAuditEntries`) without a per-row event, and
 
 Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-source.ts`), one of:
 
-| `kind` | Who or what | Example label in the audit log |
-| --- | --- | --- |
-| `user` | A person, directly, or through something they started (`via`) | "Peter Krzyzek", "Peter Krzyzek, via Gusto sync" |
-| `api_key` | A person's API key: the key's creator and the key, optionally `via` something | "Peter Krzyzek, via API key ‘Zapier’ (ooohm_ab12cd34…)" |
-| `system` | A process with no person behind it (`process`), optionally run for a person who asked for it ahead of time (`requestedBy`) | "System: year rollover", "System: scheduled Gusto sync", "System: scheduled deletion, requested by Peter Krzyzek" |
+| `kind`    | Who or what                                                                                                                | Example label in the audit log                                                                                    |
+| --------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `user`    | A person, directly, or through something they started (`via`)                                                              | "Peter Krzyzek", "Peter Krzyzek, via Gusto sync"                                                                  |
+| `api_key` | A person's API key: the key's creator and the key, optionally `via` something                                              | "Peter Krzyzek, via API key ‘Zapier’ (ooohm_ab12cd34…)"                                                           |
+| `system`  | A process with no person behind it (`process`), optionally run for a person who asked for it ahead of time (`requestedBy`) | "System: year rollover", "System: scheduled Gusto sync", "System: scheduled deletion, requested by Peter Krzyzek" |
 
 `via` and `process` share one vocabulary of stable identifiers: `year_rollover`, `retention`, `adapter_sync:<adapterId>`,
 `timeoff_import` and `scheduled_scrub`. They are stored and published, so never rename one.
@@ -119,7 +119,7 @@ How sources are chosen, type-enforced so a new call site cannot leave one out (e
   `adapter_sync:<id>`. No scheduled sync runs in v1; the trigger is there for the first adapter that needs one.
 - Retention prunes delivery machinery, not state, and writes no audit rows; `retention` is named for when it does.
 - The TimeOff import (M7) is started by a person, so it is that person's change: `{ kind: "user", userId: <admin>,
-  via: "timeoff_import" }` on every audit row it writes and on `import.completed`. The CLI's required `--actor <email>`
+via: "timeoff_import" }` on every audit row it writes and on `import.completed`. The CLI's required `--actor <email>`
   names the admin; it is resolved inside the import's transaction, after people are imported, and must be an
   active admin of the target company (existing, or just imported with `--create-company`), or the import rolls back.
 - A full-scrub delete that waited out the company's grace period ([People lifecycle](#people-lifecycle-and-privacy-m8))
@@ -152,24 +152,24 @@ the whole batch and writes the same columns.
 
 Leave events (`src/domain/events.ts`) are a public contract for webhooks and adapters (M6):
 
-| Event | When | `status` in payload |
-| --- | --- | --- |
-| `leave.requested` | Every submit, including self-approved ones | `pending` |
-| `leave.approved` | An approver or admin approves, or self-approval at submit | `approved` |
-| `leave.rejected` | An approver or admin declines | `rejected` |
-| `leave.cancelled` | The requester cancels a pending or approved request (approved leave of a past year cannot be cancelled) | `cancelled` |
+| Event             | When                                                                                                    | `status` in payload |
+| ----------------- | ------------------------------------------------------------------------------------------------------- | ------------------- |
+| `leave.requested` | Every submit, including self-approved ones                                                              | `pending`           |
+| `leave.approved`  | An approver or admin approves, or self-approval at submit                                               | `approved`          |
+| `leave.rejected`  | An approver or admin declines                                                                           | `rejected`          |
+| `leave.cancelled` | The requester cancels a pending or approved request (approved leave of a past year cannot be cancelled) | `cancelled`         |
 
 Payload (v1): `requestId, userId, leaveTypeId, startDate, endDate, dayPortion, days, status, actorId, actor`. Add
 fields; never rename or remove one. Every payload below also carries `actor` beside `actorId`.
 
 Balance events (M3):
 
-| Event | When | Audit `action` |
-| --- | --- | --- |
-| `balance.adjusted` | The year rollover sets a carried-over amount (`reason: "carryover"`) | `allowance.carried_over` |
-| `balance.adjusted` | The year rollover creates an allowance row from the leave type default, or copies it from the person's latest row for a type without a default (`reason: "allowance_created"`) | `allowance.created` |
-| `balance.adjusted` | An admin sets a person's allowance `days` or `adjustmentDays` for a year (`reason: "admin_edit"`, M5). The admin's typed reason is in the audit row's `after.reason` only, never the payload | `allowance.edited` |
-| `balance.adjusted` | An adapter's inbound sync sets `days` (and `adjustmentDays` when it sends one) (`reason: "sync"`, M6) | `allowance.synced` |
+| Event              | When                                                                                                                                                                                         | Audit `action`           |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `balance.adjusted` | The year rollover sets a carried-over amount (`reason: "carryover"`)                                                                                                                         | `allowance.carried_over` |
+| `balance.adjusted` | The year rollover creates an allowance row from the leave type default, or copies it from the person's latest row for a type without a default (`reason: "allowance_created"`)               | `allowance.created`      |
+| `balance.adjusted` | An admin sets a person's allowance `days` or `adjustmentDays` for a year (`reason: "admin_edit"`, M5). The admin's typed reason is in the audit row's `after.reason` only, never the payload | `allowance.edited`       |
+| `balance.adjusted` | An adapter's inbound sync sets `days` (and `adjustmentDays` when it sends one) (`reason: "sync"`, M6)                                                                                        | `allowance.synced`       |
 
 Payload (v1): `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId`,
 the row after the change. The rollover has no person behind it: `actorId` is `null` and `actor` is
@@ -177,9 +177,9 @@ the row after the change. The rollover has no person behind it: `actorId` is `nu
 
 Calendar feed events (M4):
 
-| Event | When | Audit `action` |
-| --- | --- | --- |
-| `calendar_feed.issued` | A person creates a feed link, or gets a new one | `calendar_feed.issued` |
+| Event                   | When                                                                                                                                                                                                                                | Audit `action`          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `calendar_feed.issued`  | A person creates a feed link, or gets a new one                                                                                                                                                                                     | `calendar_feed.issued`  |
 | `calendar_feed.revoked` | A person gets a new link (`reason: "regenerated"`, written before the `issued` for the new one) or turns the feed off (`reason: "turned_off"`), or an admin deactivates the person (`reason: "deactivated"`, actor = the admin, M5) | `calendar_feed.revoked` |
 
 Payload (v1): `feedId, userId, kind, reason, actorId` (`reason` is `null` on `issued`). Neither the payload nor
@@ -188,25 +188,25 @@ the audit row (`kind, createdAt, revokedAt`) ever holds the token or its hash.
 Admin events (M5), registered in `ADMIN_EVENT_TYPES` (`src/domain/events.ts`). For each, the audit `action` is
 the event type, and `actorId` is the admin.
 
-| Event | When | Payload (v1) |
-| --- | --- | --- |
-| `user.created` | An admin invites someone | `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId`: the person after the change |
-| `user.updated` | An admin changes name, department, manager, role or self-approval | same |
-| `user.deactivated` | An admin deactivates someone | same |
-| `user.reactivated` | An admin reactivates someone | same |
-| `user.invite_resent` | An admin sends someone a new sign-in link | same |
-| `user.deletion_scheduled`, `user.deletion_cancelled` | An admin asks for a full scrub with the grace option on; an admin undoes it (or reactivates the person) | `userId, scheduledFor, actorId` |
-| `user.deleted` | A person is deleted (M8). The one admin event a system process can also make: a scheduled scrub's actor is `{ type: "system", process: "scheduled_scrub", requestedBy }` | `userId, mode ("scrubbed" \| "records_kept"), deletedAt, actorId`: no name or email |
-| `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
-| `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
-| `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, actorId` |
+| Event                                                                      | When                                                                                                                                                                     | Payload (v1)                                                                                                                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user.created`                                                             | An admin invites someone                                                                                                                                                 | `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId`: the person after the change                                     |
+| `user.updated`                                                             | An admin changes name, department, manager, role or self-approval                                                                                                        | same                                                                                                                                                     |
+| `user.deactivated`                                                         | An admin deactivates someone                                                                                                                                             | same                                                                                                                                                     |
+| `user.reactivated`                                                         | An admin reactivates someone                                                                                                                                             | same                                                                                                                                                     |
+| `user.invite_resent`                                                       | An admin sends someone a new sign-in link                                                                                                                                | same                                                                                                                                                     |
+| `user.deletion_scheduled`, `user.deletion_cancelled`                       | An admin asks for a full scrub with the grace option on; an admin undoes it (or reactivates the person)                                                                  | `userId, scheduledFor, actorId`                                                                                                                          |
+| `user.deleted`                                                             | A person is deleted (M8). The one admin event a system process can also make: a scheduled scrub's actor is `{ type: "system", process: "scheduled_scrub", requestedBy }` | `userId, mode ("scrubbed" \| "records_kept"), deletedAt, actorId`: no name or email                                                                      |
+| `department.created`, `.renamed`, `.deleted`                               |                                                                                                                                                                          | `departmentId, name, actorId` (the name before, on `deleted`)                                                                                            |
+| `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` |                                                                                                                                                                          | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
+| `holiday.created`, `.renamed`, `.deleted`                                  |                                                                                                                                                                          | `holidayId, date, name, actorId`                                                                                                                         |
+| `company.updated`                                                          | Company settings or appearance saved                                                                                                                                     | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, actorId`                                           |
 
 One more event comes with M5 but is not an admin event: it is `LEAVE_REASSIGNED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`, and its audit `action` follows the leave request actions instead of the event type.
 
-| Event | When | Audit `action` | Payload (v1) |
-| --- | --- | --- | --- |
+| Event              | When                                                                                                                                                                                                                                                                               | Audit `action`             | Payload (v1)                                                                       |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | `leave.reassigned` | A pending request moves to another approver: its approver was deactivated or demoted from admin, the requester's manager changed, or someone was invited as admin, promoted to admin or reactivated who can now take a request an admin had routed to themself (actor = the admin) | `leave_request.reassigned` | the `leave.*` payload plus `previousApproverId, approverId` (either may be `null`) |
 
 No payload ever holds a session, token, sign-in link or the admin's free-text reason. Emails are in `user.*`
@@ -218,20 +218,20 @@ Integration events (M6), registered in `INTEGRATION_EVENT_TYPES`; the audit `act
 actor the admin. Payloads carry a webhook URL's origin only (paths often hold a token), never a secret, key or
 hash.
 
-| Event | Payload (v1) |
-| --- | --- |
-| `webhook_endpoint.created`, `.updated`, `.enabled`, `.disabled`, `.secret_rotated`, `.deleted`, `.pinged` | `endpointId, urlOrigin, description, eventTypes, enabled, actorId` |
-| `webhook_endpoint.updated` also | `urlChanged` (boolean): the full URL changed, even if `urlOrigin` did not |
-| `webhook_delivery.redelivered` | `endpointId, deliveryId, eventId, eventType, actorId` |
-| `api_key.created`, `api_key.revoked` | `apiKeyId, name, prefix, scopes, actorId` |
+| Event                                                                                                     | Payload (v1)                                                              |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `webhook_endpoint.created`, `.updated`, `.enabled`, `.disabled`, `.secret_rotated`, `.deleted`, `.pinged` | `endpointId, urlOrigin, description, eventTypes, enabled, actorId`        |
+| `webhook_endpoint.updated` also                                                                           | `urlChanged` (boolean): the full URL changed, even if `urlOrigin` did not |
+| `webhook_delivery.redelivered`                                                                            | `endpointId, deliveryId, eventId, eventType, actorId`                     |
+| `api_key.created`, `api_key.revoked`                                                                      | `apiKeyId, name, prefix, scopes, actorId`                                 |
 
 Import events (M7), registered in `IMPORT_EVENT_TYPES`. The actor is `null` (the import runs from the command
 line). Every imported row has its own audit row (`import.company`, `.department`, `.leave_type`, `.holiday`,
 `.user`, `.allowance`, `.leave_request`), with no event of its own, including a carried-over amount the import's
 rollover step corrects.
 
-| Event | When | Audit `action` | Payload (v1) |
-| --- | --- | --- | --- |
+| Event              | When                                                 | Audit `action`                                       | Payload (v1)                                                                                                                            |
+| ------------------ | ---------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `import.completed` | A one-time import (v1: TimeOff.Management) committed | `import.completed` (flat counts, file name and hash) | `importRunId, source, sourceSha256, counts {people, departments, leaveTypes, holidays, allowances, leaveRequests}, mismatches, actorId` |
 
 [docs/api.md](api.md#events) is the public catalogue of every type and payload, with the envelope they are
@@ -329,13 +329,13 @@ else's request skip the check (no extra reads).
 
 ### Emails
 
-| Transition | Recipients |
-| --- | --- |
-| Requested (routed) | Approver (not when it is the requester) |
-| Requested (self-approved) | Requester gets "approved"; no review email |
-| Approved | Requester, with the approver's note if they wrote one |
-| Rejected | Requester, with the reason |
-| Cancelled | Requester, plus the approver unless the approver is the person cancelling |
+| Transition                | Recipients                                                                |
+| ------------------------- | ------------------------------------------------------------------------- |
+| Requested (routed)        | Approver (not when it is the requester)                                   |
+| Requested (self-approved) | Requester gets "approved"; no review email                                |
+| Approved                  | Requester, with the approver's note if they wrote one                     |
+| Rejected                  | Requester, with the reason                                                |
+| Cancelled                 | Requester, plus the approver unless the approver is the person cancelling |
 
 Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base URL.
 
@@ -349,12 +349,14 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   the form's default) that will not carry into next year (what is left minus what carryover keeps), once per
   year per browser. Only that type, so nobody is told to use up sick days. After
   the person's first approved request, a note suggests adding their time off to their own calendar until they
-  have a live calendar link. Both are dismissed with "Got it", kept in `localStorage`. (The expiry reminder is
+  have a live calendar link in this company (`shouldSuggestCalendarFeed`). Both are dismissed with "Got it",
+  kept in `localStorage` under a key that names the person and company. (The expiry reminder is
   on Home rather than by email: the worker that runs daily jobs holds no SMTP settings.)
-- Shortcuts: ⌘K (Ctrl+K) on any signed-in page opens a "Go to" list of the screens the person can reach
-  (`jump-menu.tsx`). On Approvals, J and K move between requests, A approves the focused one, and D moves to
-  its reason so Enter declines (`approval-keys.tsx`). None of them shows until a key is pressed, and they are
-  ignored while typing.
+- Shortcuts: ⌘K (Ctrl+K) on any page for members of a company opens a "Go to" list of the screens the person
+  can reach (`jump-menu.tsx`). On Approvals, J and K move between requests, A approves the focused one, and D
+  moves to its reason so Enter declines (`approval-keys.tsx`); with no request in focus yet, the first of these
+  keys focuses the first request. None of them shows until a key is pressed, and they are ignored while typing
+  and with Shift, Alt, Ctrl or ⌘ held (⌘K aside).
 - `/approvals`: three tabs (`getApprovalTriage`). **Needs you** holds pending requests assigned to the person
   (for admins, also any with no approver); **Waiting on others**, shown only when it has something, holds the
   pending requests an admin may decide but that are assigned to someone else; **Settled** lists what the person
@@ -378,18 +380,18 @@ and what carries into the next period (`carryover`). Periods are identified by a
 
 v1 ships `AnnualCalendarYearPolicy` (`annual_calendar_year`), per person, leave type and calendar year:
 
-| Value | Rule |
-| --- | --- |
-| allowance | `allowances.days` when the person has a row for the year, else `leave_types.default_allowance_days`, else (no default) the `days` of the person's latest row for an earlier year |
-| total | allowance + `carried_over_days` + `adjustment_days` (both 0 without a row) |
-| used | approved days in the year |
-| pending | pending days in the year, shown apart |
-| carried out | next year's `carried_over_days`: what the rollover already moved out of this year |
-| remaining | total − used − pending − carried out (negative only if an allowance was lowered after booking) |
+| Value       | Rule                                                                                                                                                                             |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| allowance   | `allowances.days` when the person has a row for the year, else `leave_types.default_allowance_days`, else (no default) the `days` of the person's latest row for an earlier year |
+| total       | allowance + `carried_over_days` + `adjustment_days` (both 0 without a row)                                                                                                       |
+| used        | approved days in the year                                                                                                                                                        |
+| pending     | pending days in the year, shown apart                                                                                                                                            |
+| carried out | next year's `carried_over_days`: what the rollover already moved out of this year                                                                                                |
+| remaining   | total − used − pending − carried out (negative only if an allowance was lowered after booking)                                                                                   |
 
 Carried-out days count as spent in the year they left. Otherwise, once the rollover had carried a year's
 remaining forward, leave booked late into that closed year (dates in the past are allowed) could spend the same
-days again. Carryover itself is computed from what was left *before* carrying (remaining + carried out), so
+days again. Carryover itself is computed from what was left _before_ carrying (remaining + carried out), so
 re-running the rollover over an earlier carry gives the same answer.
 
 A type is **untracked** (unlimited) when `counts_against_allowance` is false, or when it has no default and the
@@ -522,11 +524,11 @@ The header links Calendar and Team for every member of a company. No `proxy.ts` 
 
 ### Queries
 
-| Call | Queries | What |
-| --- | --- | --- |
-| `getMonthCalendar` | 3 | settings; then holidays and the person's leave over the grid's dates, in parallel |
-| `getTeamCalendar` | 4 | settings and departments in parallel; then the month's holidays and one range query, in parallel |
-| `renderCalendarFeed` | 2 or 3 | token lookup; then entries and, only when `last_used_at` is missing or over an hour old, the stamp, in parallel |
+| Call                 | Queries | What                                                                                                            |
+| -------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
+| `getMonthCalendar`   | 3       | settings; then holidays and the person's leave over the grid's dates, in parallel                               |
+| `getTeamCalendar`    | 4       | settings and departments in parallel; then the month's holidays and one range query, in parallel                |
+| `renderCalendarFeed` | 2 or 3  | token lookup; then entries and, only when `last_used_at` is missing or over an hour old, the stamp, in parallel |
 
 The team query is a single join (`leave_requests` → `leave_types`, `user`, `departments`) filtered by
 `company_id`, status, `start_date <= last` and `end_date >= first`, served by `leave_requests_company_dates_idx
@@ -561,7 +563,7 @@ revoked_at)`, migration `0005`.
   shows only when the feed was created and last fetched.
 - "Get a new link" revokes the live link and issues a new one in one transaction; "Turn off" sets `revoked_at`.
   Both run under the person's member lock, and a partial unique index (`user_id, kind` where `revoked_at is
-  null`) backs it up, so one person never has two live links of a kind. Each change writes `audit_log` and
+null`) backs it up, so one person never has two live links of a kind. Each change writes `audit_log` and
   `events_outbox` rows in the same transaction.
 - Listing, regenerating and turning off match the person and kind, not the person's current company, like the
   unique index. A link issued before a company move is listed, revoked by "Get a new link" or "Turn off", and its
@@ -824,11 +826,11 @@ without React's automatic reset) and show the reason with `role="alert"` in `tex
 A person moves through at most three states, each a deliberate admin action (`src/server/services/admin-people.ts`,
 `src/server/services/admin-people-deletion.ts`; rules in `src/domain/person-deletion.ts`):
 
-| State | How | Signs in | Shows in People | Reversible |
-| --- | --- | --- | --- | --- |
-| Active | Invite | Yes | Yes | |
-| Deactivated | **Deactivate** ([People](#people)) | No | With **Show inactive** | Yes: **Reactivate** |
-| Deleted (tombstone) | **Delete…** on a deactivated person | No | Never | No |
+| State               | How                                 | Signs in | Shows in People        | Reversible          |
+| ------------------- | ----------------------------------- | -------- | ---------------------- | ------------------- |
+| Active              | Invite                              | Yes      | Yes                    |                     |
+| Deactivated         | **Deactivate** ([People](#people))  | No       | With **Show inactive** | Yes: **Reactivate** |
+| Deleted (tombstone) | **Delete…** on a deactivated person | No       | Never                  | No                  |
 
 There is no "archived" state. The People list hides deactivated people unless **Show inactive** is ticked
 (`?inactive=1`), and never lists a tombstone, nor do pickers (managers, the audit log's filters), the team view,
@@ -837,17 +839,17 @@ tombstone by its tombstone name.
 
 ### The two deletes
 
-| | Full scrub (`scrubbed`, the default) | Keep records (`records_kept`) |
-| --- | --- | --- |
-| Tombstone name | "Former employee #3f9a2c" (`tombstoneName`: the id's first six letters or digits) | "<Name> (deleted)" |
-| Email | `deleted+<id>@invalid` (`tombstoneEmail`) | same; the real address is free to invite again |
-| Sessions, linked accounts (Google), unused sign-in links to their address, calendar feed links | deleted | deleted |
-| Their leave requests (and per-year days), allowance rows | deleted | kept; a request still pending is withdrawn (`cancelled`) |
-| Audit rows about them (`subject_user_id`, or their `user` entity) | deleted, except the one new `user.deleted` row | kept |
-| Their name in stored payloads | replaced by the tombstone name | kept |
-| Their email in stored payloads | replaced by the placeholder | replaced by the placeholder |
-| Records where they acted on someone else (approvals they made, audit rows with them as `actor_id`) | kept, shown as "Former employee #…" | kept, shown as "<Name> (deleted)" |
-| API keys and webhook endpoints they created | kept: they belong to the company (`created_by` points at the tombstone) | same |
+|                                                                                                    | Full scrub (`scrubbed`, the default)                                              | Keep records (`records_kept`)                            |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Tombstone name                                                                                     | "Former employee #3f9a2c" (`tombstoneName`: the id's first six letters or digits) | "<Name> (deleted)"                                       |
+| Email                                                                                              | `deleted+<id>@invalid` (`tombstoneEmail`)                                         | same; the real address is free to invite again           |
+| Sessions, linked accounts (Google), unused sign-in links to their address, calendar feed links     | deleted                                                                           | deleted                                                  |
+| Their leave requests (and per-year days), allowance rows                                           | deleted                                                                           | kept; a request still pending is withdrawn (`cancelled`) |
+| Audit rows about them (`subject_user_id`, or their `user` entity)                                  | deleted, except the one new `user.deleted` row                                    | kept                                                     |
+| Their name in stored payloads                                                                      | replaced by the tombstone name                                                    | kept                                                     |
+| Their email in stored payloads                                                                     | replaced by the placeholder                                                       | replaced by the placeholder                              |
+| Records where they acted on someone else (approvals they made, audit rows with them as `actor_id`) | kept, shown as "Former employee #…"                                               | kept, shown as "<Name> (deleted)"                        |
+| API keys and webhook endpoints they created                                                        | kept: they belong to the company (`created_by` points at the tombstone)           | same                                                     |
 
 The `user` row is **never removed**: every foreign key to it (approvals, audit actors, API keys) keeps pointing at
 the tombstone. `user.deleted_at` and `user.deletion_mode` (migration `0012`) mark it; `user_deletion_shape` requires
@@ -997,8 +999,8 @@ worker** (`scripts/worker.mts`, `pnpm worker`, the compose `worker` service) tur
    `(adapter, event)` indexes make a repeat harmless.
 2. **Deliver** (`deliverDueWebhooks`, `src/server/services/webhook-delivery.ts`). Claim up to 20 due deliveries
    (`status = 'pending' and next_attempt_at <= now`, enabled live endpoint) in one `UPDATE ... WHERE id IN
-   (SELECT ... FOR UPDATE SKIP LOCKED)` that also **leases** them: `attempts + 1`, `next_attempt_at = now + 2
-   min`. Then, 8 at a time and outside any transaction: open the endpoint's secret, sign, POST with a 10-second
+(SELECT ... FOR UPDATE SKIP LOCKED)` that also **leases** them: `attempts + 1`, `next_attempt_at = now + 2
+min`. Then, 8 at a time and outside any transaction: open the endpoint's secret, sign, POST with a 10-second
    timeout, and record the outcome with a compare-and-set on `(id, attempts, status = 'pending')`. A worker that
    dies mid-attempt leaves the lease to run out and the next claim retries it, so delivery is **at least once**;
    a late outcome from a superseded claim (or after a redelivery) is dropped. Adapter deliveries
@@ -1162,12 +1164,12 @@ a later committed one shows, and that both arrive after the cursor once it commi
 
 ```ts
 interface Adapter {
-  id: string;                                   // stable; stored with each delivery
+  id: string; // stable; stored with each delivery
   displayName: string;
-  handles(eventType: string, companyId: string): boolean;  // outbound filter, per company
-  deliver(event: EventEnvelope, ctx: AdapterContext): Promise<void>;   // outbound; throw to retry
-  syncUsers?(ctx: AdapterContext): Promise<InboundUser[]>;            // inbound
-  syncBalances?(ctx: AdapterContext): Promise<InboundBalance[]>;      // inbound
+  handles(eventType: string, companyId: string): boolean; // outbound filter, per company
+  deliver(event: EventEnvelope, ctx: AdapterContext): Promise<void>; // outbound; throw to retry
+  syncUsers?(ctx: AdapterContext): Promise<InboundUser[]>; // inbound
+  syncBalances?(ctx: AdapterContext): Promise<InboundBalance[]>; // inbound
   healthCheck(ctx: AdapterContext): Promise<{ ok: boolean; detail?: string }>;
 }
 ```
@@ -1284,13 +1286,13 @@ reads postgres.js's `constraint_name` and PGlite's `constraint` behind drizzle's
 What embedded mode needed checking, and how each behaves on PGlite (`pnpm test:integration:embedded` runs every
 integration test on it):
 
-| Feature | On PGlite |
-| --- | --- |
-| `FOR UPDATE SKIP LOCKED`, `FOR NO KEY UPDATE` | Accepted. With one connection, transactions run one at a time, so there is never a locked row to skip or wait for: the claims stay correct, trivially |
-| `pg_current_xact_id()`, `pg_snapshot_xmin(pg_current_snapshot())` (the `/events` replay) | Work. With no concurrent writer, every committed row is below the snapshot's xmin, so the replay sees everything committed, in order |
-| `clock_timestamp()`, `gen_random_uuid()`, jsonb, partial indexes, check constraints, `EXPLAIN` | Work unchanged |
-| Advisory locks | Work (OOOhm uses none; row locks serialize instead) |
-| Concurrent transactions | Serialized by PGlite's single connection. Races the tests stage (two submits, two decisions) resolve as they do on a server, one after the other. Two tests that hold a lock on one connection while another works are skipped there (`needsServer`): "SKIP LOCKED passes over held rows" and "events written by a transaction still open never appear behind a cursor" |
+| Feature                                                                                        | On PGlite                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FOR UPDATE SKIP LOCKED`, `FOR NO KEY UPDATE`                                                  | Accepted. With one connection, transactions run one at a time, so there is never a locked row to skip or wait for: the claims stay correct, trivially                                                                                                                                                                                                                   |
+| `pg_current_xact_id()`, `pg_snapshot_xmin(pg_current_snapshot())` (the `/events` replay)       | Work. With no concurrent writer, every committed row is below the snapshot's xmin, so the replay sees everything committed, in order                                                                                                                                                                                                                                    |
+| `clock_timestamp()`, `gen_random_uuid()`, jsonb, partial indexes, check constraints, `EXPLAIN` | Work unchanged                                                                                                                                                                                                                                                                                                                                                          |
+| Advisory locks                                                                                 | Work (OOOhm uses none; row locks serialize instead)                                                                                                                                                                                                                                                                                                                     |
+| Concurrent transactions                                                                        | Serialized by PGlite's single connection. Races the tests stage (two submits, two decisions) resolve as they do on a server, one after the other. Two tests that hold a lock on one connection while another works are skipped there (`needsServer`): "SKIP LOCKED passes over held rows" and "events written by a transaction still open never appear behind a cursor" |
 
 ### Background modes
 
@@ -1351,11 +1353,11 @@ backup retention is what bounds how long a deleted person's data survives ([host
 
 ## Testing
 
-| Command | What | Needs |
-| --- | --- | --- |
-| `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time; the hosting pieces: database and background-mode configuration, pooler detection, trimmed env values, the embedded directory lock, the cron route's authorization and the tick scheduler; the past-year cancel rule; deleting people: tombstone names and emails, the guards, the confirmation, payload redaction and CSV escaping) | nothing |
-| `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import`; past-year leave refused for the requester and an admin, in the company's time zone, including an imported 2025 request; the background tick: inline after a change (and not after a refused one), a due retry, three ticks at once, the budget, daily jobs; deleting people (`person-deletion.test.ts`): both modes (exactly which rows go and stay, the counts in the one audit row, the one `user.deleted` event), every guard, the grace option (scheduled, undo, the daily job, attribution), re-inviting a released address, a kept-records delete withdrawing their pending request, outbox, delivery, import and settings-label redaction including a pending delivery that must not leak and one in flight when the delete commits, a namesake untouched (free text included), the CSV export, and a no-trace scan of every text, varchar, json(b) and text[] column of every table (read from `information_schema`, so new tables are covered) for the name parts and email after a full scrub | `TEST_DATABASE_URL` |
-| `pnpm test:integration:embedded` | The same suites on embedded PGlite (`TEST_DATABASE_URL=pglite:memory`: an in-memory database per file, migrated as embedded mode migrates). Two tests that need two connections at once are skipped (`needsServer`) | nothing |
+| Command                          | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Needs               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
+| `pnpm test`                      | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time; the hosting pieces: database and background-mode configuration, pooler detection, trimmed env values, the embedded directory lock, the cron route's authorization and the tick scheduler; the past-year cancel rule; deleting people: tombstone names and emails, the guards, the confirmation, payload redaction and CSV escaping)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | nothing             |
+| `pnpm test:integration`          | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import`; past-year leave refused for the requester and an admin, in the company's time zone, including an imported 2025 request; the background tick: inline after a change (and not after a refused one), a due retry, three ticks at once, the budget, daily jobs; deleting people (`person-deletion.test.ts`): both modes (exactly which rows go and stay, the counts in the one audit row, the one `user.deleted` event), every guard, the grace option (scheduled, undo, the daily job, attribution), re-inviting a released address, a kept-records delete withdrawing their pending request, outbox, delivery, import and settings-label redaction including a pending delivery that must not leak and one in flight when the delete commits, a namesake untouched (free text included), the CSV export, and a no-trace scan of every text, varchar, json(b) and text[] column of every table (read from `information_schema`, so new tables are covered) for the name parts and email after a full scrub | `TEST_DATABASE_URL` |
+| `pnpm test:integration:embedded` | The same suites on embedded PGlite (`TEST_DATABASE_URL=pglite:memory`: an in-memory database per file, migrated as embedded mode migrates). Two tests that need two connections at once are skipped (`needsServer`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | nothing             |
 
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
 IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,

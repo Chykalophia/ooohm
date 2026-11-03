@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { type FormState, IDLE } from "@/app/form-state";
 import { decideLeaveAction } from "./actions";
+import { fieldFrame } from "@/app/styles";
 
 /**
  * Approve or decline one request. The optional reason is sent with either button and
@@ -33,12 +34,7 @@ export function DecisionForm({ requestId }: { requestId: string }) {
       <input type="hidden" name="requestId" value={requestId} />
       <label className="block space-y-1.5">
         <span className="text-sm text-muted">Reason (optional)</span>
-        <input
-          type="text"
-          name="reason"
-          maxLength={NOTE_MAX_LENGTH}
-          className="w-full rounded-lg border border-field bg-surface px-3 py-1.5 text-sm outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20"
-        />
+        <input type="text" name="reason" maxLength={NOTE_MAX_LENGTH} className={`w-full bg-surface px-3 py-1.5 text-sm ${fieldFrame}`} />
       </label>
       <div className="flex flex-wrap items-center gap-3">
         <button type="submit" name="decision" value="approve" disabled={pending} className={`${button} bg-accent text-accent-foreground`}>

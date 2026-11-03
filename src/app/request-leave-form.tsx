@@ -5,6 +5,7 @@ import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { requestLeaveAction } from "./actions";
 import { type FormState, IDLE, nextFormKey } from "./form-state";
 import type { LeavePreviewResponse } from "./leave-input";
+import { field } from "@/app/styles";
 
 type LeaveTypeOption = { id: string; name: string; color: string };
 type Portion = "full" | "am" | "pm";
@@ -18,9 +19,6 @@ const PORTIONS: { value: Portion; label: string }[] = [
 /** How long the form waits after the last change before asking for a preview. */
 const PREVIEW_DELAY_MS = 300;
 const PREVIEW_ID = "leave-preview";
-
-const field =
-  "w-full rounded-lg border border-field bg-surface px-3 py-2 outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20";
 
 /**
  * The dashboard's one main action. Everything is pre-filled (first leave type, the next working day,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { field } from "@/app/styles";
 
 const GENERIC_ERROR = "Something went wrong. Try again.";
 
@@ -65,7 +66,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-field bg-surface px-3 py-2 outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20"
+            className={field}
             placeholder="you@company.com"
           />
         </label>

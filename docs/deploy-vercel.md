@@ -120,7 +120,7 @@ In the browser, once email works (step 9: the first admin signs in with an email
    ```
 
 2. Open `https://ooohm.team/setup`, give the token, the company name, its time zone, your name and
-   `peter@chykalophia.com`. It creates the company, the default leave types (PTO first) and you as its admin, audited
+   your work email. It creates the company, the default leave types (PTO first) and you as its admin, audited
    as `first_install`, then sends you to sign in with your email filled in.
 3. **Remove the token**: `vercel env rm SETUP_TOKEN production`. Setup is already closed for good (an install marker,
    plus any company or person, keeps `/setup` a 404 whatever the token says), so this only removes a secret nobody
@@ -128,7 +128,7 @@ In the browser, once email works (step 9: the first admin signs in with an email
 
 `/setup` is a 404 while `SETUP_TOKEN` is unset and after setup, and a wrong token changes nothing. The CLI still works
 instead, for scripted installs: pull the production variables to a file outside the repository, then
-`DATABASE_URL="$DATABASE_URL_UNPOOLED" SEED_ADMIN_EMAIL=peter@chykalophia.com SEED_COMPANY_NAME=Chykalophia pnpm db:seed`.
+`DATABASE_URL="$DATABASE_URL_UNPOOLED" SEED_ADMIN_EMAIL=<your email> SEED_COMPANY_NAME=Chykalophia pnpm db:seed`.
 It closes the web setup too.
 
 For step 10 you need the production variables locally anyway:
@@ -158,7 +158,7 @@ the commands differ. With `~/ooohm-prod.env` loaded (end of step 8) and the expo
 ```bash
 psql "$DATABASE_URL_UNPOOLED" -c "select id, name from companies"      # the company setup created
 DATABASE_URL="$DATABASE_URL_UNPOOLED" pnpm import:timeoff -- --file ~/timeoff.sqlite --company <id> \
-  --actor peter@chykalophia.com --report ~/ooohm-dry-run.json
+  --actor <your email> --report ~/ooohm-dry-run.json
 # Read the report: every current-year row must say Diff 0. Then the same with --apply.
 ```
 

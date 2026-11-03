@@ -28,8 +28,8 @@ function readView(value: string | string[] | undefined): ApprovalsView {
 
 /**
  * Approvals, sorted by whose move it is: Needs you, Waiting on others (admins, when
- * anything is), and Settled (what the person decided lately). The pending tabs page ten
- * at a time; each request says who else in the requester's department is off then.
+ * anything is), and Settled (what the person decided lately). Each tab pages ten at a
+ * time; each request says who else in the requester's department is off then.
  */
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const page = await requireMemberPage();
@@ -57,7 +57,10 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       <TabNav label="Approvals" items={tabs} />
 
       {view === "settled" ? (
-        <Settled decisions={triage.settled} days={triage.settledDays} timeZone={triage.timeZone} />
+        <>
+          <Settled decisions={triage.settled} days={triage.settledDays} timeZone={triage.timeZone} firstPage={!triage.previous} />
+          <Pager label="Settled pages" links={pager} />
+        </>
       ) : (
         <>
           {view === "others" && <p className="text-sm text-muted">Assigned to someone else. As an admin you can still decide them.</p>}
@@ -114,17 +117,28 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 type Decision = Awaited<ReturnType<typeof getApprovalTriage>>["settled"][number];
 
 /** What the person approved or declined in the last `days` days, newest first, each with its status now. */
-function Settled({ decisions, days, timeZone }: { decisions: readonly Decision[]; days: number; timeZone: string }) {
-  if (decisions.length === 0) return <p className="text-muted">You haven’t decided anything in the last {days} days.</p>;
+function Settled({
+  decisions,
+  days,
+  timeZone,
+  firstPage,
+}: {
+  decisions: readonly Decision[];
+  days: number;
+  timeZone: string;
+  firstPage: boolean;
+}) {
+  if (decisions.length === 0) {
+    return (
+      <p className="text-muted">{firstPage ? `You haven’t decided anything in the last ${days} days.` : "Nothing more on this page."}</p>
+    );
+  }
   return (
     <>
       <p className="text-sm text-muted">What you decided in the last {days} days, newest first.</p>
       <ul className={cx("divide-y divide-border", surface)}>
         {decisions.map((d) => (
-          <li
-            key={`${d.id}-${d.decidedAt.toISOString()}`}
-            className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between"
-          >
+          <li key={d.auditId} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-1">
               <p className="font-medium break-words">{d.requesterName || d.requesterEmail}</p>
               <ColorLabel color={d.leaveTypeColor}>{formatLeaveDates(d.startDate, d.endDate, d.dayPortion)}</ColorLabel>

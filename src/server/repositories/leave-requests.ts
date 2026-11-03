@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { auditLog, departments, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
@@ -357,11 +357,21 @@ const DECISION_ACTIONS = ["leave_request.approved", "leave_request.rejected"] as
  * Requests `deciderId` approved or declined since `since`, newest decision first, with
  * the decision as audited and the request as it is now (it may have been cancelled
  * since). Leaves out the decider's own requests, which self-approval also records as
- * theirs. At most `limit` rows, one query on `audit_log_company_actor_idx`.
+ * theirs. A page of `limit` rows, keyed on the audit row's `[created_at, id]` (`cursor`
+ * is `created_at` as {@link cursorInstant} prints it), one query on
+ * `audit_log_company_actor_idx`.
  */
-export async function listRecentDecisions(ex: Executor, q: { companyId: string; deciderId: string; since: Date }, limit: number) {
+export async function listRecentDecisions(
+  ex: Executor,
+  q: { companyId: string; deciderId: string; since: Date },
+  limit: number,
+  page?: PageRequest,
+) {
+  const keyset = keysetPage("desc", [auditLog.createdAt, auditLog.id], page, ([at, id]) => [sql`${at}::timestamptz`, sql`${id}::uuid`]);
   return ex
     .select({
+      auditId: auditLog.id,
+      cursor: cursorInstant(auditLog.createdAt),
       id: leaveRequests.id,
       action: auditLog.action,
       decidedAt: auditLog.createdAt,
@@ -389,9 +399,10 @@ export async function listRecentDecisions(ex: Executor, q: { companyId: string; 
         eq(auditLog.entityType, "leave_request"),
         eq(leaveRequests.companyId, q.companyId),
         ne(leaveRequests.userId, q.deciderId),
+        keyset.where,
       ),
     )
-    .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
+    .orderBy(...keyset.orderBy)
     .limit(limit);
 }
 

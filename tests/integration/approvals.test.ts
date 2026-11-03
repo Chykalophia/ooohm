@@ -390,6 +390,33 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     assert.equal((await view("boss", "settled")).settled.length, 1);
   });
 
+  test("Settled pages ten at a time like the other tabs, newest decision first, with nothing lost or repeated", async () => {
+    const { co, ctx, req } = await pendingRequest();
+    const bo1 = await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-16", dayPortion: "full" });
+    const bo2 = await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-17", dayPortion: "full" });
+    const order = [req, bo1, bo2];
+    for (const r of order) await decideLeaveRequest(ctx, co.people.manager, { requestId: r.id, decision: "approve" });
+
+    const settled = (size: number, page?: PageCursor) => getApprovalTriage(ctx, co.people.manager, { view: "settled", size, page });
+    const first = await settled(2);
+    assert.deepEqual(
+      first.settled.map((d) => d.id),
+      [bo2.id, bo1.id],
+      "newest decision first",
+    );
+    assert.ok(first.next && first.previous === null);
+    const second = await settled(2, first.next);
+    assert.deepEqual([second.settled.map((d) => d.id), second.next], [[req.id], null]);
+    assert.deepEqual(
+      (await settled(2, second.previous!)).settled.map((d) => d.id),
+      [bo2.id, bo1.id],
+      "Previous comes back to page one",
+    );
+    // One page holds them all, with no Next.
+    const whole = await settled(10);
+    assert.deepEqual([whole.settled.length, whole.next, whole.previous], [3, null, null]);
+  });
+
   test("triage shows who else is off: the requester's department, or everyone without one", async () => {
     const co = await seedCompany(t.db, {
       boss: { role: "admin" },

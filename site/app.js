@@ -12,6 +12,28 @@ function whileVisible(el, start, stop = () => {}, threshold = 0.3) {
   new IntersectionObserver(([e]) => (e.isIntersecting ? start() : stop()), { threshold }).observe(el);
 }
 
+/**
+ * Keeps `el` as tall as the tallest of `variants`, so text that changes never moves the page.
+ * The variants are hidden copies stacked in the same grid cell, so the space follows the width.
+ */
+function reserve(el, variants, { html = false } = {}) {
+  if (!el) return;
+  const stack = document.createElement(el.tagName === "SPAN" ? "span" : "div");
+  stack.className = "stack";
+  el.replaceWith(stack);
+  stack.append(el);
+  for (const v of variants) {
+    const ghost = typeof v === "string" ? document.createElement(el.tagName) : v;
+    if (typeof v === "string") {
+      ghost.className = el.className;
+      ghost[html ? "innerHTML" : "textContent"] = v;
+    }
+    ghost.classList.add("ghost");
+    ghost.setAttribute("aria-hidden", "true");
+    stack.append(ghost);
+  }
+}
+
 /* ------------------------------------------------------------------------ */
 /* Day counting, the same rules as the app: Mon–Fri, minus company holidays. */
 
@@ -79,6 +101,27 @@ function sentence() {
   const note = $("[data-demo-note]");
   let last = {};
 
+  // Reserve room for the longest version of every line that changes, so the card never resizes.
+  // The longest sentences a person is likely to make: a range into next year, or one half day.
+  const sentenceGhost = (values) => {
+    const g = $(".sentence", form).cloneNode(true);
+    for (const c of $$("select, input", g)) c.remove();
+    for (const [k, v] of Object.entries(values)) $(`[data-out="${k}"]`, g).textContent = v;
+    for (const e of $$("[data-out]", g)) e.removeAttribute("data-out");
+    return g;
+  };
+  reserve($(".sentence", form), [
+    sentenceGhost({ type: TYPES.pto.name, from: "Wed, Dec 30", to: "Fri, Jan 8, 2027", portion: PORTION.full }),
+    sentenceGhost({ type: TYPES.pto.name, from: "Wed, Dec 30", to: "Wed, Dec 30", portion: PORTION.pm }),
+  ]);
+  reserve(preview, [
+    "This request takes <b>6 days</b>. Afterwards you’d have 3 days left for 2026. And 2 days from 2027.",
+    "This request takes <b>12 days</b>. That’s 3 days more than you have left for 2026.",
+    "Those days are all weekends or holidays, so there’s nothing to take.",
+  ], { html: true });
+  reserve(why, ["Weekends don’t count, and neither do Thanksgiving and the day after Thanksgiving."]);
+  reserve(sent, ["Sent for approval: 12.5 days. (Only in this demo, so nobody got an email.)"]);
+
   function render() {
     const s = { type: f.type.value, from: f.from.value, to: f.to.value, portion: f.portion.value };
     const single = s.from === s.to;
@@ -115,12 +158,13 @@ function sentence() {
       const parts = [];
       if (c.skipped.weekends) parts.push("Weekends don’t count");
       const hol = [...new Set(c.skipped.holidays)];
-      if (hol.length) parts.push(`${parts.length ? "and neither do" : "Holidays don’t count:"} ${hol.join(hol.length > 2 ? ", " : " and ").replace(/, ([^,]*)$/, " and $1")}`);
+      const named = hol.length > 2 ? `${hol.length} company holidays` : hol.join(" and ");
+      if (hol.length) parts.push(`${parts.length ? "and neither do" : "Holidays don’t count:"} ${named}`);
       reason = parts.length ? `${parts.join(", ")}.` : "";
     }
     preview.innerHTML = line;
     why.textContent = reason;
-    drawSquares(squares, t.allowance, t.used, request);
+    drawSquares(squares, t.allowance, t.used, request, 0, 20);
     if (last.type !== undefined) sent.textContent = "";
     last = s;
   }
@@ -142,6 +186,8 @@ function sentence() {
   });
 
   // The demo plays scenes until someone touches the sentence.
+  const NOTE_TURN = "Your turn. This demo counts Monday to Friday with US holidays; in the app, each company sets its own working days and holidays.";
+  reserve(note, [NOTE_TURN]);
   let playing = !reduceMotion;
   let timer = 0;
   let scene = 0;
@@ -149,15 +195,16 @@ function sentence() {
     if (!playing) return;
     playing = false;
     clearTimeout(timer);
-    note.textContent = "Your turn. This demo counts Monday to Friday with US holidays; in the app, each company sets its own working days and holidays.";
+    note.textContent = NOTE_TURN;
   };
   for (const ev of ["pointerdown", "keydown", "focusin"]) form.addEventListener(ev, stopDemo, { once: true });
 
+  // The two dates change together, so no half-changed range flashes up in between.
   async function play(s) {
-    for (const k of ["type", "from", "to", "portion"]) {
+    for (const keys of [["type"], ["from", "to"], ["portion"]]) {
       if (!playing) return;
-      if (f[k].value === s[k]) continue;
-      f[k].value = s[k];
+      if (keys.every((k) => f[k].value === s[k])) continue;
+      for (const k of keys) f[k].value = s[k];
       render();
       await sleep(420);
     }
@@ -175,15 +222,22 @@ function sentence() {
   }
 }
 
-/** Squares: one per day of allowance. Taken, then this request striped, then what's left. */
-function drawSquares(root, allowance, used, request, carry = 0) {
-  const total = Math.max(allowance + carry, used + Math.ceil(request));
+/**
+ * Squares: one per day of allowance. Taken, then this request striped, then what's left.
+ * At least `slots` squares are laid out; the ones past what's shown are hidden and hold the space.
+ */
+function drawSquares(root, allowance, used, request, carry = 0, slots = 0) {
+  // With `slots`, a very long request is cut off at that many squares; the sentence gives the count.
+  const wanted = Math.max(allowance + carry, used + Math.ceil(request));
+  const shown = slots ? Math.min(wanted, slots) : wanted;
+  const total = Math.max(shown, slots);
   const before = root.children.length;
   while (root.children.length < total) root.append(document.createElement("i"));
   while (root.children.length > total) root.lastElementChild.remove();
   [...root.children].forEach((sq, i) => {
     const next = [];
-    if (i < used) next.push("taken");
+    if (i >= shown) next.push("ghost");
+    else if (i < used) next.push("taken");
     else if (i < used + request) {
       next.push("pending");
       if (used + request - i === 0.5) next.push("half");
@@ -210,6 +264,10 @@ function year() {
   let carry = 0;
   let timer = 0;
   let started = false;
+  const LAST = {
+    0: "The 6 unused days end with 2026. 2027 starts with a fresh 15.",
+    5: "5 of the 6 unused days carry over, and 1 doesn’t. 2027 starts with 20.",
+  };
 
   const STEPS = [
     { used: 0, req: 0, text: "15 days of PTO for 2026." },
@@ -225,14 +283,12 @@ function year() {
     if (i < STEPS.length) {
       const s = STEPS[i];
       yearLabel.textContent = "2026";
-      drawSquares(sq, 15, s.used, s.req);
+      drawSquares(sq, 15, s.used, s.req, 0, 20);
       line.textContent = s.text;
     } else {
       yearLabel.textContent = "2027";
-      drawSquares(sq, 15, 0, 0, carry);
-      line.textContent = carry
-        ? `5 of the 6 unused days carry over, and 1 doesn’t. 2027 starts with ${15 + carry}.`
-        : "The 6 unused days end with 2026. 2027 starts with a fresh 15.";
+      drawSquares(sq, 15, 0, 0, carry, 20);
+      line.textContent = LAST[carry];
     }
   }
   function run(from = 0) {
@@ -243,6 +299,7 @@ function year() {
     };
     next(from);
   }
+  reserve(line, [...STEPS.map((x) => x.text), ...Object.values(LAST)]);
   $$("[data-carry]", card).forEach((b) =>
     b.addEventListener("click", () => {
       carry = Number(b.dataset.carry);

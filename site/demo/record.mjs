@@ -38,6 +38,89 @@ const CURSOR = `
   });
 `;
 
+// Native menus and date pickers never reach a screencast, so the clips draw their own: a list
+// for a <select> and a month for a date input, styled like the app, under the field they open
+// from. A clear shield covers the page while one is open, so the real control never opens.
+const PICKERS = `
+  (() => {
+    const css = \`
+      #demo-shield { position: fixed; inset: 0; z-index: 2147483000; }
+      .demo-pop { position: fixed; z-index: 2147483001; background: #fff; border: 1px solid #e7e5e4; border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(28,25,23,.06), 0 16px 40px -12px rgba(28,25,23,.22); padding: 6px; font: 500 15px/1.2 "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+        color: #1c1917; opacity: 0; transform: translateY(-4px) scale(.98); transform-origin: top left; transition: opacity .14s ease-out, transform .14s ease-out; }
+      .demo-pop.in { opacity: 1; transform: none; }
+      .demo-opt { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; white-space: nowrap; }
+      .demo-opt.cur { color: #0f766e; }
+      .demo-opt.cur::after { content: ""; width: 9px; height: 5px; margin-left: auto; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(-45deg); }
+      .demo-opt:hover, .demo-day:hover { background: #e5f1ef; }
+      .demo-opt.pick, .demo-day.pick { background: #0f766e !important; color: #fff !important; }
+      .demo-cal { padding: 12px; }
+      .demo-cal header { font-weight: 600; padding: 2px 4px 10px; }
+      .demo-cal .g { display: grid; grid-template-columns: repeat(7, 36px); gap: 2px; }
+      .demo-cal .wd { font-size: 12px; color: #78716c; text-align: center; padding-bottom: 4px; }
+      .demo-day { height: 34px; display: grid; place-items: center; border-radius: 8px; font-variant-numeric: tabular-nums; }
+      .demo-day.off { color: #a8a29e; }
+      .demo-day.cur { box-shadow: inset 0 0 0 1.5px #0f766e; }
+      .demo-day.span { background: #e5f1ef; }
+    \`;
+    let pop = null, shield = null;
+    function place(el, anchor) {
+      const r = anchor.getBoundingClientRect();
+      document.body.append(el);
+      const w = el.offsetWidth, h = el.offsetHeight;
+      el.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+      el.style.top = (r.bottom + h + 8 < innerHeight ? r.bottom + 6 : r.top - h - 6) + "px";
+      requestAnimationFrame(() => el.classList.add("in"));
+    }
+    function open(el, anchor) {
+      close();
+      if (!document.getElementById("demo-css")) { const st = document.createElement("style"); st.id = "demo-css"; st.textContent = css; document.head.append(st); }
+      shield = document.createElement("div"); shield.id = "demo-shield"; document.body.append(shield);
+      pop = el; place(el, anchor);
+    }
+    function close() { pop?.remove(); shield?.remove(); pop = shield = null; }
+    window.__demoPick = {
+      close,
+      /** A list of the select's options under its chip. */
+      select(sel) {
+        const el = document.createElement("div"); el.className = "demo-pop";
+        for (const o of sel.options) {
+          const d = document.createElement("div");
+          d.className = "demo-opt" + (o.value === sel.value ? " cur" : "");
+          d.dataset.v = o.value; d.textContent = o.textContent; el.append(d);
+        }
+        el.style.minWidth = sel.closest("span").getBoundingClientRect().width + "px";
+        open(el, sel.closest("span"));
+      },
+      /** The month around \`value\`, Monday first; \`from\` shades the range picked so far. */
+      date(input, month, from) {
+        const [y, m] = month.split("-").map(Number);
+        const first = new Date(Date.UTC(y, m - 1, 1));
+        const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        const el = document.createElement("div"); el.className = "demo-pop demo-cal";
+        const name = first.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+        el.innerHTML = "<header>" + name + "</header>";
+        const g = document.createElement("div"); g.className = "g";
+        for (const w of ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]) g.insertAdjacentHTML("beforeend", '<div class="wd">' + w + "</div>");
+        for (let i = 0; i < (first.getUTCDay() + 6) % 7; i++) g.append(document.createElement("div"));
+        for (let d = 1; d <= days; d++) {
+          const iso = y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+          const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+          const c = document.createElement("div");
+          c.className = "demo-day" + (dow === 0 || dow === 6 ? " off" : "") + (iso === input.value ? " cur" : "") + (from && iso === from ? " span" : "");
+          c.dataset.v = iso; c.textContent = d; g.append(c);
+        }
+        el.append(g);
+        open(el, input.closest("span"));
+        if (from) g.addEventListener("mouseover", (e) => {
+          const t = e.target.closest(".demo-day"); if (!t) return;
+          for (const c of g.querySelectorAll(".demo-day")) c.classList.toggle("span", c.dataset.v >= from && c.dataset.v <= t.dataset.v);
+        });
+      },
+    };
+  })();
+`;
+
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 function director(page, start) {
@@ -78,6 +161,39 @@ function director(page, start) {
       await wait(120);
       await page.mouse.up();
     },
+    /** Opens a drawn menu for a <select>, moves to `value` and picks it. */
+    async choose(select, value) {
+      // Press on the chip with the shield already down, so the real control never opens.
+      await this.hover(select);
+      await wait(120);
+      await select.evaluate((el) => window.__demoPick.select(el));
+      await page.mouse.down(); await wait(90); await page.mouse.up();
+      await wait(420);
+      const opt = page.locator(`.demo-pop [data-v="${value}"]`);
+      await this.hover(opt, 650);
+      await wait(260);
+      await opt.evaluate((el) => el.classList.add("pick"));
+      await page.mouse.down(); await wait(90); await page.mouse.up();
+      await wait(160);
+      await page.evaluate(() => window.__demoPick.close());
+      await select.selectOption(value);
+    },
+    /** Opens a drawn month for a date input, moves to `iso` and picks it. */
+    async pickDate(input, iso, from) {
+      await this.hover(input);
+      await wait(120);
+      await input.evaluate((el, [m, f]) => window.__demoPick.date(el, m, f), [iso.slice(0, 7), from ?? null]);
+      await page.mouse.down(); await wait(90); await page.mouse.up();
+      await wait(420);
+      const day = page.locator(`.demo-pop [data-v="${iso}"]`);
+      await this.hover(day, 750);
+      await wait(260);
+      await day.evaluate((el) => el.classList.add("pick"));
+      await page.mouse.down(); await wait(90); await page.mouse.up();
+      await wait(160);
+      await page.evaluate(() => window.__demoPick.close());
+      await input.fill(iso);
+    },
     async type(text, delay = 70) { await page.keyboard.type(text, { delay }); },
     async scrollBy(dy, ms = 900) {
       if (typeof dy !== "number") dy = (await dy.first().boundingBox()).y - 24;
@@ -99,20 +215,15 @@ const CLIPS = {
     as: "lena@example.com", size: { width: 860, height: 640 }, path: "/",
     async run(page, d) {
       await d.wait(700);
-      await d.click('select[aria-label="Type of leave"]');
-      await d.wait(250);
-      await page.keyboard.press("Escape");
+      const type = page.locator('select[aria-label="Type of leave"]');
+      // Open the type menu and keep PTO, so the clip shows the choices without changing them.
+      await d.choose(type, await type.inputValue());
       await d.wait(500);
       const from = page.locator('input[type="date"]').nth(0);
       const to = page.locator('input[type="date"]').nth(1);
-      // Native date pickers don't show in a screencast: click for the gesture, then set the date.
-      await d.click(from); await d.wait(250);
-      await page.keyboard.press("Escape");
-      await from.fill("2026-12-21");
+      await d.pickDate(from, "2026-12-21");
       await d.wait(700);
-      await d.click(to); await d.wait(250);
-      await page.keyboard.press("Escape");
-      await to.fill("2026-12-23");
+      await d.pickDate(to, "2026-12-23", "2026-12-21");
       await d.wait(1600);
       await d.click(page.getByText("Add a note for your approver"));
       await d.wait(200);
@@ -181,6 +292,7 @@ const CLIPS = {
 async function record(name, clip, browser) {
   const ctx = await signedInContext(browser, clip.as, { viewport: clip.size, deviceScaleFactor: 2 });
   await ctx.addInitScript(CURSOR);
+  await ctx.addInitScript(PICKERS);
   const page = await ctx.newPage();
   await page.goto(BASE + clip.path);
   await page.waitForLoadState("networkidle");

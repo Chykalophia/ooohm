@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { cx, dangerButton, outlineButton, primaryButton, subtleButton } from "@/components/ui/styles";
+import { dangerButton, outlineButton, primaryButton, subtleButton } from "@/components/ui/styles";
 import type { FormAction } from "./action-form";
 import { IDLE } from "./form-state";
 import { KeepIt } from "./keep-it";
@@ -12,8 +12,6 @@ import { useFormAction } from "./use-form-action";
 const VARIANT = {
   /** A quiet text action (the default). */
   subtle: subtleButton,
-  /** A quiet action set close to others (↑ Up ↓ Down), padded to a comfortable target. */
-  compact: cx(subtleButton, "px-2 py-1"),
   /** A quiet text action that removes or switches something off. */
   danger: dangerButton,
   outline: outlineButton,
@@ -24,7 +22,7 @@ const VARIANT = {
 export type InlineActionVariant = keyof typeof VARIANT;
 
 /**
- * One quiet action on a record (archive, delete, cancel, move up), sent with hidden
+ * One quiet action on a record (archive, delete, cancel), sent with hidden
  * fields. The result stays shown while the component stays mounted, even when the page
  * swaps `action`, `label` and `confirm` after a refresh (give it a stable `key` for
  * that). With `confirm`, the first click asks first (see {@link useConfirm}); the

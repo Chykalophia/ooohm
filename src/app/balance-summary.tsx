@@ -1,4 +1,5 @@
 import type { Balance } from "@/domain/allowance-policy";
+import { normalizeHexColor } from "@/lib/color";
 import { formatBalanceTotal, formatBalanceUsage, formatDays } from "@/lib/format";
 
 export type BalanceSummaryProps = {
@@ -31,7 +32,8 @@ function stripes(color: string): string {
  * left. A half day fills half a square. For the eye only: the numbers beside it say
  * the same in words.
  */
-function Squares({ balance, color }: { balance: Extract<Balance, { tracked: true }>; color: string }) {
+function Squares({ balance, color: stored }: { balance: Extract<Balance, { tracked: true }>; color: string }) {
+  const color = normalizeHexColor(stored);
   const count = Math.ceil(balance.total);
   if (count <= 0 || count > MAX_SQUARES) return null;
   const segment = (from: number, i: number) => Math.min(Math.max(from - i, 0), 1);
@@ -63,13 +65,13 @@ function Squares({ balance, color }: { balance: Extract<Balance, { tracked: true
  */
 export function BalanceSummary({ summary }: { summary: BalanceSummaryProps }) {
   if (!summary) {
-    return (
-      <p className="text-muted">
-        Balances aren&apos;t available right now. Ask an admin to check the company&apos;s allowance policy.
-      </p>
-    );
+    return <p className="text-muted">Balances aren&apos;t available right now. Ask an admin to check the company&apos;s allowance policy.</p>;
   }
   if (summary.items.length === 0) return null;
+  // The balances drawn as squares, which the legend under the list explains.
+  const squared = summary.items.flatMap(({ balance }) =>
+    balance.tracked && balance.total > 0 && Math.ceil(balance.total) <= MAX_SQUARES ? [balance] : [],
+  );
 
   return (
     <section aria-labelledby="balance-heading" className="space-y-4">
@@ -96,17 +98,16 @@ export function BalanceSummary({ summary }: { summary: BalanceSummaryProps }) {
                   <Squares balance={balance} color={color} />
                 </>
               ) : (
-                <p className="text-sm text-muted">
-                  No limit{used ? ` · ${used}` : ""}
-                </p>
+                <p className="text-sm text-muted">No limit{used ? ` · ${used}` : ""}</p>
               )}
             </li>
           );
         })}
       </ul>
-      {summary.items.some(({ balance }) => balance.tracked && balance.total > 0 && Math.ceil(balance.total) <= MAX_SQUARES) && (
+      {squared.length > 0 && (
         <p aria-hidden className="text-xs text-muted">
-          One square is one day. Filled is taken, striped is waiting for approval, empty is left.
+          One square is one day. Filled is taken, striped is waiting for approval,
+          {squared.some((b) => b.carriedOut > 0) && " faint is carried into next year,"} empty is left.
         </p>
       )}
     </section>

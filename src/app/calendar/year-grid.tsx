@@ -8,7 +8,8 @@ const INITIALS = ["M", "T", "W", "T", "F", "S", "S"];
 /**
  * How a day looks in the year: approved leave filled in its type's colour, pending
  * leave outlined in it, company holidays outlined in ink, today filled in ink, and
- * days that never cost leave faded. Neighbouring months' days are left blank.
+ * days that never cost leave faded. Leave wins over a holiday; today on leave keeps
+ * the leave's look with an ink ring around it. Neighbouring months' days are left blank.
  */
 function miniDay(day: CalendarDay): { className: string; style?: React.CSSProperties } {
   const base = "flex aspect-square items-center justify-center rounded-[4px] text-[11px] tabular-nums";
@@ -16,9 +17,10 @@ function miniDay(day: CalendarDay): { className: string; style?: React.CSSProper
   const entry = day.entries.find((e) => e.status === "approved") ?? day.entries[0];
   if (entry) {
     const color = normalizeHexColor(entry.leaveTypeColor);
+    const today = day.isToday ? " outline-2 outline-offset-1 outline-foreground" : "";
     return entry.status === "approved"
-      ? { className: `${base} font-medium`, style: { backgroundColor: color, color: readableTextColor(color) } }
-      : { className: `${base} font-medium text-foreground`, style: { boxShadow: `inset 0 0 0 1.5px ${color}` } };
+      ? { className: `${base} font-medium${today}`, style: { backgroundColor: color, color: readableTextColor(color) } }
+      : { className: `${base} font-medium text-foreground${today}`, style: { boxShadow: `inset 0 0 0 1.5px ${color}` } };
   }
   if (day.isToday) return { className: `${base} bg-foreground font-semibold text-background` };
   if (day.holiday) return { className: `${base} text-foreground ring-1 ring-foreground/60 ring-inset` };

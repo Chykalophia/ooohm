@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import type { CalendarDay } from "@/domain/calendar";
 import { formatLeaveDates, formatLongDate } from "@/lib/format";
+import { IDLE } from "@/app/form-state";
 import { LeaveChip } from "@/app/leave-chip";
 import { type LeaveTypeOption, LeavePreviewLine, SubmitRow, useLeavePreview, useRequestAction } from "@/app/request-leave-form";
 
@@ -61,12 +62,20 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
   const [anchor, setAnchor] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [focusDate, setFocusDate] = useState(() => (days.find((d) => d.isToday) ?? days.find((d) => d.inMonth) ?? days[0])?.date ?? "");
+  const firstFocus = (days.find((d) => d.isToday) ?? days.find((d) => d.inMonth) ?? days[0])?.date ?? "";
+  const [focusDate, setFocusDate] = useState(firstFocus);
+  // After moving to another month the old date is gone; the tab stop falls back to the new month's.
+  const tabStop = days.some((d) => d.date === focusDate) ? focusDate : firstFocus;
   const cells = useRef(new Map<string, HTMLButtonElement>());
+  // How the last press started: a touch only picks on its click, so scrolling past a day never picks it.
+  const pointerType = useRef("mouse");
   const range = anchor && end ? ordered(anchor, end) : null;
+  const rangeKey = range ? `${range.start}/${range.end}` : null;
   const canRequest = leaveTypes.length > 0;
   const { state, formAction, pending } = useRequestAction();
   const [sentId, setSentId] = useState<string | null>(null);
+  // The range the last request was sent for, so a new pick never shows an old outcome.
+  const [sentFor, setSentFor] = useState<string | null>(null);
 
   // A request that went through clears the pick; its outcome shows until the next pick.
   if (state.status === "success" && state.id !== sentId) {
@@ -125,7 +134,11 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
         <thead>
           <tr>
             {WEEKDAYS.map(([short, long]) => (
-              <th key={short} scope="col" className="border-b border-border bg-surface px-2 py-2 text-left text-xs font-medium tracking-wide text-muted uppercase">
+              <th
+                key={short}
+                scope="col"
+                className="border-b border-border bg-surface px-2 py-2 text-left text-xs font-medium tracking-wide text-muted uppercase"
+              >
                 <abbr title={long} className="no-underline">
                   {short}
                 </abbr>
@@ -148,11 +161,12 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                         if (el) cells.current.set(day.date, el);
                         else cells.current.delete(day.date);
                       }}
-                      tabIndex={day.date === focusDate ? 0 : -1}
+                      tabIndex={day.date === tabStop ? 0 : -1}
                       aria-label={dayLabel(day)}
                       aria-pressed={canRequest ? selected : undefined}
                       onPointerDown={(e) => {
-                        if (!canRequest || e.button !== 0) return;
+                        pointerType.current = e.pointerType;
+                        if (!canRequest || e.button !== 0 || e.pointerType === "touch") return;
                         setFocusDate(day.date);
                         pick(day.date, e.shiftKey);
                         setDragging(true);
@@ -163,8 +177,8 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                         if (dragging) setEnd(day.date);
                       }}
                       onClick={(e) => {
-                        // Keyboard activation (Enter or Space) reports no pointer detail.
-                        if (e.detail === 0 && canRequest) pick(day.date, e.shiftKey);
+                        // Keyboard activation (Enter or Space) reports no pointer detail; a tap picks here too.
+                        if (canRequest && (e.detail === 0 || pointerType.current === "touch")) pick(day.date, e.shiftKey);
                       }}
                       onKeyDown={(e) => onKeyDown(e, day.date)}
                       onFocus={() => setFocusDate(day.date)}
@@ -209,7 +223,8 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
         <RequestFromRange
           range={range}
           leaveTypes={leaveTypes}
-          action={{ state, formAction, pending }}
+          action={{ state: sentFor === rangeKey ? state : IDLE, formAction, pending }}
+          onSubmit={() => setSentFor(rangeKey)}
           onClear={() => {
             setAnchor(null);
             setEnd(null);
@@ -225,11 +240,13 @@ function RequestFromRange({
   range,
   leaveTypes,
   action,
+  onSubmit,
   onClear,
 }: {
   range: Range;
   leaveTypes: LeaveTypeOption[];
   action: Pick<ReturnType<typeof useRequestAction>, "state" | "formAction" | "pending">;
+  onSubmit: () => void;
   onClear: () => void;
 }) {
   const { state, formAction, pending } = action;
@@ -249,7 +266,7 @@ function RequestFromRange({
         </button>
       </div>
       <LeavePreviewLine preview={preview} />
-      <form action={formAction} className="flex flex-wrap items-center gap-3">
+      <form action={formAction} onSubmit={onSubmit} className="flex flex-wrap items-center gap-3">
         <input type="hidden" name="startDate" value={range.start} />
         <input type="hidden" name="endDate" value={range.end} />
         <input type="hidden" name="dayPortion" value="full" />

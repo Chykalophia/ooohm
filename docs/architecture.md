@@ -502,9 +502,9 @@ CRON_TZ=America/Chicago
   and Escape clears it. Phones keep the agenda; Home's form works everywhere.
 - `/calendar?view=year&year=YYYY`: the person's whole year as twelve small months (`getYearCalendar`, three
   queries). Approved leave fills a day in its type's colour, pending leave outlines it, company holidays are
-  outlined in ink and today is filled in ink. The squares are hidden from screen readers; each month's
-  heading links to its month view, and its leave and holidays are read out as a list instead. A Month / Year
-  switch sits beside the page heading.
+  outlined in ink and today is filled in ink (leave wins over both; today on leave gets an ink ring). The
+  squares are hidden from screen readers; each month's heading links to its month view, and its leave and
+  holidays are read out as a list instead. A Month / Year switch sits beside the page heading.
 - `/team?month=YYYY-MM&department=<id>`: "who's out". Every active member of the company with approved or
   pending leave that costs at least one working day of the month (`entriesCostingDaysIn`: a Thursday-to-Sunday
   request belongs to the Thursday's month, not to the month holding only its weekend), grouped by person (by name), each person's leave by date, pending marked

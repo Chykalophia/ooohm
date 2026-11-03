@@ -1,7 +1,7 @@
 import { canAdminister } from "@/domain/admin-permissions";
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { AgendaItem } from "@/domain/calendar";
+import { type AgendaItem, MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
 import { requireActor } from "@/lib/auth";
 import { formatLeaveDates, formatMonth } from "@/lib/format";
 import { normalizeHexColor } from "@/lib/color";
@@ -34,11 +34,7 @@ function AgendaRow({ item }: { item: AgendaItem }) {
     <li className="flex items-start justify-between gap-3 p-4">
       <div className="min-w-0 space-y-1">
         <p className="flex items-center gap-2 font-medium">
-          <span
-            className="h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: normalizeHexColor(entry.leaveTypeColor) }}
-            aria-hidden
-          />
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: normalizeHexColor(entry.leaveTypeColor) }} aria-hidden />
           {formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}
         </p>
         <p className="text-sm text-muted">{entry.leaveTypeName}</p>
@@ -95,15 +91,19 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                 {nav.year}
               </h2>
               <nav aria-label="Years" className="flex items-center gap-1">
-                <Link href={`/calendar?view=year&year=${nav.year - 1}`} className={navLink} aria-label={`Previous year, ${nav.year - 1}`}>
-                  <span aria-hidden>←</span>
-                </Link>
+                {nav.year > MIN_CALENDAR_YEAR && (
+                  <Link href={`/calendar?view=year&year=${nav.year - 1}`} className={navLink} aria-label={`Previous year, ${nav.year - 1}`}>
+                    <span aria-hidden>←</span>
+                  </Link>
+                )}
                 <Link href={`/calendar?view=year&year=${nav.current}`} className={navLink}>
                   This year
                 </Link>
-                <Link href={`/calendar?view=year&year=${nav.year + 1}`} className={navLink} aria-label={`Next year, ${nav.year + 1}`}>
-                  <span aria-hidden>→</span>
-                </Link>
+                {nav.year < MAX_CALENDAR_YEAR && (
+                  <Link href={`/calendar?view=year&year=${nav.year + 1}`} className={navLink} aria-label={`Next year, ${nav.year + 1}`}>
+                    <span aria-hidden>→</span>
+                  </Link>
+                )}
               </nav>
             </div>
             <YearGrid months={months} />

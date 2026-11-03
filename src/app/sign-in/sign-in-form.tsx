@@ -65,7 +65,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-field bg-surface px-3 py-2 outline-none focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20"
+            className="w-full rounded-lg border border-field bg-surface px-3 py-2 outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20"
             placeholder="you@company.com"
           />
         </label>

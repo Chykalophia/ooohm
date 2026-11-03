@@ -20,7 +20,7 @@ const PREVIEW_DELAY_MS = 300;
 const PREVIEW_ID = "leave-preview";
 
 const field =
-  "w-full rounded-lg border border-field bg-surface px-3 py-2 outline-none focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20";
+  "w-full rounded-lg border border-field bg-surface px-3 py-2 outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20";
 
 /**
  * The dashboard's one main action. Everything is pre-filled (first leave type, the next working day,

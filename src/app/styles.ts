@@ -4,7 +4,7 @@
 export const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink";
 
 export const field =
-  "w-full rounded-lg border border-field bg-surface px-3 py-2 outline-none focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 aria-[invalid=true]:border-red-700";
+  "w-full rounded-lg border border-field bg-surface px-3 py-2 outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20 aria-[invalid=true]:border-red-700";
 
 /** The screen's one main action. */
 export const primaryButton = `inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 font-medium text-accent-foreground disabled:opacity-60 ${focusRing}`;

@@ -37,7 +37,7 @@ export function DecisionForm({ requestId }: { requestId: string }) {
           type="text"
           name="reason"
           maxLength={NOTE_MAX_LENGTH}
-          className="w-full rounded-lg border border-field bg-surface px-3 py-1.5 text-sm outline-none focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20"
+          className="w-full rounded-lg border border-field bg-surface px-3 py-1.5 text-sm outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20"
         />
       </label>
       <div className="flex flex-wrap items-center gap-3">

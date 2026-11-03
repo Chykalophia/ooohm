@@ -20,6 +20,7 @@ import {
 import { findCompanySettings, listTeamEntries } from "@/server/repositories/calendar";
 import { findLeaveType } from "@/server/repositories/leave-types";
 import { findMember, listActiveAdmins } from "@/server/repositories/users";
+import { teamLabel } from "@/domain/person";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify } from "./notify";
 
@@ -132,6 +133,13 @@ type InboxItem = Awaited<ReturnType<typeof listInbox>>[number];
 /** A pending request on the Approvals page, with who else is off on its dates. */
 export type TriageItem = InboxItem & { overlaps: Overlap[] };
 
+/** One tab's pending requests: at most {@link INBOX_LIMIT}, and how many there are in all. */
+async function inboxPart(ctx: ServiceContext, scope: InboxScope) {
+  const items = await listInbox(ctx.db, scope, INBOX_LIMIT);
+  const total = items.length < INBOX_LIMIT ? items.length : await countInbox(ctx.db, scope);
+  return { items, total };
+}
+
 /**
  * The Approvals page, sorted by whose move it is:
  *
@@ -142,46 +150,55 @@ export type TriageItem = InboxItem & { overlaps: Overlap[] };
  * - `settled`: requests the actor approved or declined in the last {@link SETTLED_DAYS}
  *   days, newest first, at most {@link SETTLED_LIMIT}.
  *
+ * `needsYou` and `waiting` are read separately, each capped at {@link INBOX_LIMIT} with
+ * its own `total`, so a long queue for other approvers never pushes the actor's own
+ * requests out of view.
+ *
  * Each pending item carries who else is off on its dates ({@link overlapsFor}): the
  * requester's department, or everyone when they have none. That is what the team
- * calendar shows every member, so it reveals nothing new. Five queries at most: the
- * inbox, the decisions and the company's time zone in parallel, then one team-calendar
- * range over the inbox's dates, and the inbox count only when the list was cut.
+ * calendar shows every member (labelled the same way), so it reveals nothing new. At
+ * most seven queries: the two tabs, the decisions and the company's time zone in
+ * parallel, a count for each tab that was cut, then one team-calendar range over the
+ * pending dates.
  */
 export async function getApprovalTriage(ctx: ServiceContext, actor: Actor) {
   const scope = scopeFor(actor);
   const since = new Date(ctx.now().getTime() - SETTLED_DAYS * 86_400_000);
-  const [items, settled, settings] = await Promise.all([
-    listInbox(ctx.db, scope, INBOX_LIMIT),
+  const none = { items: [] as InboxItem[], total: 0 };
+  const [mine, others, settled, settings] = await Promise.all([
+    inboxPart(ctx, { ...scope, part: "mine" }),
+    scope.isAdmin ? inboxPart(ctx, { ...scope, part: "others" }) : Promise.resolve(none),
     listRecentDecisions(ctx.db, { companyId: actor.companyId, deciderId: actor.id, since }, SETTLED_LIMIT),
     findCompanySettings(ctx.db, actor.companyId),
   ]);
-  const total = items.length < INBOX_LIMIT ? items.length : await countInbox(ctx.db, scope);
 
-  let withOverlaps: TriageItem[] = items.map((item) => ({ ...item, overlaps: [] }));
-  if (items.length > 0) {
-    const from = items.reduce((min, i) => (i.startDate < min ? i.startDate : min), "9999-12-31");
-    const to = items.reduce((max, i) => (i.endDate > max ? i.endDate : max), "0000-01-01");
+  const pending = [...mine.items, ...others.items];
+  let withOverlaps = (items: InboxItem[]): TriageItem[] => items.map((item) => ({ ...item, overlaps: [] }));
+  if (pending.length > 0) {
+    const from = pending.reduce((min, i) => (i.startDate < min ? i.startDate : min), "9999-12-31");
+    const to = pending.reduce((max, i) => (i.endDate > max ? i.endDate : max), "0000-01-01");
     const leave = (await listTeamEntries(ctx.db, actor.companyId, from, to)).map((e) => ({
       ...e,
-      personName: e.personName || e.personEmail,
+      personName: teamLabel({ name: e.personName, email: e.personEmail }),
     }));
-    withOverlaps = items.map((item) => ({
-      ...item,
-      overlaps: overlapsFor(
-        { requesterId: item.requesterId, departmentId: item.requesterDepartmentId, startDate: item.startDate, endDate: item.endDate },
-        leave,
-      ),
-    }));
+    withOverlaps = (items) =>
+      items.map((item) => ({
+        ...item,
+        overlaps: overlapsFor(
+          { requesterId: item.requesterId, departmentId: item.requesterDepartmentId, startDate: item.startDate, endDate: item.endDate },
+          leave,
+        ),
+      }));
   }
 
-  const mine = (i: InboxItem) => i.approverId === actor.id || (i.approverId === null && isAdmin(actor));
   return {
-    needsYou: withOverlaps.filter(mine),
-    waiting: withOverlaps.filter((i) => !mine(i)),
+    needsYou: withOverlaps(mine.items),
+    needsYouTotal: mine.total,
+    waiting: withOverlaps(others.items),
+    waitingTotal: others.total,
     settled: settled.map((d) => ({ ...d, decision: d.action === "leave_request.approved" ? ("approved" as const) : ("rejected" as const) })),
-    total,
-    shown: items.length,
+    /** Everything pending that the actor may decide, as the header counts it. */
+    total: mine.total + others.total,
     settledDays: SETTLED_DAYS,
     timeZone: settings?.timezone ?? "UTC",
   };

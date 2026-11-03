@@ -348,12 +348,13 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 - `/approvals`: three tabs (`getApprovalTriage`). **Needs you** holds pending requests assigned to the person
   (for admins, also any with no approver); **Waiting on others**, shown only when it has something, holds the
   pending requests an admin may decide but that are assigned to someone else; **Settled** lists what the person
-  approved or declined in the last 30 days, read from the audit log, with each request's current status.
-  Pending requests are earliest dates first, each with Approve / Decline, an optional reason the requester sees
-  either way, and one line on who else is off on those dates (the requester's department, or everyone when they
-  have none; the same data the team calendar shows every member). At most 100 show at once, with a note giving
-  the full count when there are more. The header links here for managers, admins, and anyone with something
-  currently assigned to them.
+  approved or declined in the last 30 days (not their own self-approved requests), read from the audit log, with
+  each request's current status. Pending requests are earliest dates first, each with Approve / Decline, an
+  optional reason the requester sees either way, and one line on who else is off on those dates (the requester's
+  department, or everyone when they have none; the same data the team calendar shows every member). Needs you
+  and Waiting on others are read separately, each showing at most 100 with a note giving the full count when
+  there are more. The header links here for managers, admins, and anyone with something currently assigned to
+  them.
 
 ## Balances (M3)
 

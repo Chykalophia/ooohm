@@ -29,12 +29,7 @@ export async function countRecentRequests(ex: Executor, userId: string, minutes:
   const [row] = await ex
     .select({ n: count() })
     .from(leaveRequests)
-    .where(
-      and(
-        eq(leaveRequests.userId, userId),
-        gt(leaveRequests.createdAt, sql`now() - make_interval(mins => ${minutes})`),
-      ),
-    );
+    .where(and(eq(leaveRequests.userId, userId), gt(leaveRequests.createdAt, sql`now() - make_interval(mins => ${minutes})`)));
   return row?.n ?? 0;
 }
 
@@ -122,13 +117,7 @@ export async function listPendingSelfRouted(ex: Executor, companyId: string): Pr
   return ex
     .select()
     .from(leaveRequests)
-    .where(
-      and(
-        eq(leaveRequests.companyId, companyId),
-        eq(leaveRequests.status, "pending"),
-        eq(leaveRequests.approverId, leaveRequests.userId),
-      ),
-    )
+    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.status, "pending"), eq(leaveRequests.approverId, leaveRequests.userId)))
     .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
 }
 
@@ -190,6 +179,12 @@ export interface InboxScope {
   companyId: string;
   deciderId: string;
   isAdmin: boolean;
+  /**
+   * Narrows an admin's inbox: `mine` is what is assigned to them or to nobody, `others`
+   * what is assigned to someone else. Omitted, the whole inbox. A non-admin's inbox is
+   * all `mine`.
+   */
+  part?: "mine" | "others";
 }
 
 /**
@@ -202,11 +197,12 @@ export interface InboxScope {
 function inboxWhere(scope: InboxScope): SQL | undefined {
   const assigned = eq(leaveRequests.approverId, scope.deciderId);
   const notOwn = ne(leaveRequests.userId, scope.deciderId);
-  return and(
-    eq(leaveRequests.companyId, scope.companyId),
-    eq(leaveRequests.status, "pending"),
-    scope.isAdmin ? or(assigned, notOwn) : and(assigned, notOwn),
-  );
+  let who: SQL | undefined;
+  if (!scope.isAdmin) who = scope.part === "others" ? sql`false` : and(assigned, notOwn);
+  else if (scope.part === "mine") who = or(assigned, and(isNull(leaveRequests.approverId), notOwn));
+  else if (scope.part === "others") who = and(ne(leaveRequests.approverId, scope.deciderId), notOwn);
+  else who = or(assigned, notOwn);
+  return and(eq(leaveRequests.companyId, scope.companyId), eq(leaveRequests.status, "pending"), who);
 }
 
 /**

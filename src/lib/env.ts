@@ -2,6 +2,7 @@ import { z } from "zod";
 import { resolveDatabaseConfig } from "@/db/config";
 import { BACKGROUND_MODES, resolveBackgroundMode } from "./background-mode";
 import { MAIL_TRANSPORT_NAMES, SENDGRID_REGIONS } from "./mail/names";
+import { passkeyRelyingParty } from "./passkey-rp";
 import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, envFlag, integrationEnvShape, nonEmptyEnv } from "./integration-env";
 
 const schema = z.object({
@@ -30,6 +31,12 @@ const schema = z.object({
   SETUP_TOKEN: z.string().min(32, "SETUP_TOKEN must be at least 32 characters (openssl rand -hex 32)").optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
+  /**
+   * The domain passkeys are bound to; the host of BETTER_AUTH_URL when unset. Set a parent
+   * domain when the app will move between its subdomains, so passkeys survive the move
+   * (src/lib/passkey-rp.ts).
+   */
+  PASSKEY_RP_ID: z.string().optional(),
 
   // Google sign-in is optional; the button only appears when both are set.
   GOOGLE_CLIENT_ID: z.string().optional(),
@@ -88,6 +95,8 @@ function load() {
   if (!isBuild && parsed.data.MAIL_TRANSPORT === "sendgrid" && !parsed.data.SENDGRID_API_KEY) {
     throw new Error("MAIL_TRANSPORT=sendgrid needs SENDGRID_API_KEY.");
   }
+  // A passkey domain the browser would refuse fails at start, not at everyone's first passkey.
+  passkeyRelyingParty(parsed.data.BETTER_AUTH_URL, parsed.data.PASSKEY_RP_ID);
   const database = resolveDatabaseConfig(isBuild && !raw.DATABASE_URL && !raw.OOOHM_DB ? { ...raw, DATABASE_URL: buildPlaceholders.DATABASE_URL } : raw);
   const background = resolveBackgroundMode(parsed.data.OOOHM_BACKGROUND, { vercel: Boolean(raw.VERCEL), embedded: database.kind === "embedded" });
   return { ...parsed.data, database, background };

@@ -4,6 +4,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { redirect } from "next/navigation";
@@ -14,6 +15,7 @@ import { DEFAULT_COLOR_MODE } from "@/domain/color-mode";
 import { env, googleEnabled } from "@/lib/env";
 import { createLinkCapture, inviteLinkRequest } from "@/lib/link-capture";
 import { log } from "@/lib/log";
+import { passkeyRelyingParty } from "@/lib/passkey-rp";
 import { sendMail } from "@/lib/mail";
 
 /** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
@@ -36,6 +38,7 @@ export const auth = betterAuth({
       session: schema.session,
       account: schema.account,
       verification: schema.verification,
+      passkey: schema.passkey,
     },
   }),
   user: {
@@ -109,6 +112,13 @@ export const auth = betterAuth({
           }
         });
       },
+    }),
+    // Passkeys are added from the account page, so only by someone already signed in
+    // (requireSession): a passkey never creates an account, and invite-only holds.
+    passkey({
+      rpName: "OOOhm",
+      ...passkeyRelyingParty(env.BETTER_AUTH_URL, env.PASSKEY_RP_ID),
+      registration: { requireSession: true },
     }),
     nextCookies(), // must stay last
   ],

@@ -141,6 +141,13 @@
       "when": 1793695899467,
       "tag": "0019_installation",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793744819798,
+      "tag": "0020_passkeys",
+      "breakpoints": true
     }
   ]
 }

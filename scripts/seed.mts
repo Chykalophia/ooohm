@@ -9,8 +9,10 @@
  *   SEED_ADMIN_NAME     default: the part of the email before "@"
  *
  *   tsx scripts/seed.mts --if-production
- *                       the Vercel build step: seeds only when VERCEL_ENV is "production"
- *                       and SEED_ADMIN_EMAIL is set, and does nothing otherwise
+ *                       the Vercel build step: seeds only when VERCEL_ENV is "production",
+ *                       SEED_ADMIN_EMAIL is set and no company exists yet (a company means
+ *                       the instance is set up). SEED_ON_DEPLOY=force seeds an existing
+ *                       instance anyway; set it for one deploy, then remove it.
  */
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
@@ -57,6 +59,16 @@ const DEFAULT_LEAVE_TYPES = [
 
 const handle = await openDatabase(config, { purpose: "pnpm db:seed", max: 1 });
 const { db } = handle;
+
+if (args.includes("--if-production")) {
+  const [existing] = await db.select({ id: schema.companies.id }).from(schema.companies).limit(1);
+  if (existing && process.env.SEED_ON_DEPLOY?.trim() !== "force") {
+    await handle.close();
+    console.log("Skipping seed: this instance is already set up (a company exists). Set SEED_ON_DEPLOY=force for one deploy to seed anyway.");
+    process.exit(0);
+  }
+  if (existing) console.log("SEED_ON_DEPLOY=force: seeding an instance that is already set up. Remove the variable after this deploy.");
+}
 
 if (!adminEmail) {
   // Invite-only: on a fresh database the seed admin is the only way anyone can sign in.

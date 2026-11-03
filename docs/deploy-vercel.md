@@ -112,7 +112,9 @@ its log line is `cron_tick` with counts.
 
 The simplest way: add `SEED_ADMIN_EMAIL` (and optionally `SEED_COMPANY_NAME`, `SEED_ADMIN_NAME`) to Production and
 redeploy. The `vercel-build` script runs `scripts/seed.mts --if-production` after migrating, which seeds only on a
-production build with `SEED_ADMIN_EMAIL` set, and is idempotent like every other seed run. Or seed from your machine, against the direct URL.
+production build with `SEED_ADMIN_EMAIL` set and only while no company exists: once the instance is set up, later
+builds skip it. To seed an existing instance anyway (it only fills gaps), set `SEED_ON_DEPLOY=force` for one deploy and
+remove it afterwards. Or seed from your machine, against the direct URL.
 
 Pull the production variables into a scratch file **outside
 the repository**, and delete it afterwards:

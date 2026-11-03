@@ -46,9 +46,11 @@ export const INBOX_PAGE_SIZE = 10;
 /** An inbox page's key: `[start_date, created_at, id]`. */
 const INBOX_KEY = [isCalendarDate, isCursorInstant, isUuid] as const;
 
-/** How far back Settled reaches, and the most decisions it lists. */
+/** How far back Settled reaches. */
 const SETTLED_DAYS = 30;
-const SETTLED_LIMIT = 50;
+
+/** A Settled page's key: the audit row's `[created_at, id]`. */
+const SETTLED_KEY = [isCursorInstant, isUuid] as const;
 
 function scopeFor(actor: Actor): InboxScope {
   return { companyId: actor.companyId, deciderId: actor.id, isAdmin: isAdmin(actor) };
@@ -92,7 +94,8 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
     const byAssignment = decidesByAssignment(actor, before);
     const current = byAssignment && before.approverId === actor.id ? await currentApprover(tx, actor.companyId, before.userId) : null;
     if (!canDecide(actor, before, current)) throw new DomainError("forbidden");
-    if (input.assignedTo !== undefined && (input.assignedTo !== actor.id || before.approverId !== actor.id)) throw new DomainError("forbidden");
+    if (input.assignedTo !== undefined && (input.assignedTo !== actor.id || before.approverId !== actor.id))
+      throw new DomainError("forbidden");
     assertTransition(before.status, to);
 
     const after = await updateStatusIfCurrent(
@@ -130,10 +133,10 @@ export type ApprovalsView = "mine" | "others" | "settled";
  * - `others` (Waiting on others): pending requests an admin may decide but that are
  *   assigned to someone else. Never anything for a non-admin.
  * - `settled`: requests the actor approved or declined in the last {@link SETTLED_DAYS}
- *   days, newest first, at most {@link SETTLED_LIMIT} (read from the audit log, so an
+ *   days, newest first (read from the audit log, so an
  *   admin's override counts as theirs; self-approvals are left out).
  *
- * The pending tabs are paged ({@link INBOX_PAGE_SIZE} a page, earliest dates first);
+ * Every tab is paged ({@link INBOX_PAGE_SIZE} a page; the pending ones earliest dates first);
  * deciding a request takes it off its tab, so the same page shows the next ones in its
  * place. Each pending request carries `alsoOff`, who else is off on its dates
  * ({@link alsoOffFor}). Both pending tabs are counted every time, for their labels (and
@@ -157,12 +160,18 @@ export async function getApprovalTriage(
 
   if (tab === "settled") {
     const since = new Date(ctx.now().getTime() - SETTLED_DAYS * 86_400_000);
-    const decisions = await listRecentDecisions(ctx.db, { companyId: actor.companyId, deciderId: actor.id, since }, SETTLED_LIMIT);
-    const settled = decisions.map((d) => ({
+    const decisions = await readPage({
+      cursor: page,
+      size,
+      checks: SETTLED_KEY,
+      read: (request, limit) => listRecentDecisions(ctx.db, { companyId: actor.companyId, deciderId: actor.id, since }, limit, request),
+      keyOf: (d) => [d.cursor, d.auditId],
+    });
+    const settled = decisions.items.map((d) => ({
       ...d,
       decision: d.action === "leave_request.approved" ? ("approved" as const) : ("rejected" as const),
     }));
-    return { ...base, items: [], previous: null, next: null, settled };
+    return { ...base, items: [], previous: decisions.previous, next: decisions.next, settled };
   }
 
   const inbox = await readPage({

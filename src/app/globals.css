@@ -363,15 +363,19 @@ body,
 /*
  * A trial that tints a ground darkens grey text to match. A custom property can't refer
  * to itself, so the darker grey is worked out on <html> as --muted-strong (from the
- * theme's own --muted) and handed back as --muted lower down.
+ * theme's own --muted) and handed back as --muted lower down. A theme preview (a nested
+ * [data-ui], as on Admin → Appearance) works out its own from its own --muted.
  */
-[data-layout="tonal"][data-ui] {
+[data-layout="tonal"][data-ui],
+[data-layout="tonal"] [data-ui] {
   --muted-strong: color-mix(in srgb, var(--muted) 78%, var(--foreground));
 }
-[data-layout="grouped"][data-ui] {
+[data-layout="grouped"][data-ui],
+[data-layout="grouped"] [data-ui] {
   --muted-strong: color-mix(in srgb, var(--muted) 80%, var(--foreground));
 }
-[data-layout="legible"][data-ui] {
+[data-layout="legible"][data-ui],
+[data-layout="legible"] [data-ui] {
   --muted-strong: color-mix(in srgb, var(--muted) 70%, var(--foreground));
 }
 :is([data-layout="grouped"], [data-layout="legible"]) > body {

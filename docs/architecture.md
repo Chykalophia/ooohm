@@ -97,7 +97,8 @@ opaque token in `?after=` / `?before=`; each list checks every part (a uuid, a d
 else as page 1. Repositories build the query with `keysetPage` (`src/server/repositories/keyset.ts`), services read
 with `readPage`, and pages render `Pager` (Previous, Page N, Next) from `pagerLinks` (`src/app/_lib/paging.ts`),
 which keeps the list's filters. The page number is a label the links count, not an offset. Previous reaching the
-start with less than a page left shows the real first page.
+start with less than a page left shows the real first page; any other Previous reads one row past the page to know
+whether a Next is still there, since the rows after it may have gone (requests decided, people deleted).
 
 ### Composition root
 

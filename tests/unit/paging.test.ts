@@ -84,6 +84,18 @@ describe("readPage", () => {
     assert.deepEqual((await l.page(p.previous!)).items, ["b", "c", "d"]);
   });
 
+  test("back to a page whose following rows have gone since: no Next leading to an empty page", async () => {
+    // Someone on page 3 decided everything there, then went back.
+    const before = list(letters(8));
+    const third = await before.page({ direction: "after", token: encodePageKey(["f"]) });
+    const after = list(letters(6));
+    const second = await after.page(third.previous!);
+    assert.deepEqual([second.items, second.next], [["d", "e", "f"], null]);
+    assert.ok(second.previous, "the earlier pages are still there");
+    // With rows still after it, Next stays.
+    assert.ok((await list(letters(7)).page(third.previous!)).next);
+  });
+
   test("rows added between pages are neither skipped nor repeated", async () => {
     const keys = ["b", "d", "f", "h", "j", "l"];
     const before = await list(keys).page(undefined);

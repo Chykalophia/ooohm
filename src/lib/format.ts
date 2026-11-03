@@ -13,6 +13,7 @@ const dayFormat = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+const monthDayFormat = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" });
 const yearFormat = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", year: "numeric" });
 
 function toUtc(date: string): Date {
@@ -34,6 +35,12 @@ export function formatLeaveDates(startDate: string, endDate: string, dayPortion:
   const sameYear = startDate.slice(0, 4) === endDate.slice(0, 4);
   const from = sameYear ? dayFormat.format(start) : `${dayFormat.format(start)}, ${yearFormat.format(start)}`;
   return `${from} to ${dayFormat.format(end)}, ${yearFormat.format(end)}`;
+}
+
+/** A request's dates at a glance, for an email subject: "Dec 21" or "Dec 21 to Dec 23". */
+export function formatDateSpan(startDate: string, endDate: string): string {
+  const start = monthDayFormat.format(toUtc(startDate));
+  return startDate === endDate ? start : `${start} to ${monthDayFormat.format(toUtc(endDate))}`;
 }
 
 /** One date in short words, e.g. "Mon, Nov 23". */

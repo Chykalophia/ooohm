@@ -15,6 +15,8 @@ import { env, googleEnabled } from "@/lib/env";
 import { createLinkCapture, inviteLinkRequest } from "@/lib/link-capture";
 import { log } from "@/lib/log";
 import { sendMail } from "@/lib/mail";
+import { emailAccent } from "@/lib/email-layout";
+import { renderSignInEmail } from "@/lib/sign-in-email";
 
 /** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
 const linkCapture = createLinkCapture();
@@ -92,18 +94,15 @@ export const auth = betterAuth({
         after(async () => {
           try {
             const [existing] = await db
-              .select({ isActive: schema.user.isActive })
+              .select({ isActive: schema.user.isActive, theme: schema.companies.theme, accentColor: schema.companies.accentColor })
               .from(schema.user)
+              .leftJoin(schema.companies, eq(schema.companies.id, schema.user.companyId))
               .where(eq(schema.user.email, email.toLowerCase()));
             // Only email people who have an active account, never strangers.
             if (!existing?.isActive) return;
 
-            await sendMail({
-              to: email,
-              subject: "Your OOOhm sign-in link",
-              text: `Sign in to OOOhm:\n\n${url}\n\nThis link expires in 15 minutes. If you didn't ask for it, you can ignore this email.`,
-              html: `<p>Sign in to OOOhm:</p><p><a href="${url}">Sign in</a></p><p style="color:#6b7280">This link expires in 15 minutes. If you didn't ask for it, you can ignore this email.</p>`,
-            });
+            const accent = emailAccent(existing.theme === null ? null : { theme: existing.theme, accentColor: existing.accentColor });
+            await sendMail({ to: email, ...renderSignInEmail(url, accent) });
           } catch (err) {
             log.error({ err }, "magic_link_send_failed");
           }

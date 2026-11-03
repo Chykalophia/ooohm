@@ -19,7 +19,7 @@ export { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent, escapeHtml } from 
 
 /**
  * Leave notification emails: calm plain text plus an HTML twin in the shared layout
- * (`./layout`), with the company's accent.
+ * (`@/lib/email-layout`), with the company's accent.
  */
 
 export interface EmailContent {
@@ -96,36 +96,38 @@ function what(leave: LeaveSummary): { type: Segment; when: string } {
 function parts(email: LeaveEmail): Parts {
   const { leave } = email;
   const { type, when } = what(leave);
+  // Callers pass `personLabel`, which falls back to the email address; this is the last resort.
+  const requester = leave.requesterName || "Someone";
   switch (email.kind) {
     case "requested":
       return {
         // The name is one capped line (`displayName`), so it cannot add a header.
-        subject: `${leave.requesterName || "Someone"} asked for ${formatDateSpan(leave.startDate, leave.endDate)}`,
-        lead: [{ text: `${leave.requesterName} asked for ` }, type, { text: `, ${when}.` }],
+        subject: `${requester} asked for ${formatDateSpan(leave.startDate, leave.endDate)}`,
+        lead: [{ text: `${requester} asked for ` }, type, { text: `, ${when}.` }],
         quote: leave.note ?? undefined,
         overlap: email.alsoOff ?? undefined,
       };
     case "approved":
       return {
         subject: "Your time off is approved",
-        lead: [{ text: "Your " }, type, { text: ` is approved: ${when}.` }],
+        lead: [{ text: "Your " }, type, { text: ` is approved, ${when}.` }],
         extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined,
       };
     case "rejected":
       return {
         subject: "Your time off request was declined",
-        lead: [{ text: "Your " }, type, { text: ` request was declined: ${when}.` }],
+        lead: [{ text: "Your " }, type, { text: ` request was declined, ${when}.` }],
         extra: email.reason ? { label: "Reason", value: email.reason, quoted: true } : undefined,
       };
     case "cancelled_requester":
       return {
         subject: "Your time off request was cancelled",
-        lead: [{ text: "Your " }, type, { text: ` request was cancelled: ${when}.` }],
+        lead: [{ text: "Your " }, type, { text: ` request was cancelled, ${when}.` }],
       };
     case "cancelled_approver":
       return {
         subject: "A time off request was cancelled",
-        lead: [{ text: `${leave.requesterName} cancelled their ` }, type, { text: `: ${when}. Nothing else is needed from you.` }],
+        lead: [{ text: `${requester} cancelled their ` }, type, { text: `, ${when}. Nothing else is needed from you.` }],
       };
     case "recounted": {
       const cause = formatRecountCause(email.cause);
@@ -185,6 +187,9 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
       ]
     : [{ label: email.kind === "requested" ? "Review in OOOhm" : "Open in OOOhm", href: link, variant: "primary" }];
 
+  const approveNote = approveLink
+    ? "The Approve link is for you alone and stops working once the request is decided. Declining needs a reason, so it happens in OOOhm."
+    : null;
   const text = [
     p.lead.map((s) => s.text).join(""),
     ...(p.quote ? ["", quoted(p.quote)] : []),
@@ -194,6 +199,7 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
     ...(approveLink
       ? [`Approve: ${approveLink}`, `Decline or look closer in OOOhm: ${link}`]
       : [`${actions[0].label}: ${link}`]),
+    ...(approveNote ? ["", approveNote] : []),
     "",
   ].join("\n");
 
@@ -210,9 +216,6 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
         )
       : "") +
     buttons(actions, accent);
-  const footer = approveLink
-    ? escapeHtml("The Approve link is for you alone and stops working once the request is decided. Declining needs a reason, so it happens in OOOhm.")
-    : undefined;
 
-  return { subject: p.subject, text, html: emailDocument(body, accent, footer) };
+  return { subject: p.subject, text, html: emailDocument(body, accent, approveNote ? escapeHtml(approveNote) : undefined) };
 }

@@ -37,10 +37,16 @@ export function formatLeaveDates(startDate: string, endDate: string, dayPortion:
   return `${from} to ${dayFormat.format(end)}, ${yearFormat.format(end)}`;
 }
 
-/** A request's dates at a glance, for an email subject: "Dec 21" or "Dec 21 to Dec 23". */
+/**
+ * A request's dates at a glance, for an email subject: "Dec 21", "Dec 21 to Dec 23", or,
+ * across New Year, "Dec 30, 2026 to Jan 2, 2027".
+ */
 export function formatDateSpan(startDate: string, endDate: string): string {
-  const start = monthDayFormat.format(toUtc(startDate));
-  return startDate === endDate ? start : `${start} to ${monthDayFormat.format(toUtc(endDate))}`;
+  const day = (date: string, withYear: boolean) =>
+    withYear ? `${monthDayFormat.format(toUtc(date))}, ${yearFormat.format(toUtc(date))}` : monthDayFormat.format(toUtc(date));
+  if (startDate === endDate) return day(startDate, false);
+  const crossesYear = startDate.slice(0, 4) !== endDate.slice(0, 4);
+  return `${day(startDate, crossesYear)} to ${day(endDate, crossesYear)}`;
 }
 
 /** One date in short words, e.g. "Mon, Nov 23". */

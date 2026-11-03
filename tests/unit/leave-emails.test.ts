@@ -39,6 +39,10 @@ test("subjects are fixed strings, except the request email's, which names the re
   assert.match(oneDay.subject, /asked for Dec 21$/);
   const long = renderLeaveEmail({ ...kinds[0], leave: leave({ requesterName: "A".repeat(500) }) } as LeaveEmail);
   assert.equal(long.subject, `${"A".repeat(100)} asked for Nov 2 to Nov 6`);
+  const newYear = renderLeaveEmail({ ...kinds[0], leave: leave({ requesterName: "Ana", startDate: "2026-12-30", endDate: "2027-01-02" }) } as LeaveEmail);
+  assert.equal(newYear.subject, "Ana asked for Dec 30, 2026 to Jan 2, 2027", "across New Year, the years show");
+  const blank = renderLeaveEmail({ ...kinds[0], leave: leave({ requesterName: "  " }) } as LeaveEmail);
+  assert.match(blank.text, /^Someone asked for PTO, /);
 });
 
 test("user text is escaped in HTML and kept verbatim in plain text", () => {
@@ -65,7 +69,7 @@ test("the request email reads like the OOOhm site's: one sentence, the note in q
   assert.match(requested.text, /https:\/\/x\/approvals/);
 
   const rejected = renderLeaveEmail({ kind: "rejected", recipientName: "Ana", leave: leave(), reason: "Launch week", link: "https://x/" });
-  assert.match(rejected.text, /^Your PTO request was declined: Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\./);
+  assert.match(rejected.text, /^Your PTO request was declined, Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\./);
   assert.match(rejected.text, /Reason: \u201cLaunch week\u201d/);
   const rejectedNoReason = renderLeaveEmail({ kind: "rejected", recipientName: "Ana", leave: leave(), reason: null, link: "https://x/" });
   assert.doesNotMatch(rejectedNoReason.text, /Reason:/);
@@ -73,7 +77,7 @@ test("the request email reads like the OOOhm site's: one sentence, the note in q
 
 test("an approved requester sees the approver's note, when there is one", () => {
   const withNote = renderLeaveEmail({ kind: "approved", recipientName: "Ana", leave: leave(), reason: "Hand over X first", link: "https://x/" });
-  assert.match(withNote.text, /^Your PTO is approved: Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\./);
+  assert.match(withNote.text, /^Your PTO is approved, Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\./);
   assert.match(withNote.text, /Note from approver: \u201cHand over X first\u201d/);
   assert.match(withNote.html, /Note from approver/);
   const without = renderLeaveEmail({ kind: "approved", recipientName: "Ana", leave: leave(), reason: null, link: "https://x/" });
@@ -233,6 +237,8 @@ test("a request email with an approve link leads with Approve, then Open in OOOh
   assert.match(out.text, /Approve: https:\/\/x\/approve\/abc\.def\nDecline or look closer in OOOhm: https:\/\/x\/approvals/);
   assert.ok(out.html.indexOf(">Approve</a>") < out.html.indexOf(">Open in OOOhm</a>"));
   assert.match(out.html, /Declining needs a reason/);
+  assert.match(out.text, /Declining needs a reason/, "the plain text says it too");
+  assert.match(out.html, /<td bgcolor="#0f766e"[^>]*><a href="https:\/\/x\/approve\/abc\.def"/, "Outlook-safe: the cell carries the fill");
   const without = renderLeaveEmail({ kind: "requested", recipientName: "Jo", leave: leave(), link: "https://x/approvals" });
   assert.doesNotMatch(without.text, /Approve:/);
   assert.match(without.text, /Review in OOOhm: https:\/\/x\/approvals/);

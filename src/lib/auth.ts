@@ -15,7 +15,7 @@ import { env, googleEnabled } from "@/lib/env";
 import { createLinkCapture, inviteLinkRequest } from "@/lib/link-capture";
 import { log } from "@/lib/log";
 import { sendMail } from "@/lib/mail";
-import { emailAccent } from "@/lib/email-layout";
+import { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent } from "@/lib/email-layout";
 import { renderSignInEmail } from "@/lib/sign-in-email";
 
 /** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
@@ -25,6 +25,21 @@ const linkCapture = createLinkCapture();
  * OOOhm is invite-only: people sign in with an account an admin created for them.
  * Neither magic links nor Google sign-in will create new users.
  */
+/** The company's accent for a sign-in email; the default teal if it can't be read, so the link still goes out. */
+async function signInAccent(companyId: string | null): Promise<EmailAccent> {
+  if (!companyId) return DEFAULT_EMAIL_ACCENT;
+  try {
+    const [company] = await db
+      .select({ theme: schema.companies.theme, accentColor: schema.companies.accentColor })
+      .from(schema.companies)
+      .where(eq(schema.companies.id, companyId));
+    return emailAccent(company);
+  } catch (err) {
+    log.warn({ err }, "email_accent_read_failed");
+    return DEFAULT_EMAIL_ACCENT;
+  }
+}
+
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
@@ -94,15 +109,13 @@ export const auth = betterAuth({
         after(async () => {
           try {
             const [existing] = await db
-              .select({ isActive: schema.user.isActive, theme: schema.companies.theme, accentColor: schema.companies.accentColor })
+              .select({ isActive: schema.user.isActive, companyId: schema.user.companyId })
               .from(schema.user)
-              .leftJoin(schema.companies, eq(schema.companies.id, schema.user.companyId))
               .where(eq(schema.user.email, email.toLowerCase()));
             // Only email people who have an active account, never strangers.
             if (!existing?.isActive) return;
 
-            const accent = emailAccent(existing.theme === null ? null : { theme: existing.theme, accentColor: existing.accentColor });
-            await sendMail({ to: email, ...renderSignInEmail(url, accent) });
+            await sendMail({ to: email, ...renderSignInEmail(url, await signInAccent(existing.companyId)) });
           } catch (err) {
             log.error({ err }, "magic_link_send_failed");
           }

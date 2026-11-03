@@ -87,7 +87,7 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     assert.equal(toAna[0].subject, "Your time off was recounted");
     assert.match(
       toAna[0].text,
-      /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\), so your \S+ for .+ now takes 4 days instead of 5 days\./,
+      /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\), so your VAC for .+, 2026 now takes 4 days instead of 5 days\./,
     );
     assert.equal(ctx.sent.filter((m) => m.to === bob.email).length, 1);
     assert.equal(ctx.sent.filter((m) => m.to === cy.email).length, 0);
@@ -303,7 +303,7 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     assert.equal(ctx.sent.length, 1);
     assert.match(
       ctx.sent[0].text,
-      /Thu, Dec 24, 2026 is no longer a company holiday, so your \S+ for .+ now takes 4 days instead of 3 days\./,
+      /Thu, Dec 24, 2026 is no longer a company holiday, so your VAC for .+, 2026 now takes 4 days instead of 3 days\./,
     );
     assert.match(ctx.sent[0].text, /Balance: This leaves you 1 day over your VAC balance for 2026\./);
   });

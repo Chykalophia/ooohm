@@ -145,7 +145,7 @@ test("the recount email says why and what changed, including when nothing is tak
   assert.equal(recounted.subject, "Your time off was recounted");
   assert.match(
     recounted.text,
-    /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\), so your \S+ for .+ now takes 4 days instead of 5 days\./,
+    /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\), so your PTO for .+, 2026 now takes 4 days instead of 5 days\./,
   );
   assert.doesNotMatch(recounted.text, /Balance:/);
 

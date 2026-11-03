@@ -52,22 +52,27 @@ export interface EmailButton {
   variant: "primary" | "quiet";
 }
 
+/**
+ * One button as a table cell carrying the fill (`bgcolor`), so Outlook desktop, which
+ * ignores padding and backgrounds on links, still draws a button; other clients use the
+ * link's own padding and corners.
+ */
 function button(b: EmailButton, accent: EmailAccent): string {
-  const look =
-    b.variant === "primary"
-      ? `background:${accent.accent};color:${accent.accentForeground};border:1px solid ${accent.accent}`
-      : `background:#ffffff;color:${INK};border:1px solid ${BORDER_STRONG}`;
+  const [fill, text, edge] =
+    b.variant === "primary" ? [accent.accent, accent.accentForeground, accent.accent] : ["#ffffff", INK, BORDER_STRONG];
   return (
-    `<a href="${escapeHtml(b.href)}" style="display:inline-block;${look};font-family:${FONT};font-size:15px;` +
-    `font-weight:500;line-height:20px;text-decoration:none;padding:9px 16px;border-radius:8px;margin:0 8px 8px 0">` +
-    `${escapeHtml(b.label)}</a>`
+    `<td bgcolor="${fill}" style="background:${fill};border:1px solid ${edge};border-radius:8px">` +
+    `<a href="${escapeHtml(b.href)}" style="display:inline-block;background:${fill};color:${text};font-family:${FONT};font-size:15px;` +
+    `font-weight:500;line-height:20px;text-decoration:none;padding:9px 16px;border-radius:8px">` +
+    `${escapeHtml(b.label)}</a></td>`
   );
 }
 
 /** A row of buttons, the main one first. */
 export function buttons(list: readonly EmailButton[], accent: EmailAccent): string {
   if (list.length === 0) return "";
-  return `<div style="margin:8px 0 0">${list.map((b) => button(b, accent)).join("")}</div>`;
+  const cells = list.map((b) => button(b, accent)).join(`<td style="width:8px;font-size:0;line-height:0">&nbsp;</td>`);
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 0"><tr>${cells}</tr></table>`;
 }
 
 /** A plain link in the accent's text colour. */

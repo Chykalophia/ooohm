@@ -19,10 +19,13 @@ const MESSAGES: Record<string, string> = {
   invalid: "This link doesn't work. Open OOOhm to decide.",
 };
 
-/** "Approved. Lena Park gets an email, and their calendar feed updates.", as on the OOOhm site. */
+/**
+ * "Approved. Lena Park's time off is approved." Says only what is sure: a deactivated
+ * requester gets no email and has no calendar feed.
+ */
 function approvedMessage(request: { requesterName: string; requesterEmail: string }): string {
   const who = personLabel({ name: request.requesterName, email: request.requesterEmail });
-  return `Approved. ${who} gets an email, and their calendar feed updates.`;
+  return `Approved. ${who}'s time off is approved.`;
 }
 
 /**

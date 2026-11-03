@@ -204,7 +204,7 @@ export async function requestDaysOf(db: Database, requestId: string) {
 }
 
 /** A request email's subject, "Ana asked for Nov 23 to Nov 27", which names the requester and dates. */
-export const REVIEW_SUBJECT = /^.+ asked for [A-Z][a-z]{2} \d{1,2}( to [A-Z][a-z]{2} \d{1,2})?$/;
+export const REVIEW_SUBJECT = /^.+ asked for [A-Z][a-z]{2} \d{1,2}(, \d{4})?( to [A-Z][a-z]{2} \d{1,2}(, \d{4})?)?$/;
 
 /** An email's subject with request emails' names and dates folded away, for comparing lists. */
 export function subjectOf(mail: { subject: string }): string {

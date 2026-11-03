@@ -47,7 +47,7 @@ async function signIn(ctx, email, state) {
     throw new Error("Signing in for a recording reads the token with psql, so it needs Postgres, not embedded PGlite.");
   }
   const id = execFileSync("psql", [PSQL_URL, "-At", "-v", `email=${email}`], {
-    env: { ...process.env, PGPASSWORD },
+    env: { ...process.env, ...(PGPASSWORD ? { PGPASSWORD } : {}) },
     input: "select identifier from verification where value::jsonb ->> 'email' = :'email' order by created_at desc limit 1;",
   }).toString().trim();
   if (!id) throw new Error(`no magic-link token for ${email}; is ${email} a member, and is DATABASE_URL the app's database?`);

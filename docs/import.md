@@ -28,7 +28,7 @@ On the production server the commands run in the `migrate` container; see [deplo
 | --- | --- |
 | `--file <path>` | TimeOff's SQLite file. Opened read-only; the importer never changes it. |
 | `--company <id>` | Import into this OOOhm company, normally the one the first start seeded. The error message lists the ids when the one given does not exist. |
-| `--create-company <name>` | Or create a new company for it, with TimeOff's time zone and working days. |
+| `--create-company <name>` | Or create a new company for it, with TimeOff's time zone and working days. Only on an empty database: OOOhm runs one company per deployment, so once any company exists (the first start seeds one) this is refused, and the message names the company to pass to `--company` instead. |
 | `--actor <email>` | Required. You: the admin running the import. Every row it writes is recorded as your change, via the import (see [Audit and events](#audit-and-events)). Checked after people are imported, so it must be an active admin of the target company as the import leaves it: an existing admin, or, with `--create-company`, one of TimeOff's admins. Anyone else is refused and nothing is written, dry run or not. |
 | `--apply` | Commit. Without it nothing is written (dry run). |
 | `--report <out.json>` | Also write the full report as JSON (mode 600: it names people and their balances). |

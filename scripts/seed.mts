@@ -9,7 +9,7 @@
  *   SEED_ADMIN_NAME     default: the part of the email before "@"
  */
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { resolveDatabaseConfig } from "../src/db/config";
 import { openDatabase } from "../src/db/connect";
@@ -51,6 +51,9 @@ const adminName = process.env.SEED_ADMIN_NAME?.trim() || adminEmail.split("@")[0
 
 await db.transaction(async (tx) => {
   // v1 runs one company per deployment. With more than one, "the" company is ambiguous.
+  // The same lock as the TimeOff import's --create-company, taken before the check, so
+  // the two cannot both see no company and each create one.
+  await tx.execute(sql`LOCK TABLE ${schema.companies} IN SHARE ROW EXCLUSIVE MODE`);
   const companies = await tx.select().from(schema.companies).limit(2);
   if (companies.length > 1) {
     console.log("More than one company exists; the first-run seed doesn't apply. Skipping.");

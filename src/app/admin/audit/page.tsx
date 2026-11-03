@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { z } from "zod";
 import { formatInstantDateTime } from "@/lib/format";
 import { getAuditLog } from "@/server/services/audit-log";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
+import { pagerLinks, readPageParams } from "@/app/_lib/paging";
 import { Item, ItemList } from "@/components/ui/card";
 import { SelectField, TextField } from "@/components/ui/fields";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { outlineButton } from "@/components/ui/styles";
+import { Pager } from "@/components/navigation/pager";
 
 export const metadata: Metadata = { title: "Audit log · Admin · OOOhm" };
 
@@ -17,23 +17,19 @@ const param = z.string().max(200).optional().catch(undefined);
 export default async function AuditPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { actor, ctx, nav } = await requireAdminPage();
   const params = await searchParams;
-  const cursor = param.parse(params.after);
+  const { cursor, number } = readPageParams(params);
   const log = await getAuditLog(ctx, actor, {
     action: param.parse(params.action),
     actorId: param.parse(params.actor),
     subjectUserId: param.parse(params.person),
     from: param.parse(params.from),
     to: param.parse(params.to),
-    cursor,
+    page: cursor,
   });
   const { filters } = log;
-  const filterQuery = new URLSearchParams(
-    Object.entries({ action: filters.action, actor: filters.actorId, person: filters.subjectUserId, from: filters.from, to: filters.to }).filter(
-      (e): e is [string, string] => Boolean(e[1]),
-    ),
-  );
-  const filtered = filterQuery.size > 0;
-  const olderHref = log.nextCursor ? `/admin/audit?${new URLSearchParams([...filterQuery, ["after", log.nextCursor]])}` : null;
+  const keep = { action: filters.action, actor: filters.actorId, person: filters.subjectUserId, from: filters.from, to: filters.to };
+  const filtered = Object.values(keep).some(Boolean);
+  const pager = pagerLinks("/admin/audit", log, number, { keep });
   const peopleOptions = log.people.map((p) => ({ value: p.id, label: p.label }));
 
   return (
@@ -52,7 +48,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       </FilterBar>
 
       {log.entries.length === 0 ? (
-        <p className="text-muted">{filtered || cursor ? "Nothing matches." : "Nothing has changed yet."}</p>
+        <p className="text-muted">{filtered || log.previous ? "Nothing matches." : "Nothing has changed yet."}</p>
       ) : (
         <ItemList ordered>
           {log.entries.map((e) => (
@@ -79,20 +75,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         </ItemList>
       )}
 
-      {(olderHref || cursor) && (
-        <nav aria-label="Pages" className="flex flex-wrap gap-4">
-          {cursor && (
-            <Link href={filtered ? `/admin/audit?${filterQuery}` : "/admin/audit"} className={outlineButton}>
-              Newest
-            </Link>
-          )}
-          {olderHref && (
-            <Link href={olderHref} className={outlineButton}>
-              Older
-            </Link>
-          )}
-        </nav>
-      )}
+      <Pager label="Audit log pages" links={pager} />
     </AdminShell>
   );
 }

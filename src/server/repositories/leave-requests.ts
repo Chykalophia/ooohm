@@ -1,9 +1,11 @@
-import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { LeaveStatus } from "@/domain/leave-request";
+import type { PageRequest } from "@/domain/paging";
 import { activeInRange } from "./calendar";
+import { cursorInstant, keysetPage } from "./keyset";
 
 export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
 export type NewLeaveRequest = typeof leaveRequests.$inferInsert;
@@ -161,11 +163,20 @@ export async function reassignIfCurrent(
 const approver = alias(user, "approver");
 const requester = alias(user, "requester");
 
-/** A person's own requests, newest dates first, with display names resolved. */
-export async function listRequestsForUser(ex: Executor, companyId: string, userId: string, limit: number) {
+/** The key part values of a `[start_date, created_at, id]` page key. */
+const dateInstantId = ([date, at, id]: string[]) => [sql`${date}::date`, sql`${at}::timestamptz`, sql`${id}::uuid`];
+
+/**
+ * A page of a person's own requests, latest dates first (then latest sent), with
+ * display names resolved. Keyed on `[start_date, created_at, id]`; `cursor` is
+ * `created_at` as {@link cursorInstant} prints it.
+ */
+export async function listRequestsForUser(ex: Executor, companyId: string, userId: string, limit: number, page?: PageRequest) {
+  const keyset = keysetPage("desc", [leaveRequests.startDate, leaveRequests.createdAt, leaveRequests.id], page, dateInstantId);
   return ex
     .select({
       id: leaveRequests.id,
+      cursor: cursorInstant(leaveRequests.createdAt),
       startDate: leaveRequests.startDate,
       endDate: leaveRequests.endDate,
       dayPortion: leaveRequests.dayPortion,
@@ -181,8 +192,8 @@ export async function listRequestsForUser(ex: Executor, companyId: string, userI
     .from(leaveRequests)
     .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
     .leftJoin(approver, eq(approver.id, leaveRequests.approverId))
-    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId)))
-    .orderBy(desc(leaveRequests.startDate), desc(leaveRequests.createdAt))
+    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId), keyset.where))
+    .orderBy(...keyset.orderBy)
     .limit(limit);
 }
 
@@ -211,13 +222,17 @@ function inboxWhere(scope: InboxScope): SQL | undefined {
 }
 
 /**
- * Pending requests the inbox shows for `scope`, earliest start first, with requester, leave
- * type and assigned approver names joined in: at most `limit` rows, one query.
+ * A page of the pending requests the inbox shows for `scope`, earliest start first (then
+ * first sent), with requester, leave type and assigned approver names joined in: at most
+ * `limit` rows, one query. Keyed on `[start_date, created_at, id]` like
+ * {@link listRequestsForUser}.
  */
-export async function listInbox(ex: Executor, scope: InboxScope, limit: number) {
+export async function listInbox(ex: Executor, scope: InboxScope, limit: number, page?: PageRequest) {
+  const keyset = keysetPage("asc", [leaveRequests.startDate, leaveRequests.createdAt, leaveRequests.id], page, dateInstantId);
   return ex
     .select({
       id: leaveRequests.id,
+      cursor: cursorInstant(leaveRequests.createdAt),
       startDate: leaveRequests.startDate,
       endDate: leaveRequests.endDate,
       dayPortion: leaveRequests.dayPortion,
@@ -236,8 +251,8 @@ export async function listInbox(ex: Executor, scope: InboxScope, limit: number) 
     .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
     .innerJoin(requester, eq(requester.id, leaveRequests.userId))
     .leftJoin(approver, eq(approver.id, leaveRequests.approverId))
-    .where(inboxWhere(scope))
-    .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.createdAt))
+    .where(and(inboxWhere(scope), keyset.where))
+    .orderBy(...keyset.orderBy)
     .limit(limit);
 }
 

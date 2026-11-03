@@ -8,16 +8,17 @@ import { isCalendarDate } from "@/domain/calendar-date";
 import { type ChangeSourceKind, changeSourceLabel, recordedChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
+import { type PageCursor, type PageRequest, isCursorInstant, readPage } from "@/domain/paging";
 import { personLabel } from "@/domain/person";
 import type { ServiceContext } from "@/server/context";
-import { type AuditCursor, listAuditPage } from "@/server/repositories/audit-log";
+import { listAuditPage } from "@/server/repositories/audit-log";
 import { listDepartments } from "@/server/repositories/departments";
 import { findCompany } from "@/server/repositories/companies";
 import { listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { listPeopleNames } from "@/server/repositories/users";
 
-/** Rows per page. */
-export const AUDIT_PAGE_SIZE = 50;
+/** Entries per page: a screen or two of the log, so it stays easy to scan. */
+export const AUDIT_PAGE_SIZE = 25;
 
 /** What the viewer filters on. Anything malformed is ignored rather than refused. */
 export interface AuditLogFilter {
@@ -28,28 +29,12 @@ export interface AuditLogFilter {
   from?: string;
   /** Last day, `YYYY-MM-DD`, in the company's time zone. */
   to?: string;
-  /** Opaque cursor from a previous page's `nextCursor`. */
-  cursor?: string;
+  /** The page, from a previous page's `previous` or `next`; the newest entries when absent. */
+  page?: PageCursor;
 }
 
-const CURSOR = /^((\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})\.\d{6}Z)_([0-9a-f-]{36})$/;
-
-function encodeCursor(c: AuditCursor): string {
-  return `${c.createdAt}_${c.id}`;
-}
-
-/**
- * The cursor in `value`, or `undefined` (first page) when it is not one this service
- * made. The timestamp must be a real instant, not just the right shape: Postgres
- * refuses `2026-99-99T99:99:99` outright, which would turn a forged link into an error page.
- */
-export function decodeAuditCursor(value: string | undefined): AuditCursor | undefined {
-  const m = value ? CURSOR.exec(value) : null;
-  if (!m || !isUuid(m[6]) || !isCalendarDate(m[2])) return undefined;
-  const [hh, mm, ss] = [Number(m[3]), Number(m[4]), Number(m[5])];
-  if (hh > 23 || mm > 59 || ss > 59) return undefined;
-  return { createdAt: m[1], id: m[6] };
-}
+/** An audit page's key: `[created_at, id]`. */
+const AUDIT_KEY = [isCursorInstant, isUuid] as const;
 
 const personId = (v: string | undefined) => (v && v.length <= 100 ? v : undefined);
 
@@ -137,27 +122,28 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
   const to = filter.to && isCalendarDate(filter.to) ? filter.to : undefined;
   const { company, people, names } = await loadAuditNaming(ctx, actor.companyId);
 
-  const rows = await listAuditPage(
-    ctx.db,
-    {
-      companyId: actor.companyId,
-      action,
-      actorId: personId(filter.actorId),
-      subjectUserId: personId(filter.subjectUserId),
-      from,
-      to,
-      timezone: company.timezone,
-      after: decodeAuditCursor(filter.cursor),
-    },
-    AUDIT_PAGE_SIZE + 1,
-  );
+  const query = {
+    companyId: actor.companyId,
+    action,
+    actorId: personId(filter.actorId),
+    subjectUserId: personId(filter.subjectUserId),
+    from,
+    to,
+    timezone: company.timezone,
+  };
+  const page = await readPage({
+    cursor: filter.page,
+    size: AUDIT_PAGE_SIZE,
+    checks: AUDIT_KEY,
+    read: (request, limit) => listAuditPage(ctx.db, { ...query, page: request }, limit),
+    keyOf: (r) => [r.cursor, r.id],
+  });
 
-  const page = rows.slice(0, AUDIT_PAGE_SIZE);
-  const last = page.at(-1);
   return {
     timezone: company.timezone,
-    entries: page.map((r) => toAuditEntry(ctx, r, names)),
-    nextCursor: rows.length > AUDIT_PAGE_SIZE && last ? encodeCursor({ createdAt: last.cursor, id: last.id }) : null,
+    entries: page.items.map((r) => toAuditEntry(ctx, r, names)),
+    previous: page.previous,
+    next: page.next,
     filters: {
       action,
       actorId: personId(filter.actorId),
@@ -185,14 +171,14 @@ export async function listAuditEntriesAbout(ctx: ServiceContext, actor: Actor, s
   assertCanAdminister(actor);
   const { company, names } = await loadAuditNaming(ctx, actor.companyId);
   const entries: AuditLogEntry[] = [];
-  let after: AuditCursor | undefined;
+  let page: PageRequest | undefined;
   while (entries.length < max) {
     const limit = Math.min(ABOUT_BATCH, max - entries.length);
-    const rows = await listAuditPage(ctx.db, { companyId: actor.companyId, subjectUserId, timezone: company.timezone, after }, limit);
+    const rows = await listAuditPage(ctx.db, { companyId: actor.companyId, subjectUserId, timezone: company.timezone, page }, limit);
     entries.push(...rows.map((r) => toAuditEntry(ctx, r, names)));
     const last = rows.at(-1);
     if (rows.length < limit || !last) break;
-    after = { createdAt: last.cursor, id: last.id };
+    page = { direction: "after", key: [last.cursor, last.id] };
   }
   return entries;
 }

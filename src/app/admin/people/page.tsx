@@ -14,6 +14,8 @@ import { nativeCheck, primaryButton, textLink } from "@/components/ui/styles";
 import { SelectField, TextField } from "@/components/ui/fields";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { departmentParamSchema, readParam } from "@/app/_lib/calendar-input";
+import { pagerLinks, readPageParams } from "@/app/_lib/paging";
+import { Pager } from "@/components/navigation/pager";
 
 export const metadata: Metadata = { title: "People · Admin · OOOhm" };
 
@@ -36,11 +38,15 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   const query = querySchema.parse(params.q);
   const notice = noticeSchema.parse(params.notice);
   const departmentId = readParam(departmentParamSchema, params.department) ?? "";
-  const { people, truncated, departments, timezone } = await listPeople(ctx, actor, {
-    status: showInactive ? "all" : "active",
-    query,
-    departmentId: departmentId || undefined,
-  });
+  const { cursor, number } = readPageParams(params);
+  const list = await listPeople(
+    ctx,
+    actor,
+    { status: showInactive ? "all" : "active", query, departmentId: departmentId || undefined },
+    cursor,
+  );
+  const { people, departments, timezone } = list;
+  const pager = pagerLinks("/admin/people", list, number, { keep: { q: query, department: departmentId, inactive: showInactive ? "1" : undefined } });
   const filtered = query !== "" || showInactive || departmentId !== "";
 
   return (
@@ -122,7 +128,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           ))}
         </ItemList>
       )}
-      {truncated && <p className="text-sm text-muted">Showing the first {people.length}. Narrow the filter to find someone.</p>}
+      <Pager label="People pages" links={pager} />
     </AdminShell>
   );
 }

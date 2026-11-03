@@ -5,6 +5,8 @@ import { formatCount, formatInstantDateTime } from "@/lib/format";
 import { getWebhookEndpoint } from "@/server/services/webhooks";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
+import { pagerLinks, readPageParams } from "@/app/_lib/paging";
+import { Pager } from "@/components/navigation/pager";
 import { Section } from "@/components/ui/section";
 import { Item, ItemList } from "@/components/ui/card";
 import { ActionForm } from "@/components/forms/action-form";
@@ -25,10 +27,20 @@ import { EndpointFields } from "@/app/admin/webhooks/endpoint-fields";
 
 export const metadata: Metadata = { title: "Endpoint · Webhooks · Admin · OOOhm" };
 
-export default async function WebhookEndpointPage({ params }: { params: Promise<{ id: string }> }) {
+const DELIVERIES_ID = "deliveries";
+
+export default async function WebhookEndpointPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
-  const { endpoint, deliveries, timezone } = await orNotFound(getWebhookEndpoint(ctx, actor, id));
+  const { cursor, number } = readPageParams(await searchParams);
+  const { endpoint, deliveries, deliveryPages, timezone } = await orNotFound(getWebhookEndpoint(ctx, actor, id, cursor));
+  const pager = pagerLinks(`/admin/webhooks/${endpoint.id}`, deliveryPages, number, { fragment: DELIVERIES_ID });
   const at = (d: Date) => formatInstantDateTime(d, timezone);
 
   return (
@@ -99,9 +111,9 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
         </RevealForm>
       </Section>
 
-      <Section title="Recent deliveries" className="space-y-3">
+      <Section id={DELIVERIES_ID} title="Deliveries" className="scroll-mt-6 space-y-3">
         {deliveries.length === 0 ? (
-          <p className="text-muted">Nothing sent yet. Send a test event to try it.</p>
+          <p className="text-muted">{deliveryPages.previous ? "No older deliveries." : "Nothing sent yet. Send a test event to try it."}</p>
         ) : (
           <ItemList>
             {deliveries.map((d) => {
@@ -136,6 +148,7 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
             })}
           </ItemList>
         )}
+        <Pager label="Delivery pages" links={pager} />
       </Section>
 
       <Section title="Delete this endpoint" size="sm" className="space-y-2">

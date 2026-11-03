@@ -1,14 +1,9 @@
-import { and, count, desc, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, count, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { apiKeys, auditLog, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
-
-/** Where a page of the audit log starts: just older than this row. */
-export interface AuditCursor {
-  /** `created_at` in UTC to the microsecond, as `YYYY-MM-DDTHH:MM:SS.ffffffZ`. */
-  createdAt: string;
-  id: string;
-}
+import type { PageRequest } from "@/domain/paging";
+import { cursorInstant, keysetPage } from "./keyset";
 
 /** Which audit rows to read; every filter is optional except the company. */
 export interface AuditQuery {
@@ -21,8 +16,8 @@ export interface AuditQuery {
   /** Last day to include, in `timezone`. */
   to?: string;
   timezone: string;
-  /** Read rows older than this one (keyset pagination); newest first when absent. */
-  after?: AuditCursor;
+  /** The page: after or before a `[created_at, id]` key (`created_at` as {@link cursorInstant} prints it); the newest when absent. */
+  page?: PageRequest;
 }
 
 const actor = alias(user, "actor");
@@ -40,6 +35,7 @@ const requester = alias(user, "requester");
  */
 export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) {
   const dayStart = (date: string) => sql`(${date}::date::timestamp at time zone ${q.timezone})`;
+  const page = keysetPage("desc", [auditLog.createdAt, auditLog.id], q.page, ([at, id]) => [sql`${at}::timestamptz`, sql`${id}::uuid`]);
   return ex
     .select({
       id: auditLog.id,
@@ -49,7 +45,7 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
       before: auditLog.before,
       after: auditLog.after,
       createdAt: auditLog.createdAt,
-      cursor: sql<string>`to_char(${auditLog.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      cursor: cursorInstant(auditLog.createdAt),
       actorKind: auditLog.actorKind,
       actorId: auditLog.actorId,
       actorName: actor.name,
@@ -79,12 +75,10 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
         q.subjectUserId ? eq(auditLog.subjectUserId, q.subjectUserId) : undefined,
         q.from ? gte(auditLog.createdAt, dayStart(q.from)) : undefined,
         q.to ? lt(auditLog.createdAt, sql`(${q.to}::date + 1)::timestamp at time zone ${q.timezone}`) : undefined,
-        q.after
-          ? sql`(${auditLog.createdAt}, ${auditLog.id}) < (${q.after.createdAt}::timestamptz, ${q.after.id}::uuid)`
-          : undefined,
+        page.where,
       ),
     )
-    .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
+    .orderBy(...page.orderBy)
     .limit(limit);
 }
 

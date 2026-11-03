@@ -1,9 +1,10 @@
 import type { Actor } from "@/domain/actor";
 import { isEmptyBalance } from "@/domain/allowance-policy";
 import { type ApprovalRule, ManagerApprovalRule } from "@/domain/approval-rule";
-import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
+import { fromEpochDay, isCalendarDate, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
+import { isCursorInstant, type PageCursor, readPage } from "@/domain/paging";
 import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/domain/leave-days";
 import { canCancel } from "@/domain/leave-permissions";
 import { assertValidRange, normalizeNote } from "@/domain/leave-request";
@@ -34,8 +35,11 @@ export interface SubmitLeaveInput extends LeaveDraft {
   note?: string | null;
 }
 
-/** How many of a person's requests the dashboard lists. */
-const DASHBOARD_REQUEST_LIMIT = 50;
+/** Requests per page of the dashboard's list: the coming ones and the latest few. */
+export const REQUESTS_PAGE_SIZE = 10;
+
+/** A requests page's key: `[start_date, created_at, id]`. */
+const REQUEST_KEY = [isCalendarDate, isCursorInstant, isUuid] as const;
 
 /**
  * Most requests one person may submit per {@link SUBMIT_WINDOW_MINUTES}, counting
@@ -211,11 +215,17 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
  *
  * @throws DomainError `no_company` when the actor's company is missing.
  */
-export async function getDashboard(ctx: ServiceContext, actor: Actor) {
+export async function getDashboard(ctx: ServiceContext, actor: Actor, requestsPage?: PageCursor) {
   const [settings, types, requests] = await Promise.all([
     findCompanySettings(ctx.db, actor.companyId),
     listLeaveTypesWithAllowance(ctx.db, actor.companyId),
-    listRequestsForUser(ctx.db, actor.companyId, actor.id, DASHBOARD_REQUEST_LIMIT),
+    readPage({
+      cursor: requestsPage,
+      size: REQUESTS_PAGE_SIZE,
+      checks: REQUEST_KEY,
+      read: (request, limit) => listRequestsForUser(ctx.db, actor.companyId, actor.id, limit, request),
+      keyOf: (r) => [r.startDate, r.cursor, r.id],
+    }),
   ]);
   if (!settings) throw new DomainError("no_company");
   const now = ctx.now();
@@ -238,7 +248,9 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
      * The person's requests, each with whether it can be cancelled today: the status
      * machine allows it and it is not approved leave of a closed year.
      */
-    requests: requests.map((r) => ({ ...r, cancellable: canCancelOn(r, today) })),
+    requests: requests.items.map((r) => ({ ...r, cancellable: canCancelOn(r, today) })),
+    /** The pages of {@link REQUESTS_PAGE_SIZE} requests either side of this one. */
+    requestPages: { previous: requests.previous, next: requests.next },
     /**
      * The form's default start date: the first working day from today (in the
      * company's time zone), so the pre-filled request is never worth zero days.

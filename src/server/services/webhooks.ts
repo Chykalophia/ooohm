@@ -18,6 +18,7 @@ import { assertCanAdminister } from "@/domain/admin-permissions";
 import { DomainError } from "@/domain/errors";
 import { INTEGRATION_EVENT_TYPES, type IntegrationEventType, type Unattributed, type WebhookEndpointEventPayload } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
+import { isCursorInstant, type PageCursor, readPage } from "@/domain/paging";
 import {
   buildEnvelope,
   MAX_WEBHOOK_ENDPOINTS,
@@ -37,7 +38,7 @@ import {
   insertDeliveries,
   insertEndpoint,
   listEndpoints,
-  listRecentDeliveries,
+  listDeliveries,
   lockDelivery,
   lockEndpoint,
   requeueDelivery,
@@ -49,7 +50,10 @@ import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { inTransaction } from "./notify";
 
 /** Deliveries shown on an endpoint's page. */
-export const RECENT_DELIVERIES_LIMIT = 50;
+export const DELIVERIES_PAGE_SIZE = 25;
+
+/** A deliveries page's key: `[created_at, id]`. */
+const DELIVERY_KEY = [isCursorInstant, isUuid] as const;
 
 export interface WebhookEndpointInput {
   url: string;
@@ -133,16 +137,24 @@ export async function listWebhookEndpoints(ctx: ServiceContext, actor: Actor) {
 }
 
 /**
- * One endpoint with its {@link RECENT_DELIVERIES_LIMIT} latest deliveries, newest first.
+ * One endpoint with a page of {@link DELIVERIES_PAGE_SIZE} of its deliveries, newest first.
  *
+ * @param page From a previous page's `previous` or `next`; the newest when absent.
  * @throws DomainError `forbidden` or `not_found` (another company's, or deleted).
  */
-export async function getWebhookEndpoint(ctx: ServiceContext, actor: Actor, id: string) {
+export async function getWebhookEndpoint(ctx: ServiceContext, actor: Actor, id: string, page?: PageCursor) {
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
   const [company, row] = await Promise.all([findCompany(ctx.db, actor.companyId), findEndpoint(ctx.db, actor.companyId, id)]);
   if (!row) throw new DomainError("not_found");
-  return { timezone: company?.timezone ?? "UTC", endpoint: view(row), deliveries: await listRecentDeliveries(ctx.db, id, RECENT_DELIVERIES_LIMIT) };
+  const deliveries = await readPage({
+    cursor: page,
+    size: DELIVERIES_PAGE_SIZE,
+    checks: DELIVERY_KEY,
+    read: (request, limit) => listDeliveries(ctx.db, id, limit, request),
+    keyOf: (d) => [d.cursor, d.id],
+  });
+  return { timezone: company?.timezone ?? "UTC", endpoint: view(row), deliveries: deliveries.items, deliveryPages: deliveries };
 }
 
 /**

@@ -356,7 +356,7 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   can reach (`jump-menu.tsx`). On Approvals, J and K move between requests, A approves the focused one, and D
   moves to its reason so Enter declines (`approval-keys.tsx`); with no request in focus yet, the first of these
   keys focuses the first request. None of them shows until a key is pressed, and they are ignored while typing
-  and with Shift, Alt, Ctrl or ⌘ held (⌘K aside).
+  and with Shift, Alt, Ctrl or ⌘ held (⌘K/Ctrl+K aside).
 - `/approvals`: three tabs (`getApprovalTriage`). **Needs you** holds pending requests assigned to the person
   (for admins, also any with no approver); **Waiting on others**, shown only when it has something, holds the
   pending requests an admin may decide but that are assigned to someone else; **Settled** lists what the person

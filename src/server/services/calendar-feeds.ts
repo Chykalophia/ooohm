@@ -102,8 +102,8 @@ async function asMember<T>(ctx: ServiceContext, actor: Actor, work: (tx: Transac
 }
 
 /**
- * Whether Home should suggest a calendar link: the person has had time off approved in
- * their company (at any time, not only among the requests Home lists) and has no live
+ * Whether Home should suggest a calendar link: the person has approved time off in
+ * their company (any dates, not only among the requests Home lists) and has no live
  * link issued in that company. A link left over from a company they have since left
  * doesn't count, since it serves nothing here. Two queries.
  */

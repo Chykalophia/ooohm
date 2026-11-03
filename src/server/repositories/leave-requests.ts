@@ -149,8 +149,11 @@ export async function reassignIfCurrent(
 const approver = alias(user, "approver");
 const requester = alias(user, "requester");
 
-/** A person's own requests, newest dates first, with display names resolved. */
-/** Whether the person has ever had time off approved in this company, however long ago. */
+/**
+ * Whether the person has time off approved in this company right now, however far back
+ * its dates are. A request that was approved and later cancelled doesn't count: it put
+ * nothing in a calendar.
+ */
 export async function hasApprovedRequest(ex: Executor, companyId: string, userId: string): Promise<boolean> {
   const [row] = await ex
     .select({ id: leaveRequests.id })
@@ -160,6 +163,7 @@ export async function hasApprovedRequest(ex: Executor, companyId: string, userId
   return row !== undefined;
 }
 
+/** A person's own requests, newest dates first, with display names resolved. */
 export async function listRequestsForUser(ex: Executor, companyId: string, userId: string, limit: number) {
   return ex
     .select({

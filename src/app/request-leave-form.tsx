@@ -223,15 +223,16 @@ export function LeavePreviewLine({ preview, shown, className = "text-sm" }: { pr
 type Draft = { leaveTypeId: string; startDate: string; endDate: string; dayPortion: Portion };
 type Preview = { query: string; ok: boolean; message: string };
 
+/** A preview's sentence, whether the draft can be sent, and whether it matches the draft as it is now. */
+export type LeavePreview = { message: string; ok: boolean; current: boolean };
+
 /**
  * Asks the server what the draft would cost and leave ("This request takes 3 days.
  * Afterwards you'd have 12 days left for 2026."), or why it can't be requested, using the same computation as
  * submit. Debounced; a newer draft aborts the older request, so answers never arrive
  * out of order. While a newer answer is on its way, the last one stays, marked busy.
  */
-export type LeavePreview = { message: string; ok: boolean; current: boolean };
-
-function useLeavePreview(draft: Draft): LeavePreview {
+export function useLeavePreview(draft: Draft): LeavePreview {
   const [preview, setPreview] = useState<Preview | null>(null);
   const complete = draft.leaveTypeId !== "" && draft.startDate !== "";
   const query = new URLSearchParams(draft).toString();

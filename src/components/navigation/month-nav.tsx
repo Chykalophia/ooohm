@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
 import { formatMonth } from "@/lib/format";
 import { focusRing } from "@/components/ui/styles";
 
@@ -33,6 +34,43 @@ export function MonthNav({
         <Link href={href(nav.next)} className={linkClass} aria-label={`Next month, ${formatMonth(nav.next)}`}>
           <span aria-hidden>→</span>
         </Link>
+      </nav>
+    </div>
+  );
+}
+
+/**
+ * The year as the page's subheading, with previous, this year and next links, as
+ * {@link MonthNav} does for a month. The arrows stop at the calendar's bounds.
+ */
+export function YearNav({
+  nav,
+  href,
+  headingId,
+}: {
+  nav: { year: number; current: number };
+  href: (year: number) => string;
+  headingId: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h2 id={headingId} className="text-lg font-semibold tracking-tight tabular-nums">
+        {nav.year}
+      </h2>
+      <nav aria-label="Years" className="flex items-center gap-1">
+        {nav.year > MIN_CALENDAR_YEAR && (
+          <Link href={href(nav.year - 1)} className={linkClass} aria-label={`Previous year, ${nav.year - 1}`}>
+            <span aria-hidden>←</span>
+          </Link>
+        )}
+        <Link href={href(nav.current)} className={linkClass}>
+          This year
+        </Link>
+        {nav.year < MAX_CALENDAR_YEAR && (
+          <Link href={href(nav.year + 1)} className={linkClass} aria-label={`Next year, ${nav.year + 1}`}>
+            <span aria-hidden>→</span>
+          </Link>
+        )}
       </nav>
     </div>
   );

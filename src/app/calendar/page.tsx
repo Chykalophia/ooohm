@@ -1,74 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { AgendaItem, CalendarDay } from "@/domain/calendar";
-import { formatLeaveDates, formatLongDate, formatMonth, WEEKDAY_NAMES } from "@/lib/format";
-import { getMonthCalendar } from "@/server/services/calendar";
+import type { AgendaItem } from "@/domain/calendar";
+import { formatLeaveDates, formatMonth } from "@/lib/format";
+import { getMonthCalendar, getYearCalendar } from "@/server/services/calendar";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
-import { LeaveChip } from "@/components/leave/leave-chip";
 import { StatusBadge } from "@/components/leave/status-badge";
-import { MonthNav } from "@/components/navigation/month-nav";
+import { MonthNav, YearNav } from "@/components/navigation/month-nav";
 import { Item, ItemList } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
-import { quietLink } from "@/components/ui/styles";
-import { monthParamSchema, readParam } from "@/app/_lib/calendar-input";
+import { cx, focusRing, quietLink } from "@/components/ui/styles";
+import { monthParamSchema, readParam, yearParamSchema } from "@/app/_lib/calendar-input";
 import { requireMemberPage } from "@/app/_lib/page-context";
+import { MonthGrid } from "./month-grid";
+import { YearGrid } from "./year-grid";
 
 export const metadata: Metadata = { title: "Calendar · OOOhm" };
 
 const HEADING_ID = "month-heading";
-
-/** Faint diagonal hatching over the page background: a day that cannot cost leave. */
-const OFF_DAY = "bg-background bg-[repeating-linear-gradient(135deg,var(--color-border)_0_1px,transparent_1px_7px)]";
-
-/**
- * This month's working days are plain white, its weekends and holidays are hatched,
- * and the neighbouring months' days have no fill and a faded number, so the three
- * never look alike.
- */
-function dayStyle(day: CalendarDay): { cell: string; number: string } {
-  if (!day.inMonth) return { cell: "bg-transparent", number: "text-muted" };
-  if (!day.isWorkingDay || day.holiday !== null) return { cell: OFF_DAY, number: "text-muted" };
-  return { cell: "bg-surface", number: "text-foreground" };
-}
-
-function DayCell({ day }: { day: CalendarDay }) {
-  const style = dayStyle(day);
-  return (
-    <td className={`h-24 border border-border p-1.5 align-top ${style.cell}`}>
-      <div className="flex flex-col gap-1">
-        <span
-          aria-hidden
-          className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs tabular-nums ${
-            day.isToday ? "bg-accent font-semibold text-accent-foreground" : style.number
-          }`}
-        >
-          {Number(day.date.slice(8))}
-        </span>
-        <span className="sr-only">
-          {formatLongDate(day.date)}
-          {day.isToday && ", today"}
-          {!day.isWorkingDay && ", not a working day"}
-        </span>
-        {day.holiday && (
-          <span className="truncate text-xs text-muted" title={day.holiday}>
-            {day.holiday}
-            <span className="sr-only">, company holiday</span>
-          </span>
-        )}
-        {day.entries.length > 0 && (
-          <ul className="space-y-1">
-            {day.entries.map((entry) => (
-              <li key={entry.id}>
-                <LeaveChip entry={entry} href={`/requests/${entry.id}`} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </td>
-  );
-}
 
 function AgendaRow({ item }: { item: AgendaItem }) {
   if (item.kind === "holiday") {
@@ -99,41 +48,72 @@ function AgendaRow({ item }: { item: AgendaItem }) {
   );
 }
 
+/** Month or Year: the same calendar at two zoom levels. */
+function ViewSwitch({ view, month, year }: { view: "month" | "year"; month: string; year: number }) {
+  const tab = cx("rounded-full px-3 py-1 text-sm font-medium", focusRing);
+  const on = cx(tab, "bg-surface text-foreground shadow-sm");
+  const off = cx(tab, "text-muted hover:text-foreground");
+  return (
+    <nav aria-label="Calendar view" className="inline-flex rounded-full border border-border bg-background p-0.5">
+      <Link href={`/calendar?month=${month}`} aria-current={view === "month" ? "page" : undefined} className={view === "month" ? on : off}>
+        Month
+      </Link>
+      <Link
+        href={`/calendar?view=year&year=${year}`}
+        aria-current={view === "year" ? "page" : undefined}
+        className={view === "year" ? on : off}
+      >
+        Year
+      </Link>
+    </nav>
+  );
+}
+
+/**
+ * The person's own calendar, as a month (whose grid also asks for time off: drag across
+ * days) or as the whole year. Phones get the month as an agenda.
+ */
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="calendar" />;
+  const params = await searchParams;
 
-  const month = readParam(monthParamSchema, (await searchParams).month);
-  const { nav, weeks, agenda } = await getMonthCalendar(page.ctx, page.actor, month);
+  if (params.view === "year") {
+    const year = readParam(yearParamSchema, params.year);
+    const { nav, months } = await getYearCalendar(page.ctx, page.actor, year ? Number(year) : undefined);
+    const thisMonth = nav.year === nav.current ? nav.today.slice(0, 7) : `${nav.year}-01`;
+    return (
+      <AppPage
+        nav={page.nav}
+        current="calendar"
+        title="Your calendar"
+        action={<ViewSwitch view="year" month={thisMonth} year={nav.year} />}
+      >
+        <section aria-labelledby={HEADING_ID} className="space-y-4">
+          <YearNav nav={nav} href={(y) => `/calendar?view=year&year=${y}`} headingId={HEADING_ID} />
+          <YearGrid months={months} />
+        </section>
+        <SubscribeLink />
+      </AppPage>
+    );
+  }
+
+  const month = readParam(monthParamSchema, params.month);
+  const { nav, weeks, agenda, leaveTypes } = await getMonthCalendar(page.ctx, page.actor, month);
 
   return (
-    <AppPage nav={page.nav} current="calendar" title="Your calendar">
+    <AppPage
+      nav={page.nav}
+      current="calendar"
+      title="Your calendar"
+      action={<ViewSwitch view="month" month={nav.month} year={Number(nav.month.slice(0, 4))} />}
+    >
       <section aria-labelledby={HEADING_ID} className="space-y-4">
         <MonthNav nav={nav} href={(m) => `/calendar?month=${m}`} headingId={HEADING_ID} />
 
-        <table className="hidden w-full table-fixed border-collapse md:table">
-          <caption className="sr-only">Your time off and company holidays in {formatMonth(nav.month)}</caption>
-          <thead>
-            <tr>
-              {WEEKDAY_NAMES.map((name) => (
-                <th key={name} scope="col" className="pb-2 text-left text-xs font-medium text-muted">
-                  <abbr title={name} className="no-underline">
-                    {name.slice(0, 3)}
-                  </abbr>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {weeks.map((week) => (
-              <tr key={week[0].date}>
-                {week.map((day) => (
-                  <DayCell key={day.date} day={day} />
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="hidden md:block">
+          <MonthGrid weeks={weeks} caption={`Your time off and company holidays in ${formatMonth(nav.month)}`} leaveTypes={leaveTypes} />
+        </div>
 
         <div className="md:hidden">
           {agenda.length === 0 ? (
@@ -148,11 +128,17 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         </div>
       </section>
 
-      <p className="text-sm">
-        <Link href="/calendar/subscriptions" className={quietLink}>
-          Add your time off to Google Calendar, Apple Calendar or Outlook
-        </Link>
-      </p>
+      <SubscribeLink />
     </AppPage>
+  );
+}
+
+function SubscribeLink() {
+  return (
+    <p className="text-sm">
+      <Link href="/calendar/subscriptions" className={quietLink}>
+        Add your time off to Google Calendar, Apple Calendar or Outlook
+      </Link>
+    </p>
   );
 }

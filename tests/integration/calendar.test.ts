@@ -7,7 +7,7 @@ import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import type { LeaveStatus } from "@/domain/leave-request";
 import { violatedConstraint } from "@/server/repositories/errors";
-import { getMonthCalendar, getTeamCalendar } from "@/server/services/calendar";
+import { getMonthCalendar, getTeamCalendar, getYearCalendar } from "@/server/services/calendar";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
@@ -94,7 +94,8 @@ describe("calendar views", { skip }, () => {
 
     const counter = countingDb(t);
     const { queries, result } = await counter.count((db) => getMonthCalendar(createTestContext(db), ana, "2026-11"));
-    assert.equal(queries, 3, "settings, then holidays and leave");
+    assert.equal(queries, 4, "settings, then holidays, leave and leave types");
+    assert.deepEqual(result.leaveTypes.map((t) => t.id), [co.pto], "active leave types, for asking from the month");
 
     assert.deepEqual(result.nav, { month: "2026-11", today: "2026-11-01", previous: "2026-10", next: "2026-12", current: "2026-11" });
     const days = result.weeks.flat();
@@ -130,6 +131,35 @@ describe("calendar views", { skip }, () => {
     const jan = await getMonthCalendar(ctx, co.people.ana, "2027-01");
     assert.deepEqual([jan.nav.month, jan.nav.previous, jan.nav.next], ["2027-01", "2026-12", "2027-02"]);
     assert.equal(jan.weeks.flat().filter((d) => d.isToday).length, 0);
+  });
+
+  test("year view: twelve months of my leave in three queries; a bad year falls back to this one", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss" } });
+    const { ana, boss } = co.people;
+    const [jan, nov] = await book(t.db, co.companyId, ana.id, co.pto, [
+      { startDate: "2026-01-05", endDate: "2026-01-06" },
+      { startDate: "2026-11-10", status: "pending" },
+      { startDate: "2026-12-14", status: "cancelled" },
+    ]);
+    await book(t.db, co.companyId, boss.id, co.pto, [{ startDate: "2026-03-02" }]);
+
+    const counter = countingDb(t);
+    const { queries, result } = await counter.count((db) => getYearCalendar(createTestContext(db), ana, 2026));
+    assert.equal(queries, 3, "settings, then holidays and leave");
+    assert.deepEqual(result.nav, { year: 2026, today: "2026-11-01", current: 2026 });
+    assert.deepEqual(result.months.map((m) => m.month).slice(0, 2), ["2026-01", "2026-02"]);
+    assert.equal(result.months.length, 12);
+    const leave = result.months.flatMap((m) => m.agenda.filter((i) => i.kind === "leave").map((i) => [m.month, i.kind === "leave" && i.entry.id]));
+    assert.deepEqual(leave, [
+      ["2026-01", jan.id],
+      ["2026-11", nov.id],
+    ]);
+    const novDays = result.months[10].weeks.flat();
+    assert.equal(novDays.find((d) => d.date === "2026-11-26")?.holiday, "Thanksgiving");
+
+    for (const year of [undefined, 1899, 3000, 2026.5]) {
+      assert.equal((await getYearCalendar(createTestContext(t.db), ana, year)).nav.year, 2026, String(year));
+    }
   });
 
   test("who's out with 50 people: a fixed four queries, the right people and leave, and nobody's notes", async () => {

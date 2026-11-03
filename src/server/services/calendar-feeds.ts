@@ -45,13 +45,7 @@ function snapshot(row: CalendarFeedRow) {
 
 async function recordFeedChange(
   tx: Transaction,
-  change: {
-    event: "issued" | "revoked";
-    before: CalendarFeedRow | null;
-    after: CalendarFeedRow;
-    source: PersonChangeSource;
-    reason: CalendarFeedRevokeReason | null;
-  },
+  change: { event: "issued" | "revoked"; before: CalendarFeedRow | null; after: CalendarFeedRow; source: PersonChangeSource; reason: CalendarFeedRevokeReason | null },
 ): Promise<void> {
   const { after, source } = change;
   const payload: Unattributed<CalendarFeedEventPayload> = { feedId: after.id, userId: after.userId, kind: after.kind, reason: change.reason };
@@ -82,7 +76,10 @@ export async function listCalendarFeeds(
   ctx: ServiceContext,
   actor: Actor,
 ): Promise<{ timezone: string; feeds: Record<FeedKind, FeedSummary | null> }> {
-  const [settings, rows] = await Promise.all([findCompanySettings(ctx.db, actor.companyId), listLiveFeeds(ctx.db, actor.id)]);
+  const [settings, rows] = await Promise.all([
+    findCompanySettings(ctx.db, actor.companyId),
+    listLiveFeeds(ctx.db, actor.id),
+  ]);
   if (!settings) throw new DomainError("no_company");
   const summary = (kind: FeedKind) => {
     const row = rows.find((r) => r.kind === kind);
@@ -108,10 +105,7 @@ async function asMember<T>(ctx: ServiceContext, actor: Actor, work: (tx: Transac
  * doesn't count, since it serves nothing here. Two queries.
  */
 export async function shouldSuggestCalendarFeed(ctx: ServiceContext, actor: Actor): Promise<boolean> {
-  const [approved, linked] = await Promise.all([
-    hasApprovedRequest(ctx.db, actor.companyId, actor.id),
-    hasLiveFeedIn(ctx.db, actor.companyId, actor.id),
-  ]);
+  const [approved, linked] = await Promise.all([hasApprovedRequest(ctx.db, actor.companyId, actor.id), hasLiveFeedIn(ctx.db, actor.companyId, actor.id)]);
   return approved && !linked;
 }
 
@@ -129,11 +123,7 @@ export async function shouldSuggestCalendarFeed(ctx: ServiceContext, actor: Acto
  *   the caller's hands; show it once.
  * @throws DomainError `invalid_input` (unknown kind) or `forbidden` (inactive member).
  */
-export async function issueCalendarFeed(
-  ctx: ServiceContext,
-  actor: Actor,
-  kind: FeedKind,
-): Promise<{ token: string; url: string; feed: FeedSummary }> {
+export async function issueCalendarFeed(ctx: ServiceContext, actor: Actor, kind: FeedKind): Promise<{ token: string; url: string; feed: FeedSummary }> {
   if (!isFeedKind(kind)) throw new DomainError("invalid_input");
   return asMember(ctx, actor, async (tx) => {
     const now = ctx.now();

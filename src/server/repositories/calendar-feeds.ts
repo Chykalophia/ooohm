@@ -44,7 +44,12 @@ export async function touchFeed(ex: Executor, id: string, at: Date, staleBefore:
   await ex
     .update(calendarFeedTokens)
     .set({ lastUsedAt: at })
-    .where(and(eq(calendarFeedTokens.id, id), or(isNull(calendarFeedTokens.lastUsedAt), lt(calendarFeedTokens.lastUsedAt, staleBefore))));
+    .where(
+      and(
+        eq(calendarFeedTokens.id, id),
+        or(isNull(calendarFeedTokens.lastUsedAt), lt(calendarFeedTokens.lastUsedAt, staleBefore)),
+      ),
+    );
 }
 
 /**
@@ -62,7 +67,9 @@ export async function listLiveFeeds(ex: Executor, userId: string) {
       lastUsedAt: calendarFeedTokens.lastUsedAt,
     })
     .from(calendarFeedTokens)
-    .where(and(eq(calendarFeedTokens.userId, userId), isNull(calendarFeedTokens.revokedAt)))
+    .where(
+      and(eq(calendarFeedTokens.userId, userId), isNull(calendarFeedTokens.revokedAt)),
+    )
     .orderBy(asc(calendarFeedTokens.createdAt));
 }
 
@@ -81,11 +88,17 @@ export async function hasLiveFeedIn(ex: Executor, companyId: string, userId: str
  * Matches by person and kind only, like the live-feed unique index, so a link issued
  * in a company the person has since left is revoked too.
  */
-export async function revokeLiveFeed(tx: Transaction, where: { userId: string; kind: FeedKind }, at: Date): Promise<CalendarFeedRow | undefined> {
+export async function revokeLiveFeed(
+  tx: Transaction,
+  where: { userId: string; kind: FeedKind },
+  at: Date,
+): Promise<CalendarFeedRow | undefined> {
   const [row] = await tx
     .update(calendarFeedTokens)
     .set({ revokedAt: at })
-    .where(and(eq(calendarFeedTokens.userId, where.userId), eq(calendarFeedTokens.kind, where.kind), isNull(calendarFeedTokens.revokedAt)))
+    .where(
+      and(eq(calendarFeedTokens.userId, where.userId), eq(calendarFeedTokens.kind, where.kind), isNull(calendarFeedTokens.revokedAt)),
+    )
     .returning();
   return row;
 }

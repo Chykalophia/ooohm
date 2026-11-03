@@ -52,15 +52,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     const { ana, boss } = co.people;
 
     assert.deepEqual(await balanceOf(ctx, ana, vac), {
-      tracked: true,
-      allowance: 10,
-      carriedOver: 0,
-      adjustment: 0,
-      total: 10,
-      used: 0,
-      pending: 0,
-      carriedOut: 0,
-      remaining: 10,
+      tracked: true, allowance: 10, carriedOver: 0, adjustment: 0, total: 10, used: 0, pending: 0, carriedOut: 0, remaining: 10,
     });
 
     // Mon 23 to Fri 27 Nov minus Thanksgiving: 4 days.
@@ -69,15 +61,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     assert.deepEqual(await requestDaysOf(t.db, week.id), [{ year: 2026, days: 4 }]);
     assert.deepEqual(await requestDaysOf(t.db, half.id), [{ year: 2026, days: 0.5 }]);
     assert.deepEqual(await balanceOf(ctx, ana, vac), {
-      tracked: true,
-      allowance: 10,
-      carriedOver: 0,
-      adjustment: 0,
-      total: 10,
-      used: 0,
-      pending: 4.5,
-      carriedOut: 0,
-      remaining: 5.5,
+      tracked: true, allowance: 10, carriedOver: 0, adjustment: 0, total: 10, used: 0, pending: 4.5, carriedOut: 0, remaining: 5.5,
     });
 
     await decideLeaveRequest(ctx, boss, { requestId: week.id, decision: "approve" });
@@ -107,15 +91,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     const ctx = createTestContext(t.db);
     await submitLeaveRequest(ctx, co.people.boss, { leaveTypeId: vac, startDate: "2026-11-02", endDate: "2026-11-03", dayPortion: "full" });
     assert.deepEqual(await balanceOf(ctx, co.people.boss, vac), {
-      tracked: true,
-      allowance: 12,
-      carriedOver: 3,
-      adjustment: -0.5,
-      total: 14.5,
-      used: 2,
-      pending: 0,
-      carriedOut: 0,
-      remaining: 12.5,
+      tracked: true, allowance: 12, carriedOver: 3, adjustment: -0.5, total: 14.5, used: 2, pending: 0, carriedOut: 0, remaining: 12.5,
     });
   });
 
@@ -126,12 +102,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     const ctx = createTestContext(t.db);
 
     // Thu Dec 31 (2026) + Mon Jan 4 (2027); Jan 1 is a holiday, Jan 2-3 a weekend.
-    const req = await submitLeaveRequest(ctx, co.people.ana, {
-      leaveTypeId: vac,
-      startDate: "2026-12-31",
-      endDate: "2027-01-04",
-      dayPortion: "full",
-    });
+    const req = await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: vac, startDate: "2026-12-31", endDate: "2027-01-04", dayPortion: "full" });
     assert.equal(req.days, 2);
     assert.deepEqual(await requestDaysOf(t.db, req.id), [
       { year: 2026, days: 1 },
@@ -201,18 +172,8 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     await setAllowance(t.db, { userId: co.people.boss.id, leaveTypeId: sick, year: 2026, days: 0 });
     const ctx = createTestContext(t.db);
 
-    const a = await submitLeaveRequest(ctx, co.people.boss, {
-      leaveTypeId: unlimited,
-      startDate: "2026-11-02",
-      endDate: "2026-11-13",
-      dayPortion: "full",
-    });
-    const b = await submitLeaveRequest(ctx, co.people.boss, {
-      leaveTypeId: sick,
-      startDate: "2026-11-16",
-      endDate: "2026-11-20",
-      dayPortion: "full",
-    });
+    const a = await submitLeaveRequest(ctx, co.people.boss, { leaveTypeId: unlimited, startDate: "2026-11-02", endDate: "2026-11-13", dayPortion: "full" });
+    const b = await submitLeaveRequest(ctx, co.people.boss, { leaveTypeId: sick, startDate: "2026-11-16", endDate: "2026-11-20", dayPortion: "full" });
     assert.deepEqual([a.days, b.days], [10, 5]);
     assert.deepEqual(await balanceOf(ctx, co.people.boss, unlimited), { tracked: false, used: 10, pending: 0 });
     assert.deepEqual(await balanceOf(ctx, co.people.boss, sick), { tracked: false, used: 5, pending: 0 });
@@ -290,10 +251,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     try {
       const dash = await getDashboard(ctx, co.people.boss);
       assert.equal(dash.balances, null);
-      assert.deepEqual(
-        dash.leaveTypes.map((lt) => lt.id),
-        [co.pto],
-      );
+      assert.deepEqual(dash.leaveTypes.map((lt) => lt.id), [co.pto]);
     } finally {
       process.stderr.write = stderr;
     }
@@ -303,22 +261,11 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
   test("from November, the dashboard names the days that won't carry into next year", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin", canSelfApprove: true } });
     const vac = await addLeaveType(t.db, co.companyId, { code: "VAC", defaultAllowanceDays: 10, sortOrder: 1 });
-    const flex = await addLeaveType(t.db, co.companyId, {
-      code: "FLEX",
-      defaultAllowanceDays: 5,
-      carryoverEnabled: true,
-      carryoverMaxDays: 3,
-      sortOrder: 2,
-    });
+    const flex = await addLeaveType(t.db, co.companyId, { code: "FLEX", defaultAllowanceDays: 5, carryoverEnabled: true, carryoverMaxDays: 3, sortOrder: 2 });
     // The seed's untracked PTO comes first; move it back so VAC is the main type.
     await t.db.update(schema.leaveTypes).set({ sortOrder: 20 }).where(eq(schema.leaveTypes.id, co.pto));
     const ctxAt = (iso: string) => createTestContext(t.db, { now: new Date(iso) });
-    await submitLeaveRequest(ctxAt("2026-10-01T12:00:00Z"), co.people.boss, {
-      leaveTypeId: vac,
-      startDate: "2026-10-05",
-      endDate: "2026-10-06",
-      dayPortion: "full",
-    });
+    await submitLeaveRequest(ctxAt("2026-10-01T12:00:00Z"), co.people.boss, { leaveTypeId: vac, startDate: "2026-10-05", endDate: "2026-10-06", dayPortion: "full" });
 
     const october = await getDashboard(ctxAt("2026-10-31T12:00:00Z"), co.people.boss);
     assert.deepEqual(october.expiring, [], "nothing said before November");
@@ -333,11 +280,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     // With carryover on the main type, only what it can't keep is named.
     await t.db.update(schema.leaveTypes).set({ sortOrder: 0 }).where(eq(schema.leaveTypes.id, flex));
     const flexFirst = await getDashboard(ctxAt("2026-11-02T12:00:00Z"), co.people.boss);
-    assert.deepEqual(
-      flexFirst.expiring.map((e) => [e.leaveTypeId, e.days]),
-      [[flex, 2]],
-      "FLEX keeps 3 of its 5",
-    );
+    assert.deepEqual(flexFirst.expiring.map((e) => [e.leaveTypeId, e.days]), [[flex, 2]], "FLEX keeps 3 of its 5");
     await t.db.update(schema.leaveTypes).set({ carryoverMaxDays: null }).where(eq(schema.leaveTypes.id, flex));
     assert.deepEqual((await getDashboard(ctxAt("2026-11-02T12:00:00Z"), co.people.boss)).expiring, [], "carries everything: nothing to say");
   });
@@ -349,29 +292,12 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     assert.equal(await shouldSuggestCalendarFeed(ctx, ana), false, "nothing approved yet");
 
     // One old approved request, behind more newer ones than Home lists, still counts.
-    await t.db.insert(schema.leaveRequests).values({
-      companyId: co.companyId,
-      userId: ana.id,
-      leaveTypeId: co.pto,
-      startDate: "2026-01-05",
-      endDate: "2026-01-05",
-      days: 1,
-      status: "approved",
-      approverId: ana.id,
-    });
+    const request = { companyId: co.companyId, userId: ana.id, leaveTypeId: co.pto, days: 1, approverId: ana.id };
+    await t.db.insert(schema.leaveRequests).values({ ...request, startDate: "2026-01-05", endDate: "2026-01-05", status: "approved" });
     await t.db.insert(schema.leaveRequests).values(
       Array.from({ length: 60 }, (_, i) => {
         const date = `2026-0${3 + Math.floor(i / 20)}-${String(1 + (i % 20)).padStart(2, "0")}`;
-        return {
-          companyId: co.companyId,
-          userId: ana.id,
-          leaveTypeId: co.pto,
-          startDate: date,
-          endDate: date,
-          days: 1,
-          status: "cancelled" as const,
-          approverId: ana.id,
-        };
+        return { ...request, startDate: date, endDate: date, status: "cancelled" as const };
       }),
     );
     assert.equal(await shouldSuggestCalendarFeed(ctx, ana), true);
@@ -406,16 +332,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
       for (const date of dates) {
         const [req] = await t.db
           .insert(schema.leaveRequests)
-          .values({
-            companyId: co.companyId,
-            userId: boss.id,
-            leaveTypeId,
-            startDate: date,
-            endDate: date,
-            days: 1,
-            status: "approved",
-            approverId: boss.id,
-          })
+          .values({ companyId: co.companyId, userId: boss.id, leaveTypeId, startDate: date, endDate: date, days: 1, status: "approved", approverId: boss.id })
           .returning();
         await t.db.insert(schema.leaveRequestDays).values({ requestId: req.id, year: 2026, days: 1 });
       }
@@ -448,10 +365,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss" } });
     const vac = await addLeaveType(t.db, co.companyId, { code: "VAC", defaultAllowanceDays: 5 });
     const req = await submitLeaveRequest(createTestContext(t.db), co.people.ana, { leaveTypeId: vac, startDate: "2026-11-02", dayPortion: "full" });
-    assert.deepEqual(
-      (await eventsFor(t.db, co.companyId, req.id)).map((e) => e.type),
-      ["leave.requested"],
-    );
+    assert.deepEqual((await eventsFor(t.db, co.companyId, req.id)).map((e) => e.type), ["leave.requested"]);
   });
   test("the dashboard leaves out a type with no days allotted and none booked; admin views keep it", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss" } });
@@ -461,17 +375,10 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     const onDashboard = async () => (await getDashboard(ctx, ana)).balances?.items.some((i) => i.leaveTypeId === bonus);
 
     assert.equal(await onDashboard(), false, "nothing allotted and nothing booked: hidden");
-    assert.equal(
-      (await getDashboard(ctx, ana)).balances?.items.some((i) => i.leaveTypeId === co.pto),
-      true,
-      "an unlimited type still shows",
-    );
+    assert.equal((await getDashboard(ctx, ana)).balances?.items.some((i) => i.leaveTypeId === co.pto), true, "an unlimited type still shows");
     assert.equal((await balanceOf(ctx, ana, bonus)).tracked, true, "the balance summary itself keeps it");
     const detail = await getPersonDetail(ctx, boss, ana.id);
-    assert.ok(
-      detail.balances?.items.some((i) => i.leaveTypeId === bonus),
-      "the admin person page keeps it",
-    );
+    assert.ok(detail.balances?.items.some((i) => i.leaveTypeId === bonus), "the admin person page keeps it");
 
     await setAllowance(t.db, { userId: ana.id, leaveTypeId: bonus, year: 2026, days: 0, adjustmentDays: 1 });
     assert.equal(await onDashboard(), true, "a granted day shows it");

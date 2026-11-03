@@ -23,11 +23,7 @@ export default async function HomePage() {
 
   const ctx = serviceContext();
   // Once someone has approved time off, suggest putting it in their own calendar, until they have.
-  const [dashboard, approvals, suggestFeed] = await Promise.all([
-    getDashboard(ctx, actor),
-    getApprovalNav(ctx, actor),
-    shouldSuggestCalendarFeed(ctx, actor),
-  ]);
+  const [dashboard, approvals, suggestFeed] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor), shouldSuggestCalendarFeed(ctx, actor)]);
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
@@ -42,10 +38,7 @@ export default async function HomePage() {
         )}
 
         {dashboard.expiring.length > 0 && dashboard.balances && (
-          <HomeHint
-            storageKey={`ooohm:${actor.companyId}:${actor.id}:expiring:${dashboard.balances.year}`}
-            link={{ href: "/calendar", label: "Pick days" }}
-          >
+          <HomeHint storageKey={`ooohm:${actor.companyId}:${actor.id}:expiring:${dashboard.balances.year}`} link={{ href: "/calendar", label: "Pick days" }}>
             {formatExpiring(dashboard.expiring, dashboard.balances.year + 1)} Book them by December 31.
           </HomeHint>
         )}
@@ -58,10 +51,7 @@ export default async function HomePage() {
             Your requests
           </h2>
           {suggestFeed && (
-            <HomeHint
-              storageKey={`ooohm:${actor.companyId}:${actor.id}:calendar-feed`}
-              link={{ href: "/calendar/subscriptions", label: "Add to my calendar" }}
-            >
+            <HomeHint storageKey={`ooohm:${actor.companyId}:${actor.id}:calendar-feed`} link={{ href: "/calendar/subscriptions", label: "Add to my calendar" }}>
               Put your time off in Google Calendar, Apple Calendar or Outlook, and keep it up to date there.
             </HomeHint>
           )}

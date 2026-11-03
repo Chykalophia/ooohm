@@ -103,9 +103,7 @@ export function JumpMenu({ items }: { items: JumpItem[] }) {
           ))}
         </ul>
       </div>
-      <p className="border-t border-border px-4 py-2 text-xs text-muted">
-        On Approvals: J and K move between requests, A approves, D declines with a reason.
-      </p>
+      <p className="border-t border-border px-4 py-2 text-xs text-muted">On Approvals: J and K move between requests, A approves, D declines with a reason.</p>
     </dialog>
   );
 }

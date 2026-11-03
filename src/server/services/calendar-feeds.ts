@@ -97,6 +97,14 @@ async function asMember<T>(ctx: ServiceContext, actor: Actor, work: (tx: Transac
 }
 
 /**
+ * Whether the person has any live calendar link, so Home stops suggesting one once
+ * they have it. One query.
+ */
+export async function hasCalendarFeed(ctx: ServiceContext, actor: Actor): Promise<boolean> {
+  return (await listLiveFeeds(ctx.db, actor.id)).length > 0;
+}
+
+/**
  * Issues a new feed link of `kind` for the actor. A live link of the same kind is
  * revoked in the same transaction, so this is also "regenerate": the old URL stops
  * working the moment the new one exists. That includes a live link issued while the

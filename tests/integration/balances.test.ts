@@ -7,6 +7,7 @@ import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
 import { getPersonDetail } from "@/server/services/admin-people";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary, previewLeaveRequest } from "@/server/services/balances";
+import { hasCalendarFeed, issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
@@ -255,6 +256,41 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
       process.stderr.write = stderr;
     }
     assert.ok(logged.some((l) => l.includes('"event":"allowance_policy_unavailable"')));
+  });
+
+  test("from November, the dashboard names the days that won't carry into next year", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin", canSelfApprove: true } });
+    const vac = await addLeaveType(t.db, co.companyId, { code: "VAC", defaultAllowanceDays: 10, sortOrder: 1 });
+    const flex = await addLeaveType(t.db, co.companyId, { code: "FLEX", defaultAllowanceDays: 5, carryoverEnabled: true, carryoverMaxDays: 3, sortOrder: 2 });
+    // The seed's untracked PTO comes first; move it back so VAC is the main type.
+    await t.db.update(schema.leaveTypes).set({ sortOrder: 20 }).where(eq(schema.leaveTypes.id, co.pto));
+    const ctxAt = (iso: string) => createTestContext(t.db, { now: new Date(iso) });
+    await submitLeaveRequest(ctxAt("2026-10-01T12:00:00Z"), co.people.boss, { leaveTypeId: vac, startDate: "2026-10-05", endDate: "2026-10-06", dayPortion: "full" });
+
+    const october = await getDashboard(ctxAt("2026-10-31T12:00:00Z"), co.people.boss);
+    assert.deepEqual(october.expiring, [], "nothing said before November");
+
+    const november = await getDashboard(ctxAt("2026-11-02T12:00:00Z"), co.people.boss);
+    assert.deepEqual(
+      november.expiring.map((e) => [e.leaveTypeId, e.days]),
+      [[vac, 8]],
+      "only the main type (first by sort order): VAC loses all 8 left",
+    );
+
+    // With carryover on the main type, only what it can't keep is named.
+    await t.db.update(schema.leaveTypes).set({ sortOrder: 0 }).where(eq(schema.leaveTypes.id, flex));
+    const flexFirst = await getDashboard(ctxAt("2026-11-02T12:00:00Z"), co.people.boss);
+    assert.deepEqual(flexFirst.expiring.map((e) => [e.leaveTypeId, e.days]), [[flex, 2]], "FLEX keeps 3 of its 5");
+    await t.db.update(schema.leaveTypes).set({ carryoverMaxDays: null }).where(eq(schema.leaveTypes.id, flex));
+    assert.deepEqual((await getDashboard(ctxAt("2026-11-02T12:00:00Z"), co.people.boss)).expiring, [], "carries everything: nothing to say");
+  });
+
+  test("the calendar suggestion stops once the person has a calendar link", async () => {
+    const co = await seedCompany(t.db, { ana: { role: "admin" } });
+    const ctx = createTestContext(t.db);
+    assert.equal(await hasCalendarFeed(ctx, co.people.ana), false);
+    await issueCalendarFeed(ctx, co.people.ana, "personal");
+    assert.equal(await hasCalendarFeed(ctx, co.people.ana), true);
   });
 
   test("the dashboard summarises every active type for the company's current year, in a fixed number of queries", async () => {

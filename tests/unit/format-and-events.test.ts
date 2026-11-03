@@ -66,3 +66,18 @@ test("event names and payload shape are the public contract", () => {
     actor: { type: "user", id: "u1" },
   });
 });
+
+test("the year-end note lists what won't carry over", async () => {
+  const { formatExpiring } = await import("@/lib/format");
+  assert.equal(formatExpiring([{ name: "PTO", days: 6 }], 2027), "6 days of PTO won’t carry into 2027.");
+  assert.equal(
+    formatExpiring(
+      [
+        { name: "PTO", days: 1 },
+        { name: "Sick", days: 2.5 },
+      ],
+      2027,
+    ),
+    "1 day of PTO and 2.5 days of Sick won’t carry into 2027.",
+  );
+});

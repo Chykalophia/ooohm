@@ -1,5 +1,5 @@
 import type { Actor } from "@/domain/actor";
-import { isEmptyBalance } from "@/domain/allowance-policy";
+import { addDays, isEmptyBalance, resolveAllowancePolicy } from "@/domain/allowance-policy";
 import { type ApprovalRule, ManagerApprovalRule } from "@/domain/approval-rule";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
@@ -191,6 +191,9 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
   });
 }
 
+/** When Home starts saying which days won't carry into next year (month and day). */
+const EXPIRY_NUDGE_FROM = "11-01";
+
 /**
  * Everything the dashboard renders for the actor, in one call, in six queries
  * whatever the number of types or requests:
@@ -244,5 +247,22 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
      * allotted and nothing booked), so "0 left of 0" never shows. Admin views keep them.
      */
     balances: balances && { ...balances, items: balances.items.filter((i) => !isEmptyBalance(i.balance)) },
+    /**
+     * From November 1 (company time zone): days of the main leave type (the first active
+     * one, the form's default, usually vacation) that will not carry into next year, so
+     * Home can say so once. Only that type: nobody should be told to use up sick days.
+     * Empty before November, and when nothing is left to lose.
+     */
+    expiring:
+      balances && today >= `${balances.year}-${EXPIRY_NUDGE_FROM}`
+        ? balances.items.flatMap((item) => {
+            const type = types.find((t) => t.id === item.leaveTypeId);
+            const main = types.find((t) => !t.archived);
+            if (!type || type.id !== main?.id || !item.balance.tracked || item.balance.remaining <= 0) return [];
+            const carried = resolveAllowancePolicy(settings.allowancePolicy).carryover(type, item.balance) ?? 0;
+            const days = addDays(item.balance.remaining, -Math.min(carried, item.balance.remaining));
+            return days > 0 ? [{ leaveTypeId: item.leaveTypeId, name: item.name, days }] : [];
+          })
+        : [],
   };
 }

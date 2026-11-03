@@ -9,6 +9,7 @@ import { getApprovalTriage, type TriageItem } from "@/server/services/approvals"
 import { AppHeader } from "@/app/app-header";
 import { NoCompany } from "@/app/no-company";
 import { StatusBadge } from "@/app/status-badge";
+import { ApprovalKeys } from "./approval-keys";
 import { DecisionForm } from "./decision-form";
 
 export const metadata: Metadata = { title: "Approvals · OOOhm" };
@@ -122,10 +123,17 @@ function PendingList({ items, actorId, empty, cut }: { items: TriageItem[]; acto
   if (items.length === 0) return <p className="text-muted">{empty}</p>;
   return (
     <>
+      <ApprovalKeys />
       {cut && <p className="text-sm text-muted">{cut}</p>}
       <ul className="space-y-4">
         {items.map((r) => (
-          <li key={r.id} className="space-y-4 rounded-2xl border border-border bg-surface p-5">
+          <li
+            key={r.id}
+            data-approval
+            tabIndex={-1}
+            aria-label={`Request from ${r.requesterName || r.requesterEmail}, ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
+            className="space-y-4 rounded-2xl border border-border bg-surface p-5 outline-none focus:ring-2 focus:ring-accent/40"
+          >
             <div className="space-y-1">
               <p className="font-medium break-words">
                 {r.requesterName || r.requesterEmail}

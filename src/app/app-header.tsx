@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { type JumpItem, JumpMenu } from "./jump-menu";
 import { SignOutButton } from "./sign-out-button";
 import { focusRing } from "@/app/styles";
 
@@ -17,10 +18,22 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
   );
 }
 
+const ADMIN_JUMPS: JumpItem[] = [
+  ["people", "People"],
+  ["departments", "Departments"],
+  ["leave-types", "Leave types"],
+  ["holidays", "Holidays"],
+  ["company", "Company"],
+  ["appearance", "Appearance"],
+  ["audit", "Audit log"],
+  ["webhooks", "Integrations"],
+].map(([path, label]) => ({ href: `/admin/${path}`, label: `Admin · ${label}` }));
+
 /**
  * Shared top bar for signed-in pages. Calendar and Team are always there for members
  * of a company; the Approvals link appears only when it is useful, and Admin only for
- * admins (the admin pages and services check the role again themselves).
+ * admins (the admin pages and services check the role again themselves). ⌘K opens
+ * {@link JumpMenu} with the same screens.
  */
 export function AppHeader({
   userName,
@@ -37,8 +50,25 @@ export function AppHeader({
   /** True for admins: shows the Admin link. */
   admin?: boolean;
 }) {
+  const jumps: JumpItem[] = member
+    ? [
+        { href: "/", label: "Home" },
+        { href: "/calendar", label: "Calendar" },
+        { href: "/calendar?view=year", label: "Calendar · Year" },
+        { href: "/calendar/subscriptions", label: "Calendar · Subscribe" },
+        { href: "/team", label: "Team" },
+        ...(approvals?.visible
+          ? [
+              { href: "/approvals", label: "Approvals" },
+              { href: "/approvals?view=settled", label: "Approvals · Settled" },
+            ]
+          : []),
+        ...(admin ? ADMIN_JUMPS : []),
+      ]
+    : [];
   return (
     <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
+      {jumps.length > 0 && <JumpMenu items={jumps} />}
       <Link href="/" className={`rounded-md ${focusRing}`}>
         <Logo />
       </Link>

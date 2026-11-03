@@ -345,6 +345,16 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   active leave type for the current year, and their own requests with a cancel that can be undone for 8 seconds before it is sent (leaving the page sends it at once). A decision note shows under approved and declined requests. Defaults: first active leave type by
   sort order, the first working day (not a holiday) from today in the company's time zone (`nextWorkingDay`),
   end = start, full day.
+  From November 1 (company time zone) a quiet note names the days of the main leave type (the first active one,
+  the form's default) that will not carry into next year (what is left minus what carryover keeps), once per
+  year per browser. Only that type, so nobody is told to use up sick days. After
+  the person's first approved request, a note suggests adding their time off to their own calendar until they
+  have a live calendar link. Both are dismissed with "Got it", kept in `localStorage`. (The expiry reminder is
+  on Home rather than by email: the worker that runs daily jobs holds no SMTP settings.)
+- Shortcuts: ⌘K (Ctrl+K) on any signed-in page opens a "Go to" list of the screens the person can reach
+  (`jump-menu.tsx`). On Approvals, J and K move between requests, A approves the focused one, and D moves to
+  its reason so Enter declines (`approval-keys.tsx`). None of them shows until a key is pressed, and they are
+  ignored while typing.
 - `/approvals`: three tabs (`getApprovalTriage`). **Needs you** holds pending requests assigned to the person
   (for admins, also any with no approver); **Waiting on others**, shown only when it has something, holds the
   pending requests an admin may decide but that are assigned to someone else; **Settled** lists what the person

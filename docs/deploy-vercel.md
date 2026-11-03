@@ -75,8 +75,8 @@ Optional: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (redirect URI `https://o
 ## 4. Connect the GitHub repository (5 min)
 
 **Project → Settings → Git → Connect Git Repository**: the OOOhm repository, production branch `main`. Pushes to `main`
-deploy to production. Vercel detects Next.js and runs `pnpm install`, then the `vercel-build` script (migrate, then
-`next build`); no build settings need changing.
+deploy to production. Vercel detects Next.js and runs `pnpm install`, then the `vercel-build` script (migrate, seed
+when `SEED_ADMIN_EMAIL` is set, then `next build`); no build settings need changing.
 
 ## 5. The domain (10 min, then DNS)
 

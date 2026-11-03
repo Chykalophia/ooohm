@@ -15,3 +15,5 @@ export function readParam(schema: z.ZodType<string>, value: string | string[] | 
   const parsed = schema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
 }
+/** `?year=YYYY`. */
+export const yearParamSchema = z.string().regex(/^\d{4}$/);

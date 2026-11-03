@@ -7,6 +7,8 @@ import {
   entriesCostingDaysIn,
   groupByPerson,
   isYearMonth,
+  MAX_CALENDAR_YEAR,
+  MIN_CALENDAR_YEAR,
   monthBounds,
   monthGridBounds,
   monthOf,
@@ -19,6 +21,7 @@ import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { findCompanySettings, listHolidays, listPersonalEntries, listTeamEntries } from "@/server/repositories/calendar";
 import { listDepartments } from "@/server/repositories/departments";
+import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 
 /** Where a month view sits and where its links go. */
 export interface MonthNav {
@@ -49,8 +52,9 @@ export function toTeamEntry({ personEmail, ...row }: TeamRow): TeamCalendarEntry
 
 /**
  * The actor's own month: approved and pending leave (rejected and cancelled never
- * show), company holidays and working days. Three queries whatever the month holds:
- * company settings, then holidays and the actor's leave in parallel.
+ * show), company holidays and working days, plus the active leave types, so the
+ * month can be used to ask for time off. Four queries whatever the month holds:
+ * company settings, then holidays, the actor's leave and the leave types in parallel.
  *
  * @param month `YYYY-MM`; anything else (or nothing) means the current month in the
  *   company's time zone.
@@ -61,12 +65,60 @@ export async function getMonthCalendar(ctx: ServiceContext, actor: Actor, month?
   if (!settings) throw new DomainError("no_company");
   const nav = monthNav(month, todayInTimeZone(settings.timezone, ctx.now()));
   const { start, end } = monthGridBounds(nav.month);
-  const [holidays, entries] = await Promise.all([
+  const [holidays, entries, types] = await Promise.all([
     listHolidays(ctx.db, actor.companyId, start, end),
     listPersonalEntries(ctx.db, actor.companyId, actor.id, start, end),
+    listActiveLeaveTypesWithAllowance(ctx.db, actor.companyId),
   ]);
   const input = { month: nav.month, today: nav.today, workingDays: settings.workingDays, holidays, entries: entries satisfies CalendarEntry[] };
-  return { nav, weeks: buildMonthGrid(input), agenda: buildAgenda(input) };
+  return {
+    nav,
+    weeks: buildMonthGrid(input),
+    agenda: buildAgenda(input),
+    leaveTypes: types.map(({ id, name, color }) => ({ id, name, color })),
+  };
+}
+
+/** Where a year view sits and where its links go. */
+export interface YearNav {
+  year: number;
+  /** Today in the company's time zone. */
+  today: string;
+  /** The year holding today, the target of the "This year" link. */
+  current: number;
+}
+
+/**
+ * The actor's own year as twelve month grids (Monday first), each with its agenda for
+ * screen readers: approved and pending leave, company holidays and working days.
+ * Three queries: company settings, then the year's holidays and the actor's leave in
+ * parallel.
+ *
+ * @param year A year from {@link MIN_CALENDAR_YEAR} to {@link MAX_CALENDAR_YEAR};
+ *   anything else (or nothing) means the current year in the company's time zone.
+ * @throws DomainError `no_company` when the actor's company is missing.
+ */
+export async function getYearCalendar(ctx: ServiceContext, actor: Actor, year?: number) {
+  const settings = await findCompanySettings(ctx.db, actor.companyId);
+  if (!settings) throw new DomainError("no_company");
+  const today = todayInTimeZone(settings.timezone, ctx.now());
+  const current = Number(today.slice(0, 4));
+  const shown = year !== undefined && Number.isInteger(year) && year >= MIN_CALENDAR_YEAR && year <= MAX_CALENDAR_YEAR ? year : current;
+  const months = Array.from({ length: 12 }, (_, i): YearMonth => `${shown}-${String(i + 1).padStart(2, "0")}`);
+  const first = monthGridBounds(months[0] as YearMonth).start;
+  const last = monthGridBounds(months[11] as YearMonth).end;
+  const [holidays, entries] = await Promise.all([
+    listHolidays(ctx.db, actor.companyId, first, last),
+    listPersonalEntries(ctx.db, actor.companyId, actor.id, first, last),
+  ]);
+  const nav: YearNav = { year: shown, today, current };
+  return {
+    nav,
+    months: months.map((month) => {
+      const input = { month, today, workingDays: settings.workingDays, holidays, entries: entries satisfies CalendarEntry[] };
+      return { month, weeks: buildMonthGrid(input), agenda: buildAgenda(input) };
+    }),
+  };
 }
 
 /** Which slice of the team the "who's out" view shows. */

@@ -87,7 +87,7 @@
               <span class="sent" data-sent role="status"></span>
             </div>
           </form>
-          <p class="demo-note" data-demo-note>Playing a few examples. Change any part of the sentence to try your own.</p>
+          <p class="demo-note" data-demo-note>Playing a few examples, counted Monday to Friday with US holidays. Change any part of the sentence to try your own.</p>
         </div>
       </div>
     </section>
@@ -95,7 +95,7 @@
     <!-- The tour film, rendered from the real app. -->
     <section class="film-band" aria-labelledby="film-title">
       <div class="wrap">
-        <button class="film-poster" type="button" data-open-film aria-describedby="film-title">
+        <button class="film-poster" type="button" data-open-film aria-label="Watch the tour" aria-describedby="film-title">
           <img src="media/tour.jpg" alt="" width="1600" height="900" loading="lazy">
           <span class="play"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7.5-4.5z"/></svg></span>
         </button>
@@ -355,8 +355,8 @@
             </li>
             <li>
               <h3>Any Postgres 15+, or Vercel</h3>
-              <p>Your own server, Neon, Supabase or RDS. Pooled connections are detected for you.</p>
-              <code>pnpm db:migrate &amp;&amp; pnpm start</code>
+              <p>Your own server, Neon, Supabase or RDS. Pooled connections are detected for you. On Vercel, migrations run as part of the build.</p>
+              <code>pnpm db:migrate &amp;&amp; pnpm build &amp;&amp; pnpm start</code>
             </li>
             <li>
               <h3>One machine, no database server</h3>

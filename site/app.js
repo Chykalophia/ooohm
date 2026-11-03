@@ -149,7 +149,7 @@ function sentence() {
     if (!playing) return;
     playing = false;
     clearTimeout(timer);
-    note.textContent = "Your turn. Weekends and the company’s holidays are skipped, just like in the app.";
+    note.textContent = "Your turn. This demo counts Monday to Friday with US holidays; in the app, each company sets its own working days and holidays.";
   };
   for (const ev of ["pointerdown", "keydown", "focusin"]) form.addEventListener(ev, stopDemo, { once: true });
 
@@ -171,7 +171,7 @@ function sentence() {
   if (!reduceMotion) {
     whileVisible(form, () => { clearTimeout(timer); if (playing) timer = setTimeout(tick, 2800); }, () => clearTimeout(timer));
   } else {
-    note.textContent = "Change any part of the sentence. Weekends and holidays are skipped, just like in the app.";
+    note.textContent = "Change any part of the sentence. This demo counts Monday to Friday with US holidays; in the app, each company sets its own.";
   }
 }
 
@@ -417,19 +417,22 @@ function themes() {
   let auto = !reduceMotion;
   let timer = 0;
   let current = 0;
+  let swap = 0;
   const preload = new Set();
   function pick(i, user = false) {
     current = i;
+    clearTimeout(swap);
     const b = buttons[i];
     buttons.forEach((o) => o.setAttribute("aria-checked", String(o === b)));
     const src = `media/themes/${b.dataset.theme}.jpg`;
     const next = buttons[(i + 1) % buttons.length].dataset.theme;
     if (!preload.has(next)) { preload.add(next); new Image().src = `media/themes/${next}.jpg`; }
     img.classList.add("swap");
-    setTimeout(() => {
+    // Only the latest pick lands, even if an automatic one was already on its way.
+    swap = setTimeout(() => {
       img.src = src;
       img.alt = `The OOOhm home screen in the ${b.textContent} theme`;
-      img.decode().catch(() => {}).finally(() => img.classList.remove("swap"));
+      img.decode().catch(() => {}).finally(() => { if (current === i) img.classList.remove("swap"); });
     }, user ? 120 : 250);
   }
   buttons.forEach((b, i) => b.addEventListener("click", () => { auto = false; clearInterval(timer); pick(i, true); }));

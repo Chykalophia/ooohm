@@ -15,7 +15,8 @@ python3 -m http.server 4100 -d site   # then open http://localhost:4100
 
 ## Deploy
 
-Upload the `site/` folder to any static host. On Vercel, make a separate project with
+Upload the `site/` folder to any static host. Once the site has a domain, make `og:image` in
+`index.html` an absolute URL (`https://<domain>/media/og.png`): link previews ignore relative ones. On Vercel, make a separate project with
 **Root Directory** `site` and the **Other** framework preset; on GitHub Pages or behind Caddy, serve the
 folder as is. `site/demo/` holds the tooling that made the media and doesn't need to be served.
 
@@ -44,7 +45,7 @@ The people and requests are fictional (Northwind Studio). With Postgres running 
 # a local DATABASE_URL, OOOHM_BACKGROUND=inline. The clips are dated around Nov 3, 2026.
 pnpm db:migrate && pnpm db:seed
 pnpm exec tsx --env-file=.env site/demo/demo-data.mts   # resets the demo requests; local databases only
-pnpm build && pnpm start &                              # the app on http://localhost:3000
+pnpm build && pnpm start          # in a second terminal; wait until http://localhost:3000 answers
 node site/demo/record.mjs            # every clip, then the theme stills (or name some: ask approve themes)
 node site/demo/render-film.mjs       # the tour, from the clips
 ```

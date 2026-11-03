@@ -13,16 +13,26 @@ import { openDatabase } from "../../src/db/connect";
 import * as s from "../../src/db/schema";
 import { nonEmptyEnv } from "../../src/lib/integration-env";
 
-if (!/localhost|127\.0\.0\.1|pglite/.test(process.env.DATABASE_URL ?? "pglite")) {
-  throw new Error("demo-data only runs against a local database.");
+// Embedded PGlite, or Postgres on this machine; never anything else.
+function isLocal(url: string | undefined): boolean {
+  if (!url || url.startsWith("pglite:") || process.env.OOOHM_DB === "embedded") return true;
+  try {
+    return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
 }
+if (!isLocal(process.env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");
 
 const handle = await openDatabase(resolveDatabaseConfig(nonEmptyEnv(process.env)), { purpose: "demo data", max: 1 });
 const { db } = handle;
 const YEAR = 2026;
 
-const [company] = await db.select().from(s.companies).limit(1);
-if (!company) throw new Error("No company yet. Run `pnpm db:seed` with SEED_ADMIN_EMAIL=maya@example.com first.");
+const companies = await db.select().from(s.companies).limit(2);
+if (companies.length !== 1) {
+  throw new Error(companies.length ? "More than one company exists; the demo needs a database of its own." : "No company yet. Run `pnpm db:seed` with SEED_ADMIN_EMAIL=maya@example.com first.");
+}
+const [company] = companies;
 await db.update(s.companies).set({ requestStyle: "sentence" }).where(eq(s.companies.id, company.id));
 const types = Object.fromEntries((await db.select().from(s.leaveTypes).where(eq(s.leaveTypes.companyId, company.id))).map((t) => [t.code, t]));
 const [maya] = await db.select().from(s.user).where(eq(s.user.email, "maya@example.com"));
@@ -80,18 +90,19 @@ const reqs: Req[] = [
   ["Lena Park", "PTO", "2026-10-19", "2026-10-21", 3, "approved"],
   ["Jonas Berg", "SICK", "2026-10-27", "2026-10-27", 1, "approved"],
 ];
-// Every run starts the story over: the recordings change requests as they go.
-await db.delete(s.leaveRequests).where(eq(s.leaveRequests.companyId, company.id));
-{
+// Every run starts the story over: the recordings change requests as they go. One
+// transaction, so a failure leaves the previous requests in place rather than none.
+await db.transaction(async (tx) => {
+  await tx.delete(s.leaveRequests).where(eq(s.leaveRequests.companyId, company.id));
   for (const [who, code, start, end, days, status, note, portion] of reqs) {
     const decided = status === "approved" || status === "rejected";
-    const [r] = await db.insert(s.leaveRequests).values({
+    const [r] = await tx.insert(s.leaveRequests).values({
       companyId: company.id, userId: ids[who], leaveTypeId: types[code].id, startDate: start, endDate: end, days,
       dayPortion: portion ?? "full", note, status, approverId: maya.id, decidedAt: decided ? new Date("2026-10-30T15:00:00Z") : null,
     }).returning();
-    await db.insert(s.leaveRequestDays).values({ requestId: r.id, year: YEAR, days });
+    await tx.insert(s.leaveRequestDays).values({ requestId: r.id, year: YEAR, days });
   }
-}
+});
 
 await handle.close();
 console.log("Demo data ready.");

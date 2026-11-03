@@ -142,7 +142,7 @@ const CLIPS = {
   },
   // Maya drags across three days on her calendar; weekends and Thanksgiving don't count.
   calendar: {
-    as: "maya@example.com", size: { width: 1040, height: 800 }, path: "/calendar",
+    as: "maya@example.com", size: { width: 1040, height: 800 }, path: "/calendar?month=2026-11",
     async run(page, d) {
       await d.wait(800);
       // November 2026's grid starts on Monday, Oct 26: the 23rd is cell 28, the 27th cell 32.
@@ -160,7 +160,7 @@ const CLIPS = {
   },
   // Who's out this month, then just Design, then the year at a glance.
   team: {
-    as: "maya@example.com", size: { width: 860, height: 640 }, path: "/team",
+    as: "maya@example.com", size: { width: 860, height: 640 }, path: "/team?month=2026-11",
     async run(page, d) {
       await d.wait(800);
       await d.scrollBy(420, 1500);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PendingLabel } from "@/components/ui/ooo-dots";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { type FormState, IDLE, nextFormKey } from "@/components/forms/form-state";
 import { FormStatus } from "@/components/forms/form-status";
@@ -63,7 +64,7 @@ export function SubmitRow({ state, pending, label }: { state: FormState; pending
   return (
     <div className="flex flex-wrap items-center gap-4">
       <button type="submit" aria-disabled={pending} aria-describedby={PREVIEW_ID} className={primaryButton}>
-        {pending ? "Sending…" : label}
+        {pending ? <PendingLabel label="Sending…" /> : label}
       </button>
       <FormStatus state={state} />
     </div>

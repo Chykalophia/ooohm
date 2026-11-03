@@ -8,6 +8,7 @@ import { KeepIt } from "./keep-it";
 import { FormStatus } from "./form-status";
 import { useConfirm } from "./use-confirm";
 import { useFormAction } from "./use-form-action";
+import { PendingLabel } from "@/components/ui/ooo-dots";
 
 const VARIANT = {
   /** A quiet text action (the default). */
@@ -117,7 +118,7 @@ export function InlineAction({
               className={VARIANT[confirm ? confirmVariant : variant]}
               aria-label={confirm ? undefined : ariaLabel}
             >
-              {pending ? pendingLabel : confirm ? (confirmLabel ?? "Yes") : label}
+              {pending ? <PendingLabel label={pendingLabel} /> : confirm ? (confirmLabel ?? "Yes") : label}
             </button>
             {confirm && <KeepIt pending={pending} onBack={back} />}
           </div>

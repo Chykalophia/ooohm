@@ -87,7 +87,7 @@ function AgendaRow({ item }: { item: AgendaItem }) {
         <ColorLabel color={entry.leaveTypeColor} className="font-medium">
           <Link
             href={`/requests/${entry.id}`}
-            className="outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+            className="outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent-ink"
           >
             {formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}
           </Link>

@@ -79,13 +79,16 @@ everywhere; `cx()` joins optional classes. Two classes that set the same propert
 combined, since which one wins depends on stylesheet order: a component offers a variant instead (`Card`'s
 `padding`).
 
-**Themes.** Each person picks light (the default), dark or automatic (follows the device) on their account page;
-it is `user.theme`, read with the session. The root layout writes it to `<html data-theme>`, which sets
-`color-scheme`, and every colour token in `src/app/globals.css` holds both values in `light-dark()`, so the first
-paint is right with no script and automatic switches as the device does. Colours come only from those tokens
-(`bg-surface`, `text-muted`, `text-danger`…): `pnpm lint` refuses palette classes (`text-red-700`) and `dark:` in
-`src/app` and `src/components`. A new colour is a new token with a light and a dark value. The theme is a
-display preference of the person's own, so changing it writes no audit row or event.
+**Look: the company's theme and each person's colour mode.** An admin picks the company's theme (Admin →
+Appearance, below): colours, fonts, corners, depth. Each person picks a colour mode on their account page: light
+(the default), dark or automatic (follows the device). It is `user.colorMode` (the column is still named `theme`),
+read with the session. The root layout writes both to `<html>` (`htmlAppearance`): `data-ui` for the theme and
+`data-mode` for the mode, which sets `color-scheme`. A theme with a dark version (Classic, with its own accent) holds
+each colour's two values in `light-dark()`, so the first paint is right with no script and automatic switches as
+the device does; on any other theme `data-mode` is forced to light. Colours come only from tokens (`bg-surface`,
+`text-muted`, `text-accent-ink`, `text-danger`…): `pnpm lint` refuses palette classes (`text-red-700`) and `dark:` in
+`src/app` and `src/components`. A new colour is a new token, with a dark value in every theme that has one. The
+colour mode is a display preference of the person's own, so changing it writes no audit row or event.
 
 **Long lists.** Every list that grows with use is paged, never capped: the audit log (25 a page), people (50, by
 name), "Your requests" (10, latest dates first), approvals (10, earliest first) and an endpoint's
@@ -153,8 +156,8 @@ backfilled it for rows written before M5. It takes a `Transaction`, not the pool
 one. `audit_log.created_at` and `events_outbox.created_at` default to `clock_timestamp()`, so rows written in
 one transaction (e.g. `leave.requested` then `leave.approved` for a self-approved request) keep their order.
 
-Two documented exceptions. A person's own theme is a display preference: changing it writes no audit row and no
-event (see Themes, above). And the one-time import (M7, below): each imported row is audited (`import.*`
+Two documented exceptions. A person's own colour mode is a display preference: changing it writes no audit row and no
+event (see Look, above). And the one-time import (M7, below): each imported row is audited (`import.*`
 actions, written in bulk with `insertAuditEntries`) without a per-row event, and the import writes a single
 `import.completed` event instead.
 
@@ -268,7 +271,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | | `companyId, name, timezone, workingDays, allowancePolicy, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -900,6 +903,21 @@ when unchanged but cannot be chosen anew. Working days: at least one ISO weekday
 ([Recount after a calendar change](#recount-after-a-calendar-change)); a new time zone only moves "today". Since M8 the page
 also holds the deletion grace option ([The grace option](#the-grace-option)); `company.updated` carries it as
 `deletionGrace`.
+
+### Appearance
+
+`/admin/appearance` (`updateCompanyAppearance`): the theme everyone in the company sees, an optional accent colour
+and a corner style, all chosen by an admin (never per person; light or dark is per person, above). Themes are a fixed list (`THEMES` in
+`src/domain/appearance.ts`); each keeps one accent colour. The root layout reads the look on every request
+(`getAppearance`, which falls back to the default on any error so a page never fails on it) and sets `data-ui`,
+`data-corners` and, for a custom accent, the accent tokens on `<html>`. `globals.css` keys each theme's tokens
+(colours, fonts, radii, shadows) on those attributes; fonts are self-hosted from `@fontsource-variable` packages,
+and a browser downloads only the ones the chosen theme uses (Admin → Appearance previews every theme, so that
+page loads them all). A pale custom accent keeps its fill and gets a darker
+`--accent-ink` for text and focus rings (`accentTokens`). Only `classic` with its own accent has a dark version
+(`followsDarkMode`): there each person's colour mode applies (`data-mode`, above); every other look is light only for
+now, whatever the person chose, and the account page says so. `company.updated` carries `theme`,
+`accentColor` and `corners`.
 
 ### Audit log viewer
 

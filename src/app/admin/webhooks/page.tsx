@@ -37,7 +37,7 @@ export default async function WebhooksPage() {
                 <Link href={`/admin/webhooks/${e.id}`} className={`${textLink} font-medium break-all`}>
                   {e.url}
                 </Link>
-                <span className={`text-sm ${e.enabled ? "text-accent" : "text-muted"}`}>{e.enabled ? "On" : "Off"}</span>
+                <span className={`text-sm ${e.enabled ? "text-accent-ink" : "text-muted"}`}>{e.enabled ? "On" : "Off"}</span>
               </div>
               {e.description && <p className="text-sm break-words">{e.description}</p>}
               <p className="text-sm text-muted">

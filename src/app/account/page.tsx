@@ -1,9 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
-import { THEMES, type Theme } from "@/domain/theme";
+import { followsDarkMode, THEMES } from "@/domain/appearance";
+import { COLOR_MODES, type ColorMode } from "@/domain/color-mode";
 import { ROLE_LABEL } from "@/lib/format";
 import { getAccount } from "@/server/services/account";
+import { getAppearance } from "@/server/services/appearance";
 import { ActionForm } from "@/components/forms/action-form";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
@@ -11,18 +13,20 @@ import { ChoiceChip, Fieldset, TextField } from "@/components/ui/fields";
 import { Section } from "@/components/ui/section";
 import { textLink } from "@/components/ui/styles";
 import { requireMemberPage } from "@/app/_lib/page-context";
-import { renameSelfAction, setThemeAction } from "./actions";
+import { renameSelfAction, setColorModeAction } from "./actions";
 
 export const metadata: Metadata = { title: "Your account · OOOhm" };
 
-const THEME_LABEL: Record<Theme, string> = { light: "Light", dark: "Dark", system: "Automatic" };
+const COLOR_MODE_LABEL: Record<ColorMode, string> = { light: "Light", dark: "Dark", system: "Automatic" };
 
-/** The signed-in person's settings: their name and theme to change, the rest to read. */
+/** The signed-in person's settings: their name and colour mode to change, the rest to read. */
 export default async function AccountPage() {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="account" />;
 
-  const account = await getAccount(page.ctx, page.actor);
+  const [account, appearance] = await Promise.all([getAccount(page.ctx, page.actor), getAppearance(page.ctx)]);
+  // Only some company themes have a dark version; on the others, pages stay light.
+  const darkAvailable = followsDarkMode(appearance);
   const details: [string, string][] = [
     ["Email", account.email],
     ["Role", ROLE_LABEL[account.role]],
@@ -46,13 +50,20 @@ export default async function AccountPage() {
         </ActionForm>
       </Section>
 
-      <Section title="Appearance" surface>
-        <ActionForm action={setThemeAction} submitLabel="Save" pendingLabel="Saving…">
-          <Fieldset legend="Theme" hint="Automatic follows your device, switching between light and dark with it.">
+      <Section title="Light or dark" surface>
+        <ActionForm action={setColorModeAction} submitLabel="Save" pendingLabel="Saving…">
+          <Fieldset
+            legend="Mode"
+            hint={
+              darkAvailable
+                ? "Automatic follows your device, switching between light and dark with it."
+                : `Your company's theme, ${THEMES[appearance.theme].label}, comes in light only, so pages stay light for now. Your choice applies if an admin picks a theme with a dark version.`
+            }
+          >
             <div className="flex flex-wrap gap-2">
-              {THEMES.map((theme) => (
-                <ChoiceChip key={theme} type="radio" name="theme" value={theme} defaultChecked={theme === page.theme} required>
-                  {THEME_LABEL[theme]}
+              {COLOR_MODES.map((mode) => (
+                <ChoiceChip key={mode} type="radio" name="colorMode" value={mode} defaultChecked={mode === page.colorMode} required>
+                  {COLOR_MODE_LABEL[mode]}
                 </ChoiceChip>
               ))}
             </div>

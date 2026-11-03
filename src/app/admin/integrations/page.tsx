@@ -42,7 +42,7 @@ export default async function IntegrationsPage() {
             <Item key={a.id} className="space-y-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-medium">{a.displayName}</p>
-                <span className={cx("text-sm", a.ok ? "text-accent" : errorText)}>{a.ok ? "Connected" : "Not connected"}</span>
+                <span className={cx("text-sm", a.ok ? "text-accent-ink" : errorText)}>{a.ok ? "Connected" : "Not connected"}</span>
               </div>
               {a.detail && <p className="text-sm text-muted">{a.detail}</p>}
               {a.syncs && (

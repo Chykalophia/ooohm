@@ -4,7 +4,7 @@ import { departments, session, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import type { PageRequest } from "@/domain/paging";
-import type { Theme } from "@/domain/theme";
+import type { ColorMode } from "@/domain/color-mode";
 import { keysetPage } from "./keyset";
 
 const approvalFields = {
@@ -257,13 +257,13 @@ export async function updatePerson(
 }
 
 /**
- * Saves an active member's theme. @returns Whether they were found (an active, not
+ * Saves an active member's colour mode. @returns Whether they were found (an active, not
  * deleted member of the company).
  */
-export async function updateTheme(ex: Executor, companyId: string, userId: string, theme: Theme): Promise<boolean> {
+export async function updateColorMode(ex: Executor, companyId: string, userId: string, colorMode: ColorMode): Promise<boolean> {
   const rows = await ex
     .update(user)
-    .set({ theme })
+    .set({ colorMode })
     .where(and(eq(user.id, userId), eq(user.companyId, companyId), eq(user.isActive, true), notDeleted))
     .returning({ id: user.id });
   return rows.length > 0;

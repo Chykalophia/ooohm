@@ -50,7 +50,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
         <p className="text-sm text-muted">
           We sent a sign-in link to <span className="text-foreground">{state.email}</span>. It expires in 15 minutes.
         </p>
-        <button type="button" className={cx(textLink, "text-sm text-accent")} onClick={() => setState({ kind: "idle" })}>
+        <button type="button" className={cx(textLink, "text-sm text-accent-ink")} onClick={() => setState({ kind: "idle" })}>
           Use a different email
         </button>
       </div>

@@ -338,6 +338,12 @@ export interface CompanyEventPayload extends PersonAttribution {
   allowancePolicy: string;
   /** Added within version 1: full-scrub deletes wait 7 days, with undo. */
   deletionGrace: boolean;
+  /** Added within version 1: the theme key everyone sees, e.g. `classic` or `cobalt`. */
+  theme: string;
+  /** Added within version 1: `#rrggbb` replacing the theme's accent, or null. */
+  accentColor: string | null;
+  /** Added within version 1: `theme`, `square`, `soft` or `round`. */
+  corners: string;
 }
 
 /**

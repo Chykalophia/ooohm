@@ -10,6 +10,7 @@ export type AdminSection =
   | "leave-types"
   | "holidays"
   | "company"
+  | "appearance"
   | "audit"
   | "webhooks"
   | "api-keys"
@@ -28,12 +29,13 @@ const SECTIONS: { id: AdminSection; href: string; label: string; group?: readonl
   { id: "leave-types", href: "/admin/leave-types", label: "Leave types" },
   { id: "holidays", href: "/admin/holidays", label: "Holidays" },
   { id: "company", href: "/admin/company", label: "Company" },
+  { id: "appearance", href: "/admin/appearance", label: "Appearance" },
   { id: "audit", href: "/admin/audit", label: "Audit log" },
   { id: "webhooks", href: "/admin/webhooks", label: "Integrations", group: INTEGRATION_SECTIONS.map((s) => s.id) },
 ];
 
 /**
- * The admin sub-navigation: one calm row of seven pills, wrapping on small screens. On
+ * The admin sub-navigation: one calm row of eight pills, wrapping on small screens. On
  * an integration screen a second, quieter row switches between webhooks, API keys and
  * connectors.
  */
@@ -58,7 +60,7 @@ function AdminNav({ section }: { section: AdminSection }) {
                 key={s.id}
                 href={s.href}
                 aria-current={active ? "page" : undefined}
-                className={cx("rounded", focusRing, active ? "text-accent underline underline-offset-4" : "text-muted hover:text-foreground")}
+                className={cx("rounded", focusRing, active ? "text-accent-ink underline underline-offset-4" : "text-muted hover:text-foreground")}
               >
                 {s.label}
               </Link>

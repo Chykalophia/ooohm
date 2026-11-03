@@ -1,7 +1,22 @@
 import type { Metadata } from "next";
-import { themeOrDefault } from "@/domain/theme";
-import { currentUser } from "@/lib/auth";
+import { connection } from "next/server";
+// Self-hosted faces for the themes (Admin → Appearance). Each only declares @font-face,
+// so a browser downloads just the face the chosen theme uses.
+import "@fontsource-variable/archivo";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/hanken-grotesk";
+import "@fontsource-variable/lexend";
+import "@fontsource-variable/newsreader";
+import "@fontsource-variable/onest";
+import "@fontsource-variable/plus-jakarta-sans";
+import "@fontsource-variable/sora";
+import "@fontsource-variable/source-sans-3";
 import "./globals.css";
+import { colorModeOrDefault } from "@/domain/color-mode";
+import { htmlAppearance } from "@/lib/appearance";
+import { currentUser } from "@/lib/auth";
+import { serviceContext } from "@/server/runtime";
+import { getAppearance } from "@/server/services/appearance";
 
 export const metadata: Metadata = {
   title: "OOOhm",
@@ -9,6 +24,12 @@ export const metadata: Metadata = {
 };
 
 /**
+ * `<html>` carries the company's look (`data-ui`, `data-corners`, a custom accent's
+ * tokens) and the signed-in person's colour mode (`data-mode`, light when signed out or
+ * when the look has no dark version), so every page is drawn right from the first
+ * paint (see globals.css). Both are read per request, never at build time; the session
+ * read is shared with the page's own (`currentUser` is read once per render).
+ *
  * `suppressHydrationWarning` on `<html>` and `<body>` only: browser extensions (grammar
  * checkers such as LanguageTool and Grammarly, password managers, dark-mode tools) add
  * attributes to these two elements before React hydrates, which React reports as a
@@ -16,16 +37,15 @@ export const metadata: Metadata = {
  * deep, so a real mismatch anywhere in the app is still reported.
  */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  await connection();
+  const [appearance, user] = await Promise.all([getAppearance(serviceContext()), currentUser()]);
+  const { attributes, style } = htmlAppearance(appearance, colorModeOrDefault(user?.colorMode));
+
   return (
-    <html lang="en" data-theme={await signedInTheme()} className="h-full antialiased" suppressHydrationWarning>
+    <html lang="en" className="h-full antialiased" {...attributes} style={style as React.CSSProperties} suppressHydrationWarning>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {children}
       </body>
     </html>
   );
-}
-
-/** Shares the page's own session lookup (`currentUser` is read once per render). */
-async function signedInTheme() {
-  return themeOrDefault((await currentUser())?.theme);
 }

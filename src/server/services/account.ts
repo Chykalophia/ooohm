@@ -1,6 +1,6 @@
 /**
  * The signed-in person's own account: what they see on their settings page, and what
- * they may change themselves: their display name and their theme. Email, role,
+ * they may change themselves: their display name and their colour mode. Email, role,
  * department and manager stay with admins (invite-only access; the email is the
  * sign-in identity).
  */
@@ -8,10 +8,10 @@ import type { Actor, Role } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { normalizePersonName } from "@/domain/people";
-import type { Theme } from "@/domain/theme";
+import type { ColorMode } from "@/domain/color-mode";
 import type { ServiceContext } from "@/server/context";
 import { findDepartment } from "@/server/repositories/departments";
-import { findPerson, lockMember, updatePerson, updateTheme } from "@/server/repositories/users";
+import { findPerson, lockMember, updateColorMode, updatePerson } from "@/server/repositories/users";
 import { recordAdminChange } from "./admin-access";
 import { personPayload, personSnapshot } from "./admin-people";
 import { inTransaction } from "./notify";
@@ -79,11 +79,11 @@ export async function renameSelf(ctx: ServiceContext, actor: Actor, rawName: str
 }
 
 /**
- * Saves how the actor wants the app drawn. A display preference of their own, so no
- * audit row or event (see `@/domain/theme`).
+ * Saves the actor's colour mode (light, dark or automatic). A display preference of
+ * their own, so no audit row or event (see `@/domain/color-mode`).
  *
  * @throws DomainError `forbidden` for a deactivated or deleted account.
  */
-export async function setTheme(ctx: ServiceContext, actor: Actor, theme: Theme): Promise<void> {
-  if (!(await updateTheme(ctx.db, actor.companyId, actor.id, theme))) throw new DomainError("forbidden");
+export async function setColorMode(ctx: ServiceContext, actor: Actor, colorMode: ColorMode): Promise<void> {
+  if (!(await updateColorMode(ctx.db, actor.companyId, actor.id, colorMode))) throw new DomainError("forbidden");
 }

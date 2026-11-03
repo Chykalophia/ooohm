@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
-import { THEMES } from "@/domain/theme";
-import { renameSelf, setTheme } from "@/server/services/account";
+import { COLOR_MODES } from "@/domain/color-mode";
+import { renameSelf, setColorMode } from "@/server/services/account";
 import type { FormState } from "@/components/forms/form-state";
 import { runFormAction } from "@/app/_lib/server-action";
 
@@ -28,16 +28,16 @@ export async function renameSelfAction(_prev: FormState, formData: FormData): Pr
   );
 }
 
-const themeSchema = z.object({ theme: z.enum(THEMES) });
+const colorModeSchema = z.object({ colorMode: z.enum(COLOR_MODES) });
 
-/** Account page: saves how the signed-in person wants the app drawn. The refresh redraws it. */
-export async function setThemeAction(_prev: FormState, formData: FormData): Promise<FormState> {
+/** Account page: saves the signed-in person's colour mode. The refresh redraws the page in it. */
+export async function setColorModeAction(_prev: FormState, formData: FormData): Promise<FormState> {
   return runFormAction(
-    "account_theme",
+    "account_color_mode",
     formData,
-    themeSchema,
-    async (ctx, actor, { theme }) => {
-      await setTheme(ctx, actor, theme);
+    colorModeSchema,
+    async (ctx, actor, { colorMode }) => {
+      await setColorMode(ctx, actor, colorMode);
       return "Saved.";
     },
     { messages: { forbidden: ACCOUNT_LOCKED_MESSAGE } },

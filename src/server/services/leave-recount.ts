@@ -47,6 +47,7 @@ import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findContacts } from "@/server/repositories/users";
 import { allowanceYearsFor, balanceInputs } from "./balances";
 import { recordRecount, summarize } from "./leave-changes";
+import { emailAccentFor } from "./email-accent";
 import type { DeferredEmail } from "./notify";
 
 /** A company holiday as a recount describes it. */
@@ -145,6 +146,7 @@ export async function recountLeave(
   const overdrawn = await findOverdrawn(tx, policy, typeById, changed, people);
 
   const outgoing: DeferredEmail[] = [];
+  const accent = emailAccentFor(ctx, actor.companyId);
   for (const { before, after, grew } of changed) {
     const person = people.get(after.userId);
     if (!person?.isActive) continue;
@@ -168,7 +170,7 @@ export async function recountLeave(
     };
     outgoing.push({
       to: person.email,
-      build: () => renderLeaveEmail(email),
+      build: async () => renderLeaveEmail(email, await accent()),
       failureEvent: "leave_email_failed",
       logFields: { requestId: after.id, kind: email.kind },
     });

@@ -1,15 +1,25 @@
 import { displayName } from "@/domain/person";
-import { formatDays, formatLeaveDates, formatRecountCause } from "@/lib/format";
+import { formatDateSpan, formatDays, formatLeaveDates, formatRecountCause } from "@/lib/format";
 import type { RecountCause } from "@/lib/format";
+import {
+  BODY,
+  buttons,
+  DEFAULT_EMAIL_ACCENT,
+  dot,
+  type EmailAccent,
+  type EmailButton,
+  emailDocument,
+  escapeHtml,
+  MUTED,
+  paragraph,
+} from "@/lib/email-layout";
 
 export { displayName, personLabel } from "@/domain/person";
+export { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent, escapeHtml } from "@/lib/email-layout";
 
 /**
- * Leave notification emails: calm plain text plus a minimal HTML twin.
- *
- * Subjects are fixed strings. Names, notes and reasons are typed by people, so they
- * appear only in the body (HTML-escaped there) and never in a header, which rules out
- * header injection however the transport handles newlines.
+ * Leave notification emails: calm plain text plus an HTML twin in the shared layout
+ * (`@/lib/email-layout`), with the company's accent.
  */
 
 export interface EmailContent {
@@ -56,69 +66,82 @@ export type LeaveEmail =
       link: string;
     };
 
-/** Escapes `& < > " '` for HTML text and attribute values. */
-export function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+interface Segment {
+  text: string;
+  bold?: boolean;
 }
 
 interface Parts {
   subject: string;
-  intro: string;
-  /** Extra labelled line after the details, e.g. a decline reason. */
-  extra?: { label: string; value: string };
-  showNote: boolean;
-  action: string;
+  /** The opening sentence, which says what happened and to which request. */
+  lead: Segment[];
+  /** The requester's note, shown in quotes (request emails only). */
+  quote?: string;
+  /** A labelled line after the lead, e.g. a decline reason; `quoted` for words someone typed. */
+  extra?: { label: string; value: string; quoted: boolean };
+  /** Who else is off then, after a small accent mark. */
+  overlap?: string;
+}
+
+const quoted = (value: string) => `\u201c${value}\u201d`;
+
+/** "PTO" (bold) and its dates and days: the request as one phrase. */
+function what(leave: LeaveSummary): { type: Segment; when: string } {
+  return {
+    type: { text: leave.leaveTypeName, bold: true },
+    when: `${formatLeaveDates(leave.startDate, leave.endDate, leave.dayPortion)}: ${formatDays(leave.days)}`,
+  };
 }
 
 function parts(email: LeaveEmail): Parts {
   const { leave } = email;
+  const { type, when } = what(leave);
+  // Callers pass `personLabel`, which falls back to the email address; this is the last resort.
+  const requester = leave.requesterName || "Someone";
   switch (email.kind) {
     case "requested":
       return {
-        subject: "Time off request to review",
-        intro: `${leave.requesterName} asked for time off.`,
-        extra: email.alsoOff ? { label: "Who else is off", value: email.alsoOff } : undefined,
-        showNote: true,
-        action: "Review it in OOOhm",
+        // The name is one capped line (`displayName`), so it cannot add a header.
+        subject: `${requester} asked for ${formatDateSpan(leave.startDate, leave.endDate)}`,
+        lead: [{ text: `${requester} asked for ` }, type, { text: `, ${when}.` }],
+        quote: leave.note ?? undefined,
+        overlap: email.alsoOff ?? undefined,
       };
     case "approved":
       return {
         subject: "Your time off is approved",
-        intro: "Your time off is approved.",
-        extra: email.reason ? { label: "Note from approver", value: email.reason } : undefined,
-        showNote: false,
-        action: "Open OOOhm",
+        lead: [{ text: "Your " }, type, { text: ` is approved, ${when}.` }],
+        extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined,
       };
     case "rejected":
       return {
         subject: "Your time off request was declined",
-        intro: "Your time off request was declined.",
-        extra: email.reason ? { label: "Reason", value: email.reason } : undefined,
-        showNote: false,
-        action: "Open OOOhm",
+        lead: [{ text: "Your " }, type, { text: ` request was declined, ${when}.` }],
+        extra: email.reason ? { label: "Reason", value: email.reason, quoted: true } : undefined,
       };
     case "cancelled_requester":
       return {
         subject: "Your time off request was cancelled",
-        intro: "Your time off request was cancelled.",
-        showNote: false,
-        action: "Open OOOhm",
+        lead: [{ text: "Your " }, type, { text: ` request was cancelled, ${when}.` }],
       };
     case "cancelled_approver":
       return {
         subject: "A time off request was cancelled",
-        intro: `${leave.requesterName} cancelled their time off. Nothing else is needed from you.`,
-        showNote: false,
-        action: "Open OOOhm",
+        lead: [{ text: `${requester} cancelled their ` }, type, { text: `, ${when}. Nothing else is needed from you.` }],
       };
     case "recounted": {
       const cause = formatRecountCause(email.cause);
+      const dates = formatLeaveDates(leave.startDate, leave.endDate, leave.dayPortion);
       if (leave.days === 0) {
         return {
           subject: "Your time off was recounted",
-          intro: `${cause}, so the time off below no longer takes any days, and nothing comes off your balance. You can cancel it in OOOhm if you don't need it.`,
-          showNote: false,
-          action: "Open OOOhm",
+          lead: [
+            { text: `${cause}, so your ` },
+            type,
+            {
+              text: ` for ${dates} no longer takes any days, and nothing comes off your balance. You can cancel it in OOOhm if you don't need it.`,
+            },
+          ],
         };
       }
       // Same total, days moved between years (a working-days change across New Year): only
@@ -129,67 +152,70 @@ function parts(email: LeaveEmail): Parts {
           : `now takes ${formatDays(leave.days)} instead of ${formatDays(email.previousDays)}`;
       return {
         subject: "Your time off was recounted",
-        intro: `${cause}, so the time off below ${change}.`,
-        extra: email.overdrawn ? { label: "Balance", value: `This leaves you ${email.overdrawn}.` } : undefined,
-        showNote: false,
-        action: "Open OOOhm",
+        lead: [{ text: `${cause}, so your ` }, type, { text: ` for ${dates} ${change}.` }],
+        extra: email.overdrawn ? { label: "Balance", value: `This leaves you ${email.overdrawn}.`, quoted: false } : undefined,
       };
     }
   }
 }
 
 /**
- * Subject, text and HTML for one leave notification. Subjects are fixed per kind: names,
- * notes and reasons appear in the body only (HTML-escaped there), never in a header.
+ * Subject, text and HTML for one leave notification, laid out like the request email on
+ * the OOOhm site: one sentence that says it all, the requester's note in quotes, who else
+ * is off, then the buttons. `accent` is the company's ({@link emailAccent}).
+ *
+ * Subjects are fixed per kind, except the request email's, which names the requester
+ * and the dates as the inbox should show them. Names there are one capped line
+ * (`displayName`), so no typed value can add a header; notes and reasons appear in the
+ * body only, HTML-escaped there.
  */
-export function renderLeaveEmail(input: LeaveEmail): EmailContent {
+export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAULT_EMAIL_ACCENT): EmailContent {
   const email: LeaveEmail = {
     ...input,
     recipientName: displayName(input.recipientName),
     leave: { ...input.leave, requesterName: displayName(input.leave.requesterName) },
   };
-  const { leave, link, recipientName } = email;
+  const { link } = email;
   const p = parts(email);
-  const details: { label: string; value: string }[] = [
-    { label: "Type", value: leave.leaveTypeName },
-    { label: "Dates", value: formatLeaveDates(leave.startDate, leave.endDate, leave.dayPortion) },
-    { label: "Days", value: formatDays(leave.days) },
-  ];
-  if (p.showNote && leave.note) details.push({ label: "Note", value: leave.note });
-  if (p.extra) details.push(p.extra);
-
-  const greeting = recipientName ? `Hi ${recipientName},` : "Hi,";
   const approveLink = email.kind === "requested" ? (email.approveLink ?? null) : null;
-  const action = approveLink ? "Review or decline it in OOOhm" : p.action;
+  const extra = p.extra && `${p.extra.label}: ${p.extra.quoted ? quoted(p.extra.value) : p.extra.value}`;
+
+  const actions: EmailButton[] = approveLink
+    ? [
+        { label: "Approve", href: approveLink, variant: "primary" },
+        { label: "Open in OOOhm", href: link, variant: "quiet" },
+      ]
+    : [{ label: email.kind === "requested" ? "Review in OOOhm" : "Open in OOOhm", href: link, variant: "primary" }];
+
+  const approveNote = approveLink
+    ? "The Approve link is for you alone and stops working once the request is decided. To decline, open the request in OOOhm."
+    : null;
   const text = [
-    greeting,
+    p.lead.map((s) => s.text).join(""),
+    ...(p.quote ? ["", quoted(p.quote)] : []),
+    ...(p.overlap ? ["", p.overlap] : []),
+    ...(extra ? ["", extra] : []),
     "",
-    p.intro,
-    "",
-    ...details.map((d) => `${d.label}: ${d.value}`),
-    "",
-    ...(approveLink ? [`Approve: ${approveLink}`] : []),
-    `${action}: ${link}`,
+    ...(approveLink
+      ? [`Approve: ${approveLink}`, `Decline or look closer in OOOhm: ${link}`]
+      : [`${actions[0].label}: ${link}`]),
+    ...(approveNote ? ["", approveNote] : []),
     "",
   ].join("\n");
 
-  const rows = details
-    .map(
-      (d) =>
-        `<tr><td style="padding:2px 16px 2px 0;color:#78716c;vertical-align:top">${escapeHtml(d.label)}</td>` +
-        `<td style="padding:2px 0;white-space:pre-wrap">${escapeHtml(d.value)}</td></tr>`,
-    )
-    .join("");
-  const html =
-    `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1c1917;line-height:1.5;max-width:480px">` +
-    `<p>${escapeHtml(greeting)}</p>` +
-    `<p>${escapeHtml(p.intro)}</p>` +
-    `<table style="border-collapse:collapse;margin:16px 0">${rows}</table>` +
-    (approveLink
-      ? `<p><a href="${escapeHtml(approveLink)}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">Approve</a></p>`
+  const lead = p.lead.map((s) => (s.bold ? `<b style="font-weight:600">${escapeHtml(s.text)}</b>` : escapeHtml(s.text))).join("");
+  const body =
+    paragraph(lead) +
+    (p.quote ? paragraph(escapeHtml(quoted(p.quote)), `color:${BODY};white-space:pre-wrap`) : "") +
+    (p.overlap ? paragraph(dot(accent) + escapeHtml(p.overlap), `color:${BODY};font-size:15px`) : "") +
+    (p.extra
+      ? paragraph(
+          `<span style="color:${MUTED}">${escapeHtml(p.extra.label)}:</span> ` +
+            escapeHtml(p.extra.quoted ? quoted(p.extra.value) : p.extra.value),
+          `color:${BODY};white-space:pre-wrap`,
+        )
       : "") +
-    `<p><a href="${escapeHtml(link)}" style="color:#0f766e">${escapeHtml(action)}</a></p>` +
-    `</div>`;
+    buttons(actions, accent);
 
-  return { subject: p.subject, text, html };
+  return { subject: p.subject, text, html: emailDocument(body, accent, approveNote ? escapeHtml(approveNote) : undefined) };
 }

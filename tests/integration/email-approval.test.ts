@@ -5,7 +5,7 @@ import * as schema from "@/db/schema";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { approveFromEmail, approveLinkFor, readEmailApproval } from "@/server/services/email-approval";
 import { getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
-import { auditFor, eventsFor, seedCompany } from "./fixtures";
+import { auditFor, eventsFor, seedCompany, REVIEW_SUBJECT } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 describe("approve from the email", { skip }, () => {
@@ -28,7 +28,7 @@ describe("approve from the email", { skip }, () => {
     const ctx = createTestContext(t.db, { now: NOW });
     const req = await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: co.pto, startDate: "2026-11-09", dayPortion: "full", note: "Trip" });
     await ctx.settle();
-    const mail = ctx.sent.find((m) => m.subject === "Time off request to review");
+    const mail = ctx.sent.find((m) => REVIEW_SUBJECT.test(m.subject));
     assert.ok(mail, "the approver got the request email");
     const link = mail.text.match(/^Approve: (\S+)$/m)?.[1] ?? "";
     assert.ok(link?.startsWith("https://ooohm.test/approve/"), String(link));

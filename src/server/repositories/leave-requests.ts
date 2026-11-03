@@ -47,12 +47,7 @@ export async function countRecentRequests(ex: Executor, userId: string, minutes:
   const [row] = await ex
     .select({ n: count() })
     .from(leaveRequests)
-    .where(
-      and(
-        eq(leaveRequests.userId, userId),
-        gt(leaveRequests.createdAt, sql`now() - make_interval(mins => ${minutes})`),
-      ),
-    );
+    .where(and(eq(leaveRequests.userId, userId), gt(leaveRequests.createdAt, sql`now() - make_interval(mins => ${minutes})`)));
   return row?.n ?? 0;
 }
 
@@ -141,11 +136,7 @@ export async function listPendingSelfRouted(ex: Executor, companyId: string): Pr
     .select()
     .from(leaveRequests)
     .where(
-      and(
-        eq(leaveRequests.companyId, companyId),
-        eq(leaveRequests.status, "pending"),
-        eq(leaveRequests.approverId, leaveRequests.userId),
-      ),
+      and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.status, "pending"), eq(leaveRequests.approverId, leaveRequests.userId)),
     )
     .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
 }
@@ -181,6 +172,25 @@ const requester = alias(user, "requester");
 /** The key part values of a `[start_date, created_at, id]` page key. */
 const dateInstantId = ([date, at, id]: string[]) => [sql`${date}::date`, sql`${at}::timestamptz`, sql`${id}::uuid`];
 
+/** What a person sees of their own request, with the leave type and approver named. */
+const ownRequestFields = {
+  id: leaveRequests.id,
+  cursor: cursorInstant(leaveRequests.createdAt),
+  startDate: leaveRequests.startDate,
+  endDate: leaveRequests.endDate,
+  dayPortion: leaveRequests.dayPortion,
+  days: leaveRequests.days,
+  status: leaveRequests.status,
+  note: leaveRequests.note,
+  decisionNote: leaveRequests.decisionNote,
+  createdAt: leaveRequests.createdAt,
+  decidedAt: leaveRequests.decidedAt,
+  leaveTypeName: leaveTypes.name,
+  leaveTypeColor: leaveTypes.color,
+  approverId: leaveRequests.approverId,
+  approverName: approver.name,
+};
+
 /**
  * A page of a person's own requests, latest dates first (then latest sent), with
  * display names resolved. Keyed on `[start_date, created_at, id]`; `cursor` is
@@ -189,27 +199,24 @@ const dateInstantId = ([date, at, id]: string[]) => [sql`${date}::date`, sql`${a
 export async function listRequestsForUser(ex: Executor, companyId: string, userId: string, limit: number, page?: PageRequest) {
   const keyset = keysetPage("desc", [leaveRequests.startDate, leaveRequests.createdAt, leaveRequests.id], page, dateInstantId);
   return ex
-    .select({
-      id: leaveRequests.id,
-      cursor: cursorInstant(leaveRequests.createdAt),
-      startDate: leaveRequests.startDate,
-      endDate: leaveRequests.endDate,
-      dayPortion: leaveRequests.dayPortion,
-      days: leaveRequests.days,
-      status: leaveRequests.status,
-      note: leaveRequests.note,
-      decisionNote: leaveRequests.decisionNote,
-      leaveTypeName: leaveTypes.name,
-      leaveTypeColor: leaveTypes.color,
-      approverId: leaveRequests.approverId,
-      approverName: approver.name,
-    })
+    .select(ownRequestFields)
     .from(leaveRequests)
     .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
     .leftJoin(approver, eq(approver.id, leaveRequests.approverId))
     .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId), keyset.where))
     .orderBy(...keyset.orderBy)
     .limit(limit);
+}
+
+/** One of a person's own requests, as {@link listRequestsForUser} reads them, or `undefined` (someone else's included). */
+export async function findRequestOfUser(ex: Executor, companyId: string, userId: string, id: string) {
+  const [row] = await ex
+    .select(ownRequestFields)
+    .from(leaveRequests)
+    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
+    .leftJoin(approver, eq(approver.id, leaveRequests.approverId))
+    .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId)));
+  return row;
 }
 
 /** Who is asking for the inbox, and whether they see every pending request in the company. */
@@ -291,7 +298,11 @@ export async function lockActiveRequestsOnDates(
 ): Promise<LeaveRequestRow[]> {
   let where: SQL | undefined;
   if ("from" in dates) {
-    where = and(eq(leaveRequests.companyId, companyId), inArray(leaveRequests.status, ["pending", "approved"]), gte(leaveRequests.endDate, dates.from));
+    where = and(
+      eq(leaveRequests.companyId, companyId),
+      inArray(leaveRequests.status, ["pending", "approved"]),
+      gte(leaveRequests.endDate, dates.from),
+    );
   } else {
     if (dates.length === 0) return [];
     const sorted = [...dates].sort();

@@ -78,8 +78,12 @@ export const subtleButton = `rounded-md text-sm text-muted hover:text-foreground
 /** The "Yes, …" of a question that replaces something rather than removing it. */
 export const confirmButton = `rounded-md text-sm font-medium text-foreground hover:underline underline-offset-4 disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
 
-/** A quiet text action that removes or switches something off. */
-export const dangerButton = `rounded-md text-sm font-medium ${errorText} hover:text-danger-strong disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
+/**
+ * A quiet text action that removes or switches something off. On hover it gains a faint
+ * danger background and an underline, so it reads as something to click; the padding is
+ * taken back with negative margins, so it sits where plain text would.
+ */
+export const dangerButton = `-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 text-sm font-medium ${errorText} underline-offset-4 transition-colors hover:bg-danger-soft hover:text-danger-strong hover:underline disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
 
 /** A link inside running text. */
 export const textLink = `rounded-md underline-offset-4 hover:underline ${focusRing}`;

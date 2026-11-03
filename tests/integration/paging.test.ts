@@ -5,8 +5,16 @@ import { and, asc, eq, like, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { encodePageKey, type PageCursor, type Paged } from "@/domain/paging";
 import { listPeople, PEOPLE_PAGE_SIZE } from "@/server/services/admin-people";
-import { getDashboard, REQUESTS_PAGE_SIZE } from "@/server/services/leave-requests";
+import {
+  cancelLeaveRequest,
+  DASHBOARD_REQUESTS,
+  getDashboard,
+  getMyRequest,
+  listMyRequests,
+  REQUESTS_PAGE_SIZE,
+} from "@/server/services/leave-requests";
 import { createWebhookEndpoint, DELIVERIES_PAGE_SIZE, getWebhookEndpoint } from "@/server/services/webhooks";
+import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
@@ -126,12 +134,61 @@ describe("long lists page by their keys", { skip }, () => {
       .map((r) => r.id);
     await walk(
       async (page) => {
-        const d = await getDashboard(ctx, co.people.ana, page);
-        return { items: d.requests, ...d.requestPages };
+        const r = await listMyRequests(ctx, co.people.ana, page);
+        return { items: r.items, previous: r.previous, next: r.next };
       },
       expected,
       REQUESTS_PAGE_SIZE,
     );
+  });
+
+  test("the dashboard shows the latest few requests and says when there are more; each opens for its owner only", async () => {
+    const co = await seedCompany(t.db, { ana: {}, bo: {} });
+    const other = await seedCompany(t.db, { cy: {} });
+    const ctx = createTestContext(t.db);
+    const book = (userId: string, n: number, status: "approved" | "pending" | "rejected" = "approved") =>
+      t.db
+        .insert(schema.leaveRequests)
+        .values(
+          Array.from({ length: n }, (_, i) => ({
+            companyId: co.companyId,
+            userId,
+            leaveTypeId: co.pto,
+            startDate: `2026-12-${String(1 + i).padStart(2, "0")}`,
+            endDate: `2026-12-${String(1 + i).padStart(2, "0")}`,
+            dayPortion: "full" as const,
+            days: 1,
+            status,
+          })),
+        )
+        .returning();
+
+    const few = await book(co.people.bo.id, DASHBOARD_REQUESTS);
+    const bo = await getDashboard(ctx, co.people.bo);
+    assert.deepEqual([bo.requests.length, bo.moreRequests], [DASHBOARD_REQUESTS, false], "exactly the dashboard's worth: nothing more");
+
+    await book(co.people.ana.id, DASHBOARD_REQUESTS + 2);
+    const ana = await getDashboard(ctx, co.people.ana);
+    assert.deepEqual([ana.requests.length, ana.moreRequests], [DASHBOARD_REQUESTS, true]);
+    assert.deepEqual(
+      ana.requests.map((r) => r.startDate),
+      ["2026-12-07", "2026-12-06", "2026-12-05", "2026-12-04", "2026-12-03"],
+      "the latest dates first",
+    );
+
+    // A request opens for its owner, with whether it can be cancelled; nobody else's does.
+    const mine = await getMyRequest(ctx, co.people.bo, few[0].id);
+    assert.deepEqual(
+      [mine.request.id, mine.request.cancellable, mine.timezone],
+      [few[0].id, true, "America/Chicago"],
+      "with the company's zone for its dates",
+    );
+    await rejectsWith(getMyRequest(ctx, co.people.ana, few[0].id), "not_found");
+    await rejectsWith(getMyRequest(ctx, other.people.cy, few[0].id), "not_found");
+    await rejectsWith(getMyRequest(ctx, co.people.bo, "not-an-id"), "not_found");
+    await cancelLeaveRequest(ctx, co.people.bo, few[0].id);
+    const cancelled = await getMyRequest(ctx, co.people.bo, few[0].id);
+    assert.deepEqual([cancelled.request.status, cancelled.request.cancellable], ["cancelled", false]);
   });
 
   test("webhook deliveries: newest first; same instant, then id", async () => {

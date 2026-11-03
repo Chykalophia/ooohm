@@ -60,7 +60,7 @@ function DayCell({ day }: { day: CalendarDay }) {
           <ul className="space-y-1">
             {day.entries.map((entry) => (
               <li key={entry.id}>
-                <LeaveChip entry={entry} />
+                <LeaveChip entry={entry} href={`/requests/${entry.id}`} />
               </li>
             ))}
           </ul>
@@ -80,11 +80,17 @@ function AgendaRow({ item }: { item: AgendaItem }) {
     );
   }
   const { entry } = item;
+  // The whole row opens the request: its dates are the link, stretched over the row.
   return (
-    <Item className="flex items-start justify-between gap-3">
+    <Item className="relative flex items-start justify-between gap-3 transition-colors hover:bg-background">
       <div className="min-w-0 space-y-1">
         <ColorLabel color={entry.leaveTypeColor} className="font-medium">
-          {formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}
+          <Link
+            href={`/requests/${entry.id}`}
+            className="outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+          >
+            {formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}
+          </Link>
         </ColorLabel>
         <p className="text-sm text-muted">{entry.leaveTypeName}</p>
       </div>

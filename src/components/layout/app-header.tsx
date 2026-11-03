@@ -6,7 +6,8 @@ import { buttonClass, cx, focusRing } from "@/components/ui/styles";
 import { AccountMenu } from "./account-menu";
 import { Logo } from "./logo";
 
-export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "admin" | "account";
+/** Which header link marks the page. "requests" (Your requests) is reached from the account menu, so no link is marked. */
+export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "admin" | "account" | "requests";
 
 /** Whether to show the Approvals link, and how many requests wait there. */
 export type ApprovalNav = { visible: boolean; pending: number };

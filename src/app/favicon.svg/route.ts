@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { appearanceAccent, faviconSvg } from "@/lib/brand-mark";
+import { appearanceAccent, appearanceDarkAccent, faviconSvg } from "@/lib/brand-mark";
 import { serviceContext } from "@/server/runtime";
 import { getAppearance } from "@/server/services/appearance";
 
@@ -10,8 +10,8 @@ import { getAppearance } from "@/server/services/appearance";
  */
 export async function GET() {
   await connection();
-  const accent = appearanceAccent(await getAppearance(serviceContext()));
-  return new Response(faviconSvg(accent), {
+  const appearance = await getAppearance(serviceContext());
+  return new Response(faviconSvg(appearanceAccent(appearance), appearanceDarkAccent(appearance)), {
     headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=300" },
   });
 }

@@ -157,7 +157,7 @@ export function InlineAction({
           )}
           <div className="flex flex-wrap items-center gap-4">
             <button type="submit" disabled={pending} className={style} aria-label={confirm ? undefined : ariaLabel}>
-              {pending ? pendingLabel : confirm ? (confirmLabel ?? "Yes") : label}
+              {pending ? <PendingLabel label={pendingLabel} /> : confirm ? (confirmLabel ?? "Yes") : label}
             </button>
             {confirm && (
               <button

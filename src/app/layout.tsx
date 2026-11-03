@@ -23,7 +23,10 @@ export const metadata: Metadata = {
   // fallback for browsers without SVG icons. Listing icons here replaces the ones Next
   // would add from files, so the home-screen icon (apple-icon.tsx) is listed too.
   icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
     apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
   },
 };

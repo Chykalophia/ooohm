@@ -3,7 +3,7 @@
  * company's accent. Pure; the favicon route, the home-screen icon and the header mark
  * all draw from here so they never drift apart.
  */
-import { type Appearance, THEMES } from "@/domain/appearance";
+import { type Appearance, THEMES, followsDarkMode } from "@/domain/appearance";
 import { accentTokens } from "./appearance";
 import { contrastRatio, normalizeHexColor } from "./color";
 
@@ -18,7 +18,8 @@ export const OHM_SCALE = 0.78;
  * against it is lightened for dark mode.
  */
 export const DARK_TAB = "#202124";
-const DARK_TAB_CONTRAST = 2;
+/** WCAG 1.4.11: graphical objects need 3:1 against what is next to them. */
+const DARK_TAB_CONTRAST = 3;
 
 export interface MarkColors {
   tile: string;
@@ -39,13 +40,24 @@ export function appearanceAccent(appearance: Appearance): string {
   return normalizeHexColor(appearance.accentColor ?? THEMES[appearance.theme].accent);
 }
 
+/**
+ * Classic's dark-mode accent (`--accent` under `[data-scheme="auto"]` in globals.css),
+ * so the favicon matches the header mark when the app itself is dark.
+ */
+export const CLASSIC_DARK_ACCENT = "#2dd4bf";
+
+/** The accent the app switches to in dark mode, or null when it keeps one accent. */
+export function appearanceDarkAccent(appearance: Appearance): string | null {
+  return followsDarkMode(appearance) ? CLASSIC_DARK_ACCENT : null;
+}
+
 /** Tile and Ω colours for a light tab bar or page. */
 export function markColors(accent: string): MarkColors {
   const t = accentTokens(accent);
   return { tile: t.accent, mark: t.accentForeground };
 }
 
-/** Tile and Ω colours for a dark tab bar: the accent, lightened until it stands apart from it. */
+/** Tile and Ω colours for a dark tab bar: the accent, lightened until it reaches 3:1 against it. */
 export function darkMarkColors(accent: string): MarkColors {
   let tile = normalizeHexColor(accent);
   for (let step = 1; step <= 10 && contrastRatio(tile, DARK_TAB) < DARK_TAB_CONTRAST; step++) {
@@ -61,12 +73,12 @@ export const OHM_OFFSET = Math.round(((32 - 32 * OHM_SCALE) / 2) * 100) / 100;
  * The favicon as SVG. It carries its own dark-mode colours, so browsers that follow the
  * system scheme in favicons keep it visible on a dark tab bar.
  */
-export function faviconSvg(accent: string): string {
+export function faviconSvg(accent: string, darkAccent: string | null = null): string {
   const light = markColors(accent);
-  const dark = darkMarkColors(accent);
+  const dark = darkMarkColors(darkAccent ?? accent);
   const style =
     `.t{fill:${light.tile}}.m{stroke:${light.mark}}` +
-    (dark.tile === light.tile ? "" : `@media (prefers-color-scheme:dark){.t{fill:${dark.tile}}.m{stroke:${dark.mark}}}`);
+    (dark.tile === light.tile && dark.mark === light.mark ? "" : `@media (prefers-color-scheme:dark){.t{fill:${dark.tile}}.m{stroke:${dark.mark}}}`);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">` +
     `<style>${style}</style>` +

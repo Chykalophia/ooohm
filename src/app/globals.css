@@ -384,7 +384,7 @@ body,
 }
 @media (prefers-reduced-motion: reduce) {
   .ooo-loading {
-    animation: none;
+    animation-duration: 0s;
   }
 }
 @keyframes ooo-breathe {

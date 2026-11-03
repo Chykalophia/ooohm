@@ -88,7 +88,7 @@ paint is right with no script and automatic switches as the device does. Colours
 display preference of the person's own, so changing it writes no audit row or event.
 
 **Long lists.** Every list that grows with use is paged, never capped: the audit log (25 a page), people (50, by
-name), your requests on the dashboard (10, latest dates first), approvals (10, earliest first) and an endpoint's
+name), "Your requests" (10, latest dates first), approvals (10, earliest first) and an endpoint's
 webhook deliveries (25). Short lists that stay small by nature (departments, leave types, a year's holidays, API
 keys, calendar links, webhook endpoints, which stop at 20) are not. Pages are keyset, both ways
 (`src/domain/paging.ts`): a page is the `size + 1` rows just after (or, for Previous, just before) the sort key of
@@ -420,9 +420,17 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 ### Screens
 
 - `/` (dashboard): the request form (the one primary action) with its live preview, the person's balance per
-  active leave type for the current year, and their own requests with a two-step cancel. A decision note shows under approved and declined requests. Defaults: first active leave type by
+  active leave type for the current year, and their latest five requests (with a link to all of them). Defaults: first active leave type by
   sort order, the first working day (not a holiday) from today in the company's time zone (`nextWorkingDay`),
   end = start, full day.
+- `/requests` ("Your requests", in the account menu): every request the person has sent, latest dates first, ten a
+  page. Each is a card (`RequestCard`, shared with the dashboard) that opens `/requests/[id]`; the whole card is the
+  link (its dates, stretched over it) and lifts on hover. While a request can be cancelled (pending or approved,
+  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`, two steps, saying what happens:
+  days back to the balance for approved leave, and the approver is told unless the person approves their own).
+- `/requests/[id]`: one of the person's own requests in full (type, days, who it waits for or who decided it,
+  when it was sent and decided, both notes) with Cancel request. Someone else's request is a 404, as an unknown one
+  is. The personal calendar's chips and agenda rows link here.
 - `/approvals`: pending requests the person can decide (assigned to them; admins see every pending request
   in the company, each marked with who it is assigned to), earliest dates first, each with Approve / Decline
   and an optional reason the requester sees either way. Ten a page, with Previous and Next; when there is more

@@ -20,6 +20,7 @@ import {
   lockLeaveRequest,
   insertLeaveRequest,
   type LeaveRequestRow,
+  findRequestOfUser,
   listRequestsForUser,
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
@@ -35,8 +36,11 @@ export interface SubmitLeaveInput extends LeaveDraft {
   note?: string | null;
 }
 
-/** Requests per page of the dashboard's list: the coming ones and the latest few. */
+/** Requests per page of "Your requests". */
 export const REQUESTS_PAGE_SIZE = 10;
+
+/** How many of a person's requests the dashboard shows; the rest are on "Your requests". */
+export const DASHBOARD_REQUESTS = 5;
 
 /** A requests page's key: `[start_date, created_at, id]`. */
 const REQUEST_KEY = [isCalendarDate, isCursorInstant, isUuid] as const;
@@ -203,8 +207,56 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
 }
 
 /**
+ * A page of the actor's own requests for "Your requests", latest dates first, each with
+ * whether it can be cancelled today ({@link canCancelOn}): the company (its time zone,
+ * for today) and the page, in parallel.
+ *
+ * @param page From a previous page's `previous` or `next`; the first page when absent.
+ * @throws DomainError `no_company`.
+ */
+export async function listMyRequests(ctx: ServiceContext, actor: Actor, page?: PageCursor) {
+  const [settings, requests] = await Promise.all([
+    findCompanySettings(ctx.db, actor.companyId),
+    readPage({
+      cursor: page,
+      size: REQUESTS_PAGE_SIZE,
+      checks: REQUEST_KEY,
+      read: (request, limit) => listRequestsForUser(ctx.db, actor.companyId, actor.id, limit, request),
+      keyOf: (r) => [r.startDate, r.cursor, r.id],
+    }),
+  ]);
+  if (!settings) throw new DomainError("no_company");
+  const today = todayInTimeZone(settings.timezone, ctx.now());
+  return {
+    items: requests.items.map((r) => ({ ...r, cancellable: canCancelOn(r, today) })),
+    previous: requests.previous,
+    next: requests.next,
+  };
+}
+
+/**
+ * One of the actor's own requests in full, for its own page: the leave, who decides it
+ * and what they said, when it was sent and decided (with the company's time zone to
+ * show those in), and whether it can be cancelled today.
+ *
+ * @throws DomainError `not_found` (not a request of theirs, someone else's included),
+ *   `no_company`.
+ */
+export async function getMyRequest(ctx: ServiceContext, actor: Actor, id: string) {
+  if (!isUuid(id)) throw new DomainError("not_found");
+  const [settings, request] = await Promise.all([
+    findCompanySettings(ctx.db, actor.companyId),
+    findRequestOfUser(ctx.db, actor.companyId, actor.id, id),
+  ]);
+  if (!settings) throw new DomainError("no_company");
+  if (!request) throw new DomainError("not_found");
+  const today = todayInTimeZone(settings.timezone, ctx.now());
+  return { request: { ...request, cancellable: canCancelOn(request, today) }, timezone: settings.timezone };
+}
+
+/**
  * Everything the dashboard renders for the actor, in one call, in six queries
- * whatever the number of types or requests:
+ * whatever the number of types or requests (its latest few requests among them):
  * company settings, leave types and the actor's requests in parallel; then
  * the balances' allowance rows and booked-day sums, and the look-ahead holidays, in
  * parallel. The form's leave types and the balances share the one leave-type read.
@@ -215,17 +267,12 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
  *
  * @throws DomainError `no_company` when the actor's company is missing.
  */
-export async function getDashboard(ctx: ServiceContext, actor: Actor, requestsPage?: PageCursor) {
+export async function getDashboard(ctx: ServiceContext, actor: Actor) {
   const [settings, types, requests] = await Promise.all([
     findCompanySettings(ctx.db, actor.companyId),
     listLeaveTypesWithAllowance(ctx.db, actor.companyId),
-    readPage({
-      cursor: requestsPage,
-      size: REQUESTS_PAGE_SIZE,
-      checks: REQUEST_KEY,
-      read: (request, limit) => listRequestsForUser(ctx.db, actor.companyId, actor.id, limit, request),
-      keyOf: (r) => [r.startDate, r.cursor, r.id],
-    }),
+    // One more than shown, to know whether "Your requests" holds more.
+    listRequestsForUser(ctx.db, actor.companyId, actor.id, DASHBOARD_REQUESTS + 1),
   ]);
   if (!settings) throw new DomainError("no_company");
   const now = ctx.now();
@@ -245,12 +292,12 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor, requestsPa
   ]);
   return {
     /**
-     * The person's requests, each with whether it can be cancelled today: the status
-     * machine allows it and it is not approved leave of a closed year.
+     * The person's latest {@link DASHBOARD_REQUESTS} requests (latest dates first), each
+     * with whether it can be cancelled today ({@link canCancelOn}).
      */
-    requests: requests.items.map((r) => ({ ...r, cancellable: canCancelOn(r, today) })),
-    /** The pages of {@link REQUESTS_PAGE_SIZE} requests either side of this one. */
-    requestPages: { previous: requests.previous, next: requests.next },
+    requests: requests.slice(0, DASHBOARD_REQUESTS).map((r) => ({ ...r, cancellable: canCancelOn(r, today) })),
+    /** Whether the person has more requests than the dashboard shows. */
+    moreRequests: requests.length > DASHBOARD_REQUESTS,
     /**
      * The form's default start date: the first working day from today (in the
      * company's time zone), so the pre-filled request is never worth zero days.

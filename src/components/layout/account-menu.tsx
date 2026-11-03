@@ -15,7 +15,7 @@ const quietItem = cx(row, "text-muted hover:text-foreground");
 
 /**
  * The signed-in person's name in the header, opening their personal options: their
- * account settings, calendar subscriptions (members of a company only) and sign out.
+ * requests, account settings, calendar subscriptions (members of a company only) and sign out.
  *
  * A disclosure, not an ARIA menu: a button that shows a short list of ordinary links,
  * which keyboard and screen reader users already know how to use. Escape closes it and
@@ -83,6 +83,16 @@ export function AccountMenu({ userName, member, active }: { userName: string; me
           <ul className="space-y-0.5">
             {member && (
               <>
+                <li>
+                  <Link
+                    href="/requests"
+                    onClick={() => setOpen(false)}
+                    className={item}
+                    aria-current={pathname === "/requests" ? "page" : pathname.startsWith("/requests/") ? "true" : undefined}
+                  >
+                    Your requests
+                  </Link>
+                </li>
                 <li>
                   <Link
                     href="/account"

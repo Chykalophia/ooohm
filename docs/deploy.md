@@ -398,8 +398,7 @@ The milestone is done when all of these hold:
 - [ ] **TimeOff.Management is shut down**: its service stopped and disabled, its DNS record removed or pointed at
       OOOhm, and its final SQLite file archived (encrypted) with the import report. Delete
       `/srv/ooohm-import/timeoff.sqlite` from the OOOhm server.
-- [ ] The ClickUp task for M7 is set to its terminal status, and `LIVE: ooohm.team` is posted in the client
-      channel.
+- [ ] The team knows the new address, and the old system's bookmarks point at it.
 
 ## Trying the production stack locally
 

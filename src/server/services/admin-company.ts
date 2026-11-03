@@ -89,7 +89,5 @@ export async function updateCompanySettings(ctx: ServiceContext, actor: Actor, i
  * @throws DomainError `forbidden`, `no_company`, or `invalid_input`.
  */
 export async function updateCompanyAppearance(ctx: ServiceContext, actor: Actor, input: AppearanceInput): Promise<CompanyRow> {
-  assertCanAdminister(actor);
-  const appearance = normalizeAppearance(input);
-  return saveCompany(ctx, actor, () => appearance);
+  return saveCompany(ctx, actor, () => normalizeAppearance(input));
 }

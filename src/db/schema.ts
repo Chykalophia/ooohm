@@ -48,6 +48,21 @@ export const dayPortionEnum = pgEnum("day_portion", ["full", "am", "pm"]);
 
 // Tenancy
 
+/**
+ * One row once the first install has run, by the web setup (`/setup`) or `pnpm db:seed`.
+ * From then on the web setup is closed for good, whatever `SETUP_TOKEN` says.
+ */
+export const installation = pgTable(
+  "installation",
+  {
+    id: integer("id").primaryKey().default(1),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+    /** How it was done: `setup` (the web page) or `seed` (the CLI). */
+    method: text("method").notNull(),
+  },
+  (t) => [check("installation_single_row", sql`${t.id} = 1`)],
+);
+
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),

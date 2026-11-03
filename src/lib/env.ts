@@ -21,6 +21,12 @@ const schema = z.object({
    * Optional: the route refuses every call while it is unset.
    */
   CRON_SECRET: z.string().min(32, "CRON_SECRET must be at least 32 characters (openssl rand -hex 32)").optional(),
+  /**
+   * Turns on the web setup (`/setup`) of a brand-new install: whoever creates the first
+   * admin there must give this. Optional: unset, setup is off. Once anything is set up,
+   * setup closes for good whatever this says, so remove it afterwards.
+   */
+  SETUP_TOKEN: z.string().min(32, "SETUP_TOKEN must be at least 32 characters (openssl rand -hex 32)").optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
 

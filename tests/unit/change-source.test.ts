@@ -30,6 +30,7 @@ test("process identifiers are stable strings; an adapter sync carries its adapte
     "holiday_change",
     "working_days_change",
     "email_link",
+    "first_install",
   ]);
   assert.equal(adapterSyncProcess("gusto"), "adapter_sync:gusto");
   assert.equal(adapterIdOf("adapter_sync:gusto"), "gusto");

@@ -75,8 +75,8 @@ Optional: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (redirect URI `https://o
 ## 4. Connect the GitHub repository (5 min)
 
 **Project → Settings → Git → Connect Git Repository**: the OOOhm repository, production branch `main`. Pushes to `main`
-deploy to production. Vercel detects Next.js and runs `pnpm install`, then the `vercel-build` script (migrate, then
-`next build`); no build settings need changing.
+deploy to production. Vercel detects Next.js and runs `pnpm install`, then the `vercel-build` script (migrate, seed
+when `SEED_ADMIN_EMAIL` is set, then `next build`); no build settings need changing.
 
 ## 5. The domain (10 min, then DNS)
 
@@ -108,24 +108,46 @@ On Vercel the app delivers webhooks itself, right after each change (`inline`). 
 `"*/5 * * * *"` so retries go out within minutes. Check it under **Settings → Cron Jobs**; **Run** sends one now, and
 its log line is `cron_tick` with counts.
 
-## 8. Seed the first admin (10 min)
+## 8. Set up the company and the first admin (5 min)
 
-Run the seed from your machine against the direct URL. Pull the production variables into a scratch file **outside
-the repository**, and delete it afterwards:
+In the browser, once email works (step 9: the first admin signs in with an emailed link).
+
+1. Make a setup token, add it, and redeploy so the deployment reads it:
+
+   ```bash
+   SETUP_TOKEN="$(openssl rand -hex 32)"; echo "$SETUP_TOKEN"   # keep it until step 3
+   printf '%s' "$SETUP_TOKEN" | vercel env add SETUP_TOKEN production
+   ```
+
+2. Open `https://ooohm.team/setup`, give the token, the company name, its time zone, your name and
+   your work email. It creates the company, the default leave types (PTO first) and you as its admin, audited
+   as `first_install`, then sends you to sign in with your email filled in.
+3. **Remove the token**: `vercel env rm SETUP_TOKEN production`. Setup is already closed for good (an install marker,
+   plus any company or person, keeps `/setup` a 404 whatever the token says), so this only removes a secret nobody
+   needs any more.
+
+`/setup` is a 404 while `SETUP_TOKEN` is unset and after setup, and a wrong token changes nothing.
+
+**Prefer a command?** `scripts/seed.mts` creates the same company and admin, and closes `/setup` too. Either:
+
+- **Let the deploy run it:** add `SEED_ADMIN_EMAIL` (and optionally `SEED_COMPANY_NAME`, `SEED_ADMIN_NAME`) to
+  Production and redeploy. `vercel-build` runs `scripts/seed.mts --if-production` after migrating; it seeds only on a
+  production build with `SEED_ADMIN_EMAIL` set and while no company exists, so later builds skip it. (`SEED_ON_DEPLOY=force`
+  for one deploy seeds an existing instance anyway; it only fills gaps.)
+- **Or run it yourself:** with the production variables loaded (below),
+  `DATABASE_URL="$DATABASE_URL_UNPOOLED" SEED_ADMIN_EMAIL=<your email> SEED_COMPANY_NAME=<company> pnpm db:seed`.
+
+For step 10 you need the production variables locally anyway:
 
 ```bash
 vercel env pull --environment=production ~/ooohm-prod.env
 grep -n '\\n"' ~/ooohm-prod.env   # must print nothing; see below
 set -a; . ~/ooohm-prod.env; set +a
-DATABASE_URL="$DATABASE_URL_UNPOOLED" SEED_ADMIN_EMAIL=peter@chykalophia.com SEED_COMPANY_NAME=Chykalophia pnpm db:seed
 ```
 
 `vercel env pull` writes a stored newline as the two characters `\n` inside the quotes; the `grep` finds any such
-value, which means the variable was stored dirty: re-add it with `printf '%s'` (step 3) and redeploy. Keep the file
-for step 10, then `rm ~/ooohm-prod.env`.
-
-Open `https://ooohm.team`, enter that address, click the link in the email. The seed is idempotent: running it
-again never changes the admin.
+value, which means the variable was stored dirty: re-add it with `printf '%s'` (step 3) and redeploy. Delete
+`~/ooohm-prod.env` after step 10.
 
 ## 9. Email: SMTP on 587, SPF, DKIM, DMARC (30 min, then DNS)
 
@@ -137,12 +159,12 @@ After changing an `SMTP_*` variable, redeploy: Vercel reads variables when a dep
 ## 10. Import from TimeOff.Management (30 min)
 
 Read [import.md](import.md) and [deploy.md step 11](deploy.md#11-import-from-timeoffmanagement-30-min) first; only
-the commands differ. With `~/ooohm-prod.env` loaded (step 8) and the exported `timeoff.sqlite` on your machine:
+the commands differ. With `~/ooohm-prod.env` loaded (end of step 8) and the exported `timeoff.sqlite` on your machine:
 
 ```bash
-psql "$DATABASE_URL_UNPOOLED" -c "select id, name from companies"      # the seeded company's id
+psql "$DATABASE_URL_UNPOOLED" -c "select id, name from companies"      # the company setup created
 DATABASE_URL="$DATABASE_URL_UNPOOLED" pnpm import:timeoff -- --file ~/timeoff.sqlite --company <id> \
-  --actor peter@chykalophia.com --report ~/ooohm-dry-run.json
+  --actor <your email> --report ~/ooohm-dry-run.json
 # Read the report: every current-year row must say Diff 0. Then the same with --apply.
 ```
 
@@ -189,6 +211,7 @@ The same bar as [deploy.md](deploy.md#17-cutover-checklist):
 
 - [ ] `https://ooohm.team` serves over HTTPS with a valid certificate; `/api/health` answers `{"status":"ok"}`.
 - [ ] Preview deployments are off, or Preview has no database variables (step 2).
+- [ ] `/setup` answers "could not be found", and `SETUP_TOKEN` is removed from the project (step 8).
 - [ ] Sign-in email arrives within a minute and passes SPF, DKIM and DMARC.
 - [ ] **Settings → Cron Jobs** lists `/api/cron/tick`, and a manual run logs `cron_tick`.
 - [ ] Backups run nightly, are copied off the machine, and one restore drill has been done (step 11).

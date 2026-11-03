@@ -28,6 +28,8 @@ export const CHANGE_PROCESSES = {
    * An admin asked for it, so its source names them as `requestedBy`.
    */
   scheduledScrub: "scheduled_scrub",
+  /** The one-click Approve link in a request email. Only ever a `via`: the approver, through the link. */
+  emailLink: "email_link",
 } as const;
 
 const ADAPTER_SYNC_PREFIX = "adapter_sync:";

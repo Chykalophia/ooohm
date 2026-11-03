@@ -139,7 +139,8 @@ Ids are strings. Every payload says who or what made the change in two fields:
   the key (the v1 API is read-only, so none are sent yet). `system` is a process with no person behind it;
   `requestedBy` (added within version 1) is present when a person asked for that run ahead of time (an admin who
   scheduled a deletion), and is not the actor.
-  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`, and
+  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`,
+  `email_link` (added within version 1: an approver who approved from the request email's Approve link), and
   `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`). Expect more; treat an unknown one as
   opaque.
 - **`actorId`** is kept for compatibility: the person, when there is one (`actor.id`), or `null` for a `system`

@@ -19,10 +19,12 @@ import {
   insertLeaveRequest,
   type LeaveRequestRow,
   listRequestsForUser,
+  medianDecisionHours,
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
 import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findMember, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { approveLinkFor } from "./email-approval";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify, type Outgoing } from "./notify";
@@ -131,7 +133,13 @@ export async function submitLeaveRequest(
     } else if (approver && approver.id !== actor.id) {
       mail.push({
         to: approver.email,
-        email: { kind: "requested", recipientName: approver.name, leave, link: `${ctx.appUrl}/approvals` },
+        email: {
+          kind: "requested",
+          recipientName: approver.name,
+          leave,
+          link: `${ctx.appUrl}/approvals`,
+          approveLink: approveLinkFor(ctx, final.id, approver.id),
+        },
       });
     }
     return { result: final, outgoing: mail };
@@ -191,12 +199,16 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
   });
 }
 
+/** How far back "usually decides within…" looks, and how many decisions it needs first. */
+const TYPICAL_WAIT_DAYS = 180;
+const TYPICAL_WAIT_MIN_DECISIONS = 3;
+
 /**
  * Everything the dashboard renders for the actor, in one call, in six queries
- * whatever the number of types or requests:
+ * whatever the number of types or requests (seven while a request waits on someone):
  * company settings, leave types and the actor's requests in parallel; then
- * the balances' allowance rows and booked-day sums, and the look-ahead holidays, in
- * parallel. The form's leave types and the balances share the one leave-type read.
+ * the balances' allowance rows and booked-day sums, the look-ahead holidays and, for
+ * pending requests, their approvers' usual decision times, in parallel. The form's leave types and the balances share the one leave-type read.
  *
  * `balances` is `null` when the company's allowance policy is unknown. That is logged
  * as `allowance_policy_unavailable` and the rest of the dashboard still renders;
@@ -214,7 +226,9 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
   const now = ctx.now();
   const today = todayInTimeZone(settings.timezone, now);
   const lookaheadEnd = fromEpochDay(toEpochDay(today) + WORKING_DAY_LOOKAHEAD - 1);
-  const [balances, holidays] = await Promise.all([
+  // Who has each of my pending requests, and how long they usually take to decide.
+  const waitingOn = [...new Set(requests.filter((r) => r.status === "pending" && r.approverId && r.approverId !== actor.id).map((r) => r.approverId as string))];
+  const [balances, holidays, waits] = await Promise.all([
     summarizeBalances(ctx.db, actor, {
       allowancePolicy: settings.allowancePolicy,
       types,
@@ -225,13 +239,29 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
       return null;
     }),
     listHolidayDates(ctx.db, actor.companyId, today, lookaheadEnd),
+    medianDecisionHours(ctx.db, {
+      companyId: actor.companyId,
+      approverIds: waitingOn,
+      since: new Date(now.getTime() - TYPICAL_WAIT_DAYS * 86_400_000),
+      minSamples: TYPICAL_WAIT_MIN_DECISIONS,
+    }),
   ]);
+  const typicalWait = new Map(waits.map((w) => [w.approverId, w.hours]));
   return {
     /**
      * The person's requests, each with whether it can be cancelled today: the status
      * machine allows it and it is not approved leave of a closed year.
      */
-    requests: requests.map((r) => ({ ...r, cancellable: canCancelOn(r, today) })),
+    requests: requests.map((r) => ({
+      ...r,
+      cancellable: canCancelOn(r, today),
+      /**
+       * For a pending request with someone else: how long its approver usually takes, in
+       * hours (their median over {@link TYPICAL_WAIT_DAYS} days), or `null` with too
+       * little history to say.
+       */
+      typicalWaitHours: r.status === "pending" && r.approverId ? (typicalWait.get(r.approverId) ?? null) : null,
+    })),
     /**
      * The form's default start date: the first working day from today (in the
      * company's time zone), so the pre-filled request is never worth zero days.

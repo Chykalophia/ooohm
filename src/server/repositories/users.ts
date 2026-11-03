@@ -257,3 +257,16 @@ export async function countDepartmentMembers(ex: Executor, departmentId: string)
   const [row] = await ex.select({ n: sql<number>`count(*)::int` }).from(user).where(eq(user.departmentId, departmentId));
   return row?.n ?? 0;
 }
+
+/**
+ * A person by id alone, whatever their company, with what an `Actor` is built from:
+ * for a link that names its person (the approve link in an email) and so carries no
+ * session. Deleted people (tombstones) read as missing.
+ */
+export async function findActorById(ex: Executor, userId: string) {
+  const [row] = await ex
+    .select({ id: user.id, companyId: user.companyId, role: user.role, canSelfApprove: user.canSelfApprove, isActive: user.isActive })
+    .from(user)
+    .where(and(eq(user.id, userId), isNull(user.deletedAt)));
+  return row;
+}

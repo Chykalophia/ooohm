@@ -2,6 +2,7 @@ import "server-only";
 import { after } from "next/server";
 import { db } from "@/db";
 import { issueSignInLink } from "@/lib/auth";
+import { deriveLinkKey } from "@/lib/email-link-token";
 import { env } from "@/lib/env";
 import { createSecretBox } from "@/lib/integration-crypto";
 import { sendMail } from "@/lib/mail";
@@ -33,6 +34,7 @@ export function serviceContext(): ServiceContext {
     mailer: sendMail,
     defer: (task) => after(task),
     appUrl: env.BETTER_AUTH_URL.replace(/\/+$/, ""),
+    linkKey: deriveLinkKey(env.BETTER_AUTH_SECRET),
     now: () => new Date(),
     issueSignInLink,
     secrets,

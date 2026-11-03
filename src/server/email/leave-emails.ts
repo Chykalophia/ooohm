@@ -29,7 +29,14 @@ export interface LeaveSummary {
 }
 
 export type LeaveEmail =
-  | { kind: "requested"; recipientName: string; leave: LeaveSummary; link: string }
+  | {
+      kind: "requested";
+      recipientName: string;
+      leave: LeaveSummary;
+      link: string;
+      /** The one-click approve page for this approver, when the sender can sign one. */
+      approveLink?: string | null;
+    }
   | { kind: "approved"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
   | { kind: "rejected"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
   | { kind: "cancelled_requester"; recipientName: string; leave: LeaveSummary; link: string }
@@ -118,6 +125,8 @@ export function renderLeaveEmail(input: LeaveEmail): EmailContent {
   if (p.extra) details.push(p.extra);
 
   const greeting = recipientName ? `Hi ${recipientName},` : "Hi,";
+  const approveLink = email.kind === "requested" ? (email.approveLink ?? null) : null;
+  const action = approveLink ? "Review or decline it in OOOhm" : p.action;
   const text = [
     greeting,
     "",
@@ -125,7 +134,8 @@ export function renderLeaveEmail(input: LeaveEmail): EmailContent {
     "",
     ...details.map((d) => `${d.label}: ${d.value}`),
     "",
-    `${p.action}: ${link}`,
+    ...(approveLink ? [`Approve: ${approveLink}`] : []),
+    `${action}: ${link}`,
     "",
   ].join("\n");
 
@@ -141,7 +151,10 @@ export function renderLeaveEmail(input: LeaveEmail): EmailContent {
     `<p>${escapeHtml(greeting)}</p>` +
     `<p>${escapeHtml(p.intro)}</p>` +
     `<table style="border-collapse:collapse;margin:16px 0">${rows}</table>` +
-    `<p><a href="${escapeHtml(link)}" style="color:#0f766e">${escapeHtml(p.action)}</a></p>` +
+    (approveLink
+      ? `<p><a href="${escapeHtml(approveLink)}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">Approve</a></p>`
+      : "") +
+    `<p><a href="${escapeHtml(link)}" style="color:#0f766e">${escapeHtml(action)}</a></p>` +
     `</div>`;
 
   return { subject: p.subject, text, html };

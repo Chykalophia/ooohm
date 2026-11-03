@@ -1,6 +1,6 @@
 import { canAdminister } from "@/domain/admin-permissions";
 import { requireActor } from "@/lib/auth";
-import { formatDays, formatLeaveDates } from "@/lib/format";
+import { formatDays, formatLeaveDates, formatTypicalWait } from "@/lib/format";
 import { serviceContext } from "@/server/runtime";
 import { getApprovalNav } from "@/server/services/approvals";
 import { getDashboard } from "@/server/services/leave-requests";
@@ -55,6 +55,7 @@ export default async function HomePage() {
                     <p className="text-sm text-muted">
                       {r.leaveTypeName} · {formatDays(r.days)}
                       {r.status === "pending" && r.approverName && r.approverId !== actor.id && ` · with ${r.approverName}`}
+                      {r.status === "pending" && r.approverName && r.approverId !== actor.id && r.typicalWaitHours !== null && `, who ${formatTypicalWait(r.typicalWaitHours)}`}
                     </p>
                     {r.note && <p className="text-sm text-muted break-words">{r.note}</p>}
                     {r.decisionNote && (

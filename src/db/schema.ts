@@ -68,6 +68,8 @@ export const companies = pgTable("companies", {
   accentColor: text("accent_color"),
   /** `theme`, `square`, `soft` or `round`: overrides the theme's corner radius. */
   corners: text("corners").notNull().default("theme"),
+  /** `REQUEST_STYLES` in src/domain/appearance.ts: how Home asks for time off. */
+  requestStyle: text("request_style").notNull().default("form"),
   ...timestamps,
 });
 

@@ -7,9 +7,11 @@ import { NoCompany } from "@/components/layout/no-company";
 import { BalanceSummary } from "@/components/leave/balance-summary";
 import { Section } from "@/components/ui/section";
 import { quietLink } from "@/components/ui/styles";
+import { requestAppearance } from "./_lib/appearance";
 import { requireMemberPage } from "./_lib/page-context";
 import { HomeHint } from "./home-hint";
 import { RequestLeaveForm } from "./request-leave-form";
+import { RequestLeaveSentence } from "./request-leave-sentence";
 import { RequestList } from "./requests/request-list";
 
 /** Focus lands on this heading after a cancel, when the cancel button itself disappears. */
@@ -21,14 +23,20 @@ export default async function HomePage() {
 
   const { actor } = page;
   // Once someone has approved time off, suggest putting it in their own calendar, until they have.
-  const [dashboard, suggestFeed] = await Promise.all([getDashboard(page.ctx, actor), shouldSuggestCalendarFeed(page.ctx, actor)]);
+  const [dashboard, suggestFeed, appearance] = await Promise.all([
+    getDashboard(page.ctx, actor),
+    shouldSuggestCalendarFeed(page.ctx, actor),
+    requestAppearance(),
+  ]);
+  // The admin's choice under Appearance; both send the same request.
+  const RequestLeave = appearance.requestStyle === "sentence" ? RequestLeaveSentence : RequestLeaveForm;
 
   return (
     <AppPage nav={page.nav} current="home" title="Your time off" titleHidden className="space-y-10">
       {dashboard.leaveTypes.length === 0 ? (
         <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
       ) : (
-        <RequestLeaveForm leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+        <RequestLeave leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
       )}
 
       {dashboard.expiring.length > 0 && dashboard.balances && (

@@ -62,7 +62,10 @@ export interface HtmlAppearance {
  * version ({@link followsDarkMode}: Classic with its own accent); any other look draws
  * light, whatever they chose.
  */
-export function htmlAppearance(appearance: Appearance, colorMode: ColorMode = DEFAULT_COLOR_MODE): HtmlAppearance {
+export function htmlAppearance(
+  appearance: Pick<Appearance, "theme" | "accentColor" | "corners">,
+  colorMode: ColorMode = DEFAULT_COLOR_MODE,
+): HtmlAppearance {
   const attributes: Record<string, string> = { "data-ui": appearance.theme };
   if (appearance.corners !== "theme") attributes["data-corners"] = appearance.corners;
   attributes["data-mode"] = followsDarkMode(appearance) ? colorMode : "light";

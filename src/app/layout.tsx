@@ -15,8 +15,7 @@ import "./globals.css";
 import { colorModeOrDefault } from "@/domain/color-mode";
 import { htmlAppearance } from "@/lib/appearance";
 import { currentUser } from "@/lib/auth";
-import { serviceContext } from "@/server/runtime";
-import { getAppearance } from "@/server/services/appearance";
+import { requestAppearance } from "./_lib/appearance";
 
 export const metadata: Metadata = {
   title: "OOOhm",
@@ -38,7 +37,7 @@ export const metadata: Metadata = {
  */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   await connection();
-  const [appearance, user] = await Promise.all([getAppearance(serviceContext()), currentUser()]);
+  const [appearance, user] = await Promise.all([requestAppearance(), currentUser()]);
   const { attributes, style } = htmlAppearance(appearance, colorModeOrDefault(user?.colorMode));
 
   return (

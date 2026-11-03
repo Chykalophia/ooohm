@@ -75,6 +75,7 @@ export async function insertCompany(
     theme: companies.theme,
     accentColor: companies.accentColor,
     corners: companies.corners,
+    requestStyle: companies.requestStyle,
   });
   return row;
 }

@@ -18,7 +18,8 @@ const VIEWS = ["needs-you", "waiting", "settled"] as const;
 type View = (typeof VIEWS)[number];
 
 function readView(value: string | string[] | undefined): View {
-  return VIEWS.find((v) => v === value) ?? "needs-you";
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return VIEWS.find((v) => v === candidate) ?? "needs-you";
 }
 
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -28,13 +29,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   if (!actor) return <NoCompany userName={userName} current="approvals" />;
 
   const [triage, params] = await Promise.all([getApprovalTriage(serviceContext(), actor), searchParams]);
-  const { needsYou, waiting, settled, total, shown } = triage;
+  const { needsYou, needsYouTotal, waiting, waitingTotal, settled, total } = triage;
   // Waiting on others only exists for admins; a link to an empty tab would only add noise.
-  const view = readView(params.view) === "waiting" && waiting.length === 0 ? "needs-you" : readView(params.view);
+  const view = readView(params.view) === "waiting" && waitingTotal === 0 ? "needs-you" : readView(params.view);
 
   const tabs: { view: View; label: string; count?: number }[] = [
-    { view: "needs-you", label: "Needs you", count: needsYou.length },
-    ...(waiting.length > 0 ? [{ view: "waiting" as const, label: "Waiting on others", count: waiting.length }] : []),
+    { view: "needs-you", label: "Needs you", count: needsYouTotal },
+    ...(waitingTotal > 0 ? [{ view: "waiting" as const, label: "Waiting on others", count: waitingTotal }] : []),
     { view: "settled", label: "Settled" },
   ];
 
@@ -67,17 +68,17 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
             items={needsYou}
             actorId={actor.id}
             empty={
-              waiting.length > 0
-                ? `Nothing needs you right now. ${waiting.length === 1 ? "One request is" : `${waiting.length} requests are`} waiting on someone else.`
+              waitingTotal > 0
+                ? `Nothing needs you right now. ${waitingTotal === 1 ? "One request is" : `${waitingTotal} requests are`} waiting on someone else.`
                 : "Nothing needs you right now."
             }
-            cut={total > shown ? `Showing the first ${shown} of ${total}, earliest dates first. Decide these to see the rest.` : null}
+            cut={cutNote(needsYou.length, needsYouTotal)}
           />
         )}
         {view === "waiting" && (
           <>
             <p className="text-sm text-muted">Assigned to someone else. As an admin you can still decide them.</p>
-            <PendingList items={waiting} actorId={actor.id} empty="Nothing is waiting on anyone else." cut={null} />
+            <PendingList items={waiting} actorId={actor.id} empty="Nothing is waiting on anyone else." cut={cutNote(waiting.length, waitingTotal)} />
           </>
         )}
         {view === "settled" &&
@@ -117,6 +118,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       </main>
     </div>
   );
+}
+
+/** The note above a tab whose list was cut short, or null when it shows everything. */
+function cutNote(shown: number, total: number): string | null {
+  return total > shown ? `Showing the first ${shown} of ${total}, earliest dates first. Decide these to see the rest.` : null;
 }
 
 function PendingList({ items, actorId, empty, cut }: { items: TriageItem[]; actorId: string; empty: string; cut: string | null }) {

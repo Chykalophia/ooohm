@@ -49,25 +49,32 @@ export function CancelRequestButton({ requestId, focusAfterCancel }: { requestId
     return () => clearTimeout(timer);
   }, [secondsLeft, requestId, formAction]);
 
+  // The id the countdown is for, read by the leave-the-page send below without making it
+  // a dependency: a re-render must never count as leaving.
+  const countingFor = useRef(requestId);
+  useEffect(() => {
+    countingFor.current = requestId;
+  }, [requestId]);
+
   // Leaving during the countdown, for another page or by closing the tab, sends the cancel now.
   useEffect(() => {
     if (!counting) return;
-    settled.current = false;
     const sendNow = () => {
       if (settled.current) return;
       settled.current = true;
-      void cancelLeaveAction(IDLE, cancelData(requestId));
+      void cancelLeaveAction(IDLE, cancelData(countingFor.current));
     };
     window.addEventListener("pagehide", sendNow);
     return () => {
       window.removeEventListener("pagehide", sendNow);
       sendNow();
     };
-  }, [counting, requestId]);
+  }, [counting]);
 
   const subtle = "rounded-md text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink";
 
   const start = () => {
+    settled.current = false;
     setSecondsLeft(UNDO_SECONDS);
     // The Cancel button is about to go; Undo takes its place and its focus.
     requestAnimationFrame(() => undoButton.current?.focus());
@@ -89,6 +96,8 @@ export function CancelRequestButton({ requestId, focusAfterCancel }: { requestId
         <>
           <span role="status" className="text-sm text-muted">
             Cancelling<span aria-hidden> in {secondsLeft}s</span>
+            {/* Announced once, not every second. */}
+            <span className="sr-only"> in {UNDO_SECONDS} seconds. Undo keeps it.</span>
           </span>
           <button ref={undoButton} type="button" onClick={undo} className={`${subtle} font-medium text-accent-ink`}>
             Undo

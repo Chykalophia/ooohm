@@ -403,6 +403,14 @@ else's request skip the check (no extra reads).
 
 ### Emails
 
+How mail leaves: services only ever call `ctx.mailer` (`Mailer`, `src/server/context.ts`), which the composition root
+wires to `sendMail` in `src/lib/mail`. That sends through the `MailTransport` that `MAIL_TRANSPORT` names, built on
+first use from `registry.ts`: `smtp` (nodemailer; `smtp-options.ts` decides TLS) or `sendgrid` (one HTTPS request to
+SendGrid's Mail Send API, with click and open tracking off so token links reach people unchanged). A transport
+resolves once its provider accepts the message and throws `MailSendError` (the provider and its answer, never a
+credential) otherwise. Adding a provider is one file implementing `MailTransport` and one registry entry.
+
+
 | Transition | Recipients |
 | --- | --- |
 | Requested (routed) | Approver (not when it is the requester), with who else is off then |

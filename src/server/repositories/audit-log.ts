@@ -1,4 +1,4 @@
-import { and, count, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, count, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { apiKeys, auditLog, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
@@ -18,8 +18,24 @@ export interface AuditQuery {
   timezone: string;
   /** Oldest first instead of newest first. */
   oldestFirst?: boolean;
+  /**
+   * A search, resolved by the service into what each word matched: a row matches a word
+   * when its action is one of the word's `actions`, or it was done by or is about one of
+   * its `people`; it must match every word. A word that matched nothing means no rows.
+   */
+  search?: readonly { actions: readonly string[]; people: readonly string[] }[];
   /** The page: after or before a `[created_at, id]` key (`created_at` as {@link cursorInstant} prints it); the newest when absent. */
   page?: PageRequest;
+}
+
+/** A row matching one resolved search word: by its action, its actor or its subject. Each arm can use its own index. */
+function wordMatches({ actions, people }: { actions: readonly string[]; people: readonly string[] }) {
+  const arms = [
+    actions.length > 0 ? inArray(auditLog.action, [...actions]) : undefined,
+    people.length > 0 ? inArray(auditLog.actorId, [...people]) : undefined,
+    people.length > 0 ? inArray(auditLog.subjectUserId, [...people]) : undefined,
+  ].filter((arm) => arm !== undefined);
+  return arms.length > 0 ? or(...arms) : sql`false`;
 }
 
 const actor = alias(user, "actor");
@@ -75,6 +91,7 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
         q.action ? eq(auditLog.action, q.action) : undefined,
         q.actorId ? eq(auditLog.actorId, q.actorId) : undefined,
         q.subjectUserId ? eq(auditLog.subjectUserId, q.subjectUserId) : undefined,
+        ...(q.search ?? []).map(wordMatches),
         q.from ? gte(auditLog.createdAt, dayStart(q.from)) : undefined,
         q.to ? lt(auditLog.createdAt, sql`(${q.to}::date + 1)::timestamp at time zone ${q.timezone}`) : undefined,
         page.where,

@@ -183,6 +183,41 @@ describe("admin: audit log viewer", { skip }, () => {
     for (const size of [0, 7, 1000, Number.NaN]) assert.deepEqual([(await all({ size })).size], [25], String(size));
   });
 
+  test("search: every word must match the change's name, who made it or who it is about; filters still apply", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {}, ben: {} });
+    const ctx = createTestContext(t.db);
+    const { boss, ana, ben } = co.people;
+    const row = (action: string, actorId: string | null, subjectUserId: string | null, minute: number) => ({
+      companyId: co.companyId,
+      action,
+      actorId,
+      subjectUserId,
+      at: `2026-10-01T12:${String(minute).padStart(2, "0")}:00Z`,
+    });
+    await writeAudit(t.db, [
+      row("leave_request.rejected", boss.id, ana.id, 1),
+      row("leave_request.rejected", boss.id, ben.id, 2),
+      row("leave_request.approved", boss.id, ana.id, 3),
+      row("leave_request.created", ana.id, ana.id, 4),
+      row("holiday.created", boss.id, null, 5),
+    ]);
+    const found = async (filter: Parameters<typeof getAuditLog>[2]) =>
+      (await getAuditLog(ctx, boss, filter)).entries.map((e) => [e.action, e.subjectName]).sort();
+
+    assert.deepEqual(await found({ query: "DECLINED" }), [
+      ["leave_request.rejected", "Ana"],
+      ["leave_request.rejected", "Ben"],
+    ]);
+    assert.deepEqual(await found({ query: "declined ana" }), [["leave_request.rejected", "Ana"]], "both words must match");
+    assert.deepEqual(await found({ query: "  ben  " }), [["leave_request.rejected", "Ben"]]);
+    assert.equal((await found({ query: "boss" })).length, 4, "as the one who made the change");
+    assert.deepEqual(await found({ query: "ana nobody-by-this-name" }), [], "a word matching nothing finds nothing");
+    assert.deepEqual(await found({ query: "ana", action: "leave_request.approved" }), [["leave_request.approved", "Ana"]], "with a filter");
+    const log = await getAuditLog(ctx, boss, { query: "  Declined   ana " });
+    assert.equal(log.filters.query, "Declined ana", "the search as shown back, spaces tidied");
+    assert.equal((await getAuditLog(ctx, boss, { query: "   " })).filters.query, undefined);
+  });
+
   test("a cursor that is not one the log made reads as the first page, not an error", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);

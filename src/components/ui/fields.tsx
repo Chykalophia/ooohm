@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { cx, field, nativeCheck } from "./styles";
+import { cx, field, type FieldSize, fieldClass, nativeCheck } from "./styles";
 
 /**
  * Labelled form fields. Plain markup with no client state, so a server page can render
@@ -15,6 +15,8 @@ type FieldProps = {
   optional?: boolean;
   /** Classes for the wrapper, e.g. to size the field in a grid. */
   className?: string;
+  /** `sm` for a compact toolbar field: smaller text, a small muted label. */
+  size?: FieldSize;
 };
 
 function Hint({ id, children }: { id: string; children?: React.ReactNode }) {
@@ -32,12 +34,13 @@ function FieldShell({
   hint,
   optional,
   className,
+  size = "md",
   control,
 }: FieldProps & { control: (ids: { id: string; describedBy: string | undefined }) => React.ReactNode }) {
   const id = useId();
   return (
-    <div className={cx("space-y-1.5", className)}>
-      <label htmlFor={id} className="block text-sm font-medium">
+    <div className={cx(size === "sm" ? "space-y-1" : "space-y-1.5", className)}>
+      <label htmlFor={id} className={size === "sm" ? "block text-xs font-medium text-muted" : "block text-sm font-medium"}>
         {label}
         {optional && <span className="font-normal text-muted"> (optional)</span>}
       </label>
@@ -47,16 +50,17 @@ function FieldShell({
   );
 }
 
-type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "id" | "className"> & FieldProps;
+type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "id" | "className" | "size"> & FieldProps;
 
-export function TextField({ label, hint, optional, className, ...input }: InputProps) {
+export function TextField({ label, hint, optional, className, size, ...input }: InputProps) {
   return (
     <FieldShell
       label={label}
       hint={hint}
       optional={optional}
       className={className}
-      control={({ id, describedBy }) => <input {...input} id={id} aria-describedby={describedBy} className={field} />}
+      size={size}
+      control={({ id, describedBy }) => <input {...input} id={id} aria-describedby={describedBy} className={fieldClass(size)} />}
     />
   );
 }
@@ -86,9 +90,10 @@ export function SelectField({
   hint,
   optional,
   className,
+  size,
   options,
   ...select
-}: Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "id" | "className"> &
+}: Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "id" | "className" | "size"> &
   FieldProps & {
     options: readonly SelectOption[];
   }) {
@@ -98,8 +103,9 @@ export function SelectField({
       hint={hint}
       optional={optional}
       className={className}
+      size={size}
       control={({ id, describedBy }) => (
-        <select {...select} id={id} aria-describedby={describedBy} className={field}>
+        <select {...select} id={id} aria-describedby={describedBy} className={fieldClass(size)}>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -112,7 +118,7 @@ export function SelectField({
 }
 
 /** A single on/off setting: the checkbox first, its label and hint beside it. */
-export function CheckboxField({ label, hint, ...input }: Omit<InputProps, "type" | "optional" | "className">) {
+export function CheckboxField({ label, hint, ...input }: Omit<InputProps, "type" | "optional" | "className" | "size">) {
   const id = useId();
   return (
     <div className="flex items-start gap-3">

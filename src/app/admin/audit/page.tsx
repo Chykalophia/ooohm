@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
-import { formatInstantFull, formatInstantShort } from "@/lib/format";
+import { formatInstantFull, formatInstantShort, formatShortDate } from "@/lib/format";
 import { AUDIT_PAGE_SIZE, AUDIT_PAGE_SIZES, type AuditLogEntry, getAuditLog } from "@/server/services/audit-log";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { readParam } from "@/app/_lib/calendar-input";
@@ -11,12 +11,13 @@ import { PageSizeNav } from "@/components/navigation/page-size-nav";
 import { Pager } from "@/components/navigation/pager";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { SelectField, TextField } from "@/components/ui/fields";
-import { FilterBar } from "@/components/ui/filter-bar";
+import { type ActiveFilter, TableToolbar } from "@/components/ui/table-toolbar";
 import { cx, focusRing } from "@/components/ui/styles";
 
 export const metadata: Metadata = { title: "Audit log · Admin · OOOhm" };
 
 const PATH = "/admin/audit";
+const ANYONE = { value: "", label: "Anyone" };
 const param = z.string().max(200).optional().catch(undefined);
 const sizeParam = z.string().regex(/^\d{1,3}$/);
 
@@ -28,6 +29,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const { cursor, number } = readPageParams(params);
   const log = await getAuditLog(ctx, actor, {
+    query: param.parse(params.q),
     action: param.parse(params.action),
     actorId: param.parse(params.actor),
     subjectUserId: param.parse(params.person),
@@ -41,7 +43,14 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   // What every link on the page carries: the filters, then the view (order, rows), each
   // only when it is not the default. A changed filter, order or size starts at page 1.
-  const keep = { action: filters.action, actor: filters.actorId, person: filters.subjectUserId, from: filters.from, to: filters.to };
+  const keep = {
+    q: filters.query,
+    action: filters.action,
+    actor: filters.actorId,
+    person: filters.subjectUserId,
+    from: filters.from,
+    to: filters.to,
+  };
   const view = { order: log.oldestFirst ? "oldest" : undefined, size: log.size === AUDIT_PAGE_SIZE ? undefined : String(log.size) };
   const href = (change: Record<string, string | undefined>) => listHref(PATH, { ...keep, ...view, ...change });
   const filtered = Object.values(keep).some(Boolean);
@@ -63,6 +72,20 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
     );
   const now = new Date();
 
+  // The filters in force, as chips that each remove themselves.
+  const nameOf = (id: string | undefined) => log.people.find((p) => p.id === id)?.label ?? "someone";
+  const chip = (param: keyof typeof keep, label: string, value: string | undefined): ActiveFilter[] =>
+    value ? [{ label, value, removeHref: href({ [param]: undefined }) }] : [];
+  const active = [
+    ...chip("q", "Search", filters.query),
+    ...chip("action", "What", filters.action && log.actions.find((a) => a.value === filters.action)?.label),
+    ...chip("actor", "Done by", filters.actorId && nameOf(filters.actorId)),
+    ...chip("person", "About", filters.subjectUserId && nameOf(filters.subjectUserId)),
+    ...chip("from", "From", filters.from && formatShortDate(filters.from)),
+    ...chip("to", "To", filters.to && formatShortDate(filters.to)),
+  ];
+  const peopleOptions = log.people.map((p) => ({ value: p.id, label: p.label }));
+
   const columns: Column<AuditLogEntry>[] = [
     {
       header: (
@@ -75,9 +98,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         </Link>
       ),
       sort: log.oldestFirst ? "ascending" : "descending",
-      className: "w-px whitespace-nowrap text-muted tabular-nums",
+      className: "w-40 text-muted tabular-nums",
       cell: (e) => (
-        <time dateTime={e.at.toISOString()} title={formatInstantFull(e.at, timezone)}>
+        <time dateTime={e.at.toISOString()} title={formatInstantFull(e.at, timezone)} className="block truncate">
           {formatInstantShort(e.at, timezone, now)}
         </time>
       ),
@@ -86,17 +109,19 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       header: "What",
       className: "font-medium",
       cell: (e) => (
-        <Link href={href({ action: e.action })} className={filterLink} title={`Only “${e.label}”`}>
-          {e.label}
-        </Link>
+        <span className="block truncate">
+          <Link href={href({ action: e.action })} className={filterLink} title={`Only “${e.label}”`}>
+            {e.label}
+          </Link>
+        </span>
       ),
     },
     {
       header: "About",
       hideOnPhone: true,
-      className: "max-w-40",
+      className: "w-32",
       cell: (e) => (
-        <span className="block truncate">
+        <span className="block truncate" title={e.subjectName ?? undefined}>
           {e.subjectName ? person(e.subjectUserId, e.subjectName, "person") : <span className="text-muted">None</span>}
         </span>
       ),
@@ -104,9 +129,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
     {
       header: "By",
       hideOnPhone: true,
-      className: "max-w-44",
+      className: "w-36",
       cell: (e) => (
-        <span className={cx("block truncate", e.actorKind === "system" && "text-muted")}>
+        <span className={cx("block truncate", e.actorKind === "system" && "text-muted")} title={e.actorLabel}>
           {e.actorKind === "system" ? e.actorLabel : person(e.actorId, e.actorLabel, "actor")}
         </span>
       ),
@@ -115,54 +140,64 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   return (
     <AdminShell nav={nav} section="audit" title="Audit log" description={`Every change. Times are in ${timezone.replaceAll("_", " ")}.`}>
-      <FilterBar label="Filter the audit log" path={PATH} filtered={filtered} autoApply className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <SelectField
-          label="What"
-          className="col-span-2 sm:col-span-1"
-          name="action"
-          defaultValue={filters.action ?? ""}
-          options={[{ value: "", label: "Any change" }, ...log.actions]}
-        />
-        <SelectField
-          label="Done by"
-          name="actor"
-          defaultValue={filters.actorId ?? ""}
-          options={[{ value: "", label: "Anyone" }, ...log.people.map((p) => ({ value: p.id, label: p.label }))]}
-        />
-        <SelectField
-          label="About"
-          name="person"
-          defaultValue={filters.subjectUserId ?? ""}
-          options={[{ value: "", label: "Anyone" }, ...log.people.map((p) => ({ value: p.id, label: p.label }))]}
-        />
-        <TextField label="From" type="date" name="from" defaultValue={filters.from ?? ""} />
-        <TextField label="To" type="date" name="to" defaultValue={filters.to ?? ""} />
-        {/* The view rides along, so a new filter keeps the order and rows a page. */}
-        {view.order && <input type="hidden" name="order" value={view.order} />}
-        {view.size && <input type="hidden" name="size" value={view.size} />}
-      </FilterBar>
-
-      <div className="space-y-3">
-        <div className="flex justify-end">
-          <PageSizeNav
-            sizes={AUDIT_PAGE_SIZES}
-            current={log.size}
-            href={(size) => href({ size: size === AUDIT_PAGE_SIZE ? undefined : String(size) })}
+      <DataTable
+        caption={`Audit log, ${log.oldestFirst ? "oldest" : "newest"} first`}
+        fixed
+        toolbar={
+          <TableToolbar
+            label="Search and filter the audit log"
+            path={PATH}
+            search={{ name: "q", value: filters.query ?? "", placeholder: "Search changes and people" }}
+            activeFilterCount={active.length - (filters.query ? 1 : 0)}
+            active={active}
+            clearHref={listHref(PATH, view)}
+            keep={view}
+            aside={
+              <PageSizeNav
+                sizes={AUDIT_PAGE_SIZES}
+                current={log.size}
+                href={(size) => href({ size: size === AUDIT_PAGE_SIZE ? undefined : String(size) })}
+              />
+            }
+            filters={
+              <>
+                <SelectField
+                  size="sm"
+                  label="What"
+                  className="col-span-2 sm:col-span-1"
+                  name="action"
+                  defaultValue={filters.action ?? ""}
+                  options={[{ value: "", label: "Any change" }, ...log.actions]}
+                />
+                <SelectField
+                  size="sm"
+                  label="Done by"
+                  name="actor"
+                  defaultValue={filters.actorId ?? ""}
+                  options={[ANYONE, ...peopleOptions]}
+                />
+                <SelectField
+                  size="sm"
+                  label="About"
+                  name="person"
+                  defaultValue={filters.subjectUserId ?? ""}
+                  options={[ANYONE, ...peopleOptions]}
+                />
+                <TextField size="sm" label="From" type="date" name="from" defaultValue={filters.from ?? ""} />
+                <TextField size="sm" label="To" type="date" name="to" defaultValue={filters.to ?? ""} />
+              </>
+            }
           />
-        </div>
-        {log.entries.length === 0 ? (
-          <p className="text-muted">{filtered || log.previous ? "Nothing matches." : "Nothing has changed yet."}</p>
-        ) : (
-          <DataTable
-            caption={`Audit log, ${log.oldestFirst ? "oldest" : "newest"} first`}
-            columns={columns}
-            rows={log.entries}
-            rowKey={(e) => e.id}
-            rowLabel={(e) => `${e.label}, ${formatInstantShort(e.at, timezone, now)}`}
-            detail={(e) => <AuditDetail entry={e} timezone={timezone} />}
-          />
-        )}
-      </div>
+        }
+        empty={
+          filtered ? "Nothing matches. Try fewer words or filters." : log.previous ? "Nothing on this page." : "Nothing has changed yet."
+        }
+        columns={columns}
+        rows={log.entries}
+        rowKey={(e) => e.id}
+        rowLabel={(e) => `${e.label}, ${formatInstantShort(e.at, timezone, now)}`}
+        detail={(e) => <AuditDetail entry={e} timezone={timezone} />}
+      />
 
       <Pager label="Audit log pages" links={pager} />
     </AdminShell>

@@ -15,8 +15,23 @@ export const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2
 /** Text and inputs that report a failure. */
 export const errorText = "text-danger";
 
-export const field =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 aria-[invalid=true]:border-danger";
+/** `md`: a form's field. `sm`: a compact one, for toolbars such as a table's filters. */
+export type FieldSize = "md" | "sm";
+
+const FIELD_SIZE: Record<FieldSize, string> = {
+  md: "rounded-lg px-3 py-2",
+  sm: "rounded-md px-2.5 py-1.5 text-sm",
+};
+
+/** The classes of a text input or select. */
+export function fieldClass(size: FieldSize = "md"): string {
+  return cx(
+    "w-full border border-border bg-surface outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 aria-[invalid=true]:border-danger",
+    FIELD_SIZE[size],
+  );
+}
+
+export const field = fieldClass("md");
 
 /** A checkbox or radio drawn by the browser, in the accent colour. */
 export const nativeCheck = "h-4 w-4 shrink-0 accent-[var(--accent)]";

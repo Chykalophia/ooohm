@@ -216,7 +216,7 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 | `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
-| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace (added within version 1), actorId, actor` |
+| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, actorId, actor`. `deletionGrace`, `theme`, `accentColor` and `corners` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, and `accentColor` is `#rrggbb` or null. New theme and corner keys may appear. |
 
 **Calendar links**
 

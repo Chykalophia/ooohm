@@ -39,7 +39,7 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
   if (key !== resetKey) setResetKey(key);
 
   return (
-    <Section id={REQUEST_FORM_ID} title="Request time off" surface className="scroll-mt-6 space-y-5 shadow-sm">
+    <Section id={REQUEST_FORM_ID} title="Request time off" surface className="scroll-mt-6 space-y-5">
       <form action={dispatch} onSubmit={onSubmit} className="space-y-5">
         <Fields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} />
         <div className="flex flex-wrap items-center gap-4">

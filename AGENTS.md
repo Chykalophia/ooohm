@@ -6,7 +6,8 @@ Work one milestone at a time and keep each PR to a single milestone.
 
 ## Product rules (don't break these)
 
-- **The UI stays calm.** Use one accent color (teal), keep whitespace generous, and keep each screen to one main action. If a screen needs explaining, it's wrong.
+- **The UI stays calm.** Use one accent color (teal in the default Classic theme), keep whitespace generous, and keep each screen to one main action. If a screen needs explaining, it's wrong.
+- **Themes are company-wide; light or dark is per person.** An admin picks the theme, an optional accent color and the corner style (Admin → Appearance); people can't override it. Each person picks a colour mode (light, dark, automatic), which applies where the theme has a dark version (Classic, for now). Style screens with the theme tokens (`bg-accent`, `text-accent-ink`, `bg-surface`, `border-border`, …), never fixed brand colors, so every theme works. Use `text-accent-ink`, not `text-accent`, for accent-colored text.
 - **Access is invite-only.** Neither magic links nor Google sign-in may create users. Admins (or the seed) create them.
 - **The allowance policy is pluggable.** v1 ships only `annual_calendar_year`: a flat yearly allowance per leave type that resets Jan 1. Carryover is set per leave type and is OFF by default.
 - **Approvals:** one approver (the manager) per person. `user.can_self_approve` auto-approves that user's own requests.

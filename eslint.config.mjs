@@ -146,7 +146,7 @@ const layers = [
  */
 const paletteClass =
   "(?:^|[\\s:])(?:bg|text|border(?:-[xytrblse])?|ring(?:-offset)?|outline|fill|stroke|divide|decoration|from|via|to|shadow|caret|placeholder|accent)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d|(?:^|[\\s:])dark:";
-const paletteMessage = "Use a theme token from src/app/globals.css (bg-surface, text-muted, text-danger…), not a palette colour or dark: variant.";
+const paletteMessage = "Use a theme token from src/app/globals.css (bg-surface, text-muted, text-accent-ink, text-danger…), not a palette colour or dark: variant.";
 const themeTokens = {
   files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
   rules: {

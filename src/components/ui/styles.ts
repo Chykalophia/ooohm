@@ -10,7 +10,7 @@ export function cx(...classes: (string | false | null | undefined)[]): string {
 }
 
 /** The keyboard focus outline every control shows. */
-export const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+export const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink";
 
 /** Text and inputs that report a failure. */
 export const errorText = "text-danger";
@@ -48,7 +48,7 @@ export type ButtonSize = "md" | "sm";
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
   primary: "bg-accent text-accent-foreground",
-  accent: "border border-accent text-accent hover:bg-accent/10",
+  accent: "border border-accent text-accent-ink hover:bg-accent/10",
   outline: "border border-border text-foreground hover:bg-background",
   danger: "border border-danger text-danger hover:bg-danger-soft",
 };
@@ -61,7 +61,8 @@ const BUTTON_SIZE: Record<ButtonSize, string> = {
 /** The classes of a button-shaped control. */
 export function buttonClass(variant: ButtonVariant, size: ButtonSize = "md"): string {
   return cx(
-    "inline-flex items-center justify-center rounded-lg font-medium disabled:opacity-60 aria-disabled:opacity-60",
+    // Corners follow the company theme (`--button-radius`, Admin → Appearance).
+    "inline-flex items-center justify-center rounded-(--button-radius) font-medium disabled:opacity-60 aria-disabled:opacity-60",
     BUTTON_VARIANT[variant],
     BUTTON_SIZE[size],
     focusRing,
@@ -101,7 +102,7 @@ export function pillClass(active: boolean): string {
   return cx(
     "rounded-full border px-3 py-1",
     focusRing,
-    active ? "border-accent text-accent" : "border-border text-muted hover:text-foreground",
+    active ? "border-accent text-accent-ink" : "border-border text-muted hover:text-foreground",
   );
 }
 

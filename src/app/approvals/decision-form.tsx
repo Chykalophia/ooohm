@@ -25,7 +25,7 @@ export function DecisionForm({ requestId }: { requestId: string }) {
 
   if (state.status === "success") {
     return (
-      <p ref={outcome} tabIndex={-1} role="status" className="text-sm font-medium text-accent outline-none">
+      <p ref={outcome} tabIndex={-1} role="status" className="text-sm font-medium text-accent-ink outline-none">
         {state.message}
       </p>
     );

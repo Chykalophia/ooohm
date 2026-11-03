@@ -66,7 +66,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       }
     >
       {notice && (
-        <p role="status" className="text-sm text-accent">
+        <p role="status" className="text-sm text-accent-ink">
           {NOTICES[notice]}
         </p>
       )}

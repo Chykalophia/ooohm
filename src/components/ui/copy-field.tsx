@@ -55,7 +55,7 @@ export function CopyField({
           {copyLabel}
         </button>
       </div>
-      <p aria-live="polite" className="min-h-5 text-sm text-accent">
+      <p aria-live="polite" className="min-h-5 text-sm text-accent-ink">
         {copy === "copied" && "Copied."}
         {copy === "manual" && <span className="text-foreground">{selectedText} Press Ctrl+C (⌘C on a Mac) to copy it.</span>}
       </p>

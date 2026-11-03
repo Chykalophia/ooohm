@@ -55,7 +55,7 @@ export default async function ApiKeysPage() {
             <Item key={k.id} className="space-y-1.5 text-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-medium break-words">{k.name}</p>
-                <span className={k.revokedAt ? "text-muted" : "text-accent"}>{k.revokedAt ? "Revoked" : "Active"}</span>
+                <span className={k.revokedAt ? "text-muted" : "text-accent-ink"}>{k.revokedAt ? "Revoked" : "Active"}</span>
               </div>
               <p className="text-muted">
                 <code className="font-mono text-foreground">{k.prefix}…</code> · {k.scopes.join(", ")} · created {at(k.createdAt)}

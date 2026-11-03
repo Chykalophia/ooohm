@@ -10,7 +10,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db, schema } from "@/db";
 import { type Actor, toActor } from "@/domain/actor";
-import { DEFAULT_THEME } from "@/domain/theme";
+import { DEFAULT_COLOR_MODE } from "@/domain/color-mode";
 import { env, googleEnabled } from "@/lib/env";
 import { createLinkCapture, inviteLinkRequest } from "@/lib/link-capture";
 import { log } from "@/lib/log";
@@ -48,7 +48,7 @@ export const auth = betterAuth({
       canSelfApprove: { type: "boolean", required: false, defaultValue: false, input: false },
       isActive: { type: "boolean", required: false, defaultValue: true, input: false },
       // Read here so every page gets it with the session; changed on the account page.
-      theme: { type: "string", required: false, defaultValue: DEFAULT_THEME, input: false },
+      colorMode: { type: "string", required: false, defaultValue: DEFAULT_COLOR_MODE, input: false },
     },
   },
   databaseHooks: {

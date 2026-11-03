@@ -17,8 +17,9 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { DEFAULT_THEME } from "@/domain/appearance";
 import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
-import { DEFAULT_THEME, THEMES } from "@/domain/theme";
+import { COLOR_MODES, DEFAULT_COLOR_MODE } from "@/domain/color-mode";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -32,7 +33,8 @@ const timestamps = {
 
 export const roleEnum = pgEnum("role", ["employee", "manager", "admin"]);
 
-export const themeEnum = pgEnum("theme", THEMES);
+/** A person's colour mode. Named `theme` in the database (it was, before company themes). */
+export const colorModeEnum = pgEnum("theme", COLOR_MODES);
 
 export const requestStatusEnum = pgEnum("leave_request_status", [
   "pending",
@@ -60,6 +62,12 @@ export const companies = pgTable("companies", {
    * it runs; off by default. Deletes that keep records never wait.
    */
   deletionGrace: boolean("deletion_grace").notNull().default(false),
+  /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
+  theme: text("theme").notNull().default(DEFAULT_THEME),
+  /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */
+  accentColor: text("accent_color"),
+  /** `theme`, `square`, `soft` or `round`: overrides the theme's corner radius. */
+  corners: text("corners").notNull().default("theme"),
   ...timestamps,
 });
 
@@ -108,8 +116,8 @@ export const user = pgTable(
     scrubScheduledAt: timestamp("scrub_scheduled_at", { withTimezone: true }),
     /** The admin who asked for the scheduled scrub; the job's change is attributed to the system on their behalf. */
     scrubRequestedBy: text("scrub_requested_by").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
-    /** How they want the app drawn: light (the default), dark, or following their device. */
-    theme: themeEnum("theme").notNull().default(DEFAULT_THEME),
+    /** Their colour mode: light (the default), dark, or following their device (where the company theme has a dark version). */
+    colorMode: colorModeEnum("theme").notNull().default(DEFAULT_COLOR_MODE),
     ...timestamps,
   },
   (t) => [

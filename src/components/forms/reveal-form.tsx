@@ -36,7 +36,7 @@ function Revealed({
       <CopyField label={label} value={state.value} />
       <p className="text-sm text-muted">{note}</p>
       {state.href && (
-        <Link href={state.href} className={cx(textLink, "text-sm font-medium text-accent")}>
+        <Link href={state.href} className={cx(textLink, "text-sm font-medium text-accent-ink")}>
           {hrefLabel ?? "Continue"}
         </Link>
       )}

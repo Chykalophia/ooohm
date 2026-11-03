@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OOOhm launch film (composition)</title>
+<!--
+  The one-minute launch film, drawn the same way as film.html: render-launch.mjs calls seek(t)
+  for every frame and screenshots it. The captions are part of the picture, and the same lines
+  are written to launch.srt and launch.vtt from CAPTIONS below. ?url= sets the address on the end card.
+-->
+<style>
+  @font-face { font-family: "Instrument Sans"; src: url("../fonts/instrument-sans.woff2") format("woff2"); font-weight: 400 700; }
+  @font-face { font-family: "JetBrains Mono"; src: url("../fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 400 500; }
+  :root { --bg: #fafaf9; --ink: #1c1917; --body: #44403c; --muted: #78716c; --border: #e7e5e4; --accent: #0f766e; --soft: #e5f1ef; --line: #b7d9d4; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); font-family: "Instrument Sans", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; opacity: 0; }
+  .center { display: grid; place-items: center; text-align: center; }
+
+  .logo { display: flex; align-items: center; justify-content: center; gap: 26px; font-size: 128px; font-weight: 600; letter-spacing: -0.04em; }
+  .logo svg { width: 132px; height: 132px; }
+  .logo .o { color: var(--accent); display: inline-block; }
+  .logo .hm { color: var(--muted); font-weight: 400; display: inline-block; }
+  .pill { display: inline-block; margin-top: 44px; font-size: 30px; font-weight: 500; color: var(--accent); background: var(--soft); box-shadow: inset 0 0 0 1.5px var(--line); border-radius: 999px; padding: 10px 26px; }
+
+  /* The old way: a group chat and a spreadsheet. */
+  .bubbles { position: absolute; left: 50%; top: 150px; width: 1100px; translate: -50% 0; display: grid; gap: 22px; }
+  .bubble { justify-self: start; font-size: 40px; color: var(--body); background: #efedea; border-radius: 30px 30px 30px 8px; padding: 22px 34px; }
+  .bubble.r { justify-self: end; border-radius: 30px 30px 8px 30px; background: #e7e5e4; }
+  .sheet { position: absolute; left: 50%; top: 520px; width: 1100px; translate: -50% 0; background: #fff; border: 1.5px solid var(--border); border-radius: 18px; overflow: hidden; font-size: 26px; color: var(--body); }
+  .sheet .name { padding: 14px 22px; border-bottom: 1.5px solid var(--border); background: #fbfbfa; font: 400 22px/1.2 "JetBrains Mono", monospace; color: var(--muted); }
+  .sheet table { width: 100%; border-collapse: collapse; }
+  .sheet td { border-right: 1.5px solid var(--border); border-bottom: 1.5px solid var(--border); padding: 10px 18px; height: 52px; }
+  .sheet td:last-child { border-right: 0; }
+  .sheet tr:last-child td { border-bottom: 0; }
+  .sheet .q { color: #b45309; }
+  .sheet .x { text-decoration: line-through; color: var(--muted); }
+
+  .sentence-wrap { position: absolute; left: 50%; top: 46%; translate: -50% -50%; width: 1560px; text-align: left; }
+  .sentence { font-size: 60px; line-height: 1.75; letter-spacing: -0.02em; }
+  .chip { display: inline-block; line-height: 1.25; padding: 2px 16px; border-radius: 14px; background: var(--soft); color: var(--accent); box-shadow: inset 0 -4px 0 var(--line); }
+  .result { font-size: 40px; color: var(--body); margin-top: 26px; }
+  .result b { color: var(--ink); font-weight: 600; }
+
+  /* Chapters: a line on the left, the real app on the right. */
+  .cap { position: absolute; left: 120px; top: 440px; width: 600px; translate: 0 -50%; }
+  .num { font-size: 28px; color: var(--accent); font-weight: 500; letter-spacing: .02em; }
+  .cap h2 { margin-top: 22px; font-size: 76px; line-height: 1.04; letter-spacing: -0.035em; font-weight: 600; }
+  .frame { position: absolute; right: 110px; top: 440px; width: 1020px; translate: 0 -50%; background: #fff; border: 1.5px solid var(--border); border-radius: 22px; overflow: hidden; box-shadow: 0 2px 4px rgba(28,25,23,.04), 0 40px 80px -40px rgba(28,25,23,.25); }
+  .bar { height: 48px; display: flex; align-items: center; gap: 9px; padding: 0 20px; border-bottom: 1.5px solid var(--border); background: #fbfbfa; }
+  .bar i { width: 13px; height: 13px; border-radius: 50%; background: #d6d3d1; }
+  .frame img { display: block; width: 100%; }
+
+  /* Themes. */
+  .theme-frame { position: absolute; left: 50%; top: 400px; width: 960px; translate: -50% -50%; background: #fff; border: 1.5px solid var(--border); border-radius: 22px; overflow: hidden; box-shadow: 0 2px 4px rgba(28,25,23,.04), 0 40px 80px -40px rgba(28,25,23,.25); }
+  .theme-stage { position: relative; aspect-ratio: 1260 / 840; }
+  .theme-stage img { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+  .swatches { position: absolute; left: 50%; top: 776px; translate: -50% 0; display: flex; gap: 14px; }
+  .swatches span { white-space: nowrap; display: flex; align-items: center; gap: 10px; font-size: 22px; color: var(--muted); padding: 8px 14px 8px 10px; border-radius: 999px; border: 1.5px solid transparent; }
+  .swatches span::before { content: ""; width: 20px; height: 20px; border-radius: 50%; background: var(--sw); }
+  .swatches span.on { color: var(--ink); border-color: var(--border); background: #fff; }
+
+  /* Self-hosting. */
+  .term { position: absolute; left: 120px; top: 150px; width: 960px; height: 640px; background: #1c1917; color: #e7e5e4; border-radius: 22px; overflow: hidden; font: 400 25px/1.7 "JetBrains Mono", monospace; }
+  .term .tbar { height: 56px; display: flex; align-items: center; padding: 0 26px; border-bottom: 1.5px solid #292524; color: #a8a29e; font-size: 21px; }
+  .term pre { margin: 0; padding: 24px 30px; white-space: pre; font: inherit; }
+  .term .c { color: #5eead4; } .term .d { color: #a8a29e; } .term .g { color: #86efac; }
+  .term .caret { display: inline-block; width: 13px; height: 28px; background: #e7e5e4; vertical-align: -5px; }
+  .hosts { position: absolute; left: 1160px; top: 150px; width: 640px; list-style: none; padding: 0; }
+  .hosts li { padding: 30px 0; border-top: 1.5px solid #d6d3d1; }
+  .hosts li:first-child { padding-top: 6px; border-top: 0; }
+  .hosts h3 { font-size: 40px; letter-spacing: -0.025em; font-weight: 600; }
+  .hosts code { display: inline-block; margin-top: 14px; font: 400 22px/1 "JetBrains Mono", monospace; background: #fff; border: 1.5px solid var(--border); border-radius: 9px; padding: 10px 14px; color: var(--ink); }
+
+  /* Free. */
+  .free h2 { font-size: 220px; font-weight: 600; letter-spacing: -0.05em; line-height: 1; }
+  .free h2 .dot { color: var(--accent); }
+  .facts { margin-top: 48px; display: flex; gap: 18px; justify-content: center; }
+  .facts span { font-size: 30px; color: var(--body); background: #fff; border: 1.5px solid var(--border); border-radius: 999px; padding: 12px 26px; }
+
+  /* End card. */
+  .end .logo { font-size: 96px; gap: 20px; }
+  .end .logo svg { width: 100px; height: 100px; }
+  .end .tag { font-size: 46px; margin-top: 26px; font-weight: 500; letter-spacing: -0.025em; }
+  .links { margin-top: 56px; display: grid; gap: 16px; justify-items: center; }
+  .links .url { font-size: 52px; font-weight: 600; color: var(--accent); letter-spacing: -0.02em; }
+  .links .gh { display: flex; align-items: center; gap: 14px; font-size: 32px; color: var(--body); }
+  .links .gh svg { width: 32px; height: 32px; fill: var(--ink); }
+  .end .small { margin-top: 44px; font-size: 24px; color: var(--muted); }
+
+  /* Captions: always the same place, readable on any frame. */
+  .caption { position: absolute; left: 0; right: 0; margin-inline: auto; width: fit-content; bottom: 58px; max-width: 1560px; text-align: center; font-size: 42px; line-height: 1.3; font-weight: 500; letter-spacing: -0.01em; color: #fff; background: rgba(28,25,23,.86); border-radius: 16px; padding: 14px 30px 16px; opacity: 0; text-wrap: balance; }
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><symbol id="mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f766e"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5" fill="none" stroke="#fff" stroke-width="3.1" stroke-linejoin="round"/></g></symbol></svg>
+
+  <section class="scene center" id="title">
+    <div>
+      <div class="logo"><svg id="t-mark"><use href="#mark"/></svg><span><span class="o" id="t-o1">O</span><span class="o" id="t-o2">O</span><span class="o" id="t-o3">O</span><span class="hm" id="t-hm">hm</span></span></div>
+      <p class="pill" id="t-pill">Out now · free</p>
+    </div>
+  </section>
+
+  <section class="scene" id="chat">
+    <div class="bubbles">
+      <p class="bubble" id="b1">can I take Friday off?</p>
+      <p class="bubble r" id="b2">is anyone else out that week?</p>
+      <p class="bubble" id="b3">wait, how many days do I have left?</p>
+    </div>
+    <div class="sheet" id="sheet">
+      <p class="name">pto-tracker-FINAL-v3 (2).xlsx</p>
+      <table>
+        <tr><td>Priya</td><td class="x">Dec 21–23</td><td class="q">??</td></tr>
+        <tr><td>Jonas</td><td>Fri off</td><td class="q">ask Maya</td></tr>
+        <tr><td>Ana</td><td>6 left?</td><td class="q">#REF!</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="scene" id="intro">
+    <div class="sentence-wrap" id="sw">
+      <p class="sentence">I’m taking <span class="chip" id="c1">PTO</span> from <span class="chip" id="c2">Mon, Dec 21</span> to <span class="chip" id="c3">Wed, Dec 23</span>.</p>
+      <p class="result" id="res">This request takes <b>3 days</b>. Afterwards you’d have 6 days left for 2026.</p>
+    </div>
+  </section>
+
+  <section class="scene" id="chapters">
+    <div class="cap" id="cap"><p class="num" id="cap-num"></p><h2 id="cap-title"></h2></div>
+    <div class="frame" id="frame"><div class="bar"><i></i><i></i><i></i></div><img id="clip" alt=""></div>
+  </section>
+
+  <section class="scene" id="themes">
+    <div class="theme-frame"><div class="bar"><i></i><i></i><i></i></div><div class="theme-stage" id="stage"></div></div>
+    <div class="swatches" id="swatches"></div>
+  </section>
+
+  <section class="scene" id="host">
+    <div class="term"><div class="tbar">~/ooohm</div><pre id="term"></pre></div>
+    <ul class="hosts" id="hosts">
+      <li><h3>Docker Compose</h3><code>docker compose up</code></li>
+      <li><h3>Any Postgres 15+, or Vercel</h3><code>pnpm build &amp;&amp; pnpm start</code></li>
+      <li><h3>One machine, no database server</h3><code>pnpm start:embedded</code></li>
+    </ul>
+  </section>
+
+  <section class="scene center free" id="free">
+    <div>
+      <h2 id="free-word">Free<span class="dot">.</span></h2>
+      <div class="facts" id="facts"><span>Source-available</span><span>Self-hosted</span><span>In active development</span></div>
+    </div>
+  </section>
+
+  <section class="scene center end" id="end">
+    <div>
+      <div class="logo"><svg><use href="#mark"/></svg><span><span class="o">OOO</span><span class="hm">hm</span></span></div>
+      <p class="tag">Time off for small teams.</p>
+      <div class="links">
+        <p class="url" id="url"></p>
+        <p class="gh"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>github.com/Chykalophia/ooohm</p>
+      </div>
+      <p class="small">Made by Chykalophia</p>
+    </div>
+  </section>
+
+  <p class="caption" id="caption"></p>
+
+<script>
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  const out = (x) => 1 - Math.pow(1 - x, 3);
+  /** 0 before a, 1 after b, eased between. */
+  const ramp = (t, a, b, f = ease) => f(clamp((t - a) / (b - a)));
+  /** Visible from a to b, with short fades at both ends. */
+  const window_ = (t, a, b, f = 0.35) => ramp(t, a, a + f) * (1 - ramp(t, b - f, b));
+  const $ = (id) => document.getElementById(id);
+  const set = (el, o, y = 0, s = 1) => { el.style.opacity = o; el.style.transform = `translateY(${y}px) scale(${s})`; };
+
+  const FPS = 30;
+  const URL_TEXT = new URLSearchParams(location.search).get("url") || "ooohm.team";
+  window.DURATION = 60;
+  window.CLIP_COUNTS = {};
+
+  // Each line is on screen from `at` to `end` (seconds). render-launch.mjs writes the same lines to .srt/.vtt.
+  window.CAPTIONS = [
+    { at: 0.8, end: 3.9, text: "OOOhm is out, and it’s free." },
+    { at: 4.3, end: 7.1, text: "Running a small agency? Time off probably lives in a group chat…" },
+    { at: 7.2, end: 9.8, text: "…and a spreadsheet nobody quite trusts." },
+    { at: 10.2, end: 13.8, text: "OOOhm is a modern time off manager, made for small teams." },
+    { at: 14.2, end: 17.0, text: "People ask for time off in one sentence." },
+    { at: 17.1, end: 19.8, text: "It counts the working days and shows what’s left." },
+    { at: 20.2, end: 25.2, text: "Managers see who else is out, then approve in one click." },
+    { at: 25.6, end: 29.7, text: "Weekends and company holidays never count." },
+    { at: 30.1, end: 34.2, text: "And everyone can see who’s out, and when." },
+    { at: 34.7, end: 37.6, text: "It actually looks good, and it fits how you work:" },
+    { at: 37.7, end: 40.4, text: "leave types, allowances, holidays, approvers and nine themes." },
+    { at: 40.8, end: 43.8, text: "It’s fast, and easy to host yourself:" },
+    { at: 43.9, end: 47.3, text: "Docker, any Postgres, Vercel, or one small machine." },
+    { at: 47.8, end: 50.9, text: "It’s free. Read the code, change it, run it for your team." },
+    { at: 51.0, end: 53.6, text: "We built it for our own agency, and we’re still building." },
+    { at: 54.2, end: 59.6, text: `Take a look at ${URL_TEXT}, or find it on GitHub.` },
+  ];
+
+  const CHAPTERS = [
+    { at: 14.0, end: 20.0, clip: "ask", from: 1.5, rate: 1.85, num: "01", title: "Ask in one sentence." },
+    { at: 20.0, end: 25.5, clip: "approve", from: 0.6, rate: 1.4, num: "02", title: "Approve with the whole picture." },
+    { at: 25.5, end: 30.0, clip: "calendar", from: 0.5, rate: 2.6, num: "03", title: "Or drag across the days." },
+    { at: 30.0, end: 34.5, clip: "team", from: 0.5, rate: 3.0, num: "04", title: "See who’s out, and when." },
+  ];
+
+  const THEMES = [["classic", "Classic", "#0f766e"], ["cobalt", "Cobalt", "#2546d0"], ["marigold", "Ink & Marigold", "#f2a900"], ["saffron", "Saffron", "#ff9f1c"], ["graphite", "Graphite", "#18181b"], ["plum", "Plum", "#6b2d5c"], ["signal", "Signal", "#e0301e"], ["forest", "Forest", "#1f4d3a"], ["frost", "Frost", "#1f6feb"]];
+  for (const [id, name, sw] of THEMES) {
+    $("stage").insertAdjacentHTML("beforeend", `<img src="../media/themes/${id}.jpg" alt="">`);
+    $("swatches").insertAdjacentHTML("beforeend", `<span style="--sw:${sw}">${name}</span>`);
+  }
+  $("url").textContent = URL_TEXT;
+
+  const TERM = [
+    ["d", "[+] Running 5/5"],
+    ["g", " ✔ db        Healthy"],
+    ["g", " ✔ migrate   Exited   migrations, seed"],
+    ["g", " ✔ app       Started  http://localhost:3000"],
+    ["g", " ✔ worker    Started  webhooks, daily jobs"],
+    ["g", " ✔ mailpit   Started  http://localhost:8025"],
+    ["", ""],
+    ["d", "app     | ready"],
+  ];
+  const CMD = "docker compose up";
+
+  window.ready = Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
+
+  window.seek = async function seek(t) {
+    // Title: the mark, then O, O, O, then hm, then "out now".
+    $("title").style.opacity = 1 - ramp(t, 3.7, 4.1);
+    set($("t-mark"), ramp(t, 0, 0.6, out), 0, 0.6 + 0.4 * ramp(t, 0, 0.6, out));
+    ["t-o1", "t-o2", "t-o3"].forEach((id, i) => set($(id), ramp(t, 0.35 + i * 0.18, 0.75 + i * 0.18, out), 30 * (1 - ramp(t, 0.35 + i * 0.18, 0.75 + i * 0.18, out))));
+    set($("t-hm"), ramp(t, 1.0, 1.5));
+    set($("t-pill"), ramp(t, 1.5, 2.0), 14 * (1 - ramp(t, 1.5, 2.0)));
+
+    // The old way.
+    $("chat").style.opacity = window_(t, 4.0, 10.0, 0.3);
+    ["b1", "b2", "b3"].forEach((id, i) => {
+      const a = 4.3 + i * 0.7;
+      const k = ramp(t, a, a + 0.35, out);
+      set($(id), k, 16 * (1 - k), 0.96 + 0.04 * k);
+    });
+    const sk = ramp(t, 7.2, 7.7, out);
+    set($("sheet"), sk, 30 * (1 - sk));
+
+    // The sentence.
+    $("intro").style.opacity = window_(t, 10.0, 14.1, 0.35);
+    $("sw").style.transform = `translateY(${20 * (1 - ramp(t, 10.1, 10.6))}px)`;
+    ["c1", "c2", "c3"].forEach((id, i) => { $(id).style.background = t > 10.9 + i * 0.25 && t < 11.5 + i * 0.25 ? "#d3e9e5" : ""; });
+    set($("res"), ramp(t, 11.6, 12.0), 10 * (1 - ramp(t, 11.6, 12.0)));
+
+    // Chapters with recordings.
+    $("chapters").style.opacity = ramp(t, 13.9, 14.3) * (1 - ramp(t, 34.2, 34.6));
+    const i = Math.max(0, CHAPTERS.findLastIndex((c) => t >= c.at));
+    const c = CHAPTERS[i];
+    const local = t - c.at;
+    const capIn = ramp(local, 0.15, 0.65);
+    const capOut = i < CHAPTERS.length - 1 ? ramp(t, c.end - 0.4, c.end) : 0;
+    set($("cap"), capIn * (1 - capOut), 24 * (1 - capIn) - 16 * capOut);
+    $("cap-num").textContent = c.num;
+    $("cap-title").textContent = c.title;
+    const fIn = ramp(local, 0, 0.5);
+    const fOut = i < CHAPTERS.length - 1 ? ramp(t, c.end - 0.35, c.end) : 0;
+    let fo = i === 0 ? 1 : 0.35 + 0.65 * fIn;
+    $("frame").style.transform = `translateY(${30 * (1 - fIn) * (i === 0 ? 0 : 1) - 20 * fOut}px)`;
+    $("frame").style.opacity = fo * (1 - fOut * 0.65);
+    const n = window.CLIP_COUNTS[c.clip] ?? 1;
+    const frame = Math.min(n, Math.max(1, Math.round((c.from + local * c.rate) * FPS) + 1));
+    const src = `.frames/launch/${c.clip}/${String(frame).padStart(5, "0")}.jpg`;
+    const img = $("clip");
+    if (t >= 13.8 && t < 34.7 && !img.src.endsWith(src)) { img.src = src; await img.decode(); }
+
+    // Themes: the same home screen in each look.
+    $("themes").style.opacity = window_(t, 34.5, 40.7, 0.35);
+    const per = 0.62, th0 = 35.0;
+    const k = clamp((t - th0) / per, 0, THEMES.length - 1);
+    const cur = Math.floor(k);
+    [...$("stage").children].forEach((im, j) => { im.style.opacity = j === 0 ? 1 : j <= cur ? 1 : j === cur + 1 ? ramp(k - cur, 0.72, 1, (x) => x) : 0; });
+    const shown = Math.min(THEMES.length - 1, Math.round(k + 0.14));
+    [...$("swatches").children].forEach((s, j) => s.classList.toggle("on", j === shown));
+    $("themes").firstElementChild.style.transform = `translateY(${20 * (1 - ramp(t, 34.5, 35.1))}px)`;
+
+    // Self-hosting: the command, its output, the three ways to run it.
+    $("host").style.opacity = window_(t, 40.6, 47.6, 0.35);
+    const typed = Math.round(clamp((t - 41.1) / 0.9) * CMD.length);
+    const lines = Math.floor(clamp((t - 42.3) / 0.28, 0, TERM.length));
+    let html = `<span class="c">$</span> ${CMD.slice(0, typed)}`;
+    if (lines === 0) html += `<span class="caret" style="opacity:${Math.floor(t * 2) % 2 ? 0.2 : 1}"></span>`;
+    for (const [cl, tx] of TERM.slice(0, lines)) html += `\n<span class="${cl}">${tx}</span>`;
+    $("term").innerHTML = html;
+    [...$("hosts").children].forEach((li, j) => { const a = 43.9 + j * 0.45; set(li, ramp(t, a, a + 0.4, out), 18 * (1 - ramp(t, a, a + 0.4, out))); });
+
+    // Free.
+    $("free").style.opacity = window_(t, 47.5, 53.9, 0.35);
+    const fw = ramp(t, 47.6, 48.2, out);
+    set($("free-word"), fw, 0, 0.92 + 0.08 * fw);
+    [...$("facts").children].forEach((s, j) => { const a = 48.6 + j * 0.3; set(s, ramp(t, a, a + 0.4, out), 14 * (1 - ramp(t, a, a + 0.4, out))); });
+
+    // End card.
+    $("end").style.opacity = ramp(t, 53.9, 54.4);
+    $("end").firstElementChild.style.transform = `translateY(${16 * (1 - ramp(t, 53.9, 54.6))}px)`;
+
+    // Captions.
+    const line = window.CAPTIONS.find((l) => t >= l.at && t < l.end);
+    const cap = $("caption");
+    if (line) { cap.textContent = line.text; cap.style.opacity = window_(t, line.at, line.end, 0.15); } else cap.style.opacity = 0;
+  };
+</script>
+</body>
+</html>

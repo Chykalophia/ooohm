@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "layout" text DEFAULT 'standard' NOT NULL;

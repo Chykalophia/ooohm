@@ -70,6 +70,8 @@ export const companies = pgTable("companies", {
   corners: text("corners").notNull().default("theme"),
   /** `REQUEST_STYLES` in src/domain/appearance.ts: how Home asks for time off. */
   requestStyle: text("request_style").notNull().default("form"),
+  /** `LAYOUTS` in src/domain/appearance.ts: the layout trial the whole company sees. */
+  layout: text("layout").notNull().default("standard"),
   ...timestamps,
 });
 

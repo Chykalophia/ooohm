@@ -92,12 +92,12 @@ export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSec
   const showApprovals = approvals !== null && (approvals.visible || current === "approvals");
   const jumps = jumpsFor(nav, showApprovals);
   return (
-    <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
+    <header className="app-header mb-10 flex flex-wrap items-center justify-between gap-4">
       {jumps.length > 0 && <JumpMenu items={jumps} />}
       <Link href="/" className={cx("rounded-md", focusRing)}>
         <Logo />
       </Link>
-      <nav aria-label="Main" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+      <nav aria-label="Main" className="app-nav flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         {nav.member && (
           <>
             <NavLink href="/calendar" active={current === "calendar"}>

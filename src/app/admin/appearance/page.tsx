@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import {
   CORNER_LABELS,
   CORNER_STYLES,
+  LAYOUTS,
+  LAYOUT_LABELS,
   REQUEST_STYLES,
   REQUEST_STYLE_LABELS,
   THEMES,
@@ -155,6 +157,25 @@ export default async function AppearancePage() {
               ))}
             </div>
             <p className="text-xs text-muted">Both send the same request and show the same day count. Only the layout on Home changes.</p>
+          </fieldset>
+
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium">Layout (trial)</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {LAYOUTS.map((layout) => (
+                <label
+                  key={layout}
+                  className="flex cursor-pointer items-start gap-2 rounded-2xl border border-border p-3 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
+                >
+                  <input type="radio" name="layout" value={layout} defaultChecked={current.layout === layout} className="mt-1 accent-[var(--accent)]" />
+                  <span>
+                    <span className="block text-sm font-medium">{LAYOUT_LABELS[layout].label}</span>
+                    <span className="block text-xs text-muted">{LAYOUT_LABELS[layout].description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted">Try one for a while, then switch back. Every screen keeps the same actions; only spacing, shape and navigation change.</p>
           </fieldset>
         </ActionForm>
       </section>

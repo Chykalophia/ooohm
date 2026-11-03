@@ -346,6 +346,8 @@ export interface CompanyEventPayload extends PersonAttribution {
   corners: string;
   /** Added within version 1: how Home asks for time off, `form` or `sentence`. */
   requestStyle: string;
+  /** Added within version 1: the layout trial, `standard`, `tonal`, `grouped`, `compact` or `legible`. */
+  layout: string;
 }
 
 /**

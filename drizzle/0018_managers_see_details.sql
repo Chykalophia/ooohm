@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "managers_see_details" boolean DEFAULT true NOT NULL;

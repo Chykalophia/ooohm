@@ -271,7 +271,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, requestStyle, layout, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -668,7 +668,16 @@ CRON_TZ=America/Chicago
   pending leave that costs at least one working day of the month (`entriesCostingDaysIn`: a Thursday-to-Sunday
   request belongs to the Thursday's month, not to the month holding only its weekend), grouped by person (by name), each person's leave by date, pending marked
   "Waiting for approval". Department filters are links ("Everyone", then each department); an id that is not a
-  department of the actor's company falls back to everyone. Deactivated people do not appear.
+  department of the actor's company falls back to everyone. Deactivated people do not appear. Each name opens
+  that person's page.
+- `/team/[id]` (`getTeamMember`): one active member of the company, in two tiers. Everyone sees what the team
+  calendar shows: name, department, manager, and their approved and pending leave from 60 days ago to a year
+  ahead (only leave that costs a working day), split into "Coming up" and "In the last 60 days". The person,
+  admins, and their direct manager while **Admin → Company → Managers can see their team's balances and notes**
+  is on (`companies.managers_see_details`, on by default) also see each request's days, note and approver's
+  reason, and this year's balances (`canSeeLeaveDetails`, in `domain/leave-permissions.ts`). For anyone else
+  the service drops those fields before returning, so they never reach the page. Inactive, deleted and
+  other companies' people are a 404.
 - `/calendar/subscriptions`: the two feeds (below), linked from both pages.
 
 The header links Calendar and Team for every member of a company, and on every page but the dashboard a **Request

@@ -62,6 +62,8 @@ export const companies = pgTable("companies", {
    * it runs; off by default. Deletes that keep records never wait.
    */
   deletionGrace: boolean("deletion_grace").notNull().default(false),
+  /** Managers see their direct reports' balances and request notes on the team member page. */
+  managersSeeDetails: boolean("managers_see_details").notNull().default(true),
   /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
   theme: text("theme").notNull().default(DEFAULT_THEME),
   /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */

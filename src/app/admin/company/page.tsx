@@ -55,6 +55,12 @@ export default async function CompanyPage() {
             defaultChecked={company.deletionGrace}
             hint="When you delete someone and remove everything about them, they're scheduled instead, and you can undo it until the day it runs. Deletes that keep records never wait."
           />
+          <CheckboxField
+            label="Managers can see their team's balances and notes"
+            name="managersSeeDetails"
+            defaultChecked={company.managersSeeDetails}
+            hint="On a person's page (open it from Team), their manager sees what they have left and the notes on their requests. Turn it off and only the person and admins see those; everyone still sees who is off and when."
+          />
         </ActionForm>
       </Card>
     </AdminShell>

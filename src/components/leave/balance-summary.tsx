@@ -64,7 +64,7 @@ function Squares({ balance, color: stored }: { balance: Extract<Balance, { track
  * (unlimited) types say so plainly. Under the numbers, {@link Squares} draw the same
  * year one square per day.
  */
-export function BalanceSummary({ summary }: { summary: BalanceSummaryProps }) {
+export function BalanceSummary({ summary, title }: { summary: BalanceSummaryProps; title?: string }) {
   if (!summary) {
     return (
       <p className="text-muted">Balances aren&apos;t available right now. Ask an admin to check the company&apos;s allowance policy.</p>
@@ -77,7 +77,7 @@ export function BalanceSummary({ summary }: { summary: BalanceSummaryProps }) {
   );
 
   return (
-    <Section title={`Your balance for ${summary.year}`}>
+    <Section title={title ?? `Your balance for ${summary.year}`}>
       <ul className="grid gap-3 sm:grid-cols-2">
         {summary.items.map(({ leaveTypeId, name, color, archived, balance }) => {
           const used = formatBalanceUsage(balance, summary.year);

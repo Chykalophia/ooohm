@@ -271,7 +271,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, requestStyle, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -933,8 +933,12 @@ and a browser downloads only the ones the chosen theme uses (Admin → Appearanc
 page loads them all). A pale custom accent keeps its fill and gets a darker
 `--accent-ink` for text and focus rings (`accentTokens`). Only `classic` with its own accent has a dark version
 (`followsDarkMode`): there each person's colour mode applies (`data-mode`, above); every other look is light only for
-now, whatever the person chose, and the account page says so. `company.updated` carries `theme`,
-`accentColor` and `corners`.
+now, whatever the person chose, and the account page says so. The same page sets how Home asks for time off
+(`requestStyle`): the labelled form, or one editable sentence (`RequestLeaveSentence`). Both post the same fields to
+the same action and share the live preview (`useLeaveDraft`, `LeavePreviewLine`), so the choice changes nothing but
+the layout. The root layout, the account page and Home read the appearance once per request
+(`requestAppearance`, `src/app/_lib/appearance.ts`). `company.updated` carries `theme`, `accentColor`, `corners` and
+`requestStyle`.
 
 ### Audit log viewer
 

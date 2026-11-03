@@ -36,6 +36,11 @@ export function formatLeaveDates(startDate: string, endDate: string, dayPortion:
   return `${from} to ${dayFormat.format(end)}, ${yearFormat.format(end)}`;
 }
 
+/** One date in short words, e.g. "Mon, Nov 23". */
+export function formatShortDay(date: string): string {
+  return dayFormat.format(toUtc(date));
+}
+
 /** "1 day", "0.5 days", "3 days". */
 export function formatDays(days: number): string {
   return formatCount(days, "day", "days");

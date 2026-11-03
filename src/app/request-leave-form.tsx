@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
-import { IDLE, nextFormKey } from "@/components/forms/form-state";
+import { type FormState, IDLE, nextFormKey } from "@/components/forms/form-state";
 import { FormStatus } from "@/components/forms/form-status";
 import { useFormAction } from "@/components/forms/use-form-action";
 import { REQUEST_FORM_ID } from "@/components/layout/anchors";
@@ -13,8 +13,8 @@ import type { LeavePreviewResponse } from "./_lib/leave-input";
 import { requestLeaveAction } from "./actions";
 import { showsPreview } from "./request-preview";
 
-type LeaveTypeOption = { id: string; name: string; color: string };
-type Portion = "full" | "am" | "pm";
+export type LeaveTypeOption = { id: string; name: string; color: string };
+export type Portion = "full" | "am" | "pm";
 
 const PORTIONS: { value: Portion; label: string }[] = [
   { value: "full", label: "Full day" },
@@ -27,41 +27,58 @@ const PREVIEW_DELAY_MS = 300;
 const PREVIEW_ID = "leave-preview";
 
 /**
- * The dashboard's one main action. Everything is pre-filled (first leave type, the next working day,
- * full day), so asking for a single day off is pick a date, then submit.
+ * The dashboard's one main action, as labelled fields. Everything is pre-filled (first
+ * leave type, the next working day, full day), so asking for a single day off is pick a
+ * date, then submit. An admin can swap it for {@link RequestLeaveSentence}, which shares
+ * every piece below.
  */
 export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; defaultDate: string }) {
-  const { state, dispatch, pending, onSubmit } = useFormAction(requestLeaveAction, IDLE);
-  // A successful submit remounts the fields, which resets them to their defaults; an
-  // error keeps the current key so the person's input survives.
-  const [resetKey, setResetKey] = useState("form");
-  const key = nextFormKey(resetKey, state);
-  if (key !== resetKey) setResetKey(key);
+  const { state, dispatch, pending, onSubmit, key } = useRequestAction();
 
   return (
     <Section id={REQUEST_FORM_ID} title="Request time off" surface className="scroll-mt-6 space-y-5">
       <form action={dispatch} onSubmit={onSubmit} className="space-y-5">
         <Fields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} />
-        <div className="flex flex-wrap items-center gap-4">
-          <button type="submit" aria-disabled={pending} aria-describedby={PREVIEW_ID} className={primaryButton}>
-            {pending ? "Sending…" : "Request time off"}
-          </button>
-          <FormStatus state={state} />
-        </div>
+        <SubmitRow state={state} pending={pending} label="Request time off" />
       </form>
     </Section>
   );
 }
 
-function Fields({
-  leaveTypes,
-  defaultDate,
-  justSubmitted,
-}: {
-  leaveTypes: LeaveTypeOption[];
-  defaultDate: string;
-  justSubmitted: boolean;
-}) {
+/**
+ * The submit action plus a key for the fields: a successful submit remounts them, which
+ * resets them to their defaults; an error keeps the current key so the person's input
+ * survives. Shared by the form and the sentence.
+ */
+export function useRequestAction() {
+  const { state, dispatch, pending, onSubmit } = useFormAction(requestLeaveAction, IDLE);
+  const [resetKey, setResetKey] = useState("form");
+  const key = nextFormKey(resetKey, state);
+  if (key !== resetKey) setResetKey(key);
+  return { state, dispatch, pending, onSubmit, key };
+}
+
+/** The submit button and the outcome of the last submit. */
+export function SubmitRow({ state, pending, label }: { state: FormState; pending: boolean; label: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      <button type="submit" aria-disabled={pending} aria-describedby={PREVIEW_ID} className={primaryButton}>
+        {pending ? "Sending…" : label}
+      </button>
+      <FormStatus state={state} />
+    </div>
+  );
+}
+
+/**
+ * A draft request's state and the rules that tie its fields together, plus its live
+ * preview and whether to show it. Shared by the form and the sentence, so both behave
+ * the same.
+ *
+ * @param justSubmitted The last submit succeeded: the preview stays hidden until the
+ *   person starts the next request.
+ */
+export function useLeaveDraft(leaveTypes: LeaveTypeOption[], defaultDate: string, justSubmitted: boolean) {
   const [leaveTypeId, setLeaveTypeId] = useState(leaveTypes[0]?.id ?? "");
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
@@ -87,6 +104,48 @@ function Fields({
     if (value !== startDate) setDayPortion("full");
   }
 
+  return {
+    leaveTypeId,
+    setLeaveTypeId,
+    startDate,
+    endDate,
+    dayPortion,
+    setDayPortion,
+    note,
+    setNote,
+    singleDay,
+    preview,
+    previewShown,
+    changeStart,
+    changeEnd,
+  };
+}
+
+function Fields({
+  leaveTypes,
+  defaultDate,
+  justSubmitted,
+}: {
+  leaveTypes: LeaveTypeOption[];
+  defaultDate: string;
+  justSubmitted: boolean;
+}) {
+  const {
+    leaveTypeId,
+    setLeaveTypeId,
+    startDate,
+    endDate,
+    dayPortion,
+    setDayPortion,
+    note,
+    setNote,
+    singleDay,
+    preview,
+    previewShown,
+    changeStart,
+    changeEnd,
+  } = useLeaveDraft(leaveTypes, defaultDate, justSubmitted);
+
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-3">
@@ -99,7 +158,15 @@ function Fields({
           options={leaveTypes.map((t) => ({ value: t.id, label: t.name }))}
         />
         <TextField label="From" type="date" name="startDate" required value={startDate} onChange={(e) => changeStart(e.target.value)} />
-        <TextField label="To" type="date" name="endDate" required min={startDate} value={endDate} onChange={(e) => changeEnd(e.target.value)} />
+        <TextField
+          label="To"
+          type="date"
+          name="endDate"
+          required
+          min={startDate}
+          value={endDate}
+          onChange={(e) => changeEnd(e.target.value)}
+        />
       </div>
 
       <Fieldset legend="How much of the day" hint={singleDay ? undefined : "Half days are for a single date."} className="space-y-1.5">
@@ -120,19 +187,36 @@ function Fields({
         </div>
       </Fieldset>
 
-      <TextAreaField label="Note" optional name="note" rows={2} maxLength={NOTE_MAX_LENGTH} value={note} onChange={(e) => setNote(e.target.value)} />
+      <TextAreaField
+        label="Note"
+        optional
+        name="note"
+        rows={2}
+        maxLength={NOTE_MAX_LENGTH}
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
 
-      {/* Staleness is shown with the muted colour token, never opacity, which would take
-          the red error line below AA contrast. aria-busy tells screen readers. */}
-      <p
-        id={PREVIEW_ID}
-        aria-live="polite"
-        aria-busy={previewShown && !preview.current}
-        className={cx("min-h-5 text-sm", !preview.ok ? errorText : preview.current ? "text-foreground" : "text-muted")}
-      >
-        {previewShown && preview.message}
-      </p>
+      <LeavePreviewLine preview={preview} shown={previewShown} />
     </>
+  );
+}
+
+/**
+ * What the draft would cost and leave, or why it can't be requested. Staleness is shown
+ * with the muted colour token, never opacity, which would take the red error line below
+ * AA contrast. aria-busy tells screen readers.
+ */
+export function LeavePreviewLine({ preview, shown, className = "text-sm" }: { preview: LeavePreview; shown: boolean; className?: string }) {
+  return (
+    <p
+      id={PREVIEW_ID}
+      aria-live="polite"
+      aria-busy={shown && !preview.current}
+      className={cx("min-h-5", className, !preview.ok ? errorText : preview.current ? "text-foreground" : "text-muted")}
+    >
+      {shown && preview.message}
+    </p>
   );
 }
 
@@ -145,7 +229,9 @@ type Preview = { query: string; ok: boolean; message: string };
  * submit. Debounced; a newer draft aborts the older request, so answers never arrive
  * out of order. While a newer answer is on its way, the last one stays, marked busy.
  */
-function useLeavePreview(draft: Draft): { message: string; ok: boolean; current: boolean } {
+export type LeavePreview = { message: string; ok: boolean; current: boolean };
+
+function useLeavePreview(draft: Draft): LeavePreview {
   const [preview, setPreview] = useState<Preview | null>(null);
   const complete = draft.leaveTypeId !== "" && draft.startDate !== "";
   const query = new URLSearchParams(draft).toString();

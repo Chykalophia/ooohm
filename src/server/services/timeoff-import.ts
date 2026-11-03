@@ -255,8 +255,8 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
   } else {
     const name = oneLine(input.target.createCompany);
     if (name.length === 0 || name.length > COMPANY_NAME_MAX_LENGTH) refuse(`Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`);
-    // v1 runs one company per deployment. Locked first, so neither another import nor
-    // the seed can create one between this check and the insert.
+    // v1 runs one company per deployment. Locked first; the seed takes the same lock
+    // before its own check, so neither it nor another import can create one meanwhile.
     await lockCompaniesTable(tx);
     const existing = await listCompanyNames(tx);
     if (existing.length > 0) {

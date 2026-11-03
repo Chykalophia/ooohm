@@ -271,7 +271,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, requestStyle, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, requestStyle, layout, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -949,8 +949,13 @@ now, whatever the person chose, and the account page says so. The same page sets
 (`requestStyle`): the labelled form, or one editable sentence (`RequestLeaveSentence`). Both post the same fields to
 the same action and share the live preview (`useLeaveDraft`, `LeavePreviewLine`), so the choice changes nothing but
 the layout. The root layout, the account page and Home read the appearance once per request
-(`requestAppearance`, `src/app/_lib/appearance.ts`). `company.updated` carries `theme`, `accentColor`, `corners` and
-`requestStyle`.
+(`requestAppearance`, `src/app/_lib/appearance.ts`). It also sets a layout trial (`layout`: `standard`, `tonal`, `grouped`, `compact` or `legible`, see `LAYOUTS`), which
+the root layout puts on `<html>` as `data-layout` (left off for `standard`). Each trial is a block of CSS rules in
+`globals.css` keyed on that attribute and on the `app-page`, `app-header` and `app-nav` hooks that `AppPage` and `AppHeader`
+carry: it changes spacing, shape, type size, surface treatment and navigation, never content or actions. Colours
+stay derived from the theme (a tinted card or ground, a darker grey for text on it), so an admin can try one on the
+whole company and switch back.
+`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle` and `layout`.
 
 ### Audit log viewer
 

@@ -60,13 +60,15 @@ export interface HtmlAppearance {
  * What `<html>` carries for the company's look and the person's colour mode.
  * `data-mode` is the person's mode (light, dark, system) where the theme has a dark
  * version ({@link followsDarkMode}: Classic with its own accent); any other look draws
- * light, whatever they chose.
+ * light, whatever they chose. `data-layout` is the company's layout trial, left off for
+ * `standard`.
  */
 export function htmlAppearance(
-  appearance: Pick<Appearance, "theme" | "accentColor" | "corners">,
+  appearance: Pick<Appearance, "theme" | "accentColor" | "corners"> & { layout?: Appearance["layout"] },
   colorMode: ColorMode = DEFAULT_COLOR_MODE,
 ): HtmlAppearance {
   const attributes: Record<string, string> = { "data-ui": appearance.theme };
+  if (appearance.layout && appearance.layout !== "standard") attributes["data-layout"] = appearance.layout;
   if (appearance.corners !== "theme") attributes["data-corners"] = appearance.corners;
   attributes["data-mode"] = followsDarkMode(appearance) ? colorMode : "light";
   const style: Record<string, string> = {};

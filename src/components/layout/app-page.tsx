@@ -32,7 +32,7 @@ export function AppPage({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
+    <div className="app-page mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       <AppHeader nav={nav} current={current} />
       {subnav && <div className="mb-8">{subnav}</div>}
       <main className={className}>

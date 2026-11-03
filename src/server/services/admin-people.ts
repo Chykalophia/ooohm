@@ -35,6 +35,7 @@ import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { renderInviteEmail } from "@/server/email/invite-email";
 import { renderLeaveEmail } from "@/server/email/leave-emails";
+import { emailAccentFor } from "./email-accent";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
@@ -171,17 +172,21 @@ async function assertUnderInviteLimit(tx: Transaction, actor: Actor): Promise<vo
  * because the account it signs into must exist first. A failure (link or SMTP) is
  * logged as `invite_email_failed` with the person's id, never their address.
  */
-function inviteEmail(ctx: ServiceContext, person: PersonRow, inviterName: string, companyName: string): DeferredEmail {
+function inviteEmail(ctx: ServiceContext, companyId: string, person: PersonRow, inviterName: string, companyName: string): DeferredEmail {
+  const accent = emailAccentFor(ctx, companyId);
   return {
     to: person.email,
     build: async () =>
-      renderInviteEmail({
-        recipientName: person.name,
-        inviterName,
-        companyName,
-        link: await ctx.issueSignInLink(person.email),
-        signInUrl: `${ctx.appUrl}/sign-in`,
-      }),
+      renderInviteEmail(
+        {
+          recipientName: person.name,
+          inviterName,
+          companyName,
+          link: await ctx.issueSignInLink(person.email),
+          signInUrl: `${ctx.appUrl}/sign-in`,
+        },
+        await accent(),
+      ),
     failureEvent: "invite_email_failed",
     logFields: { userId: person.id },
   };
@@ -330,7 +335,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
       const rerouted = person.role === "admin" ? await rerouteApprovals(ctx, tx, actor, await listPendingSelfRouted(tx, actor.companyId)) : null;
       return {
         result: person,
-        outgoing: [inviteEmail(ctx, person, await inviterName(tx, actor), company.name), ...(rerouted?.outgoing ?? [])],
+        outgoing: [inviteEmail(ctx, actor.companyId, person, await inviterName(tx, actor), company.name), ...(rerouted?.outgoing ?? [])],
       };
     });
   } catch (err) {
@@ -363,7 +368,7 @@ export async function resendInvite(ctx: ServiceContext, actor: Actor, userId: st
       after: { email: person.email },
       payload: personPayload(person),
     });
-    return { result: person, outgoing: [inviteEmail(ctx, person, await inviterName(tx, actor), company.name)] };
+    return { result: person, outgoing: [inviteEmail(ctx, actor.companyId, person, await inviterName(tx, actor), company.name)] };
   });
 }
 
@@ -552,6 +557,7 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
     listAllLeaveTypes(tx, actor.companyId).then((rows) => new Map(rows.map((t) => [t.id, t.name]))),
   ]);
   const outgoing: DeferredEmail[] = [];
+  const accent = emailAccentFor(ctx, actor.companyId);
   let reassigned = 0;
   for (const { request, approverId } of moves) {
     const after = await reassignIfCurrent(tx, { companyId: actor.companyId, id: request.id, from: request.approverId }, approverId);
@@ -571,7 +577,7 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
     } as const;
     outgoing.push({
       to: approver.email,
-      build: () => renderLeaveEmail(email),
+      build: async () => renderLeaveEmail(email, await accent()),
       failureEvent: "leave_email_failed",
       logFields: { requestId: after.id, kind: email.kind },
     });

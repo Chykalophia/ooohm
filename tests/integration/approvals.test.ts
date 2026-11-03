@@ -109,8 +109,8 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
       rejected.ctx.sent.map((m) => [m.to, m.subject]),
       [[rejected.co.people.ana.email, "Your time off request was declined"]],
     );
-    assert.match(rejected.ctx.sent[0].text, /Reason: Launch week/);
-    assert.match(approved.ctx.sent[0].text, /Note from approver: Have fun/);
+    assert.match(rejected.ctx.sent[0].text, /Reason: “Launch week”/);
+    assert.match(approved.ctx.sent[0].text, /Note from approver: “Have fun”/);
 
     // Both outcomes reach the requester's dashboard too.
     const [aDash, rDash] = await Promise.all([

@@ -40,6 +40,11 @@ export const CHANGE_PROCESSES = {
   workingDaysChange: "working_days_change",
   /** The one-click Approve link in a request email. Only ever a `via`: the approver, through the link. */
   emailLink: "email_link",
+  /**
+   * The web setup of a brand-new install (`/setup`). Only ever a `via`: the first admin,
+   * who created themself and the company's default leave types through it.
+   */
+  firstInstall: "first_install",
 } as const;
 
 const ADAPTER_SYNC_PREFIX = "adapter_sync:";
@@ -167,6 +172,8 @@ function processLabel(process: string, names: ChangeSourceNames, scheduled: bool
       return "working days change";
     case CHANGE_PROCESSES.emailLink:
       return "the email Approve link";
+    case CHANGE_PROCESSES.firstInstall:
+      return "first-time setup";
     case UNKNOWN_PROCESS:
       return "unknown process";
     default:

@@ -1,5 +1,6 @@
 import { displayName } from "@/domain/person";
-import { type EmailContent, escapeHtml } from "./leave-emails";
+import { buttons, DEFAULT_EMAIL_ACCENT, type EmailAccent, emailDocument, escapeHtml, link, paragraph } from "@/lib/email-layout";
+import type { EmailContent } from "./leave-emails";
 
 /**
  * The invite an admin's "Invite" or "Resend invite" sends: who added the person, and a
@@ -22,7 +23,7 @@ export const INVITE_SUBJECT = "You're invited to OOOhm";
  * The invite: who invited the person to which company, and their one-time sign-in link.
  * The subject is fixed ({@link INVITE_SUBJECT}); names appear in the body only.
  */
-export function renderInviteEmail(input: InviteEmail): EmailContent {
+export function renderInviteEmail(input: InviteEmail, accent: EmailAccent = DEFAULT_EMAIL_ACCENT): EmailContent {
   const recipient = displayName(input.recipientName);
   const inviter = displayName(input.inviterName) || "An admin";
   const company = displayName(input.companyName) || "your company";
@@ -31,12 +32,10 @@ export function renderInviteEmail(input: InviteEmail): EmailContent {
   const expiry = "This link works once and expires in 15 minutes. After that, get a new one here with this email address:";
 
   const text = [greeting, "", intro, "", `Sign in: ${input.link}`, "", expiry, input.signInUrl, ""].join("\n");
-  const html =
-    `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1c1917;line-height:1.5;max-width:480px">` +
-    `<p>${escapeHtml(greeting)}</p>` +
-    `<p>${escapeHtml(intro)}</p>` +
-    `<p><a href="${escapeHtml(input.link)}" style="color:#0f766e">Sign in to OOOhm</a></p>` +
-    `<p style="color:#78716c">${escapeHtml(expiry)} <a href="${escapeHtml(input.signInUrl)}" style="color:#0f766e">${escapeHtml(input.signInUrl)}</a></p>` +
-    `</div>`;
-  return { subject: INVITE_SUBJECT, text, html };
+  const body =
+    paragraph(escapeHtml(greeting)) +
+    paragraph(escapeHtml(intro)) +
+    buttons([{ label: "Sign in to OOOhm", href: input.link, variant: "primary" }], accent);
+  const footer = `${escapeHtml(expiry)} ${link(input.signInUrl, input.signInUrl, accent)}`;
+  return { subject: INVITE_SUBJECT, text, html: emailDocument(body, accent, footer) };
 }

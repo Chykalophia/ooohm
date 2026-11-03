@@ -21,6 +21,7 @@
     "vercel-build": "tsx scripts/migrate.mts --if-production && tsx scripts/seed.mts --if-production && next build"
   },
   "dependencies": {
+    "@better-auth/passkey": "1.7.15",
     "@electric-sql/pglite": "^0.5.14",
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/geist": "^5.3.0",

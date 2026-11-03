@@ -70,6 +70,13 @@ printf '%s' "OOOhm <no-reply@example.com>"    | vercel env add MAIL_FROM product
 Another provider over SMTP instead: `MAIL_TRANSPORT=smtp` (the default) with `SMTP_HOST`, `SMTP_PORT=587`,
 `SMTP_SECURE=false`, `SMTP_REQUIRE_TLS=true`, `SMTP_USER` and `SMTP_PASSWORD`.
 
+**Moving from a temporary address (step 5)?** Bind passkeys to the domain both addresses share **before anyone adds
+one**, or every passkey stops working at the move:
+
+```bash
+printf '%s' "example.com" | vercel env add PASSKEY_RP_ID production   # the parent of hrtemp. and hr.
+```
+
 Optional: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (redirect URIs `https://hrtemp.example.com/api/auth/callback/google` and
 `https://hr.example.com/api/auth/callback/google`),
 `LOG_LEVEL`. Not needed: `OOOHM_BACKGROUND` (Vercel defaults to `inline`), `DATABASE_POOLER`.
@@ -109,7 +116,8 @@ resolves. `BETTER_AUTH_URL` is `https://hrtemp.example.com` (step 3).
 
 4. Edit `hrtemp.example.com` under **Domains** to **Redirect to** `hr.example.com` (308), and keep it a while.
 
-What the switch changes: everyone signs in once more (a session belongs to its host). Sign-in and Approve links already
+What the switch changes: everyone signs in once more (a session belongs to its host); passkeys keep working if
+`PASSKEY_RP_ID` is the shared parent domain (step 3), and otherwise have to be added again. Sign-in and Approve links already
 emailed keep working through the redirect. Calendar feed links carry the host, so hand them out only after the
 switch; anyone who subscribed on `hrtemp` copies the link again from **Calendar → Subscribe**.
 

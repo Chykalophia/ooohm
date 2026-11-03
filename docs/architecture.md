@@ -119,6 +119,20 @@ builds its own with `scriptContext` (`scripts/script-context.mts`). Tests build 
 
 ## Cross-cutting conventions
 
+### Signing in
+
+Invite-only: an admin (or the first install) creates every account, and no sign-in method creates one. People sign in
+with an emailed magic link, Google when it is configured, or a **passkey** (Better Auth's passkey plugin,
+`@better-auth/passkey`; credentials in the `passkey` table). A passkey is added on the account page, so only by
+someone already signed in (`registration.requireSession`), and removed there too; Home suggests one until the person
+has any. The sign-in page offers "Sign in with a passkey", and the email field lets the browser suggest saved passkeys
+(`autocomplete="email webauthn"`, conditional mediation). Every method ends in the same session hook, which refuses a
+deactivated person; a delete removes their passkeys with the rest of their sign-in data (`deleteSignInOf`).
+
+A passkey is bound to a domain (the relying party ID): the host of `BETTER_AUTH_URL`, or `PASSKEY_RP_ID` when set to a
+parent domain of it (`passkeyRelyingParty`, `src/lib/passkey-rp.ts`, checked at start). Set the parent domain before
+anyone adds a passkey if the app will move between its subdomains: a passkey made for one host does not work on another.
+
 ### Actor and authorization
 
 `requireActor()` (`src/lib/auth.ts`) returns the session user and an `Actor` (`id`, `companyId`, `role`,

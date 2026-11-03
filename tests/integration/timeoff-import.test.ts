@@ -427,21 +427,18 @@ describe("TimeOff import", { skip }, () => {
     await rejectsWith(importTimeOff(ctx, fixture({ createCompany: "Chykalophia" }, noAdmins, { apply: true })), "import_refused");
     assert.equal(await db.$count(schema.companies), 0, "the new company was rolled back too");
 
-    // Into a seeded company the seed admin is enough.
-    const { companyId } = await seedFreshDeploy(db);
-    const report = await importTimeOff(ctx, fixture({ companyId }, noAdmins, { apply: true }));
-    assert.equal(report.outcome, "applied");
+    // Named by someone the import brings in who is not an admin: refused, nothing written.
+    await assert.rejects(importTimeOff(ctx, fixture({ createCompany: "New" }, undefined, { apply: true, actorEmail: "carol@example.com" })), /not an active admin of company "New"/);
+    assert.equal(await db.$count(schema.companies), 0);
 
-    // And a new company with a TimeOff admin is created with TimeOff's settings.
-    const created = await importTimeOff(ctx, fixture({ createCompany: "Second" }, (d) => {
-      for (const u of d.users) u.email = String(u.email).replace("@", "+2@");
-    }, { apply: true, actorEmail: "alice+2@example.com" }));
+    // A new company with a TimeOff admin is created with TimeOff's settings.
+    const created = await importTimeOff(ctx, fixture({ createCompany: "Chykalophia" }, undefined, { apply: true, actorEmail: "alice@example.com" }));
     assert.equal(created.outcome, "applied");
     assert.deepEqual([created.company.created, created.company.timezone, created.company.workingDays], [true, "America/Chicago", [1, 2, 3, 4, 5]]);
 
     // Alice only exists once the import has created her, and every change is hers.
-    const [alice] = await db.select().from(schema.user).where(eq(schema.user.email, "alice+2@example.com"));
-    assert.deepEqual(created.actor, { userId: alice.id, email: "alice+2@example.com" });
+    const [alice] = await db.select().from(schema.user).where(eq(schema.user.email, "alice@example.com"));
+    assert.deepEqual(created.actor, { userId: alice.id, email: "alice@example.com" });
     const sources = await db
       .selectDistinct({ kind: schema.auditLog.actorKind, id: schema.auditLog.actorId, via: schema.auditLog.actorVia })
       .from(schema.auditLog)
@@ -449,6 +446,38 @@ describe("TimeOff import", { skip }, () => {
     assert.deepEqual(sources, [{ kind: "user", id: alice.id, via: "timeoff_import" }]);
     const [event] = await db.select().from(schema.eventsOutbox).where(eq(schema.eventsOutbox.companyId, created.company.id));
     assert.deepEqual((event.payload as { actor: unknown }).actor, { type: "user", id: alice.id, via: "timeoff_import" });
+  });
+
+  test("into a seeded company the seed admin is enough", async () => {
+    const db = await freshDb();
+    const ctx = createTestContext(db);
+    const { companyId } = await seedFreshDeploy(db);
+    const report = await importTimeOff(ctx, fixture({ companyId }, (d) => d.users.forEach((u) => (u.admin = 0)), { apply: true }));
+    assert.equal(report.outcome, "applied");
+  });
+
+  test("--create-company is refused once a company exists: v1 runs one company per deployment", async () => {
+    const db = await freshDb();
+    const ctx = createTestContext(db);
+    const { companyId } = await seedFreshDeploy(db);
+    const counts = await rowCounts(db);
+    const otherEmails = (d: FixtureData) => {
+      for (const u of d.users) u.email = String(u.email).replace("@", "+2@");
+    };
+
+    for (const input of [
+      fixture({ createCompany: "Second" }, otherEmails, { apply: true, actorEmail: "alice+2@example.com" }),
+      fixture({ createCompany: "Second" }, otherEmails, { actorEmail: "alice+2@example.com" }),
+    ]) {
+      await assert.rejects(importTimeOff(ctx, input), (err: Error & { code?: string }) => {
+        assert.equal(err.code, "import_refused");
+        assert.match(err.message, /already has a company/);
+        assert.ok(err.message.includes(`--company ${companyId}`), "names the company to import into");
+        return true;
+      });
+      assert.deepEqual(await rowCounts(db), counts, "nothing written");
+    }
+    assert.equal(await db.$count(schema.companies), 1);
   });
 
   test("--actor must be an active admin of the target company after the import; otherwise nothing is written", async () => {
@@ -466,7 +495,6 @@ describe("TimeOff import", { skip }, () => {
       ["someone the import brings in, not an admin", fixture({ companyId }, undefined, { apply: true, actorEmail: "carol@example.com" }), /not an active admin/],
       ["an imported admin who has left", fixture({ companyId }, ginaAdmin, { apply: true, actorEmail: "gina@example.com" }), /not an active admin/],
       ["a dry run, too", fixture({ companyId }, undefined, { actorEmail: "carol@example.com" }), /not an active admin/],
-      ["a new company, named by a non-admin", fixture({ createCompany: "New" }, undefined, { apply: true, actorEmail: "carol@example.com" }), /not an active admin of company "New"/],
     ];
     for (const [why, input, message] of refusals) {
       await assert.rejects(importTimeOff(ctx, input), (err: Error & { code?: string }) => {

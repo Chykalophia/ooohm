@@ -121,7 +121,7 @@ How sources are chosen, type-enforced so a new call site cannot leave one out (e
 - The TimeOff import (M7) is started by a person, so it is that person's change: `{ kind: "user", userId: <admin>,
   via: "timeoff_import" }` on every audit row it writes and on `import.completed`. The CLI's required `--actor <email>`
   names the admin; it is resolved inside the import's transaction, after people are imported, and must be an
-  active admin of the target company (existing, or just imported with `--create-company`), or the import rolls back.
+  active admin of the target company (existing, or just imported with `--create-company`, which only runs when no company exists yet), or the import rolls back.
 - A full-scrub delete that waited out the company's grace period ([People lifecycle](#people-lifecycle-and-privacy-m8))
   is run by the daily job: `{ kind: "system", process: "scheduled_scrub", requestedBy: <the admin who asked> }`. The
   process made the change, so `actor_id` stays empty; `requestedBy` only names who asked, and the label reads

@@ -84,6 +84,7 @@ import {
   listCompanyAccounts,
   listCompanyNames,
   listDepartmentsByName,
+  lockCompaniesTable,
   type NewImportedRequest,
   updateImportedAccount,
   upsertAllowances,
@@ -254,6 +255,17 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
   } else {
     const name = oneLine(input.target.createCompany);
     if (name.length === 0 || name.length > COMPANY_NAME_MAX_LENGTH) refuse(`Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`);
+    // v1 runs one company per deployment. Locked first, so neither another import nor
+    // the seed can create one between this check and the insert.
+    await lockCompaniesTable(tx);
+    const existing = await listCompanyNames(tx);
+    if (existing.length > 0) {
+      const known = existing.map((c) => `${c.id} (${c.name})`).join(", ");
+      refuse(
+        `This deployment already has a company: ${known}. OOOhm runs one company per deployment, so --create-company only works on an empty database. ` +
+          `Import into the existing company with --company ${existing[0].id} instead.`,
+      );
+    }
     company = await insertCompany(tx, { name, timezone: timeOffTimeZone(timeoffCompany) ?? "UTC", workingDays: [1, 2, 3, 4, 5] });
     created = true;
   }

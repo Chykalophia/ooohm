@@ -16,6 +16,8 @@ export interface AuditQuery {
   /** Last day to include, in `timezone`. */
   to?: string;
   timezone: string;
+  /** Oldest first instead of newest first. */
+  oldestFirst?: boolean;
   /** The page: after or before a `[created_at, id]` key (`created_at` as {@link cursorInstant} prints it); the newest when absent. */
   page?: PageRequest;
 }
@@ -25,7 +27,7 @@ const subject = alias(user, "subject");
 const requester = alias(user, "requester");
 
 /**
- * One page of the company's audit log, newest first, keyset-paginated on
+ * One page of the company's audit log, newest first (or oldest), keyset-paginated on
  * `(created_at, id)`. One query whatever the page size: the actor's, subject's and (for a
  * scheduled run) requester's names, and the API key's name and prefix, come from joins. With at most one of action, actor or person set, the scan runs on the
  * matching `audit_log_company_*_idx` index in order, so it reads about `limit` rows.
@@ -35,7 +37,7 @@ const requester = alias(user, "requester");
  */
 export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) {
   const dayStart = (date: string) => sql`(${date}::date::timestamp at time zone ${q.timezone})`;
-  const page = keysetPage("desc", [auditLog.createdAt, auditLog.id], q.page, ([at, id]) => [sql`${at}::timestamptz`, sql`${id}::uuid`]);
+  const page = keysetPage(q.oldestFirst ? "asc" : "desc", [auditLog.createdAt, auditLog.id], q.page, ([at, id]) => [sql`${at}::timestamptz`, sql`${id}::uuid`]);
   return ex
     .select({
       id: auditLog.id,

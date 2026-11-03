@@ -210,7 +210,12 @@ export interface AuditNames {
   person(id: string): string | undefined;
   department(id: string): string | undefined;
   leaveType(id: string): string | undefined;
+  /** An ISO instant ("2026-11-03T01:43:53.883Z") as the reader's time; printed as stored without it. */
+  instant?(iso: string): string;
 }
+
+/** An instant as snapshots store it: `Date#toISOString()`. */
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
 const PERSON_FIELDS = new Set(["managerId", "approverId", "userId", "actorId", "previousApproverId", "timeoffApproverId"]);
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -230,6 +235,7 @@ export function formatAuditValue(field: string, value: unknown, names: AuditName
     if (PERSON_FIELDS.has(field)) return names.person(value) ?? "someone else";
     if (field === "departmentId") return names.department(value) ?? "a deleted department";
     if (field === "leaveTypeId") return names.leaveType(value) ?? "another leave type";
+    if (names.instant && ISO_INSTANT.test(value)) return names.instant(value);
     return value;
   }
   if (field === "workingDays" && Array.isArray(value)) {

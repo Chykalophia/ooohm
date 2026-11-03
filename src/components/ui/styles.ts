@@ -84,3 +84,10 @@ export function pillClass(active: boolean): string {
     active ? "border-accent text-accent" : "border-border text-muted hover:text-foreground",
   );
 }
+
+/** A table's header cell: small, muted, and stuck to the top while its rows scroll by. */
+export const tableHeadCell =
+  "sticky top-0 z-10 bg-surface px-3 py-2.5 text-left text-xs font-medium text-muted shadow-[inset_0_-1px_0_var(--border)] first:pl-4 last:pr-4";
+
+/** A table's body cell: one compact line, divided from the row above. */
+export const tableCell = "border-t border-border px-3 py-2 align-top first:pl-4 last:pr-4";

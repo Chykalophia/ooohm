@@ -63,10 +63,10 @@ navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these 
 
 | Folder | Holds |
 | --- | --- |
-| `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField`, `SteadyLabel` (text that turns bold without changing width, so navigation never shifts) |
+| `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField`, `SteadyLabel` (text that turns bold without changing width, so navigation never shifts), `DataTable` (a dense table for long records: sticky header, rows that open to their detail) |
 | `forms/` | Forms bound to server actions: `useFormAction` (no automatic reset, so a refused submit keeps what was typed), `useConfirm` (the "ask first" step, with focus moved to the question and back), `ActionForm`, `InlineAction` (a quiet action on a record, optionally confirmed first), `Reveal`, `RevealForm` (a secret shown once), `FormStatus` and `ErrorMessage` |
 | `layout/` | The page frame: `AppPage`, `AppHeader`, `AccountMenu`, `NoCompany`, the logo |
-| `navigation/` | `PillNav`, `MonthNav`, `YearNav` |
+| `navigation/` | `PillNav`, `MonthNav`, `YearNav`, `Pager`, `PageSizeNav` |
 | `leave/` | Leave and balance displays: `StatusBadge`, `LeaveChip`, `BalanceSummary`, `BalanceList`, `BalanceFigures`, `LeaveTypeName` |
 
 Components render what they are given: they never load data, read the session or import from `src/app` or
@@ -883,7 +883,7 @@ also holds the deletion grace option ([The grace option](#the-grace-option)); `c
 
 ### Audit log viewer
 
-`/admin/audit` (`getAuditLog`): newest first, 25 a page, read-only. Filters: action (from the known list),
+`/admin/audit` (`getAuditLog`): a `DataTable`, one line a change (when, what, about whom, by whom), each row opening to the full time and every field changed. Newest first, or oldest (the When header), 25, 50 or 100 a page, read-only. Filters apply as they are picked (`FilterBar autoApply`); clicking an action or a person in a row narrows the log to it. Filters: action (from the known list),
 who did it, who it is about (`subject_user_id`), and a date range in the company's time zone (converted in SQL
 with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malformed filters are ignored. Each row
 says who or what made it with `changeSourceLabel` ("Ana", "Ana, via Gusto sync", "System: year rollover"); the

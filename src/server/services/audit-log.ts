@@ -10,6 +10,7 @@ import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { type PageCursor, type PageRequest, isCursorInstant, readPage } from "@/domain/paging";
 import { personLabel } from "@/domain/person";
+import { formatInstantDateTime } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";
 import { listAuditPage } from "@/server/repositories/audit-log";
 import { listDepartments } from "@/server/repositories/departments";
@@ -17,8 +18,15 @@ import { findCompany } from "@/server/repositories/companies";
 import { listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { listPeopleNames } from "@/server/repositories/users";
 
-/** Entries per page: a screen or two of the log, so it stays easy to scan. */
-export const AUDIT_PAGE_SIZE = 25;
+/** Rows per page the viewer offers; the first is the default. */
+export const AUDIT_PAGE_SIZES = [25, 50, 100] as const;
+export type AuditPageSize = (typeof AUDIT_PAGE_SIZES)[number];
+/** Rows per page unless the viewer asks for another of {@link AUDIT_PAGE_SIZES}. */
+export const AUDIT_PAGE_SIZE: AuditPageSize = AUDIT_PAGE_SIZES[0];
+
+function pageSize(value: number | undefined): AuditPageSize {
+  return AUDIT_PAGE_SIZES.find((s) => s === value) ?? AUDIT_PAGE_SIZE;
+}
 
 /** What the viewer filters on. Anything malformed is ignored rather than refused. */
 export interface AuditLogFilter {
@@ -29,7 +37,11 @@ export interface AuditLogFilter {
   from?: string;
   /** Last day, `YYYY-MM-DD`, in the company's time zone. */
   to?: string;
-  /** The page, from a previous page's `previous` or `next`; the newest entries when absent. */
+  /** Oldest first instead of newest first. A cursor belongs to one order: switching starts at page 1. */
+  oldestFirst?: boolean;
+  /** Rows per page, one of {@link AUDIT_PAGE_SIZES}; anything else is the default. */
+  size?: number;
+  /** The page, from a previous page's `previous` or `next`; the first page when absent. */
   page?: PageCursor;
 }
 
@@ -48,8 +60,11 @@ export interface AuditLogEntry {
   actorLabel: string;
   /** Whether a person (directly, through something, or with an API key) or a system process did it. */
   actorKind: ChangeSourceKind;
+  /** The person who did it (directly, through something, or with their API key), for filtering by them. */
+  actorId: string | null;
   /** Who it is about, if anyone. */
   subjectName: string | null;
+  subjectUserId: string | null;
   /** What changed, one line per field. */
   changes: string[];
 }
@@ -79,6 +94,7 @@ async function loadAuditNaming(ctx: ServiceContext, companyId: string) {
     person: (id: string) => peopleById.get(id),
     department: (id: string) => departmentsById.get(id),
     leaveType: (id: string) => typesById.get(id),
+    instant: (iso: string) => formatInstantDateTime(new Date(iso), company.timezone),
   };
   return { company, people, names };
 }
@@ -99,6 +115,8 @@ function toAuditEntry(ctx: ServiceContext, r: AuditRow, names: AuditNames): Audi
       adapter: (id) => ctx.adapters.get(id)?.displayName,
     }),
     actorKind: r.actorKind === "user" || r.actorKind === "api_key" ? r.actorKind : "system",
+    actorId: r.actorId,
+    subjectUserId: r.subjectUserId,
     subjectName: r.subjectUserId ? personLabel({ name: r.subjectName ?? "", email: r.subjectEmail ?? "" }) || null : null,
     changes: describeAuditChange(r.before, r.after, names),
   };
@@ -130,10 +148,12 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
     from,
     to,
     timezone: company.timezone,
+    oldestFirst: filter.oldestFirst === true,
   };
+  const size = pageSize(filter.size);
   const page = await readPage({
     cursor: filter.page,
-    size: AUDIT_PAGE_SIZE,
+    size,
     checks: AUDIT_KEY,
     read: (request, limit) => listAuditPage(ctx.db, { ...query, page: request }, limit),
     keyOf: (r) => [r.cursor, r.id],
@@ -144,6 +164,8 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
     entries: page.items.map((r) => toAuditEntry(ctx, r, names)),
     previous: page.previous,
     next: page.next,
+    oldestFirst: query.oldestFirst,
+    size,
     filters: {
       action,
       actorId: personId(filter.actorId),

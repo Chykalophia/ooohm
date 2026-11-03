@@ -94,3 +94,13 @@ test("fields without a label are spelled out from camelCase", () => {
   assert.equal(auditFieldLabel("carriedOverDays"), "Carried over");
   assert.equal(auditFieldLabel("someNewField"), "Some new field");
 });
+
+test("a stored instant reads as the reader's time when a formatter is given, and as stored without one", () => {
+  const names = { person: () => undefined, department: () => undefined, leaveType: () => undefined };
+  const after = { revokedAt: "2026-11-03T01:43:53.883Z", startDate: "2026-11-02" };
+  assert.deepEqual(describeAuditChange(null, after, names), ["Turned off: 2026-11-03T01:43:53.883Z", "From: 2026-11-02"]);
+  assert.deepEqual(describeAuditChange(null, after, { ...names, instant: (iso: string) => `at ${iso.slice(11, 16)}` }), [
+    "Turned off: at 01:43",
+    "From: 2026-11-02",
+  ]);
+});

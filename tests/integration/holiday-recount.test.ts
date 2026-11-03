@@ -392,14 +392,14 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     const co = await seedCompany(t.db, {
       boss: { role: "admin" },
       ana: { managerKey: "boss" },
-      victor: { canSelfApprove: true },
-      chrismer: { managerKey: "boss" },
+      vera: { canSelfApprove: true },
+      cyrus: { managerKey: "boss" },
       later: { canSelfApprove: true },
     });
     const ctx = createTestContext(t.db);
-    const { boss, ana, victor, chrismer, later } = co.people;
-    await submitLeaveRequest(ctx, victor, { leaveTypeId: co.pto, startDate: "2026-12-21", endDate: "2026-12-22", dayPortion: "full" });
-    await submitLeaveRequest(ctx, chrismer, { leaveTypeId: co.pto, startDate: "2026-12-23", dayPortion: "pm" });
+    const { boss, ana, vera, cyrus, later } = co.people;
+    await submitLeaveRequest(ctx, vera, { leaveTypeId: co.pto, startDate: "2026-12-21", endDate: "2026-12-22", dayPortion: "full" });
+    await submitLeaveRequest(ctx, cyrus, { leaveTypeId: co.pto, startDate: "2026-12-23", dayPortion: "pm" });
     const notThen = await submitLeaveRequest(ctx, later, { leaveTypeId: co.pto, startDate: "2027-01-04", dayPortion: "full" });
     assert.equal(notThen.status, "approved");
     await ctx.settle();
@@ -414,17 +414,17 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     await ctx.settle();
     const toBoss = ctx.sent.find((m) => m.to === boss.email);
     assert.ok(toBoss);
-    assert.ok(toBoss.text.includes("Also off then: Victor and Chrismer (not approved yet)."), "the email carries the line Approvals shows");
+    assert.ok(toBoss.text.includes("Also off then: Vera and Cyrus (not approved yet)."), "the email carries the line Approvals shows");
 
     const { items } = await decidable(ctx, boss);
     const item = items.find((i) => i.id === mine.id);
     assert.deepEqual(
       item?.alsoOff,
-      { others: 2, line: "Also off then: Victor and Chrismer (not approved yet)." },
+      { others: 2, line: "Also off then: Vera and Cyrus (not approved yet)." },
       "Later's leave in January isn't listed",
     );
-    const chrismersItem = items.find((i) => i.requesterId === chrismer.id);
-    assert.equal(chrismersItem?.alsoOff?.line, "Ana (not approved yet) is off then too.", "nobody is listed as off alongside themselves");
+    const cyrusItem = items.find((i) => i.requesterId === cyrus.id);
+    assert.equal(cyrusItem?.alsoOff?.line, "Ana (not approved yet) is off then too.", "nobody is listed as off alongside themselves");
   });
 
   test("someone whose leave overlaps only on a weekend is not listed as also off, as on the team calendar", async () => {

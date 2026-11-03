@@ -174,10 +174,10 @@ test("the request email to an approver carries the who-else-is-off line, when th
     kind: "requested",
     recipientName: "Boss",
     leave,
-    alsoOff: "Victor is off then too.",
+    alsoOff: "Vera is off then too.",
     link: "https://ooohm.test/approvals",
   });
-  assert.match(withHint.text, /^Who else is off: Victor is off then too\.$/m);
+  assert.match(withHint.text, /^Who else is off: Vera is off then too\.$/m);
   const without = renderLeaveEmail({
     kind: "requested",
     recipientName: "Boss",

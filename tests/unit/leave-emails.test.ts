@@ -196,3 +196,13 @@ test("emails are queued only once the transaction has committed", async () => {
   assert.deepEqual(result, { id: "r2" });
   assert.equal(deferred, 1);
 });
+
+test("a request email with an approve link leads with Approve and still links to OOOhm", () => {
+  const approveLink = "https://x/approve/abc.def";
+  const out = renderLeaveEmail({ kind: "requested", recipientName: "Jo", leave: leave(), link: "https://x/approvals", approveLink });
+  assert.match(out.text, /Approve: https:\/\/x\/approve\/abc\.def\nReview or decline it in OOOhm: https:\/\/x\/approvals/);
+  assert.ok(out.html.indexOf(">Approve</a>") < out.html.indexOf(">Review or decline it in OOOhm</a>"));
+  const without = renderLeaveEmail({ kind: "requested", recipientName: "Jo", leave: leave(), link: "https://x/approvals" });
+  assert.doesNotMatch(without.text, /Approve:/);
+  assert.match(without.text, /Review it in OOOhm: https:\/\/x\/approvals/);
+});

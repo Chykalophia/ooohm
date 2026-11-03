@@ -394,3 +394,59 @@ export async function listRecentDecisions(ex: Executor, q: { companyId: string; 
     .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
     .limit(limit);
 }
+
+/** One request with what an approver reads before deciding: requester, leave type, dates, days and note. */
+export async function findRequestForReview(ex: Executor, companyId: string, id: string) {
+  const [row] = await ex
+    .select({
+      id: leaveRequests.id,
+      status: leaveRequests.status,
+      approverId: leaveRequests.approverId,
+      startDate: leaveRequests.startDate,
+      endDate: leaveRequests.endDate,
+      dayPortion: leaveRequests.dayPortion,
+      days: leaveRequests.days,
+      note: leaveRequests.note,
+      leaveTypeName: leaveTypes.name,
+      leaveTypeColor: leaveTypes.color,
+      requesterName: requester.name,
+      requesterEmail: requester.email,
+    })
+    .from(leaveRequests)
+    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
+    .innerJoin(requester, eq(requester.id, leaveRequests.userId))
+    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.id, id)));
+  return row;
+}
+
+/**
+ * Each approver's median time from request to decision, in hours, over the requests
+ * assigned to them that were decided since `since` (by them, or by an admin stepping
+ * in: either way, it is how long a request routed to them waited): only approvers with at least `minSamples` such decisions,
+ * and never a request routed to its own requester (self-approval decides instantly).
+ * One grouped query.
+ */
+export async function medianDecisionHours(ex: Executor, q: { companyId: string; approverIds: readonly string[]; since: Date; minSamples: number }) {
+  if (q.approverIds.length === 0) return [];
+  return ex
+    .select({
+      // Never null: the filter below keeps only the listed approvers.
+      approverId: sql<string>`${leaveRequests.approverId}`,
+      hours:
+        sql<number>`percentile_cont(0.5) within group (order by extract(epoch from (${leaveRequests.decidedAt} - ${leaveRequests.createdAt})) / 3600)`.mapWith(
+          Number,
+        ),
+    })
+    .from(leaveRequests)
+    .where(
+      and(
+        eq(leaveRequests.companyId, q.companyId),
+        inArray(leaveRequests.approverId, [...q.approverIds]),
+        inArray(leaveRequests.status, ["approved", "rejected"]),
+        gte(leaveRequests.decidedAt, q.since),
+        ne(leaveRequests.userId, leaveRequests.approverId),
+      ),
+    )
+    .groupBy(leaveRequests.approverId)
+    .having(sql`count(*) >= ${q.minSamples}`);
+}

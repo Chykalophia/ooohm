@@ -29,6 +29,12 @@ export interface ServiceContext {
   defer: (task: () => Promise<void>) => void;
   /** Public base URL for links in emails, without a trailing slash. */
   appUrl: string;
+  /**
+   * Signs links in emails that act without a session (approve from the email). Absent
+   * in processes that send no email: their emails carry no such links, and a link
+   * cannot be checked there.
+   */
+  linkKey?: string;
   /** Current instant; injectable so tests can pin `decided_at`. */
   now: () => Date;
   /**

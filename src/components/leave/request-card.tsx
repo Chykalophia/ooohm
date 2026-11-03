@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatDays, formatLeaveDates } from "@/lib/format";
+import { formatDays, formatLeaveDates, formatTypicalWait } from "@/lib/format";
 import { ColorLabel } from "@/components/ui/color-label";
 import { cx } from "@/components/ui/styles";
 import { StatusBadge } from "./status-badge";
@@ -18,6 +18,8 @@ export type RequestCardData = {
   leaveTypeColor: string;
   approverId: string | null;
   approverName: string | null;
+  /** How long the approver usually takes, in hours, while the request waits on them; absent or `null` to say nothing. */
+  typicalWaitHours?: number | null;
 };
 
 /**
@@ -66,6 +68,7 @@ export function RequestCard({
           <p className="text-sm text-muted">
             {r.leaveTypeName} · {formatDays(r.days)}
             {r.status === "pending" && r.approverName && r.approverId !== me && ` · with ${r.approverName}`}
+            {r.status === "pending" && r.approverName && r.approverId !== me && r.typicalWaitHours != null && `, who ${formatTypicalWait(r.typicalWaitHours)}`}
           </p>
           {r.note && <p className="text-sm break-words text-muted">{r.note}</p>}
           {r.decisionNote && (

@@ -279,3 +279,15 @@ export function formatExpiring(items: readonly { name: string; days: number }[],
   const list = parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
   return `${list} won’t carry into ${nextYear}.`;
 }
+
+/**
+ * How long an approver usually takes, for a pending request: "usually decides within
+ * an hour", "within 5 hours", "within a day", "within 3 days". Rounded up, so it never
+ * promises faster than the past.
+ */
+export function formatTypicalWait(hours: number): string {
+  if (hours <= 1) return "usually decides within an hour";
+  if (hours < 24) return `usually decides within ${Math.ceil(hours)} hours`;
+  const days = Math.ceil(hours / 24);
+  return days === 1 ? "usually decides within a day" : `usually decides within ${days} days`;
+}

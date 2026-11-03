@@ -64,6 +64,7 @@ import {
   type PersonRow,
   updatePerson as updatePersonRow,
 } from "@/server/repositories/users";
+import { approveLinkFor } from "./email-approval";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { cancelScheduledScrubIn } from "./admin-people-deletion";
 import { type BalanceSummary, summarizeBalances } from "./balances";
@@ -561,7 +562,13 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
     const approver = approverId && approverId !== request.userId ? contacts.get(approverId) : undefined;
     if (!approver) continue;
     const leave = summarize(after, contacts.get(request.userId), leaveTypes.get(after.leaveTypeId) ?? "Time off");
-    const email = { kind: "requested", recipientName: approver.name, leave, link: `${ctx.appUrl}/approvals` } as const;
+    const email = {
+      kind: "requested",
+      recipientName: approver.name,
+      leave,
+      link: `${ctx.appUrl}/approvals`,
+      approveLink: approveLinkFor(ctx, after.id, approver.id),
+    } as const;
     outgoing.push({
       to: approver.email,
       build: () => renderLeaveEmail(email),

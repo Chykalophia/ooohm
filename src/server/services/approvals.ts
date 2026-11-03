@@ -32,6 +32,12 @@ export interface DecideInput {
   decision: Decision;
   /** Optional reason, stored as `decision_note` and included in the requester's email. */
   reason?: string | null;
+  /**
+   * Decide only while the request is assigned to this person, checked in the same
+   * transaction: an email's Approve link speaks for the approver it was sent to and
+   * nobody else, admins included. Must be the actor.
+   */
+  assignedTo?: string;
 }
 
 /** Requests per page of the inbox: each comes with its own decision form. */
@@ -86,11 +92,17 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
     const byAssignment = decidesByAssignment(actor, before);
     const current = byAssignment && before.approverId === actor.id ? await currentApprover(tx, actor.companyId, before.userId) : null;
     if (!canDecide(actor, before, current)) throw new DomainError("forbidden");
+    if (input.assignedTo !== undefined && (input.assignedTo !== actor.id || before.approverId !== actor.id)) throw new DomainError("forbidden");
     assertTransition(before.status, to);
 
     const after = await updateStatusIfCurrent(
       tx,
-      { companyId: actor.companyId, id: before.id, from: "pending", approverId: byAssignment ? actor.id : undefined },
+      {
+        companyId: actor.companyId,
+        id: before.id,
+        from: "pending",
+        approverId: byAssignment || input.assignedTo !== undefined ? actor.id : undefined,
+      },
       { status: to, decidedAt: ctx.now(), decisionNote: reason },
     );
     if (!after) throw new DomainError("conflict");

@@ -137,6 +137,9 @@ export interface TestContext extends ServiceContext {
 /** A fixed WEBHOOK_ENCRYPTION_KEY for tests (32 bytes, base64). */
 export const TEST_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
 
+/** Signs the approve links in test emails. */
+export const TEST_LINK_KEY = "test-email-link-key";
+
 export function createTestContext(
   db: Database,
   options: {
@@ -154,6 +157,7 @@ export function createTestContext(
   return {
     db,
     appUrl: "https://ooohm.test",
+    linkKey: TEST_LINK_KEY,
     now: () => options.now ?? new Date("2026-11-01T15:00:00Z"),
     mailer: options.mailer ?? (async (m) => void sent.push(m)),
     defer: (task) => {

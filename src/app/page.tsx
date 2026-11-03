@@ -14,6 +14,15 @@ import { pagerLinks, readPageParams } from "./_lib/paging";
 import { cancelLeaveAction } from "./actions";
 import { RequestLeaveForm } from "./request-leave-form";
 
+/**
+ * What cancelling a request asks first: approved time off gives its days back; someone
+ * else who approves the person's requests is emailed (nobody is for a self-approver).
+ */
+function cancelQuestion(r: { status: string; approverId: string | null }, me: string): string {
+  const told = r.approverId && r.approverId !== me ? " Your approver is told." : "";
+  return r.status === "approved" ? `Cancel this time off? The days go back to your balance.${told}` : `Cancel this request?${told}`;
+}
+
 /** Focus lands on this heading after a cancel, when the cancel button itself disappears. */
 const REQUESTS_HEADING_ID = "mine-heading";
 
@@ -39,7 +48,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
       <Section title="Your requests" headingId={REQUESTS_HEADING_ID}>
         {dashboard.requests.length === 0 ? (
-          <p className="text-muted">{dashboard.requestPages.previous ? "No more requests." : "Nothing yet. Your requests will show up here."}</p>
+          <p className="text-muted">
+            {dashboard.requestPages.previous ? "No more requests." : "Nothing yet. Your requests will show up here."}
+          </p>
         ) : (
           <ItemList>
             {dashboard.requests.map((r) => (
@@ -60,17 +71,19 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     </p>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+                <div className="flex shrink-0 flex-col items-start gap-2 sm:max-w-60 sm:items-end">
                   <StatusBadge status={r.status} />
                   {r.cancellable && (
-                    // Two steps, so approved time off is never dropped by a stray click.
+                    // Two steps, so approved time off is never dropped by a stray click. Shown in the
+                    // removing-action red, as Archive is: grey text read as a label, not an action.
                     <InlineAction
                       action={cancelLeaveAction}
                       fields={{ requestId: r.id }}
-                      label="Cancel"
-                      ariaLabel={`Cancel ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
+                      label="Cancel request"
+                      variant="danger"
+                      ariaLabel={`Cancel the request for ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
                       pendingLabel="Cancelling…"
-                      confirm="Cancel this request?"
+                      confirm={cancelQuestion(r, actor.id)}
                       confirmLabel="Yes, cancel it"
                       confirmVariant="danger"
                       showSuccess={false}

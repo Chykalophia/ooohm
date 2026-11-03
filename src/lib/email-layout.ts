@@ -76,10 +76,12 @@ export function link(href: string, label: string, accent: EmailAccent): string {
 }
 
 /**
- * The whole HTML document: the OOOhm wordmark, then `body` (already escaped) in a card,
- * then an optional quiet `footer` line under it.
+ * The whole HTML document: the OOOhm wordmark, then `body` in a card, then an optional
+ * quiet `footer` line under it. Both are HTML and go in as given: build them from
+ * {@link escapeHtml}, {@link paragraph}, {@link link} and {@link buttons}, never from raw
+ * text.
  */
-export function emailDocument(body: string, accent: EmailAccent, footer?: string): string {
+export function emailDocument(bodyHtml: string, accent: EmailAccent, footerHtml?: string): string {
   return (
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
     `<meta name="color-scheme" content="light"></head>` +
@@ -89,9 +91,9 @@ export function emailDocument(body: string, accent: EmailAccent, footer?: string
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">` +
     `<tr><td style="padding:0 4px 14px;font-family:${FONT};font-size:17px;font-weight:600;letter-spacing:-0.01em;color:${accent.accentInk}">OOOhm</td></tr>` +
     `<tr><td style="background:#ffffff;border:1px solid ${BORDER};border-radius:14px;padding:24px;` +
-    `font-family:${FONT};font-size:16px;line-height:1.5;color:${INK}">${body}</td></tr>` +
-    (footer
-      ? `<tr><td style="padding:14px 4px 0;font-family:${FONT};font-size:13px;line-height:1.5;color:${MUTED}">${footer}</td></tr>`
+    `font-family:${FONT};font-size:16px;line-height:1.5;color:${INK}">${bodyHtml}</td></tr>` +
+    (footerHtml
+      ? `<tr><td style="padding:14px 4px 0;font-family:${FONT};font-size:13px;line-height:1.5;color:${MUTED}">${footerHtml}</td></tr>`
       : "") +
     `</table></td></tr></table></body></html>`
   );

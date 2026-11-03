@@ -211,7 +211,7 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
       : "") +
     buttons(actions, accent);
   const footer = approveLink
-    ? `The Approve link is for you alone and stops working once the request is decided. Declining needs a reason, so it happens in OOOhm.`
+    ? escapeHtml("The Approve link is for you alone and stops working once the request is decided. Declining needs a reason, so it happens in OOOhm.")
     : undefined;
 
   return { subject: p.subject, text, html: emailDocument(body, accent, footer) };

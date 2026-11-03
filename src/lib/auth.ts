@@ -21,10 +21,6 @@ import { renderSignInEmail, SIGN_IN_LINK_MINUTES } from "@/lib/sign-in-email";
 /** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
 const linkCapture = createLinkCapture();
 
-/**
- * OOOhm is invite-only: people sign in with an account an admin created for them.
- * Neither magic links nor Google sign-in will create new users.
- */
 /** The company's accent for a sign-in email; the default teal if it can't be read, so the link still goes out. */
 async function signInAccent(companyId: string | null): Promise<EmailAccent> {
   if (!companyId) return DEFAULT_EMAIL_ACCENT;
@@ -40,6 +36,10 @@ async function signInAccent(companyId: string | null): Promise<EmailAccent> {
   }
 }
 
+/**
+ * OOOhm is invite-only: people sign in with an account an admin created for them.
+ * Neither magic links nor Google sign-in will create new users.
+ */
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { formatMonth } from "@/lib/format";
 
 const linkClass =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-3 text-sm text-muted hover:bg-surface hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-3 text-sm text-muted hover:bg-surface hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink";
 
 /**
  * The month's name as the page's subheading, with previous, today and next links.

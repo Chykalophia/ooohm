@@ -57,6 +57,12 @@ export const companies = pgTable("companies", {
    * it runs; off by default. Deletes that keep records never wait.
    */
   deletionGrace: boolean("deletion_grace").notNull().default(false),
+  /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
+  theme: text("theme").notNull().default("classic"),
+  /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */
+  accentColor: text("accent_color"),
+  /** `theme`, `square`, `soft` or `round`: overrides the theme's corner radius. */
+  corners: text("corners").notNull().default("theme"),
   ...timestamps,
 });
 

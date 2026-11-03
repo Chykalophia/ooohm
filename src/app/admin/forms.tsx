@@ -26,7 +26,7 @@ function useAdminAction(action: AdminAction) {
 function Outcome({ state, success, ref }: { state: FormState; success: boolean; ref?: React.Ref<HTMLParagraphElement> }) {
   return (
     <p ref={ref} tabIndex={ref ? -1 : undefined} aria-live="polite" className="min-h-5 text-sm outline-none">
-      {state.status === "success" && success && <span className="text-accent">{state.message}</span>}
+      {state.status === "success" && success && <span className="text-accent-ink">{state.message}</span>}
       {state.status === "error" && (
         <span role="alert" className="text-red-700 dark:text-red-400">
           {state.message}

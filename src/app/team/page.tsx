@@ -61,7 +61,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                     href={teamHref(nav.month, d.id)}
                     aria-current={active ? "page" : undefined}
                     className={`rounded-full border px-3 py-1 ${focusRing} ${
-                      active ? "border-accent text-accent" : "border-border text-muted hover:text-foreground"
+                      active ? "border-accent text-accent-ink" : "border-border text-muted hover:text-foreground"
                     }`}
                   >
                     {d.name}

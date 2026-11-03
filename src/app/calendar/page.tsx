@@ -168,7 +168,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         <p className="text-sm text-muted">
           <Link
             href="/calendar/subscriptions"
-            className="rounded-md underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="rounded-md underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
           >
             Add your time off to Google Calendar, Apple Calendar or Outlook
           </Link>

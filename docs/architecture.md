@@ -200,7 +200,7 @@ the event type, and `actorId` is the admin.
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | | `companyId, name, timezone, workingDays, allowancePolicy, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, actorId` |
 
 One more event comes with M5 but is not an admin event: it is `LEAVE_REASSIGNED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`, and its audit `action` follows the leave request actions instead of the event type.
@@ -760,6 +760,19 @@ when unchanged but cannot be chosen anew. Working days: at least one ISO weekday
 (`ALLOWANCE_POLICY_KEYS`; only `annual_calendar_year` today). Changes affect future counting only. Since M8 the page
 also holds the deletion grace option ([The grace option](#the-grace-option)); `company.updated` carries it as
 `deletionGrace`.
+
+### Appearance
+
+`/admin/appearance` (`updateCompanyAppearance`): the theme everyone in the company sees, an optional accent colour
+and a corner style, all chosen by an admin (never per person). Themes are a fixed list (`THEMES` in
+`src/domain/appearance.ts`); each keeps one accent colour. The root layout reads the look on every request
+(`getAppearance`, which falls back to the default on any error so a page never fails on it) and sets `data-ui`,
+`data-corners` and, for a custom accent, the accent tokens on `<html>`. `globals.css` keys each theme's tokens
+(colours, fonts, radii, shadows) on those attributes; fonts are self-hosted from `@fontsource-variable` packages,
+and a browser downloads only the ones the chosen theme uses. A pale custom accent keeps its fill and gets a darker
+`--accent-ink` for text and focus rings (`accentTokens`). Only `classic` with its own accent follows the device's
+dark mode (`data-scheme="auto"`); every other look is light only for now. `company.updated` carries `theme`,
+`accentColor` and `corners`.
 
 ### Audit log viewer
 

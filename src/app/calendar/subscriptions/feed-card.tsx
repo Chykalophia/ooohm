@@ -8,7 +8,7 @@ import { feedAction } from "./actions";
 import { FEED_IDLE, type FeedState } from "./feed-state";
 
 // The page holds two feeds; outlined buttons keep "Copy link" the one solid accent on screen.
-const create = `rounded-lg border border-accent px-4 py-2 font-medium text-accent hover:bg-accent/10 disabled:opacity-60 ${focusRing}`;
+const create = `rounded-lg border border-accent px-4 py-2 font-medium text-accent-ink hover:bg-accent/10 disabled:opacity-60 ${focusRing}`;
 
 /** The feed's live link, as the server reports it. Dates are already formatted. */
 export interface FeedStatus {

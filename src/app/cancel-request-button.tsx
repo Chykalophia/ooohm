@@ -19,7 +19,7 @@ export function CancelRequestButton({ requestId, focusAfterCancel }: { requestId
   }, IDLE);
   const [confirming, setConfirming] = useState(false);
 
-  const subtle = "rounded-md text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  const subtle = "rounded-md text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink";
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-3">

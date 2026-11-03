@@ -20,13 +20,13 @@ export function DecisionForm({ requestId }: { requestId: string }) {
 
   if (state.status === "success") {
     return (
-      <p ref={outcome} tabIndex={-1} role="status" className="text-sm font-medium text-accent outline-none">
+      <p ref={outcome} tabIndex={-1} role="status" className="text-sm font-medium text-accent-ink outline-none">
         {state.message}
       </p>
     );
   }
 
-  const button = "rounded-lg px-3 py-1.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
+  const button = "rounded-lg px-3 py-1.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink disabled:opacity-60";
 
   return (
     <form action={formAction} className="space-y-3">

@@ -23,7 +23,7 @@ export function ColorField({ defaultColor }: { defaultColor: string }) {
           name="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          className="h-10 w-14 cursor-pointer rounded-lg border border-border bg-surface p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="h-10 w-14 cursor-pointer rounded-lg border border-border bg-surface p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
         />
         <span
           className="rounded-md px-2 py-1 text-sm font-medium"

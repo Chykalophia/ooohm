@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 
@@ -9,6 +9,9 @@ const companyFields = {
   workingDays: companies.workingDays,
   allowancePolicy: companies.allowancePolicy,
   deletionGrace: companies.deletionGrace,
+  theme: companies.theme,
+  accentColor: companies.accentColor,
+  corners: companies.corners,
 };
 
 export type CompanyRow = {
@@ -19,6 +22,10 @@ export type CompanyRow = {
   allowancePolicy: string;
   /** Full-scrub deletes wait 7 days, with undo. */
   deletionGrace: boolean;
+  /** Raw stored appearance; read it through `readAppearance`. */
+  theme: string;
+  accentColor: string | null;
+  corners: string;
 };
 
 export async function findCompany(ex: Executor, companyId: string): Promise<CompanyRow | undefined> {
@@ -43,8 +50,33 @@ export async function lockCompany(tx: Transaction, companyId: string): Promise<C
 export async function updateCompany(
   tx: Transaction,
   companyId: string,
-  set: { name: string; timezone: string; workingDays: number[]; allowancePolicy: string; deletionGrace?: boolean },
+  set: {
+    name?: string;
+    timezone?: string;
+    workingDays?: number[];
+    allowancePolicy?: string;
+    deletionGrace?: boolean;
+    theme?: string;
+    accentColor?: string | null;
+    corners?: string;
+  },
 ): Promise<CompanyRow> {
   const [row] = await tx.update(companies).set(set).where(eq(companies.id, companyId)).returning(companyFields);
+  return row;
+}
+
+/**
+ * The appearance of the deployment's company, for pages that render before anyone is
+ * known (the sign-in page) as well as after. v1 runs one company per deployment; with
+ * several, the oldest one's look applies.
+ */
+export async function findDeploymentAppearance(
+  ex: Executor,
+): Promise<{ theme: string; accentColor: string | null; corners: string } | undefined> {
+  const [row] = await ex
+    .select({ theme: companies.theme, accentColor: companies.accentColor, corners: companies.corners })
+    .from(companies)
+    .orderBy(asc(companies.createdAt))
+    .limit(1);
   return row;
 }

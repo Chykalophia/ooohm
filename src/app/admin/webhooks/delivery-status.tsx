@@ -1,7 +1,7 @@
 /** How a delivery's status reads, and its colour. Never colour alone: the word is always there. */
 const LABELS = {
   pending: { label: "Queued", className: "text-muted" },
-  delivered: { label: "Delivered", className: "text-accent" },
+  delivered: { label: "Delivered", className: "text-accent-ink" },
   failed: { label: "Failed", className: "text-red-700 dark:text-red-400" },
   cancelled: { label: "Cancelled", className: "text-muted" },
 } as const;

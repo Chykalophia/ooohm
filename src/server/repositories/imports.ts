@@ -64,6 +64,9 @@ export async function insertCompany(
     workingDays: companies.workingDays,
     allowancePolicy: companies.allowancePolicy,
     deletionGrace: companies.deletionGrace,
+    theme: companies.theme,
+    accentColor: companies.accentColor,
+    corners: companies.corners,
   });
   return row;
 }

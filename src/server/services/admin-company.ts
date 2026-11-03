@@ -1,9 +1,10 @@
 /**
  * Admin use cases for the company's own settings: name, time zone, working days, the
- * allowance policy and the deletion grace option. v1 runs one company per deployment;
+ * allowance policy, the deletion grace option and the appearance (theme, accent, corners). v1 runs one company per deployment;
  * the company is always the actor's.
  */
 import type { Actor } from "@/domain/actor";
+import { type AppearanceInput, normalizeAppearance, readAppearance } from "@/domain/appearance";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { ALLOWANCE_POLICY_KEYS } from "@/domain/allowance-policy";
 import { type CompanySettingsInput, normalizeCompanySettings, supportedTimeZones } from "@/domain/company-settings";
@@ -21,7 +22,34 @@ function snapshot(row: CompanyRow) {
     workingDays: row.workingDays,
     allowancePolicy: row.allowancePolicy,
     deletionGrace: row.deletionGrace,
+    ...readAppearance(row),
   };
+}
+
+async function saveCompany(
+  ctx: ServiceContext,
+  actor: Actor,
+  change: (before: CompanyRow) => Parameters<typeof updateCompany>[2],
+): Promise<CompanyRow> {
+  assertCanAdminister(actor);
+  return inTransaction(ctx, async (tx) => {
+    const before = await lockCompany(tx, actor.companyId);
+    if (!before) throw new DomainError("no_company");
+    await assertActiveAdmin(tx, actor);
+    const settings = change(before);
+    if (JSON.stringify(snapshot({ ...before, ...settings })) === JSON.stringify(snapshot(before))) return before;
+    const after = await updateCompany(tx, actor.companyId, settings);
+    const payload: Unattributed<CompanyEventPayload> = { companyId: after.id, ...snapshot(after) };
+    await recordAdminChange(tx, actor, {
+      type: ADMIN_EVENT_TYPES.companyUpdated,
+      entityType: "company",
+      entityId: after.id,
+      before: snapshot(before),
+      after: snapshot(after),
+      payload,
+    });
+    return after;
+  });
 }
 
 /**
@@ -49,23 +77,19 @@ export async function getCompanySettings(ctx: ServiceContext, actor: Actor) {
  * @throws DomainError `forbidden`, `no_company`, or `invalid_input`.
  */
 export async function updateCompanySettings(ctx: ServiceContext, actor: Actor, input: CompanySettingsInput): Promise<CompanyRow> {
+  return saveCompany(ctx, actor, (before) => ({ deletionGrace: before.deletionGrace, ...normalizeCompanySettings(input, before.timezone) }));
+}
+
+/**
+ * Saves the company's appearance: the theme everyone sees, an optional accent colour
+ * and the corner style. It changes how the app looks for every person at once; nothing
+ * about leave or balances.
+ *
+ * @returns The company after the change (unchanged, with nothing recorded, when nothing differs).
+ * @throws DomainError `forbidden`, `no_company`, or `invalid_input`.
+ */
+export async function updateCompanyAppearance(ctx: ServiceContext, actor: Actor, input: AppearanceInput): Promise<CompanyRow> {
   assertCanAdminister(actor);
-  return inTransaction(ctx, async (tx) => {
-    const before = await lockCompany(tx, actor.companyId);
-    if (!before) throw new DomainError("no_company");
-    await assertActiveAdmin(tx, actor);
-    const settings = { deletionGrace: before.deletionGrace, ...normalizeCompanySettings(input, before.timezone) };
-    if (JSON.stringify(snapshot({ ...before, ...settings })) === JSON.stringify(snapshot(before))) return before;
-    const after = await updateCompany(tx, actor.companyId, settings);
-    const payload: Unattributed<CompanyEventPayload> = { companyId: after.id, ...snapshot(after) };
-    await recordAdminChange(tx, actor, {
-      type: ADMIN_EVENT_TYPES.companyUpdated,
-      entityType: "company",
-      entityId: after.id,
-      before: snapshot(before),
-      after: snapshot(after),
-      payload,
-    });
-    return after;
-  });
+  const appearance = normalizeAppearance(input);
+  return saveCompany(ctx, actor, () => appearance);
 }

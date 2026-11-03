@@ -46,12 +46,12 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
             type="submit"
             disabled={pending}
             aria-describedby={PREVIEW_ID}
-            className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+            className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink disabled:opacity-60"
           >
             {pending ? "Sending…" : "Request time off"}
           </button>
           <p aria-live="polite" className="text-sm">
-            {state.status === "success" && <span className="text-accent">{state.message}</span>}
+            {state.status === "success" && <span className="text-accent-ink">{state.message}</span>}
             {state.status === "error" && (
               <span role="alert" className="text-red-700 dark:text-red-400">
                 {state.message}

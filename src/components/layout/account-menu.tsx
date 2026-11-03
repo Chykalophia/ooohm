@@ -64,9 +64,9 @@ export function AccountMenu({ userName, member, active }: { userName: string; me
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1 rounded-md hover:text-foreground ${focusRing} ${active || open ? "text-foreground" : "text-muted"}`}
       >
-        {/* Bold while open or on the account page, at a steady width: opening the menu moves nothing. */}
+        {/* Bold only on the account page (the current page, like the other links), never just for being open. */}
         <span className="flex min-w-0 max-w-[12rem]">
-          <SteadyLabel bold={active || open} truncate>
+          <SteadyLabel bold={active} truncate>
             {userName}
           </SteadyLabel>
         </span>

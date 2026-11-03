@@ -90,11 +90,14 @@ display preference of the person's own, so changing it writes no audit row or ev
 **Long lists.** Every list that grows with use is paged, never capped: the audit log (25 a page), people (50, by
 name), your requests on the dashboard (10, latest dates first), approvals (10, earliest first) and an endpoint's
 webhook deliveries (25). Short lists that stay small by nature (departments, leave types, a year's holidays, API
-keys, calendar links) are not. Pages are keyset, both ways (`src/domain/paging.ts`): a page is the `size + 1` rows
-just after (or, for Previous, just before) the sort key of the row at its edge, so each page is one indexed read
-however deep someone goes, and rows written in between are never skipped or shown twice. The key travels as an
-opaque token in `?after=` / `?before=`; each list checks every part (a uuid, a date, an instant) and reads anything
-else as page 1. Repositories build the query with `keysetPage` (`src/server/repositories/keyset.ts`), services read
+keys, calendar links, webhook endpoints, which stop at 20) are not. Pages are keyset, both ways
+(`src/domain/paging.ts`): a page is the `size + 1` rows just after (or, for Previous, just before) the sort key of
+the row at its edge, so each page is one read however deep someone goes (Previous adds a one-row read), and no row
+is skipped or shown twice because rows were added or removed in between (a row added behind the page shows on the
+earlier pages). The audit log, deliveries and the inbox read their indexes in order; people and a person's requests
+sort a company's (or a person's) rows, which stays small. The key travels as an opaque token in `?after=` /
+`?before=`; each list checks every part (a uuid, a date, an instant, or text up to a length and without NUL) and
+reads anything else as page 1. Repositories build the query with `keysetPage` (`src/server/repositories/keyset.ts`), services read
 with `readPage`, and pages render `Pager` (Previous, Page N, Next) from `pagerLinks` (`src/app/_lib/paging.ts`),
 which keeps the list's filters. The page number is a label the links count, not an offset. Previous reaching the
 start with less than a page left shows the real first page; any other Previous reads one row past the page to know
@@ -150,7 +153,8 @@ backfilled it for rows written before M5. It takes a `Transaction`, not the pool
 one. `audit_log.created_at` and `events_outbox.created_at` default to `clock_timestamp()`, so rows written in
 one transaction (e.g. `leave.requested` then `leave.approved` for a self-approved request) keep their order.
 
-The one documented exception is the one-time import (M7, below): each imported row is audited (`import.*`
+Two documented exceptions. A person's own theme is a display preference: changing it writes no audit row and no
+event (see Themes, above). And the one-time import (M7, below): each imported row is audited (`import.*`
 actions, written in bulk with `insertAuditEntries`) without a per-row event, and the import writes a single
 `import.completed` event instead.
 
@@ -249,7 +253,8 @@ Payload (v1): `feedId, userId, kind, reason, actorId` (`reason` is `null` on `is
 the audit row (`kind, createdAt, revokedAt`) ever holds the token or its hash.
 
 Admin events (M5), registered in `ADMIN_EVENT_TYPES` (`src/domain/events.ts`). For each, the audit `action` is
-the event type, and `actorId` is the admin.
+the event type, and `actorId` is the admin unless a row below says otherwise (a self-rename, an adapter sync or a
+scheduled scrub).
 
 | Event | When | Payload (v1) |
 | --- | --- | --- |
@@ -271,7 +276,7 @@ Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LE
 | Event | When | Audit `action` | Payload (v1) |
 | --- | --- | --- | --- |
 | `leave.reassigned` | A pending request moves to another approver: its approver was deactivated or demoted from admin, the requester's manager changed, or someone was invited as admin, promoted to admin or reactivated who can now take a request an admin had routed to themself (actor = the admin) | `leave_request.reassigned` | the `leave.*` payload plus `previousApproverId, approverId` (either may be `null`) |
-| `leave.recounted` | A holiday or working-days change made a pending or approved request cost a different number of days (actor = the admin, `via` `holiday_change` or `working_days_change`) | `leave_request.recounted` | the `leave.*` payload (new `days`) plus `previousDays` |
+| `leave.recounted` | A holiday or working-days change changed a pending or approved request's days, its total or only its split between years (so `days` may equal `previousDays`) (actor = the admin, `via` `holiday_change` or `working_days_change`) | `leave_request.recounted` | the `leave.*` payload (new `days`) plus `previousDays` |
 
 No payload ever holds a session, token, sign-in link or the admin's free-text reason. Emails are in `user.*`
 payloads because integrations sync people by address. Since M6, `user.created` and `user.updated` can also come
@@ -312,8 +317,9 @@ time zone (`todayInTimeZone`).
 
 Notification emails (`src/server/email/leave-emails.ts`) have fixed subjects. Names, notes and reasons go in
 the body only (HTML-escaped there), never in a header; names are also collapsed to one line of at most 100
-characters. People cannot rename themselves (Better Auth's `/update-user` is disabled), since a name reaches
-approvers' inboxes and emails. Sends run after commit (`after()` in the app), each in
+characters. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
+(`renameSelf`), which normalizes it and records it as their own `user.updated`, since a name reaches approvers'
+inboxes and emails. Sends run after commit (`after()` in the app), each in
 its own try/catch; failures are logged as `leave_email_failed` with the request id and email kind, never the
 address, and never fail the user's action.
 
@@ -419,8 +425,8 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   end = start, full day.
 - `/approvals`: pending requests the person can decide (assigned to them; admins see every pending request
   in the company, each marked with who it is assigned to), earliest dates first, each with Approve / Decline
-  and an optional reason the requester sees either way. At most 100 show at once, with a note giving the full
-  count when there are more. The header links here for managers, admins, and anyone with something
+  and an optional reason the requester sees either way. Ten a page, with Previous and Next; when there is more
+  than a page, a note gives the full count. The header links here for managers, admins, and anyone with something
   currently assigned to them.
 
 ## Balances (M3)
@@ -478,7 +484,10 @@ Adding or deleting a company holiday (one, or the US federal set) and changing t
 2. It counts each request with the calendar before and after the change and moves its stored split by the
    difference, per open year (`applyCalendarChange`). Closed years keep their stored days: those balances are
    settled and carried over, so a past year is fixed with an adjustment instead. Applying only the difference
-   leaves any earlier correction to the split alone, and the email names only this change.
+   leaves any earlier correction to the split alone, and the email names only this change. A year never goes
+   below 0, and the amount that would have taken it there is not kept: if the stored split already counted fewer
+   days than the calendar (an imported split), taking that year to 0 and undoing the change restores the
+   calendar's count. Keeping it would need a per-year offset stored with the request.
 3. A request whose split changed gets new `leave_request_days` rows and a new `days` total, and writes
    `leave_request.recounted` / `leave.recounted` (payload adds `previousDays`), naming the admin `via`
    `holiday_change` or `working_days_change`.

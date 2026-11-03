@@ -16,6 +16,7 @@ export function PageSizeNav({ sizes, current, href }: { sizes: readonly number[]
           <span
             key={size}
             aria-current="true"
+            aria-label={`${size} rows per page`}
             className="rounded-md border border-border bg-surface px-2 py-0.5 text-foreground tabular-nums"
           >
             {size}
@@ -24,6 +25,7 @@ export function PageSizeNav({ sizes, current, href }: { sizes: readonly number[]
           <Link
             key={size}
             href={href(size)}
+            aria-label={`${size} rows per page`}
             className={cx("rounded-md border border-transparent px-2 py-0.5 tabular-nums hover:text-foreground", focusRing)}
           >
             {size}

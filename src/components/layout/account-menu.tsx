@@ -19,7 +19,8 @@ const quietItem = cx(row, "text-muted hover:text-foreground");
  *
  * A disclosure, not an ARIA menu: a button that shows a short list of ordinary links,
  * which keyboard and screen reader users already know how to use. Escape closes it and
- * returns focus to the button; a click outside or a navigation closes it too. On narrow
+ * returns focus to the button; a click outside, a navigation or a link in it (even to the
+ * page already open) closes it too. On narrow
  * screens the header wraps and the name sits at the left, so the panel opens rightwards.
  */
 export function AccountMenu({ userName, member, active }: { userName: string; member: boolean; active: boolean }) {
@@ -60,7 +61,7 @@ export function AccountMenu({ userName, member, active }: { userName: string; me
         ref={button}
         type="button"
         aria-expanded={open}
-        aria-controls={panelId}
+        aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1 rounded-md hover:text-foreground ${focusRing} ${active || open ? "text-foreground" : "text-muted"}`}
       >
@@ -83,13 +84,19 @@ export function AccountMenu({ userName, member, active }: { userName: string; me
             {member && (
               <>
                 <li>
-                  <Link href="/account" className={item} aria-current={pathname === "/account" ? "page" : undefined}>
+                  <Link
+                    href="/account"
+                    onClick={() => setOpen(false)}
+                    className={item}
+                    aria-current={pathname === "/account" ? "page" : undefined}
+                  >
                     Your account
                   </Link>
                 </li>
                 <li>
                   <Link
                     href="/calendar/subscriptions"
+                    onClick={() => setOpen(false)}
                     className={item}
                     aria-current={pathname === "/calendar/subscriptions" ? "page" : undefined}
                   >

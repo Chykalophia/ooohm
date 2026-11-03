@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
 import { formatInstantFull, formatInstantShort, formatShortDate } from "@/lib/format";
-import { AUDIT_PAGE_SIZE, AUDIT_PAGE_SIZES, type AuditLogEntry, getAuditLog } from "@/server/services/audit-log";
+import { AUDIT_PAGE_SIZE, AUDIT_PAGE_SIZES, AUDIT_SEARCH_MAX_LENGTH, type AuditLogEntry, getAuditLog } from "@/server/services/audit-log";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { readParam } from "@/app/_lib/calendar-input";
 import { requireAdminPage } from "@/app/_lib/page-context";
@@ -19,6 +19,12 @@ export const metadata: Metadata = { title: "Audit log · Admin · OOOhm" };
 const PATH = "/admin/audit";
 const ANYONE = { value: "", label: "Anyone" };
 const param = z.string().max(200).optional().catch(undefined);
+/** The search, cut to what the box holds (the service cuts it too), so box and results agree. */
+const searchParam = z
+  .string()
+  .transform((s) => s.slice(0, AUDIT_SEARCH_MAX_LENGTH))
+  .optional()
+  .catch(undefined);
 const sizeParam = z.string().regex(/^\d{1,3}$/);
 
 /** A cell value that narrows the log to itself when clicked: the action, or a person. */
@@ -29,7 +35,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const { cursor, number } = readPageParams(params);
   const log = await getAuditLog(ctx, actor, {
-    query: param.parse(params.q),
+    query: searchParam.parse(params.q),
     action: param.parse(params.action),
     actorId: param.parse(params.actor),
     subjectUserId: param.parse(params.person),
@@ -72,6 +78,20 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
     );
   const now = new Date();
 
+  // What each row shows for its action and people, in its cells and when opened. An
+  // action the pickers do not offer (from a newer version) is not a filter link.
+  const filterable = new Set(log.actions.map((a) => a.value));
+  const what = (e: AuditLogEntry) =>
+    filterable.has(e.action) ? (
+      <Link href={href({ action: e.action })} className={filterLink} title={`Only “${e.label}”`}>
+        {e.label}
+      </Link>
+    ) : (
+      e.label
+    );
+  const by = (e: AuditLogEntry) => (e.actorKind === "system" ? e.actorLabel : person(e.actorId, e.actorLabel, "actor"));
+  const about = (e: AuditLogEntry) => (e.subjectName ? person(e.subjectUserId, e.subjectName, "person") : null);
+
   // The filters in force, as chips that each remove themselves.
   const nameOf = (id: string | undefined) => log.people.find((p) => p.id === id)?.label ?? "someone";
   const chip = (param: keyof typeof keep, label: string, value: string | undefined): ActiveFilter[] =>
@@ -109,10 +129,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       header: "What",
       className: "font-medium",
       cell: (e) => (
-        <span className="block truncate">
-          <Link href={href({ action: e.action })} className={filterLink} title={`Only “${e.label}”`}>
-            {e.label}
-          </Link>
+        <span className="block truncate" title={e.label}>
+          {what(e)}
         </span>
       ),
     },
@@ -122,7 +140,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       className: "w-32",
       cell: (e) => (
         <span className="block truncate" title={e.subjectName ?? undefined}>
-          {e.subjectName ? person(e.subjectUserId, e.subjectName, "person") : <span className="text-muted">None</span>}
+          {about(e) ?? <span className="text-muted">None</span>}
         </span>
       ),
     },
@@ -132,7 +150,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       className: "w-36",
       cell: (e) => (
         <span className={cx("block truncate", e.actorKind === "system" && "text-muted")} title={e.actorLabel}>
-          {e.actorKind === "system" ? e.actorLabel : person(e.actorId, e.actorLabel, "actor")}
+          {by(e)}
         </span>
       ),
     },
@@ -196,7 +214,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         rows={log.entries}
         rowKey={(e) => e.id}
         rowLabel={(e) => `${e.label}, ${formatInstantShort(e.at, timezone, now)}`}
-        detail={(e) => <AuditDetail entry={e} timezone={timezone} />}
+        detail={(e) => <AuditDetail entry={e} timezone={timezone} what={what(e)} by={by(e)} about={about(e)} />}
       />
 
       <Pager label="Audit log pages" links={pager} />
@@ -204,12 +222,29 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   );
 }
 
-/** Everything about one change, shown when its row opens: the full time, who, about whom, and each field. */
-function AuditDetail({ entry: e, timezone }: { entry: AuditLogEntry; timezone: string }) {
+/**
+ * Everything about one change, shown when its row opens: what in full (a phone cuts it
+ * short in the row, and touch has no tooltip), the full time, who, about whom (with the
+ * same filter links as the row, which a phone hides), and each field.
+ */
+function AuditDetail({
+  entry: e,
+  timezone,
+  what,
+  by,
+  about,
+}: {
+  entry: AuditLogEntry;
+  timezone: string;
+  what: React.ReactNode;
+  by: React.ReactNode;
+  about: React.ReactNode;
+}) {
   const facts: [string, React.ReactNode][] = [
+    ["What", what],
     ["When", formatInstantFull(e.at, timezone)],
-    ["By", e.actorLabel],
-    ...(e.subjectName ? [["About", e.subjectName] as [string, React.ReactNode]] : []),
+    ["By", by],
+    ...(about ? [["About", about] as [string, React.ReactNode]] : []),
     [
       "Changes",
       e.changes.length > 0 ? (

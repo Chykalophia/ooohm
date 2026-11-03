@@ -3,6 +3,7 @@
 import { useId } from "react";
 import type { FeedKind } from "@/domain/calendar-feed";
 import { ErrorMessage } from "@/components/forms/form-status";
+import { KeepIt } from "@/components/forms/keep-it";
 import { useConfirm } from "@/components/forms/use-confirm";
 import { useFormAction } from "@/components/forms/use-form-action";
 import { Card } from "@/components/ui/card";
@@ -112,9 +113,7 @@ export function FeedCard({
             {confirming === "issue"
               ? form("issue", pending ? "Creating…" : "Yes, get a new link", confirmButton)
               : form("revoke", pending ? "Turning off…" : "Yes, turn it off", dangerButton)}
-            <button type="button" onClick={back} className={subtle}>
-              Keep it
-            </button>
+            <KeepIt pending={pending} onBack={back} className={subtle} />
           </div>
         </div>
       )}

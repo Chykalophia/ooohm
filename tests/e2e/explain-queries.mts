@@ -173,6 +173,8 @@ try {
   await explain("admin person detail", () => getPersonDetail(ctx, co.admin, co.employee.id, 2026));
   await explain("audit log, first page", () => getAuditLog(ctx, co.admin, {}));
   await explain("audit log, one person", () => getAuditLog(ctx, co.admin, { subjectUserId: co.employee.id }));
+  // A search is not read in index order (several ids on three columns): see listAuditPage.
+  await explain("audit log, search", () => getAuditLog(ctx, co.admin, { query: "approved" }));
   const api = { keyId: randomUUID(), companyId: co.companyId, scopes: ["read" as const] };
   await explain("API /users", () => listUsersForApi(ctx, api, { limit: 100 }));
   await explain("API /leave-requests from 2026-01-01", () => listLeaveRequestsForApi(ctx, api, { from: "2026-01-01", limit: 100 }));

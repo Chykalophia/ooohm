@@ -1,4 +1,4 @@
-import { DataTableRow } from "./data-table-row";
+import { DataTableRow, SpanningCell } from "./data-table-row";
 import { cx, surface, tableHeadCell } from "./styles";
 
 /** One column of a {@link DataTable}. */
@@ -52,6 +52,10 @@ export function DataTable<T>({
   empty?: React.ReactNode;
 }) {
   const phone = (c: Column<T>) => c.hideOnPhone && "hidden sm:table-cell";
+  // A cell across the whole row spans only the columns showing: spanning hidden ones
+  // would add phantom columns and squeeze the real ones on a phone.
+  const extra = detail ? 1 : 0;
+  const spans = { all: columns.length + extra, phone: columns.filter((c) => !c.hideOnPhone).length + extra };
   return (
     // `overflow-clip`, not `hidden`: it rounds the corners without becoming a scroll
     // container, which would stop the header sticking to the page.
@@ -76,9 +80,9 @@ export function DataTable<T>({
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={columns.length + (detail ? 1 : 0)} className="px-4 py-8 text-center text-muted">
+              <SpanningCell spans={spans} className="px-4 py-8 text-center text-muted">
                 {empty}
-              </td>
+              </SpanningCell>
             </tr>
           )}
           {rows.map((row) => (
@@ -88,6 +92,7 @@ export function DataTable<T>({
               label={rowLabel(row)}
               detail={detail ? detail(row) : null}
               expandable={detail !== undefined}
+              spans={spans}
             />
           ))}
         </tbody>

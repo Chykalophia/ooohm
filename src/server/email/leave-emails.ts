@@ -124,9 +124,15 @@ function parts(email: LeaveEmail): Parts {
           action: "Open OOOhm",
         };
       }
+      // Same total, days moved between years (a working-days change across New Year): only
+      // sent when that leaves a year over its balance.
+      const change =
+        leave.days === email.previousDays
+          ? `still takes ${formatDays(leave.days)}, but some of it now counts in a different year`
+          : `now takes ${formatDays(leave.days)} instead of ${formatDays(email.previousDays)}`;
       return {
         subject: "Your time off was recounted",
-        intro: `${cause}, so the time off below now takes ${formatDays(leave.days)} instead of ${formatDays(email.previousDays)}.`,
+        intro: `${cause}, so the time off below ${change}.`,
         extra: email.overdrawn ? { label: "Balance", value: `This leaves you ${email.overdrawn}.` } : undefined,
         showNote: false,
         action: "Open OOOhm",

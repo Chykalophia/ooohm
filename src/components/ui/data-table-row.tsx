@@ -3,6 +3,35 @@
 import { useId, useState } from "react";
 import { cx, focusRing, tableCell } from "./styles";
 
+/** How many columns a full-width cell spans: all of them, and those showing on a phone. */
+export type RowSpans = { all: number; phone: number };
+
+/**
+ * A cell across the whole row. With columns hidden on phones it is two cells, one per
+ * width, only one of them displayed, so it never spans hidden columns (that adds phantom
+ * columns, which squeeze the real ones). The hidden copy is `display: none`, so screen
+ * readers meet the content once.
+ */
+export function SpanningCell({ spans, className, children }: { spans: RowSpans; className?: string; children: React.ReactNode }) {
+  if (spans.all === spans.phone) {
+    return (
+      <td colSpan={spans.all} className={className}>
+        {children}
+      </td>
+    );
+  }
+  return (
+    <>
+      <td colSpan={spans.phone} className={cx("sm:hidden", className)}>
+        {children}
+      </td>
+      <td colSpan={spans.all} className={cx("hidden sm:table-cell", className)}>
+        {children}
+      </td>
+    </>
+  );
+}
+
 /** Clicks on these act on themselves, never open or close the row. */
 const OWN_CLICK = "a, button, input, select, textarea, label, summary";
 
@@ -21,11 +50,13 @@ export function DataTableRow({
   label,
   detail,
   expandable,
+  spans,
 }: {
   cells: { content: React.ReactNode; className?: string }[];
   label: string;
   detail: React.ReactNode;
   expandable: boolean;
+  spans: RowSpans;
 }) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
@@ -75,9 +106,9 @@ export function DataTableRow({
       </tr>
       {opens && (
         <tr id={detailId} hidden={!open} className="bg-background">
-          <td colSpan={cells.length + 1} className="px-4 pt-1 pb-4">
+          <SpanningCell spans={spans} className="px-4 pt-1 pb-4">
             {detail}
-          </td>
+          </SpanningCell>
         </tr>
       )}
     </>

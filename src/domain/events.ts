@@ -198,12 +198,12 @@ export function calendarFeedAuditAction(event: keyof typeof CALENDAR_FEED_EVENT_
 export const LEAVE_REASSIGNED_EVENT_TYPE = "leave.reassigned";
 
 /**
- * `leave.recounted`: a pending or approved request now costs a different number of days,
- * because an admin added or deleted a company holiday on its dates or changed the
- * company's working days. Only the years still open are recounted. The actor is that
- * admin, `via` `holiday_change` or `working_days_change`. A request left with no
- * working days is cancelled instead (`leave.cancelled`, same actor). Public contract;
- * never rename it.
+ * `leave.recounted`: a pending or approved request's days changed (its total, or only how
+ * they split between years, so `days` may equal `previousDays`), because an admin added
+ * or deleted a company holiday on its dates or changed the company's working days. Only
+ * the years still open are recounted. The actor is that admin, `via` `holiday_change` or
+ * `working_days_change`. A request left with no working days is kept, at 0 days, and is
+ * never cancelled by a recount. Public contract; never rename it.
  */
 export const LEAVE_RECOUNTED_EVENT_TYPE = "leave.recounted";
 

@@ -286,7 +286,7 @@ export const leaveRequests = pgTable(
     /**
      * Working days this request consumes (weekends and holidays excluded): counted at
      * submit, and recounted when a holiday or the working days change in an open year.
-     * Always more than 0 at submit; 0 only when a later holiday covers every day of it.
+     * Always more than 0 at submit; 0 only when a later calendar change (a holiday, or the working days) leaves it no working days.
      */
     days: numeric("days", { precision: 5, scale: 1, mode: "number" }).notNull(),
     note: text("note"),
@@ -308,7 +308,7 @@ export const leaveRequests = pgTable(
     index("leave_requests_company_status_idx").on(t.companyId, t.status),
     check("leave_requests_dates_ordered", sql`${t.endDate} >= ${t.startDate}`),
     check("leave_requests_days_nonneg", sql`${t.days} >= 0`),
-    // A half day consumes 0.5 (or 0, on a holiday added later); a full-day request consumes whole days.
+    // A half day consumes 0.5 (or 0, after a later calendar change); a full-day request consumes whole days.
     check(
       "leave_requests_days_match_portion",
       sql`(${t.dayPortion} = 'full' AND ${t.days} = trunc(${t.days})) OR (${t.dayPortion} <> 'full' AND ${t.days} IN (0, 0.5))`,

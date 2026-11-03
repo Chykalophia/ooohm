@@ -35,4 +35,9 @@ test("after a successful submit the preview stays hidden until the draft changes
   assert.equal(showsPreview(true, { ...defaults, endDate: "2026-11-06" }, defaults), true, "a new date brings it back");
   assert.equal(showsPreview(true, { ...defaults, leaveTypeId: "sick" }, defaults), true, "so does another type");
   assert.equal(showsPreview(true, { ...defaults, dayPortion: "am" }, defaults), true, "or a half day");
+  assert.equal(
+    showsPreview(true, { ...defaults, note: "Dentist" }, { ...defaults, note: "" }),
+    true,
+    "or a note: the next request has begun",
+  );
 });

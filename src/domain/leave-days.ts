@@ -84,6 +84,12 @@ export function nextWorkingDay(from: CalendarDate, calendar: WorkCalendar): Cale
  * years left with no days are dropped, so every entry has `days > 0`, and an empty
  * result means the request now costs nothing.
  *
+ * Known limit: a year never goes below 0, and what would have taken it below is not
+ * kept. That only happens when the stored split already counted fewer days than the
+ * calendar (an imported split, or one stored before recounts existed): taking such a year
+ * to 0 and then undoing the change restores the calendar's count, not the smaller stored
+ * one. Remembering it would need a per-year offset stored with the request.
+ *
  * @param stored The split saved with the request.
  * @param before The split counted with the calendar before the change.
  * @param after The split counted with the calendar after the change.

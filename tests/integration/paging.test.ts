@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { and, asc, eq, like, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import type { PageCursor, Paged } from "@/domain/paging";
+import { encodePageKey, type PageCursor, type Paged } from "@/domain/paging";
 import { listPeople, PEOPLE_PAGE_SIZE } from "@/server/services/admin-people";
 import { getDashboard, REQUESTS_PAGE_SIZE } from "@/server/services/leave-requests";
 import { createWebhookEndpoint, DELIVERIES_PAGE_SIZE, getWebhookEndpoint } from "@/server/services/webhooks";
@@ -81,6 +81,25 @@ describe("long lists page by their keys", { skip }, () => {
       ids,
       PEOPLE_PAGE_SIZE,
     );
+  });
+
+  test("a forged people link or search with NUL (which Postgres refuses in text) reads as page 1, not an error", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {} });
+    const ctx = createTestContext(t.db);
+    const first = (await listPeople(ctx, co.people.boss, { status: "all" })).people.map((p) => p.id);
+    for (const direction of ["after", "before"] as const) {
+      const page = await listPeople(
+        ctx,
+        co.people.boss,
+        { status: "all" },
+        { direction, token: encodePageKey(["ana\u0000", "x@example.com"]) },
+      );
+      assert.deepEqual(
+        page.people.map((p) => p.id),
+        first,
+        direction,
+      );
+    }
   });
 
   test("your requests: latest dates first; same day, then latest sent, then id", async () => {

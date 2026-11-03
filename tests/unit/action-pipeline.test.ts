@@ -55,7 +55,8 @@ test("a refused service call never refreshes, and says why calmly", async () => 
   const state = await h.runFormAction("t", form({ name: "Ana" }), schema, async () => {
     throw new DomainError("forbidden", "no");
   });
-  assert.equal(state.status, "error");
+  // The calm message for a refusal, not the generic failure, which is also an error.
+  assert.deepEqual(state, { status: "error", message: "You can't change that request." });
   assert.deepEqual(h.calls, ["session"]);
 });
 

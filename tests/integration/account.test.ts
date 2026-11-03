@@ -47,7 +47,14 @@ describe("your account", { skip }, () => {
     assert.equal(audit[0].actorId, ana.id, "the person is the actor");
     assert.equal(audit[0].subjectUserId, ana.id);
     assert.deepEqual([(audit[0].before as { name: string }).name, (audit[0].after as { name: string }).name], ["Ana", "Ana Test"]);
-    assert.deepEqual((audit[0].after as { role: string; managerId: string }).role, "employee");
+    assert.deepEqual(audit[0].after, { ...(audit[0].before as object), name: "Ana Test" }, "only the name changed");
+    assert.deepEqual(await getAccount(ctx, ana), {
+      name: "Ana Test",
+      email: ana.email,
+      role: "employee",
+      department: null,
+      manager: "Boss",
+    });
     const [event] = await companyEvents(t.db, co.companyId, "user.updated");
     assert.deepEqual((event.payload as { actor: unknown }).actor, { type: "user", id: ana.id });
   });

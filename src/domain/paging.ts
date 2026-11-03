@@ -1,8 +1,10 @@
 /**
  * Keyset pagination for every long list: the audit log, people, requests, approvals and
  * webhook deliveries. A page starts just after (or ends just before) one row's sort key,
- * so each page is one indexed read of `size + 1` rows however deep someone browses, and
- * rows written meanwhile are never skipped or shown twice (an offset would do both).
+ * so each page is one read of `size + 1` rows however deep someone browses (Previous
+ * adds one small read), and no row is skipped or shown twice because rows were added or
+ * removed meanwhile (an offset would do both); a row added behind the page shows on the
+ * earlier pages.
  *
  * A cursor is the sort key of the row at the page's edge, as an opaque URL-safe token.
  * Tokens come back from links anyone can edit, so each list checks every part before
@@ -76,11 +78,14 @@ export function decodePageKey(token: string, checks: readonly KeyPartCheck[]): s
   return key as string[];
 }
 
-/** A text key part: any string up to `max` characters (a lowercased name, an email). */
+/**
+ * A text key part: any string up to `max` characters (a lowercased name, an email),
+ * without NUL, which Postgres refuses in text (a forged link would become an error page).
+ */
 export const textPart =
   (max: number): KeyPartCheck =>
   (part) =>
-    part.length <= max;
+    part.length <= max && !part.includes("\u0000");
 
 const INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.\d{6}Z$/;
 
@@ -93,6 +98,8 @@ export function isCursorInstant(part: string): boolean {
   const m = INSTANT.exec(part);
   if (!m) return false;
   const [y, mo, d, h, mi, s] = m.slice(1).map(Number);
+  // Year 0 is not a Postgres year (and Date.UTC reads it as 1900).
+  if (y < 1) return false;
   const date = new Date(Date.UTC(y, mo - 1, d));
   return date.getUTCMonth() === mo - 1 && date.getUTCDate() === d && h <= 23 && mi <= 59 && s <= 59;
 }

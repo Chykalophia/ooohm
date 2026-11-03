@@ -71,7 +71,8 @@ function Fields({
   const draft = { leaveTypeId, startDate, endDate, dayPortion };
   const preview = useLeavePreview(draft);
   const defaults = { leaveTypeId: leaveTypes[0]?.id ?? "", startDate: defaultDate, endDate: defaultDate, dayPortion: "full" };
-  const previewShown = showsPreview(justSubmitted, draft, defaults);
+  // The note is not previewed, but typing one is starting the next request, so it counts here.
+  const previewShown = showsPreview(justSubmitted, { ...draft, note }, { ...defaults, note: "" });
 
   function changeStart(value: string) {
     // The end date follows the start until someone picks a later end on purpose.
@@ -126,7 +127,7 @@ function Fields({
       <p
         id={PREVIEW_ID}
         aria-live="polite"
-        aria-busy={!preview.current}
+        aria-busy={previewShown && !preview.current}
         className={cx("min-h-5 text-sm", !preview.ok ? errorText : preview.current ? "text-foreground" : "text-muted")}
       >
         {previewShown && preview.message}

@@ -145,10 +145,10 @@ const layers = [
  * variant in a component would be right in one theme only.
  */
 const paletteClass =
-  "(?:^|[\\s:])(?:bg|text|border|ring|outline|fill|stroke|divide|decoration|from|via|to|shadow|caret|placeholder)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d|(?:^|\\s)dark:";
+  "(?:^|[\\s:])(?:bg|text|border(?:-[xytrblse])?|ring(?:-offset)?|outline|fill|stroke|divide|decoration|from|via|to|shadow|caret|placeholder|accent)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d|(?:^|[\\s:])dark:";
 const paletteMessage = "Use a theme token from src/app/globals.css (bg-surface, text-muted, text-danger…), not a palette colour or dark: variant.";
 const themeTokens = {
-  files: ["src/app/**/*.tsx", "src/components/**/*.{ts,tsx}"],
+  files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
   rules: {
     "no-restricted-syntax": [
       "error",

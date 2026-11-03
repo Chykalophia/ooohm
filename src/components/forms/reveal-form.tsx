@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { CopyField } from "@/components/ui/copy-field";
-import { cx, primaryButton, subtleButton, textLink } from "@/components/ui/styles";
+import { cx, primaryButton, textLink } from "@/components/ui/styles";
 import { FormStatus } from "./form-status";
+import { KeepIt } from "./keep-it";
 import { useConfirm } from "./use-confirm";
 import { REVEAL_IDLE, type RevealState } from "./reveal-state";
 import { type StateAction, useFormAction } from "./use-form-action";
@@ -76,8 +77,15 @@ export function RevealForm({
   className?: string;
   children?: React.ReactNode;
 }) {
-  const { state, dispatch, pending, onSubmit } = useFormAction(action, REVEAL_IDLE);
   const { asking: asked, ask, back, done, questionRef, openerRef } = useConfirm();
+  // The question closes only once the action succeeded, as in InlineAction: closing it on
+  // submit would unmount the focused "Yes", hide its pending label and lose the question
+  // if the server refuses. On success the revealed value takes focus.
+  const { state, dispatch, pending, onSubmit } = useFormAction<RevealState>(async (prev, formData) => {
+    const next = await action(prev, formData);
+    if (next.status !== "error") done();
+    return next;
+  }, REVEAL_IDLE);
   const asking = asked !== null;
   const fieldsKey = state.status === "revealed" ? state.id : "form";
 
@@ -86,14 +94,7 @@ export function RevealForm({
     <div className="space-y-4">
       {revealed && <Revealed key={revealed.id} state={revealed} label={valueLabel} note={note} hrefLabel={hrefLabel} />}
       {!(revealed && hideFormOnReveal) && (
-        <form
-          action={dispatch}
-          onSubmit={(e) => {
-            done();
-            onSubmit(e);
-          }}
-          className={className}
-        >
+        <form action={dispatch} onSubmit={onSubmit} className={className}>
           <div key={fieldsKey} className={className}>
             {children}
           </div>
@@ -112,11 +113,7 @@ export function RevealForm({
                 {pending ? pendingLabel : confirm ? (confirmLabel ?? "Yes") : submitLabel}
               </button>
             )}
-            {confirm && asking && (
-              <button type="button" onClick={back} className={subtleButton}>
-                Keep it
-              </button>
-            )}
+            {confirm && asking && <KeepIt pending={pending} onBack={back} />}
             <FormStatus state={state} />
           </div>
         </form>

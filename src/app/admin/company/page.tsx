@@ -22,7 +22,7 @@ export default async function CompanyPage() {
       nav={nav}
       section="company"
       title="Company"
-      description="Working days and the time zone decide how leave is counted and when a year starts. New working days also recount requests already sent, this year and later, and email the people affected."
+      description="Working days and the time zone decide how leave is counted and when a year starts. Changing the working days also recounts requests already sent, this year and later, and emails the people affected."
     >
       <Card aria-label="Company settings">
         <ActionForm action={updateCompanyAction} submitLabel="Save changes" pendingLabel="Saving…">

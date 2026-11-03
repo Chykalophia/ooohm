@@ -17,7 +17,7 @@ import { findCompanySettings, listHolidayDates } from "@/server/repositories/cal
 import { shareLockCompany } from "@/server/repositories/companies";
 import {
   countRecentRequests,
-  findLeaveRequest,
+  lockLeaveRequest,
   insertLeaveRequest,
   type LeaveRequestRow,
   listRequestsForUser,
@@ -165,7 +165,7 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
   if (!isUuid(requestId)) throw new DomainError("not_found");
 
   return commitThenNotify(ctx, async (tx) => {
-    const before = await findLeaveRequest(tx, actor.companyId, requestId);
+    const before = await lockLeaveRequest(tx, actor.companyId, requestId);
     if (!before) throw new DomainError("not_found");
     if (!canCancel(actor, before)) throw new DomainError("forbidden");
     const settings = await findCompanySettings(tx, actor.companyId);

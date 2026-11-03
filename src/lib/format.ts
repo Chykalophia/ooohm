@@ -135,53 +135,54 @@ export function formatLongDate(date: string): string {
   return longDayFormat.format(toUtc(date));
 }
 
+/** The shapes instants are printed in, each in a company's time zone. */
+const INSTANT_FORMATS = {
+  date: { month: "short", day: "numeric", year: "numeric" },
+  dateTime: { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" },
+  short: { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" },
+  shortWithYear: { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" },
+  full: { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" },
+  year: { year: "numeric" },
+} satisfies Record<string, Intl.DateTimeFormatOptions>;
+
+/**
+ * One formatter per shape and time zone, made once: a table of a hundred audit rows would
+ * otherwise build several hundred, and building one is far slower than using it.
+ */
+const instantFormatters = new Map<string, Intl.DateTimeFormat>();
+function instantFormat(kind: keyof typeof INSTANT_FORMATS, timeZone: string): Intl.DateTimeFormat {
+  const key = `${kind}|${timeZone}`;
+  let format = instantFormatters.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat("en-US", { timeZone, ...INSTANT_FORMATS[kind] });
+    instantFormatters.set(key, format);
+  }
+  return format;
+}
+
 /** An instant as its calendar date in `timeZone`, e.g. "Nov 1, 2026". */
 export function formatInstantDate(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(instant);
+  return instantFormat("date", timeZone).format(instant);
 }
 
 /** An instant as date and time in `timeZone`, e.g. "Nov 1, 2026, 9:05 AM CST". */
 export function formatInstantDateTime(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(instant);
+  return instantFormat("dateTime", timeZone).format(instant);
 }
 
 /**
  * An instant as a short date and time in `timeZone`, for a table cell: "Nov 2, 10:42 AM",
- * with the year only when it is not `now`'s ("Dec 30, 2025, 4:05 PM"). No zone: the
- * page says which one once.
+ * with the year only when it is not `now`'s ("Dec 30, 2025, 4:05 PM"), both read in
+ * `timeZone`. No zone: the page says which one once.
  */
 export function formatInstantShort(instant: Date, timeZone: string, now: Date): string {
-  const year = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric" }).format(d);
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    month: "short",
-    day: "numeric",
-    year: year(instant) === year(now) ? undefined : "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(instant);
+  const year = instantFormat("year", timeZone);
+  return instantFormat(year.format(instant) === year.format(now) ? "short" : "shortWithYear", timeZone).format(instant);
 }
 
 /** An instant to the second, with its zone, e.g. "Nov 2, 2026, 10:42:07 AM CST": the full record. */
 export function formatInstantFull(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    timeZoneName: "short",
-  }).format(instant);
+  return instantFormat("full", timeZone).format(instant);
 }
 
 export const STATUS_LABEL = {
@@ -264,7 +265,7 @@ export function formatRecountOutcome(outcome: {
   return parts.join(" ");
 }
 
-/** How many people the "also off then" hint names before it says "and N more". */
+/** How many requests the "also off then" hint lists (each a person and their dates) before it says "and N more". */
 export const ALSO_OFF_SHOWN = 5;
 
 /**

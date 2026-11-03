@@ -11,7 +11,7 @@ import { assertTransition } from "@/domain/request-status";
 import type { ServiceContext } from "@/server/context";
 import {
   countInbox,
-  findLeaveRequest,
+  lockLeaveRequest,
   type InboxScope,
   type LeaveRequestRow,
   listInbox,
@@ -75,7 +75,7 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
   const to = input.decision === "approve" ? "approved" : "rejected";
 
   return commitThenNotify(ctx, async (tx) => {
-    const before = await findLeaveRequest(tx, actor.companyId, input.requestId);
+    const before = await lockLeaveRequest(tx, actor.companyId, input.requestId);
     if (!before) throw new DomainError("not_found");
     const byAssignment = decidesByAssignment(actor, before);
     const current = byAssignment && before.approverId === actor.id ? await currentApprover(tx, actor.companyId, before.userId) : null;

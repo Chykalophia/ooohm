@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { authClient } from "@/lib/auth-client";
 
@@ -10,7 +9,6 @@ import { authClient } from "@/lib/auth-client";
  * account menu); a failure shows below it.
  */
 export function SignOutButton({ className }: { className: string }) {
-  const router = useRouter();
   const [failed, setFailed] = useState(false);
 
   async function signOut() {
@@ -21,8 +19,11 @@ export function SignOutButton({ className }: { className: string }) {
     } catch {
       return setFailed(true);
     }
-    // replace, not push: Back must not return to the signed-in page.
-    router.replace("/sign-in");
+    // A full load, not a client navigation: the root layout (which draws the theme) only
+    // renders again on one, so the sign-in page gets the signed-out default, and the
+    // router's cached signed-in pages are dropped. replace, not assign: Back must not
+    // return to the signed-in page.
+    window.location.replace("/sign-in");
   }
 
   return (

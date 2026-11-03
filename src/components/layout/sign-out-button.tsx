@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ErrorMessage } from "@/components/forms/form-status";
-import { cx, focusRing } from "@/components/ui/styles";
 import { authClient } from "@/lib/auth-client";
 
-export function SignOutButton() {
+/**
+ * Signs out and leaves for the sign-in page. Styled by its caller (a row of the
+ * account menu); a failure shows below it.
+ */
+export function SignOutButton({ className }: { className: string }) {
   const router = useRouter();
   const [failed, setFailed] = useState(false);
 
@@ -23,11 +26,15 @@ export function SignOutButton() {
   }
 
   return (
-    <span className="flex items-center gap-2">
-      {failed && <ErrorMessage>Couldn&apos;t sign out. Try again.</ErrorMessage>}
-      <button type="button" className={cx("rounded-md text-muted hover:text-foreground", focusRing)} onClick={signOut}>
+    <>
+      <button type="button" className={className} onClick={signOut}>
         Sign out
       </button>
-    </span>
+      {failed && (
+        <ErrorMessage as="p" className="px-3 pb-2 text-sm">
+          Couldn&apos;t sign out. Try again.
+        </ErrorMessage>
+      )}
+    </>
   );
 }

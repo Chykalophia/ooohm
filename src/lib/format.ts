@@ -123,6 +123,13 @@ export function formatMonth(month: string): string {
   return monthFormat.format(toUtc(`${month}-01`));
 }
 
+const shortDateFormat = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
+
+/** A date in short, e.g. "Nov 26, 2026", where space is tight (a filter chip). */
+export function formatShortDate(date: string): string {
+  return shortDateFormat.format(toUtc(date));
+}
+
 /** A date in full, e.g. "Thursday, November 26, 2026", for screen readers and titles. */
 export function formatLongDate(date: string): string {
   return longDayFormat.format(toUtc(date));

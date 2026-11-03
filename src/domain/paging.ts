@@ -119,9 +119,13 @@ export interface PageSource<T> {
 
 /**
  * One page, in list order, and the cursors either side. One read of `size + 1` rows (the
- * extra row only tells whether there is more), except when "previous" reaches the start
- * of the list with less than a page left: that reads the first page instead, so the
- * first page always looks the same however someone got there.
+ * extra row only tells whether there is more), and two cases that read again:
+ *
+ * - "Previous" reaching the start of the list with less than a page left reads the first
+ *   page instead, so the first page always looks the same however someone got there.
+ * - "Previous" otherwise reads one row past the page's end, to know whether a next page
+ *   is still there: the rows after it may have gone since (requests decided, people
+ *   deleted), and a Next leading to an empty page would be a dead end.
  */
 export async function readPage<T>({ cursor, size, checks, keyOf, read }: PageSource<T>): Promise<Paged<T>> {
   const key = cursor ? decodePageKey(cursor.token, checks) : undefined;
@@ -135,10 +139,12 @@ export async function readPage<T>({ cursor, size, checks, keyOf, read }: PageSou
 
   if (request?.direction === "before") {
     const items = rows.slice(0, size).reverse();
+    const lastKey = [...keyOf(items[items.length - 1])];
+    const more = await read({ direction: "after", key: lastKey }, 1);
     return {
       items,
       previous: rows.length > size ? at("before", keyOf(items[0])) : null,
-      next: at("after", keyOf(items[items.length - 1])),
+      next: more.length > 0 ? at("after", lastKey) : null,
     };
   }
   const items = rows.slice(0, size);

@@ -63,7 +63,7 @@ navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these 
 
 | Folder | Holds |
 | --- | --- |
-| `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField`, `SteadyLabel` (text that turns bold without changing width, so navigation never shifts), `DataTable` (a dense table for long records: sticky header, rows that open to their detail) |
+| `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField`, `SteadyLabel` (text that turns bold without changing width, so navigation never shifts), `DataTable` (a dense table for long records: sticky header, rows that open to their detail), `TableToolbar` (its search, Filters panel and filter chips), `useFilterForm` (the behaviour of every filter form) |
 | `forms/` | Forms bound to server actions: `useFormAction` (no automatic reset, so a refused submit keeps what was typed), `useConfirm` (the "ask first" step, with focus moved to the question and back), `ActionForm`, `InlineAction` (a quiet action on a record, optionally confirmed first), `Reveal`, `RevealForm` (a secret shown once), `FormStatus` and `ErrorMessage` |
 | `layout/` | The page frame: `AppPage`, `AppHeader`, `AccountMenu`, `NoCompany`, the logo |
 | `navigation/` | `PillNav`, `MonthNav`, `YearNav`, `Pager`, `PageSizeNav` |
@@ -97,7 +97,8 @@ opaque token in `?after=` / `?before=`; each list checks every part (a uuid, a d
 else as page 1. Repositories build the query with `keysetPage` (`src/server/repositories/keyset.ts`), services read
 with `readPage`, and pages render `Pager` (Previous, Page N, Next) from `pagerLinks` (`src/app/_lib/paging.ts`),
 which keeps the list's filters. The page number is a label the links count, not an offset. Previous reaching the
-start with less than a page left shows the real first page.
+start with less than a page left shows the real first page; any other Previous reads one row past the page to know
+whether a Next is still there, since the rows after it may have gone (requests decided, people deleted).
 
 ### Composition root
 
@@ -883,7 +884,7 @@ also holds the deletion grace option ([The grace option](#the-grace-option)); `c
 
 ### Audit log viewer
 
-`/admin/audit` (`getAuditLog`): a `DataTable`, one line a change (when, what, about whom, by whom), each row opening to the full time and every field changed. Newest first, or oldest (the When header), 25, 50 or 100 a page, read-only. Filters apply as they are picked (`FilterBar autoApply`); clicking an action or a person in a row narrows the log to it. Filters: action (from the known list),
+`/admin/audit` (`getAuditLog`): a `DataTable`, one line a change (when, what, about whom, by whom), each row opening to the full time and every field changed. Newest first, or oldest (the When header), 25, 50 or 100 a page, read-only. A `TableToolbar` across its top holds the search, a Filters panel and the filters in force as removable chips; everything applies as it changes (the search after a pause in typing, an option at once, a date when its field is left). Clicking an action or a person in a row narrows the log to it. The search matches each word against action labels and people's names and emails in the app, then reads with the matching ids (`action in …` or `actor_id in …` or `subject_user_id in …`, every word), so the database never scans text. Filters: action (from the known list),
 who did it, who it is about (`subject_user_id`), and a date range in the company's time zone (converted in SQL
 with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malformed filters are ignored. Each row
 says who or what made it with `changeSourceLabel` ("Ana", "Ana, via Gusto sync", "System: year rollover"); the

@@ -37,6 +37,12 @@ export interface AuditLogFilter {
   from?: string;
   /** Last day, `YYYY-MM-DD`, in the company's time zone. */
   to?: string;
+  /**
+   * Words to look for in the change's name ("declined"), who made it or who it is about
+   * (name or email); every word must match. Matched in the app against those labels,
+   * then read with the ids, so the database never scans text.
+   */
+  query?: string;
   /** Oldest first instead of newest first. A cursor belongs to one order: switching starts at page 1. */
   oldestFirst?: boolean;
   /** Rows per page, one of {@link AUDIT_PAGE_SIZES}; anything else is the default. */
@@ -122,6 +128,37 @@ function toAuditEntry(ctx: ServiceContext, r: AuditRow, names: AuditNames): Audi
   };
 }
 
+/** The longest search the viewer takes; anything longer is cut. */
+export const AUDIT_SEARCH_MAX_LENGTH = 100;
+
+/** The most words a search looks for; more are ignored. */
+const AUDIT_SEARCH_MAX_WORDS = 5;
+
+/**
+ * What a search matches, word by word: for each word, the actions whose label contains
+ * it and the people (deleted ones included, as their rows still name them) whose name or
+ * email does. A row matches when every word matches its action, who made it or who it
+ * is about, so "declined ana" finds Ana's declined requests. Case-insensitive.
+ * `undefined` for an empty search.
+ */
+function searchFor(raw: string | undefined, people: readonly { id: string; name: string; email: string }[]) {
+  const text = raw?.trim().replace(/\s+/g, " ").slice(0, AUDIT_SEARCH_MAX_LENGTH);
+  if (!text) return undefined;
+  const words = [...new Set(text.toLowerCase().split(" "))].slice(0, AUDIT_SEARCH_MAX_WORDS);
+  return {
+    text,
+    matches: words.map((word) => {
+      const has = (value: string) => value.toLowerCase().includes(word);
+      return {
+        actions: Object.entries(AUDIT_ACTION_LABELS)
+          .filter(([action, label]) => has(label) || has(action))
+          .map(([action]) => action),
+        people: people.filter((p) => has(personLabel(p)) || has(p.email)).map((p) => p.id),
+      };
+    }),
+  };
+}
+
 /**
  * One page of the company's audit log, newest first, with the names the filters and
  * summaries need.
@@ -140,8 +177,10 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
   const to = filter.to && isCalendarDate(filter.to) ? filter.to : undefined;
   const { company, people, names } = await loadAuditNaming(ctx, actor.companyId);
 
+  const search = searchFor(filter.query, people);
   const query = {
     companyId: actor.companyId,
+    search: search?.matches,
     action,
     actorId: personId(filter.actorId),
     subjectUserId: personId(filter.subjectUserId),
@@ -167,6 +206,7 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
     oldestFirst: query.oldestFirst,
     size,
     filters: {
+      query: search?.text,
       action,
       actorId: personId(filter.actorId),
       subjectUserId: personId(filter.subjectUserId),

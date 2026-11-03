@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { formatDays, formatInstantDate, formatLeaveDates } from "@/lib/format";
+import { formatDays, formatInstantDateTime, formatLeaveDates } from "@/lib/format";
 import { getMyRequest } from "@/server/services/leave-requests";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
@@ -23,7 +23,8 @@ const PORTION: Record<"full" | "am" | "pm", string> = { full: "Full days", am: "
 
 /**
  * One of the person's own requests in full: the leave, its status, who decides it and
- * what they said, when it was sent and decided, and Cancel request while it can be.
+ * what they said, when it was sent and decided (date and time, in the company's zone:
+ * the order of events can matter), and Cancel request while it can be.
  * Someone else's request is not found (404), as an unknown one is.
  */
 export default async function RequestPage({ params }: { params: Promise<{ id: string }> }) {
@@ -48,9 +49,9 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
       `${formatDays(r.days)}${r.startDate === r.endDate && r.dayPortion !== "full" ? ` (${PORTION[r.dayPortion].toLowerCase()})` : ""}`,
     ],
     [APPROVER_LABEL[r.status], approver],
-    ["Sent", formatInstantDate(r.createdAt, timezone)],
+    ["Sent", formatInstantDateTime(r.createdAt, timezone)],
     ...(r.decidedAt
-      ? [[r.status === "rejected" ? "Declined" : "Decided", formatInstantDate(r.decidedAt, timezone)] as [string, React.ReactNode]]
+      ? [[r.status === "rejected" ? "Declined" : "Decided", formatInstantDateTime(r.decidedAt, timezone)] as [string, React.ReactNode]]
       : []),
     ...(r.note ? [["Your note", r.note] as [string, React.ReactNode]] : []),
     ...(r.decisionNote ? [[r.status === "rejected" ? "Reason" : "Note from approver", r.decisionNote] as [string, React.ReactNode]] : []),

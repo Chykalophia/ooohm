@@ -208,6 +208,7 @@ async function record(name, clip, browser) {
   const end = Date.now() / 1000;
   await cdp.send("Page.stopScreencast").catch(() => {});
   await ctx.close();
+  if (frames.length === 0) throw new Error(`${name}: Chrome sent no screencast frames.`);
 
   // Hold each frame until the next one arrived, then resample to a constant frame rate.
   const list = frames.map((f, i) => `file '${f.file}'\nduration ${((frames[i + 1]?.t ?? end) - f.t).toFixed(4)}`).join("\n");
@@ -230,7 +231,8 @@ async function themeStills(browser) {
   const ctx = await signedInContext(browser, "maya@example.com", { viewport: { width: 840, height: 560 }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
   for (const theme of themes) {
-    execFileSync("psql", [DB, "-qc", `update companies set theme = '${theme}'`]);
+    // A psql variable, quoted by psql, rather than text pasted into the SQL.
+    execFileSync("psql", [DB, "-q", "-v", `theme=${theme}`], { input: "update companies set theme = :'theme';" });
     await page.goto(`${BASE}/`);
     await page.waitForLoadState("networkidle");
     await page.screenshot({ path: join(TMP, "theme.png") });

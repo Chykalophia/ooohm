@@ -296,8 +296,10 @@ function triage() {
     [...rows.children].filter((r) => !r.classList.contains("go")).forEach((r, i) => (r.style.transform = `translateY(${i * h}px)`));
   }
   addEventListener("resize", layout, { passive: true });
+  // Each step schedules the next once it has finished, so two never overlap.
   async function step() {
     const first = rows.querySelector(".trow:not(.go)");
+    if (!first) return;
     first.querySelector(".act b").style.background = "var(--accent-strong)";
     await sleep(350);
     first.querySelector(".act").innerHTML = '<span class="badge">Approved</span>';
@@ -314,7 +316,9 @@ function triage() {
     fresh.style.opacity = "";
     countEl.textContent = "3";
   }
-  whileVisible(rows, () => { clearInterval(timer); timer = setInterval(step, 2800); }, () => clearInterval(timer));
+  let visible = false;
+  const loop = () => { timer = setTimeout(() => step().then(() => visible && loop()), 1200); };
+  whileVisible(rows, () => { clearTimeout(timer); visible = true; loop(); }, () => { visible = false; clearTimeout(timer); });
 }
 const POOL = [
   ["Lena Park", "Dec 21 – Dec 23", "3 days", "var(--pto)"],

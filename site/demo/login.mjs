@@ -25,7 +25,9 @@ export async function signedInContext(browser, email, options = {}) {
     data: { email, callbackURL: "/" },
   });
   if (!res.ok()) throw new Error(`magic link request failed: ${res.status()}`);
-  const id = execFileSync("psql", [DB, "-Atc", `select identifier from verification where value like '%"${email}"%' order by created_at desc limit 1`]).toString().trim();
+  const id = execFileSync("psql", [DB, "-At", "-v", `email=${email}`], {
+    input: "select identifier from verification where value::jsonb ->> 'email' = :'email' order by created_at desc limit 1;",
+  }).toString().trim();
   await ctx.request.get(`${BASE}/api/auth/magic-link/verify?token=${id.replace(/^magic-link:/, "")}&callbackURL=/`, { maxRedirects: 0 });
   mkdirSync(AUTH, { recursive: true });
   await ctx.storageState({ path: state });

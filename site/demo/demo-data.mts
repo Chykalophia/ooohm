@@ -22,6 +22,7 @@ const { db } = handle;
 const YEAR = 2026;
 
 const [company] = await db.select().from(s.companies).limit(1);
+if (!company) throw new Error("No company yet. Run `pnpm db:seed` with SEED_ADMIN_EMAIL=maya@example.com first.");
 await db.update(s.companies).set({ requestStyle: "sentence" }).where(eq(s.companies.id, company.id));
 const types = Object.fromEntries((await db.select().from(s.leaveTypes).where(eq(s.leaveTypes.companyId, company.id))).map((t) => [t.code, t]));
 const [maya] = await db.select().from(s.user).where(eq(s.user.email, "maya@example.com"));

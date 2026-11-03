@@ -57,7 +57,10 @@ test("brand mark: only #rrggbb colours reach the SVG, whatever is passed in", ()
     faviconSvg(THEMES.classic.accent, { tile: hostile, mark: "expression(alert(1))" }),
   ]) {
     assert.doesNotMatch(svg, /script|javascript|expression|alert/i);
-    const style = /<style>(.*)<\/style>/.exec(svg)?.[1] ?? "";
+    const style = /<style>(.*)<\/style>/.exec(svg)?.[1];
+    assert.ok(style, "favicon SVG has a <style> block");
     for (const value of style.match(/(?<=(fill|stroke):)[^}]*/g) ?? []) assert.match(value, /^#[0-9a-f]{6}$/);
   }
+  // Anything that is not a hex colour falls back to the default accent.
+  assert.match(faviconSvg(hostile), new RegExp(`\\.t\\{fill:${THEMES.classic.accent}\\}`));
 });

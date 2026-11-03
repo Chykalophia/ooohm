@@ -67,7 +67,7 @@ export function darkMarkColors(accent: string): MarkColors {
   return markColors(tile);
 }
 
-const STRICT_HEX = /^#[0-9a-f]{6}$/;
+const HEX_INPUT = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 /**
  * Every colour written into the SVG's `<style>` passes through here, so nothing but a
@@ -75,8 +75,7 @@ const STRICT_HEX = /^#[0-9a-f]{6}$/;
  * becomes the default accent.
  */
 function cssColor(color: string): string {
-  const hex = normalizeHexColor(color);
-  return STRICT_HEX.test(hex) ? hex : THEMES.classic.accent;
+  return HEX_INPUT.test(color.trim()) ? normalizeHexColor(color) : THEMES.classic.accent;
 }
 
 /** Where the Ω sits on the 32 grid so it is centred at {@link OHM_SCALE}. */
@@ -88,8 +87,9 @@ export const OHM_OFFSET = Math.round(((32 - 32 * OHM_SCALE) / 2) * 100) / 100;
  */
 export function faviconSvg(accent: string, darkMark: MarkColors | null = null): string {
   const safe = ({ tile, mark }: MarkColors): MarkColors => ({ tile: cssColor(tile), mark: cssColor(mark) });
-  const light = safe(markColors(accent));
-  const dark = safe(darkMark ?? darkMarkColors(accent));
+  const base = cssColor(accent);
+  const light = safe(markColors(base));
+  const dark = safe(darkMark ?? darkMarkColors(base));
   const style =
     `.t{fill:${light.tile}}.m{stroke:${light.mark}}` +
     (dark.tile === light.tile && dark.mark === light.mark ? "" : `@media (prefers-color-scheme:dark){.t{fill:${dark.tile}}.m{stroke:${dark.mark}}}`);

@@ -149,6 +149,10 @@ DATABASE_URL="$DATABASE_URL_UNPOOLED" pnpm import:timeoff -- --file ~/timeoff.sq
 Back up first (step 11). The import runs as one transaction over the direct connection. Delete `timeoff.sqlite`, the
 reports and `~/ooohm-prod.env` from your machine after cutover.
 
+Then, in the app, **Admin → Leave types: drag PTO to the top.** The import keeps TimeOff's order, and the first
+active type is the request form's default and the one Home's year-end note names ("6 days of PTO won't carry into
+2027"). Nobody should be nudged to use up emergency or sick days.
+
 ## 11. Backups (20 min)
 
 Two layers:
@@ -190,6 +194,7 @@ The same bar as [deploy.md](deploy.md#17-cutover-checklist):
 - [ ] Backups run nightly, are copied off the machine, and one restore drill has been done (step 11).
 - [ ] **Every person's balance matches TimeOff**: the applied import reported `Diff 0` for every current-year row,
       and three people were spot-checked by hand against TimeOff's screens.
+- [ ] PTO is the first leave type under **Admin → Leave types** (step 10).
 - [ ] **Everyone has requested time off once and had it approved** in OOOhm. Keep a list; it proves each person can
       sign in and each approval route works.
 - [ ] The team calendar feed shows in Google Calendar.

@@ -23,7 +23,7 @@ import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { submitLeaveRequest } from "@/server/services/leave-requests";
 import { createWebhookEndpoint, deleteWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
-import { captureStderr, companyAudit, companyEvents, decidable, type PersonSpec, seedCompany, setAllowance } from "./fixtures";
+import { captureStderr, companyAudit, companyEvents, decidable, type PersonSpec, seedCompany, setAllowance, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 async function userRow(db: Database, id: string) {
@@ -200,7 +200,7 @@ describe("admin: people", { skip }, () => {
     await resendInvite(ctx, co.people.boss, co.people.ana.id);
     await ctx.settle();
     assert.deepEqual(
-      ctx.sent.map((m) => [m.to, m.subject]),
+      ctx.sent.map((m) => [m.to, subjectOf(m)]),
       [[co.people.ana.email, INVITE_SUBJECT]],
     );
     const audit = await companyAudit(t.db, co.companyId);
@@ -394,7 +394,7 @@ describe("admin: people", { skip }, () => {
     assert.equal(ctx.sent.length, 0, "the new approver hears after commit");
     await ctx.settle();
     assert.deepEqual(
-      ctx.sent.map((m) => [m.to, m.subject]),
+      ctx.sent.map((m) => [m.to, subjectOf(m)]),
       [[co.people.boss.email, "Time off request to review"]],
     );
 
@@ -481,7 +481,7 @@ describe("admin: people", { skip }, () => {
     );
     await ctx.settle();
     assert.deepEqual(
-      ctx.sent.map((m) => [m.to, m.subject]),
+      ctx.sent.map((m) => [m.to, subjectOf(m)]),
       [[a2.email, "Time off request to review"]],
     );
 
@@ -552,7 +552,7 @@ describe("admin: people", { skip }, () => {
       );
       await ctx.settle();
       assert.deepEqual(
-        ctx.sent.map((m) => [m.to, m.subject]),
+        ctx.sent.map((m) => [m.to, subjectOf(m)]),
         [[mgr.email, "Time off request to review"]],
       );
       assert.equal((await decideLeaveRequest(ctx, mgr, { requestId: request.id, decision: "approve" })).status, "approved");
@@ -579,7 +579,7 @@ describe("admin: people", { skip }, () => {
       await rejectsWith(decideLeaveRequest(promoted.ctx, boss, { requestId: promoted.request.id, decision: "approve" }), "forbidden");
       await promoted.ctx.settle();
       assert.deepEqual(
-        promoted.ctx.sent.map((m) => [m.to, m.subject]),
+        promoted.ctx.sent.map((m) => [m.to, subjectOf(m)]),
         [[b.email, "Time off request to review"]],
       );
 
@@ -593,7 +593,7 @@ describe("admin: people", { skip }, () => {
       );
       await invited.ctx.settle();
       assert.deepEqual(
-        invited.ctx.sent.map((m) => [m.to, m.subject]).sort(),
+        invited.ctx.sent.map((m) => [m.to, subjectOf(m)]).sort(),
         [
           [admin.email, INVITE_SUBJECT],
           [admin.email, "Time off request to review"],

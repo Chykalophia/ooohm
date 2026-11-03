@@ -36,6 +36,7 @@ const [company] = companies;
 await db.update(s.companies).set({ requestStyle: "sentence" }).where(eq(s.companies.id, company.id));
 const types = Object.fromEntries((await db.select().from(s.leaveTypes).where(eq(s.leaveTypes.companyId, company.id))).map((t) => [t.code, t]));
 const [maya] = await db.select().from(s.user).where(eq(s.user.email, "maya@example.com"));
+if (!maya) throw new Error("maya@example.com not found. Run `pnpm db:seed` with SEED_ADMIN_EMAIL=maya@example.com first.");
 
 const depts: Record<string, string> = {};
 for (const name of ["Design", "Engineering", "Sales"]) {

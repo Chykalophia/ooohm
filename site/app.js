@@ -59,7 +59,8 @@ const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 function count(from, to, portion) {
   const byYear = {};
   const skipped = { weekends: 0, holidays: [] };
-  for (let t = parse(from).getTime(); t <= parse(to).getTime(); t += DAY) {
+  const end = parse(to).getTime();
+  for (let t = parse(from).getTime(); t <= end; t += DAY) {
     const d = new Date(t);
     const key = iso(d);
     const dow = d.getUTCDay();
@@ -144,6 +145,8 @@ function sentence() {
     let line = "";
     let reason = "";
     if (!s.from || !s.to) line = "Pick the first and the last day.";
+    // A typed year like 20266 passes the string checks but would make count() walk millions of days.
+    else if (!f.from.checkValidity() || !f.to.checkValidity()) line = "Pick days in 2026 or 2027.";
     else if (s.to < s.from) line = "The last day is before the first one.";
     else {
       const c = count(s.from, s.to, s.portion);
@@ -180,7 +183,7 @@ function sentence() {
   form.addEventListener("change", render);
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    if (!f.from.value || f.to.value < f.from.value) return;
+    if (!f.from.value || !f.from.checkValidity() || !f.to.checkValidity() || f.to.value < f.from.value) return;
     const c = count(f.from.value, f.to.value, f.portion.value);
     sent.textContent = c.total ? `Sent for approval: ${days(c.total)}. (Only in this demo, so nobody got an email.)` : "";
   });
@@ -190,6 +193,7 @@ function sentence() {
   reserve(note, [NOTE_TURN]);
   let playing = !reduceMotion;
   let timer = 0;
+  let visible = false;
   let scene = 0;
   const stopDemo = () => {
     if (!playing) return;
@@ -212,11 +216,15 @@ function sentence() {
   function tick() {
     if (!playing) return;
     scene = (scene + 1) % SCENES.length;
-    play(SCENES[scene]).then(() => playing && (timer = setTimeout(tick, 3400)));
+    play(SCENES[scene]).then(() => {
+      if (!playing || !visible) return;
+      clearTimeout(timer);
+      timer = setTimeout(tick, 3400);
+    });
   }
   render();
   if (!reduceMotion) {
-    whileVisible(form, () => { clearTimeout(timer); if (playing) timer = setTimeout(tick, 2800); }, () => clearTimeout(timer));
+    whileVisible(form, () => { visible = true; clearTimeout(timer); if (playing) timer = setTimeout(tick, 2800); }, () => { visible = false; clearTimeout(timer); });
   } else {
     note.textContent = "Change any part of the sentence. This demo counts Monday to Friday with US holidays; in the app, each company sets its own.";
   }

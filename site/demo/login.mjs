@@ -25,6 +25,9 @@ export async function signedInContext(browser, email, options = {}) {
     data: { email, callbackURL: "/" },
   });
   if (!res.ok()) throw new Error(`magic link request failed: ${res.status()}`);
+  if (DB.startsWith("pglite:") || process.env.OOOHM_DB === "embedded") {
+    throw new Error("Signing in for a recording reads the token with psql, so it needs Postgres, not embedded PGlite.");
+  }
   const id = execFileSync("psql", [DB, "-At", "-v", `email=${email}`], {
     input: "select identifier from verification where value::jsonb ->> 'email' = :'email' order by created_at desc limit 1;",
   }).toString().trim();

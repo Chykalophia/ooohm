@@ -15,10 +15,12 @@ python3 -m http.server 4100 -d site   # then open http://localhost:4100
 
 ## Deploy
 
-Upload the `site/` folder to any static host. Once the site has a domain, make `og:image` in
-`index.html` an absolute URL (`https://<domain>/media/og.png`): link previews ignore relative ones. On Vercel, make a separate project with
-**Root Directory** `site` and the **Other** framework preset; on GitHub Pages or behind Caddy, serve the
-folder as is. `site/demo/` holds the tooling that made the media and doesn't need to be served.
+The site lives at **https://ooohm.team**, on its own Vercel project (`ooohm-site`) with **Root Directory**
+`site`. `vercel.json` turns the build off and serves the folder as is; `.vercelignore` leaves out `demo/`,
+the tooling that made the media. Any other static host works too: serve the folder as is.
+
+`og:image`, `og:url` and the canonical link in `index.html` name the domain, since link previews ignore
+relative URLs. Change all three if the site moves.
 
 ## What's on the page
 

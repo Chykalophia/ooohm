@@ -175,7 +175,7 @@ row after the change).
 | Type | When |
 | --- | --- |
 | `user.created` | An admin invites someone, or an adapter's sync adds them |
-| `user.updated` | Name, department, manager, role or self-approval changed |
+| `user.updated` | Name, department, manager, role or self-approval changed. Usually by an admin; a person can also change their own name, and is then the actor |
 | `user.deactivated`, `user.reactivated` | |
 | `user.invite_resent` | An admin sent a new sign-in link |
 

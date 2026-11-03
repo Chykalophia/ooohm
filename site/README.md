@@ -22,8 +22,9 @@ the project, not in a `vercel.json`, because the app's `vercel.json` sits at the
 - Install Command: `true` (nothing to install).
 - Build Command: `rm -rf site/demo site/README.md`, which only leaves out the recording tooling and this file.
 - Output Directory: `site`.
-- Ignored Build Step: `[ -d site ] || exit 0; git diff --quiet "${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}" HEAD -- site`,
-  so a push deploys only when something under `site/` changed since the last deployment.
+- Ignored Build Step: `[ -d site ] || exit 0; [ -n "$VERCEL_GIT_PREVIOUS_SHA" ] || exit 1; git diff --quiet "$VERCEL_GIT_PREVIOUS_SHA" HEAD -- site`,
+  so a push deploys only when something under `site/` changed since the last deployment (and always
+  when there is no earlier deployment to compare with).
   A branch without `site/` never deploys, so to retire the site, remove the domain or the Vercel project
   rather than deleting the folder.
 

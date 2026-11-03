@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
-import { renameSelf } from "@/server/services/account";
+import { THEMES } from "@/domain/theme";
+import { renameSelf, setTheme } from "@/server/services/account";
 import type { FormState } from "@/components/forms/form-state";
 import { runFormAction } from "@/app/_lib/server-action";
 
@@ -23,4 +24,14 @@ export async function renameSelfAction(_prev: FormState, formData: FormData): Pr
     },
     { invalidInput: NAME_LENGTH_MESSAGE, messages: { invalid_input: NAME_LENGTH_MESSAGE } },
   );
+}
+
+const themeSchema = z.object({ theme: z.enum(THEMES) });
+
+/** Account page: saves how the signed-in person wants the app drawn. The refresh redraws it. */
+export async function setThemeAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return runFormAction("account_theme", formData, themeSchema, async (ctx, actor, { theme }) => {
+    await setTheme(ctx, actor, theme);
+    return "Saved.";
+  });
 }

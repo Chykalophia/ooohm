@@ -77,7 +77,15 @@ component, not an async one. Controls take their classes from the recipes in
 spelling out Tailwind classes again, so the one accent colour, the focus ring and the error colour stay the same
 everywhere; `cx()` joins optional classes. Two classes that set the same property (`p-4` and `p-5`) must never be
 combined, since which one wins depends on stylesheet order: a component offers a variant instead (`Card`'s
-`padding`). Theme colours are the tokens in `src/app/globals.css`.
+`padding`).
+
+**Themes.** Each person picks light (the default), dark or automatic (follows the device) on their account page;
+it is `user.theme`, read with the session. The root layout writes it to `<html data-theme>`, which sets
+`color-scheme`, and every colour token in `src/app/globals.css` holds both values in `light-dark()`, so the first
+paint is right with no script and automatic switches as the device does. Colours come only from those tokens
+(`bg-surface`, `text-muted`, `text-danger`…): `pnpm lint` refuses palette classes (`text-red-700`) and `dark:` in
+`src/app` and `src/components`. A new colour is a new token with a light and a dark value. The theme is a
+display preference of the person's own, so changing it writes no audit row or event.
 
 ### Composition root
 
@@ -888,7 +896,7 @@ Integrations, which opens Webhooks and adds a quieter second row of tabs for Web
 sits under the header, which shows **Admin** to admins only. One main action per screen (Invite someone, Save changes, Add
 …); secondary actions are quiet text buttons, and destructive ones (deactivate, delete, archive) ask first.
 Per-row edits (rename, change an allowance) open in place. Refused saves keep what was typed (forms submit
-without React's automatic reset) and show the reason with `role="alert"` in `text-red-700 dark:text-red-400`.
+without React's automatic reset) and show the reason with `role="alert"` in `errorText` (`text-danger`).
 
 ## People lifecycle and privacy (M8)
 

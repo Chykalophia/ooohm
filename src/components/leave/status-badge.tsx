@@ -5,7 +5,7 @@ type Status = keyof typeof STATUS_LABEL;
 const TONE: Record<Status, string> = {
   pending: "border-border text-foreground",
   approved: "border-accent/40 text-accent",
-  rejected: "border-red-200 text-red-700 dark:border-red-900 dark:text-red-400",
+  rejected: "border-danger-border text-danger",
   cancelled: "border-border text-muted",
 };
 

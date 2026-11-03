@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { departments, session, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
+import type { Theme } from "@/domain/theme";
 
 const approvalFields = {
   id: user.id,
@@ -244,6 +245,19 @@ export async function updatePerson(
     .where(and(eq(user.id, userId), eq(user.companyId, companyId)))
     .returning(personFields);
   return row;
+}
+
+/**
+ * Saves an active member's theme. @returns Whether they were found (an active, not
+ * deleted member of the company).
+ */
+export async function updateTheme(ex: Executor, companyId: string, userId: string, theme: Theme): Promise<boolean> {
+  const rows = await ex
+    .update(user)
+    .set({ theme })
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId), eq(user.isActive, true), notDeleted))
+    .returning({ id: user.id });
+  return rows.length > 0;
 }
 
 /** Signs the person out everywhere: deletes every session. @returns How many there were. */

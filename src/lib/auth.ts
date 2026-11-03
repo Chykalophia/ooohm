@@ -5,10 +5,12 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins";
 import { headers } from "next/headers";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db, schema } from "@/db";
 import { type Actor, toActor } from "@/domain/actor";
+import { DEFAULT_THEME } from "@/domain/theme";
 import { env, googleEnabled } from "@/lib/env";
 import { createLinkCapture, inviteLinkRequest } from "@/lib/link-capture";
 import { log } from "@/lib/log";
@@ -45,6 +47,8 @@ export const auth = betterAuth({
       role: { type: "string", required: false, defaultValue: "employee", input: false },
       canSelfApprove: { type: "boolean", required: false, defaultValue: false, input: false },
       isActive: { type: "boolean", required: false, defaultValue: true, input: false },
+      // Read here so every page gets it with the session; changed on the account page.
+      theme: { type: "string", required: false, defaultValue: DEFAULT_THEME, input: false },
     },
   },
   databaseHooks: {
@@ -125,12 +129,17 @@ export async function issueSignInLink(email: string): Promise<string> {
   return linkCapture.issue((key) => auth.api.signInMagicLink({ body: inviteLinkRequest(email, key), headers: new Headers() }));
 }
 
-/** The signed-in, active user, or `null`. For route handlers, which answer 401 rather than redirect. */
-export async function currentUser(): Promise<Session["user"] | null> {
+/**
+ * The signed-in, active user, or `null`. For route handlers, which answer 401 rather than redirect.
+ *
+ * Read once per render: the root layout (for the theme) and the page share one session
+ * lookup. Outside a render (route handlers, server actions) every call reads afresh.
+ */
+export const currentUser = cache(async (): Promise<Session["user"] | null> => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session || session.user.isActive === false) return null;
   return session.user;
-}
+});
 
 /** Data access layer entry point: the signed-in user, or a redirect to /sign-in. */
 export async function requireUser() {

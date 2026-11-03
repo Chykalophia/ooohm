@@ -13,10 +13,10 @@ export function cx(...classes: (string | false | null | undefined)[]): string {
 export const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 /** Text and inputs that report a failure. */
-export const errorText = "text-red-700 dark:text-red-400";
+export const errorText = "text-danger";
 
 export const field =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 aria-[invalid=true]:border-red-700";
+  "w-full rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 aria-[invalid=true]:border-danger";
 
 /** A checkbox or radio drawn by the browser, in the accent colour. */
 export const nativeCheck = "h-4 w-4 shrink-0 accent-[var(--accent)]";
@@ -34,7 +34,7 @@ const BUTTON_VARIANT: Record<ButtonVariant, string> = {
   primary: "bg-accent text-accent-foreground",
   accent: "border border-accent text-accent hover:bg-accent/10",
   outline: "border border-border text-foreground hover:bg-background",
-  danger: "border border-red-700 text-red-700 hover:bg-red-50 dark:border-red-400 dark:text-red-400 dark:hover:bg-red-950",
+  danger: "border border-danger text-danger hover:bg-danger-soft",
 };
 
 const BUTTON_SIZE: Record<ButtonSize, string> = {
@@ -63,7 +63,7 @@ export const subtleButton = `rounded-md text-sm text-muted hover:text-foreground
 export const confirmButton = `rounded-md text-sm font-medium text-foreground hover:underline underline-offset-4 disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
 
 /** A quiet text action that removes or switches something off. */
-export const dangerButton = `rounded-md text-sm font-medium ${errorText} hover:text-red-800 disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
+export const dangerButton = `rounded-md text-sm font-medium ${errorText} hover:text-danger-strong disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
 
 /** A link inside running text. */
 export const textLink = `rounded-md underline-offset-4 hover:underline ${focusRing}`;

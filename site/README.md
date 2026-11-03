@@ -71,10 +71,10 @@ Run `demo-data.mts` again before `record.mjs ask approve`, since those clips cha
 captions drawn into the picture. It isn't on the page. Render it after `record.mjs`:
 
 ```bash
-node site/demo/render-launch.mjs --music Wallpaper.mp3 --out launch.mp4   # --url changes the address on the end card
+NODE_PATH=$(npm root -g) node site/demo/render-launch.mjs --music Wallpaper.mp3 --out launch.mp4   # --url changes the address on the end card
 ```
 
-It also writes `launch.srt` and `launch.vtt` with the same captions. The music isn't in the repository:
+It also writes `launch.srt` and `launch.vtt` with the same captions, and a `launch.jpg` still. The music isn't in the repository:
 the film is cut to the first minute of "Wallpaper" by Kevin MacLeod, from incompetech.com, under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Wherever the video is posted, credit it as:
 

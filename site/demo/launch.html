@@ -139,7 +139,7 @@
     <div class="term"><div class="tbar">~/ooohm</div><pre id="term"></pre></div>
     <ul class="hosts" id="hosts">
       <li><h3>Docker Compose</h3><code>docker compose up</code></li>
-      <li><h3>Any Postgres 15+, or Vercel</h3><code>pnpm build &amp;&amp; pnpm start</code></li>
+      <li><h3>Any Postgres 15+, or Vercel</h3><code>pnpm db:migrate &amp;&amp; pnpm build &amp;&amp; pnpm start</code></li>
       <li><h3>One machine, no database server</h3><code>pnpm start:embedded</code></li>
     </ul>
   </section>
@@ -227,7 +227,7 @@
   ];
   const CMD = "docker compose up";
 
-  window.ready = Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
+  window.ready = Promise.all([...document.images].filter((i) => i.hasAttribute("src")).map((i) => i.decode()));
 
   window.seek = async function seek(t) {
     // Title: the mark, then O, O, O, then hm, then "out now".

@@ -9,7 +9,7 @@
  * the video is posted.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -23,7 +23,10 @@ const FPS = 30;
 
 const { values: args } = parseArgs({ options: { music: { type: "string" }, out: { type: "string" }, url: { type: "string" } } });
 if (!args.music) throw new Error("Pass --music <file>: the film is cut to Wallpaper by Kevin MacLeod.");
+if (!existsSync(args.music)) throw new Error(`No music file at ${args.music}.`);
 const outFile = resolve(args.out ?? join(MEDIA, "launch.mp4"));
+if (!/\.mp4$/i.test(outFile)) throw new Error("--out must name an .mp4 file.");
+const stem = outFile.replace(/\.mp4$/i, "");
 
 rmSync(FRAMES, { recursive: true, force: true });
 const counts = {};
@@ -56,7 +59,7 @@ execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-framerate", String(FPS), "
   "-filter_complex", `[1:a]atrim=0:${duration},asetpts=N/SR/TB,afade=t=in:d=0.4,afade=t=out:st=${fadeAt}:d=3.5,loudnorm=I=-16:TP=-1.5:LRA=11[a]`,
   "-map", "0:v", "-map", "[a]", "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-tune", "animation", "-pix_fmt", "yuv420p",
   "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-t", String(duration), "-movflags", "+faststart", outFile]);
-execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(out, `${String(Math.round(57 * FPS)).padStart(5, "0")}.jpg`), "-q:v", "2", outFile.replace(/\.mp4$/, ".jpg")]);
+execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(out, `${String(Math.round(57 * FPS)).padStart(5, "0")}.jpg`), "-q:v", "2", `${stem}.jpg`]);
 
 // Captions as files too, for players that take them separately.
 const stamp = (s, sep) => {
@@ -64,7 +67,7 @@ const stamp = (s, sep) => {
   const p = (n, w = 2) => String(n).padStart(w, "0");
   return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)}${sep}${p(ms % 1000, 3)}`;
 };
-writeFileSync(outFile.replace(/\.mp4$/, ".srt"), captions.map((c, i) => `${i + 1}\n${stamp(c.at, ",")} --> ${stamp(c.end, ",")}\n${c.text}\n`).join("\n"));
-writeFileSync(outFile.replace(/\.mp4$/, ".vtt"), "WEBVTT\n\n" + captions.map((c) => `${stamp(c.at, ".")} --> ${stamp(c.end, ".")}\n${c.text}\n`).join("\n"));
+writeFileSync(`${stem}.srt`, captions.map((c, i) => `${i + 1}\n${stamp(c.at, ",")} --> ${stamp(c.end, ",")}\n${c.text}\n`).join("\n"));
+writeFileSync(`${stem}.vtt`, "WEBVTT\n\n" + captions.map((c) => `${stamp(c.at, ".")} --> ${stamp(c.end, ".")}\n${c.text}\n`).join("\n"));
 rmSync(FRAMES, { recursive: true, force: true });
 console.log(`launch: ${total} frames → ${outFile}`);

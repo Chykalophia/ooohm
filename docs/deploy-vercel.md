@@ -57,17 +57,16 @@ count each client (they are per instance on Vercel, so approximate; see [hosting
 `CRON_SECRET` is what Vercel Cron sends as `Authorization: Bearer <secret>` (step 7). Keep a copy of
 `WEBHOOK_ENCRYPTION_KEY` in the password manager: losing it makes every webhook secret unreadable.
 
-Email (step 9 picks the provider), the same way:
+Email through SendGrid's API (step 9), the same way:
 
 ```bash
-printf '%s' "smtp.postmarkapp.com"            | vercel env add SMTP_HOST production
-printf '%s' "587"                             | vercel env add SMTP_PORT production
-printf '%s' "false"                           | vercel env add SMTP_SECURE production
-printf '%s' "true"                            | vercel env add SMTP_REQUIRE_TLS production
-printf '%s' "<smtp user>"                     | vercel env add SMTP_USER production
-printf '%s' "<smtp password>"                 | vercel env add SMTP_PASSWORD production
+printf '%s' "sendgrid"                        | vercel env add MAIL_TRANSPORT production
+printf '%s' "<API key, Mail Send only>"       | vercel env add SENDGRID_API_KEY production
 printf '%s' "OOOhm <no-reply@ooohm.team>"     | vercel env add MAIL_FROM production
 ```
+
+Another provider over SMTP instead: `MAIL_TRANSPORT=smtp` (the default) with `SMTP_HOST`, `SMTP_PORT=587`,
+`SMTP_SECURE=false`, `SMTP_REQUIRE_TLS=true`, `SMTP_USER` and `SMTP_PASSWORD`.
 
 Optional: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (redirect URI `https://ooohm.team/api/auth/callback/google`),
 `LOG_LEVEL`. Not needed: `OOOHM_BACKGROUND` (Vercel defaults to `inline`), `DATABASE_POOLER`.
@@ -149,12 +148,26 @@ set -a; . ~/ooohm-prod.env; set +a
 value, which means the variable was stored dirty: re-add it with `printf '%s'` (step 3) and redeploy. Delete
 `~/ooohm-prod.env` after step 10.
 
-## 9. Email: SMTP on 587, SPF, DKIM, DMARC (30 min, then DNS)
+## 9. Email: SendGrid, with SPF, DKIM and DMARC (30 min, then DNS)
 
-Vercel blocks outbound port 25, so use a provider's submission port 587 with STARTTLS (`SMTP_SECURE=false`,
-`SMTP_REQUIRE_TLS=true`, as in step 3). Port 465 (`SMTP_SECURE=true`) also works. The sending domain needs SPF, DKIM
-and DMARC records from the provider: the table and the test are in [deploy.md](deploy.md#10-email-provider-spf-dkim-dmarc-30-min-then-dns-propagation).
-After changing an `SMTP_*` variable, redeploy: Vercel reads variables when a deployment is built.
+OOOhm sends through SendGrid's HTTPS API (`MAIL_TRANSPORT=sendgrid`, step 3): port 443, so Vercel's block on port 25
+never matters, and SendGrid's own error comes back in the log (`magic_link_send_failed`, `email_send_failed`).
+
+1. **Sender Authentication → Authenticate Your Domain**: `ooohm.team`, with your DNS host. Add the CNAME records
+   SendGrid shows (DKIM and the return path), and a DMARC record if the domain has none
+   (`_dmarc.ooohm.team TXT "v=DMARC1; p=quarantine; rua=mailto:<you>"`). Wait for **Verify** to pass.
+2. **Settings → API Keys → Create**: restricted access, **Mail Send** only. That is `SENDGRID_API_KEY`; SendGrid shows
+   it once.
+3. **Settings → Tracking**: turn off click tracking and open tracking. OOOhm already turns both off on every message
+   it sends (rewritten links would break sign-in and Approve links, whose tokens are in the URL); this keeps any
+   other mail from the account consistent.
+4. An account with EU data residency also needs `SENDGRID_REGION=eu`.
+
+After changing a mail variable, redeploy: Vercel reads variables when a deployment is built. The test: send yourself a
+sign-in link and check the message headers show `dkim=pass`, `spf=pass` and `dmarc=pass`.
+
+Any other provider: over SMTP, on submission port 587 with STARTTLS (step 3); or as its own transport in
+`src/lib/mail` (one file implementing `MailTransport`, one line in its registry).
 
 ## 10. Import from TimeOff.Management (30 min)
 

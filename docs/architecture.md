@@ -425,7 +425,9 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 ### Screens
 
 - `/` (dashboard): the request form (the one primary action) with its live preview, the person's balance per
-  active leave type for the current year, and their latest five requests (with a link to all of them). Defaults: first active leave type by
+  active leave type for the current year, and their latest five requests (with a link to all of them). A pending
+  request with someone else says who has it and, once they have decided three requests in the last 180 days, how
+  long they usually take (their median, rounded up: "usually decides within a day"). Defaults: first active leave type by
   sort order, the first working day (not a holiday) from today in the company's time zone (`nextWorkingDay`),
   end = start, full day.
   From November 1 (company time zone) a quiet note names the days of the main leave type (the first active one,
@@ -456,6 +458,14 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   Next, each with Approve / Decline, an optional reason the requester sees either way, and the line on who else is
   off then (above). The header links here for managers, admins, and anyone with something currently assigned to
   them.
+- `/approve/<token>`: where a request email's **Approve** button lands, with no sign-in. The token
+  (`src/lib/email-link-token.ts`) is HMAC-signed claims, not stored: the request, the approver the email went
+  to, and a 7-day expiry, under a key derived from `BETTER_AUTH_SECRET` (`ctx.linkKey`; processes without it
+  send no such links). Opening the page changes nothing, because mail scanners open links; the Approve button
+  (a server action) runs the same `decideLeaveRequest` as the Approvals page, as that approver with
+  `via: "email_link"`, so every check still applies and the audit row says how it was decided. A decided
+  request makes the link inert. Declining needs a reason, so it happens in the app. The page sends
+  `<meta name="referrer" content="no-referrer">` and `noindex`.
 
 ## Balances (M3)
 

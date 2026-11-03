@@ -38,6 +38,8 @@ export const CHANGE_PROCESSES = {
    * An admin starts it, so it is only ever a `via`.
    */
   workingDaysChange: "working_days_change",
+  /** The one-click Approve link in a request email. Only ever a `via`: the approver, through the link. */
+  emailLink: "email_link",
 } as const;
 
 const ADAPTER_SYNC_PREFIX = "adapter_sync:";
@@ -52,9 +54,7 @@ export function adapterSyncProcess(adapterId: string): ChangeProcess {
 
 /** The adapter id in an `adapter_sync:<id>` identifier, or `null` for any other. */
 export function adapterIdOf(process: string): string | null {
-  return process.startsWith(ADAPTER_SYNC_PREFIX) && process.length > ADAPTER_SYNC_PREFIX.length
-    ? process.slice(ADAPTER_SYNC_PREFIX.length)
-    : null;
+  return process.startsWith(ADAPTER_SYNC_PREFIX) && process.length > ADAPTER_SYNC_PREFIX.length ? process.slice(ADAPTER_SYNC_PREFIX.length) : null;
 }
 
 export const CHANGE_SOURCE_KINDS = ["user", "api_key", "system"] as const;
@@ -165,6 +165,8 @@ function processLabel(process: string, names: ChangeSourceNames, scheduled: bool
       return "holiday change";
     case CHANGE_PROCESSES.workingDaysChange:
       return "working days change";
+    case CHANGE_PROCESSES.emailLink:
+      return "the email Approve link";
     case UNKNOWN_PROCESS:
       return "unknown process";
     default:

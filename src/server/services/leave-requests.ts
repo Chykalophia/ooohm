@@ -22,11 +22,13 @@ import {
   type LeaveRequestRow,
   findRequestOfUser,
   listRequestsForUser,
+  medianDecisionHours,
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
 import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findDepartment } from "@/server/repositories/departments";
 import { findMember, findPerson, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { approveLinkFor } from "./email-approval";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { alsoOffFor } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
@@ -151,7 +153,14 @@ export async function submitLeaveRequest(
       const alsoOff = (await alsoOffFor(tx, actor.companyId, [request])).get(final.id)?.line ?? null;
       mail.push({
         to: approver.email,
-        email: { kind: "requested", recipientName: approver.name, leave, alsoOff, link: `${ctx.appUrl}/approvals` },
+        email: {
+          kind: "requested",
+          recipientName: approver.name,
+          leave,
+          alsoOff,
+          link: `${ctx.appUrl}/approvals`,
+          approveLink: approveLinkFor(ctx, final.id, approver.id),
+        },
       });
     }
     return { result: final, outgoing: mail };
@@ -262,12 +271,17 @@ export async function getMyRequest(ctx: ServiceContext, actor: Actor, id: string
   return { request: { ...request, cancellable: canCancelOn(request, today) }, timezone: settings.timezone };
 }
 
+/** How far back "usually decides within…" looks, and how many decisions it needs first. */
+const TYPICAL_WAIT_DAYS = 180;
+const TYPICAL_WAIT_MIN_DECISIONS = 3;
+
 /**
  * Everything the dashboard renders for the actor, in one call, in six queries
- * whatever the number of types or requests (its latest few requests among them):
+ * whatever the number of types or requests (seven while one of its latest few requests waits
+ * on someone):
  * company settings, leave types and the actor's requests in parallel; then
- * the balances' allowance rows and booked-day sums, and the look-ahead holidays, in
- * parallel. The form's leave types and the balances share the one leave-type read.
+ * the balances' allowance rows and booked-day sums, the look-ahead holidays and, for
+ * pending requests, their approvers' usual decision times, in parallel. The form's leave types and the balances share the one leave-type read.
  *
  * `balances` is `null` when the company's allowance policy is unknown. That is logged
  * as `allowance_policy_unavailable` and the rest of the dashboard still renders;
@@ -286,7 +300,10 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
   const now = ctx.now();
   const today = todayInTimeZone(settings.timezone, now);
   const lookaheadEnd = fromEpochDay(toEpochDay(today) + WORKING_DAY_LOOKAHEAD - 1);
-  const [balances, holidays] = await Promise.all([
+  const shown = requests.slice(0, DASHBOARD_REQUESTS);
+  // Who has each of my pending requests, and how long they usually take to decide.
+  const waitingOn = [...new Set(shown.filter((r) => r.status === "pending" && r.approverId && r.approverId !== actor.id).map((r) => r.approverId as string))];
+  const [balances, holidays, waits] = await Promise.all([
     summarizeBalances(ctx.db, actor, {
       allowancePolicy: settings.allowancePolicy,
       types,
@@ -297,13 +314,29 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
       return null;
     }),
     listHolidayDates(ctx.db, actor.companyId, today, lookaheadEnd),
+    medianDecisionHours(ctx.db, {
+      companyId: actor.companyId,
+      approverIds: waitingOn,
+      since: new Date(now.getTime() - TYPICAL_WAIT_DAYS * 86_400_000),
+      minSamples: TYPICAL_WAIT_MIN_DECISIONS,
+    }),
   ]);
+  const typicalWait = new Map(waits.map((w) => [w.approverId, w.hours]));
   return {
     /**
      * The person's latest {@link DASHBOARD_REQUESTS} requests (latest dates first), each
      * with whether it can be cancelled today ({@link canCancelOn}).
      */
-    requests: requests.slice(0, DASHBOARD_REQUESTS).map((r) => ({ ...r, cancellable: canCancelOn(r, today) })),
+    requests: shown.map((r) => ({
+      ...r,
+      cancellable: canCancelOn(r, today),
+      /**
+       * For a pending request with someone else: how long its approver usually takes, in
+       * hours (their median over {@link TYPICAL_WAIT_DAYS} days), or `null` with too
+       * little history to say.
+       */
+      typicalWaitHours: r.status === "pending" && r.approverId ? (typicalWait.get(r.approverId) ?? null) : null,
+    })),
     /** Whether the person has more requests than the dashboard shows. */
     moreRequests: requests.length > DASHBOARD_REQUESTS,
     /**

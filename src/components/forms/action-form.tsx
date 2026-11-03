@@ -5,6 +5,7 @@ import { primaryButton } from "@/components/ui/styles";
 import { type FormState, IDLE, nextFormKey } from "./form-state";
 import { FormStatus } from "./form-status";
 import { type StateAction, useFormAction } from "./use-form-action";
+import { PendingLabel } from "@/components/ui/ooo-dots";
 
 /** A server action behind a form whose result is a calm message (see {@link FormState}). */
 export type FormAction = StateAction<FormState>;
@@ -45,7 +46,7 @@ export function ActionForm({
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <button type="submit" aria-disabled={pending} className={buttonClassName}>
-          {pending ? pendingLabel : submitLabel}
+          {pending ? <PendingLabel label={pendingLabel} /> : submitLabel}
         </button>
         <FormStatus state={state} />
       </div>

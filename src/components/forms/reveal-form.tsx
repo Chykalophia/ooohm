@@ -7,6 +7,7 @@ import { cx, primaryButton, textLink } from "@/components/ui/styles";
 import { FormStatus } from "./form-status";
 import { KeepIt } from "./keep-it";
 import { useConfirm } from "./use-confirm";
+import { PendingLabel } from "@/components/ui/ooo-dots";
 import { REVEAL_IDLE, type RevealState } from "./reveal-state";
 import { type StateAction, useFormAction } from "./use-form-action";
 
@@ -110,7 +111,7 @@ export function RevealForm({
               </button>
             ) : (
               <button type="submit" aria-disabled={pending} className={buttonClassName}>
-                {pending ? pendingLabel : confirm ? (confirmLabel ?? "Yes") : submitLabel}
+                {pending ? <PendingLabel label={pendingLabel} /> : confirm ? (confirmLabel ?? "Yes") : submitLabel}
               </button>
             )}
             {confirm && asking && <KeepIt pending={pending} onBack={back} />}

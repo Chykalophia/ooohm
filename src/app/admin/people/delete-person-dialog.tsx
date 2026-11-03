@@ -6,6 +6,7 @@ import { confirmationMatches, type DeletionBlockers, type DeletionMode } from "@
 import { IDLE } from "@/components/forms/form-state";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { useFormAction } from "@/components/forms/use-form-action";
+import { PendingLabel } from "@/components/ui/ooo-dots";
 import { type DeleteState, deletePersonAction } from "@/app/admin/people/actions";
 import { cx, dangerButton, dangerOutlineButton, field, nativeCheck, outlineButton, subtleButton, textLink } from "@/components/ui/styles";
 
@@ -212,7 +213,7 @@ export function DeletePersonDialog(props: DeletePersonDialogProps) {
 
               <div className="flex flex-wrap items-center gap-4">
                 <button type="submit" disabled={!matches || pending} className={dangerOutlineButton}>
-                  {pending ? "Deleting…" : schedules ? `Delete in ${props.graceDays} days` : "Delete permanently"}
+                  {pending ? <PendingLabel label="Deleting…" /> : schedules ? `Delete in ${props.graceDays} days` : "Delete permanently"}
                 </button>
                 <button type="button" onClick={() => dialog.current?.close()} className={subtleButton}>
                   Cancel

@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "request_style" text DEFAULT 'form' NOT NULL;

@@ -2,6 +2,7 @@ import { canAdminister } from "@/domain/admin-permissions";
 import { requireActor } from "@/lib/auth";
 import { formatDays, formatLeaveDates } from "@/lib/format";
 import { serviceContext } from "@/server/runtime";
+import { getAppearance } from "@/server/services/appearance";
 import { getApprovalNav } from "@/server/services/approvals";
 import { getDashboard } from "@/server/services/leave-requests";
 import { AppHeader } from "./app-header";
@@ -9,6 +10,7 @@ import { BalanceSummary } from "./balance-summary";
 import { CancelRequestButton } from "./cancel-request-button";
 import { NoCompany } from "./no-company";
 import { RequestLeaveForm } from "./request-leave-form";
+import { RequestLeaveSentence } from "./request-leave-sentence";
 import { StatusBadge } from "./status-badge";
 
 const REQUESTS_HEADING_ID = "mine-heading";
@@ -20,7 +22,8 @@ export default async function HomePage() {
   if (!actor) return <NoCompany userName={userName} current="home" />;
 
   const ctx = serviceContext();
-  const [dashboard, approvals] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor)]);
+  const [dashboard, approvals, appearance] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor), getAppearance(ctx)]);
+  const RequestLeave = appearance.requestStyle === "sentence" ? RequestLeaveSentence : RequestLeaveForm;
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
@@ -31,7 +34,7 @@ export default async function HomePage() {
         {dashboard.leaveTypes.length === 0 ? (
           <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
         ) : (
-          <RequestLeaveForm leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+          <RequestLeave leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
         )}
 
         <BalanceSummary summary={dashboard.balances} />

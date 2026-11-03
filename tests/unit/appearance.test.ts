@@ -14,7 +14,9 @@ test("appearance: known themes and corners pass, the accent is normalized or cle
     theme: "cobalt",
     accentColor: "#c4220f",
     corners: "square",
+    requestStyle: "form",
   });
+  assert.equal(normalizeAppearance({ theme: "plum", corners: "theme", requestStyle: "sentence" }).requestStyle, "sentence");
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: "#abc", corners: "theme" }).accentColor, "#aabbcc");
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: "  ", corners: "theme" }).accentColor, null);
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: null, corners: "theme" }).accentColor, null);
@@ -32,18 +34,20 @@ test("appearance: unknown themes, corners and colours are refused", () => {
   invalid(() => normalizeAppearance({ theme: "classic", corners: "wobbly" }));
   invalid(() => normalizeAppearance({ theme: "classic", corners: "theme", accentColor: "teal" }));
   invalid(() => normalizeAppearance({ theme: "classic", corners: "theme", accentColor: "#12345" }));
+  invalid(() => normalizeAppearance({ theme: "classic", corners: "theme", requestStyle: "wizard" }));
 });
 
 test("appearance: a stored value this version does not know falls back instead of failing", () => {
-  assert.deepEqual(readAppearance({ theme: "from-the-future", accentColor: "nope", corners: "theme" }), DEFAULT_APPEARANCE);
-  assert.deepEqual(readAppearance({ theme: "forest", accentColor: "#zzz", corners: "round" }), {
+  assert.deepEqual(readAppearance({ theme: "from-the-future", accentColor: "nope", corners: "theme", requestStyle: "voice" }), DEFAULT_APPEARANCE);
+  assert.deepEqual(readAppearance({ theme: "forest", accentColor: "#zzz", corners: "round", requestStyle: "sentence" }), {
     theme: "forest",
     accentColor: null,
     corners: "round",
+    requestStyle: "sentence",
   });
   assert.deepEqual(
-    readAppearance({ theme: "from-the-future", accentColor: "#F2A900", corners: "wobbly" }),
-    { theme: "classic", accentColor: "#f2a900", corners: "theme" },
+    readAppearance({ theme: "from-the-future", accentColor: "#F2A900", corners: "wobbly", requestStyle: "form" }),
+    { theme: "classic", accentColor: "#f2a900", corners: "theme", requestStyle: "form" },
     "an unknown theme or corner style keeps a valid accent",
   );
 });

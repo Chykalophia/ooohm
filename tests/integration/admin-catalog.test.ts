@@ -330,6 +330,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
       theme: "classic",
       accentColor: null,
       corners: "theme",
+      requestStyle: "form",
     });
     const [event] = await companyEvents(t.db, co.companyId, "company.");
     assert.equal((event.payload as { companyId: string }).companyId, co.companyId);
@@ -351,7 +352,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     const co = await seedCompany(t.db, { boss: { role: "admin" }, mgr: { role: "manager" } });
     const ctx = createTestContext(t.db);
     const boss = co.people.boss;
-    assert.deepEqual(await getAppearance(ctx), { theme: "classic", accentColor: null, corners: "theme" });
+    assert.deepEqual(await getAppearance(ctx), { theme: "classic", accentColor: null, corners: "theme", requestStyle: "form" });
 
     const saved = await updateCompanyAppearance(ctx, boss, { theme: "cobalt", accentColor: "#F2A900", corners: "square" });
     assert.deepEqual([saved.theme, saved.accentColor, saved.corners], ["cobalt", "#f2a900", "square"]);
@@ -371,6 +372,10 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.equal(events.length, 1);
     assert.equal((events[0].payload as { accentColor: string }).accentColor, "#f2a900");
 
+    const sentence = await updateCompanyAppearance(ctx, boss, { theme: "cobalt", accentColor: "#f2a900", corners: "square", requestStyle: "sentence" });
+    assert.equal(sentence.requestStyle, "sentence");
+    assert.equal(((await companyEvents(t.db, co.companyId, "company."))[1].payload as { requestStyle: string }).requestStyle, "sentence");
+
     const plain = await updateCompanyAppearance(ctx, boss, { theme: "plum", accentColor: "", corners: "theme" });
     assert.equal(plain.accentColor, null, "a blank accent goes back to the theme's own");
   });
@@ -381,6 +386,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     await rejectsWith(updateCompanyAppearance(ctx, co.people.mgr, { theme: "cobalt", corners: "theme" }), "forbidden");
     await rejectsWith(updateCompanyAppearance(ctx, co.people.boss, { theme: "neon", corners: "theme" }), "invalid_input");
     await rejectsWith(updateCompanyAppearance(ctx, co.people.boss, { theme: "cobalt", corners: "theme", accentColor: "blue" }), "invalid_input");
+    await rejectsWith(updateCompanyAppearance(ctx, co.people.boss, { theme: "cobalt", corners: "theme", requestStyle: "wizard" }), "invalid_input");
     assert.deepEqual(await companyAudit(t.db, co.companyId), []);
   });
 });

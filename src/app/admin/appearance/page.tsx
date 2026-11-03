@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
-import { CORNER_LABELS, CORNER_STYLES, THEMES, THEME_KEYS, type ThemeKey, readAppearance } from "@/domain/appearance";
+import {
+  CORNER_LABELS,
+  CORNER_STYLES,
+  REQUEST_STYLES,
+  REQUEST_STYLE_LABELS,
+  THEMES,
+  THEME_KEYS,
+  type ThemeKey,
+  readAppearance,
+} from "@/domain/appearance";
 import { getCompanySettings } from "@/server/services/admin-company";
 import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
 import { CheckboxField, SelectField } from "@/app/admin/fields";
@@ -119,6 +128,31 @@ export default async function AppearancePage() {
             options={CORNER_STYLES.map((c) => ({ value: c, label: CORNER_LABELS[c] }))}
             hint="Overrides how rounded cards, fields and buttons are in every theme."
           />
+
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium">How people ask for time off</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {REQUEST_STYLES.map((style) => (
+                <label
+                  key={style}
+                  className="flex cursor-pointer items-start gap-2 rounded-2xl border border-border p-3 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
+                >
+                  <input
+                    type="radio"
+                    name="requestStyle"
+                    value={style}
+                    defaultChecked={current.requestStyle === style}
+                    className="mt-1 accent-[var(--accent)]"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium">{REQUEST_STYLE_LABELS[style].label}</span>
+                    <span className="block text-xs text-muted">{REQUEST_STYLE_LABELS[style].description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted">Both send the same request and show the same day count. Only the layout on Home changes.</p>
+          </fieldset>
         </AdminForm>
       </section>
     </AdminShell>

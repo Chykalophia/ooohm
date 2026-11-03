@@ -6,8 +6,8 @@ import { requestLeaveAction } from "./actions";
 import { type FormState, IDLE, nextFormKey } from "./form-state";
 import type { LeavePreviewResponse } from "./leave-input";
 
-type LeaveTypeOption = { id: string; name: string; color: string };
-type Portion = "full" | "am" | "pm";
+export type LeaveTypeOption = { id: string; name: string; color: string };
+export type Portion = "full" | "am" | "pm";
 
 const PORTIONS: { value: Portion; label: string }[] = [
   { value: "full", label: "Full day" },
@@ -17,7 +17,7 @@ const PORTIONS: { value: Portion; label: string }[] = [
 
 /** How long the form waits after the last change before asking for a preview. */
 const PREVIEW_DELAY_MS = 300;
-const PREVIEW_ID = "leave-preview";
+export const PREVIEW_ID = "leave-preview";
 
 const field =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20";
@@ -27,12 +27,7 @@ const field =
  * full day), so asking for a single day off is pick a date, then submit.
  */
 export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; defaultDate: string }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(requestLeaveAction, IDLE);
-  // A successful submit remounts the fields, which resets them to their defaults; an
-  // error keeps the current key so the person's input survives.
-  const [resetKey, setResetKey] = useState("form");
-  const key = nextFormKey(resetKey, state);
-  if (key !== resetKey) setResetKey(key);
+  const { state, formAction, pending, key } = useRequestAction();
 
   return (
     <section aria-labelledby="request-heading" className="rounded-2xl border border-border bg-surface p-6">
@@ -41,30 +36,54 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
       </h2>
       <form action={formAction} className="space-y-5">
         <Fields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} />
-        <div className="flex flex-wrap items-center gap-4">
-          <button
-            type="submit"
-            disabled={pending}
-            aria-describedby={PREVIEW_ID}
-            className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink disabled:opacity-60"
-          >
-            {pending ? "Sending…" : "Request time off"}
-          </button>
-          <p aria-live="polite" className="text-sm">
-            {state.status === "success" && <span className="text-accent-ink">{state.message}</span>}
-            {state.status === "error" && (
-              <span role="alert" className="text-red-700 dark:text-red-400">
-                {state.message}
-              </span>
-            )}
-          </p>
-        </div>
+        <SubmitRow state={state} pending={pending} label="Request time off" />
       </form>
     </section>
   );
 }
 
-function Fields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; defaultDate: string }) {
+/** The submit button and the outcome of the last submit. */
+export function SubmitRow({ state, pending, label }: { state: FormState; pending: boolean; label: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      <button
+        type="submit"
+        disabled={pending}
+        aria-describedby={PREVIEW_ID}
+        className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink disabled:opacity-60"
+      >
+        {pending ? "Sending…" : label}
+      </button>
+      <p aria-live="polite" className="text-sm">
+        {state.status === "success" && <span className="text-accent-ink">{state.message}</span>}
+        {state.status === "error" && (
+          <span role="alert" className="text-red-700 dark:text-red-400">
+            {state.message}
+          </span>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The submit action plus a key for the fields: a successful submit remounts them, which
+ * resets them to their defaults; an error keeps the current key so the person's input
+ * survives. Shared by the form and the sentence.
+ */
+export function useRequestAction() {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(requestLeaveAction, IDLE);
+  const [resetKey, setResetKey] = useState("form");
+  const key = nextFormKey(resetKey, state);
+  if (key !== resetKey) setResetKey(key);
+  return { state, formAction, pending, key };
+}
+
+/**
+ * A draft request's state and the rules that tie its fields together, plus its live
+ * preview. Shared by the form and the sentence, so both behave the same.
+ */
+export function useLeaveDraft(leaveTypes: LeaveTypeOption[], defaultDate: string) {
   const [leaveTypeId, setLeaveTypeId] = useState(leaveTypes[0]?.id ?? "");
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
@@ -85,6 +104,26 @@ function Fields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; de
     setEndDate(value);
     if (value !== startDate) setDayPortion("full");
   }
+
+  return {
+    leaveTypeId,
+    setLeaveTypeId,
+    startDate,
+    endDate,
+    dayPortion,
+    setDayPortion,
+    note,
+    setNote,
+    singleDay,
+    preview,
+    changeStart,
+    changeEnd,
+  };
+}
+
+function Fields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; defaultDate: string }) {
+  const { leaveTypeId, setLeaveTypeId, startDate, endDate, dayPortion, setDayPortion, note, setNote, singleDay, preview, changeStart, changeEnd } =
+    useLeaveDraft(leaveTypes, defaultDate);
 
   return (
     <>
@@ -160,19 +199,26 @@ function Fields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; de
         />
       </label>
 
-      {/* Staleness is shown with the muted colour token, never opacity, which would take
-          the red error line below AA contrast. aria-busy tells screen readers. */}
-      <p
-        id={PREVIEW_ID}
-        aria-live="polite"
-        aria-busy={!preview.current}
-        className={`min-h-5 text-sm ${
-          !preview.ok ? "text-red-700 dark:text-red-400" : preview.current ? "text-foreground" : "text-muted"
-        }`}
-      >
-        {preview.message}
-      </p>
+      <LeavePreviewLine preview={preview} />
     </>
+  );
+}
+
+/**
+ * What the draft would cost and leave, or why it can't be requested. Staleness is shown
+ * with the muted colour token, never opacity, which would take the red error line below
+ * AA contrast. aria-busy tells screen readers.
+ */
+export function LeavePreviewLine({ preview, className = "text-sm" }: { preview: LeavePreview; className?: string }) {
+  return (
+    <p
+      id={PREVIEW_ID}
+      aria-live="polite"
+      aria-busy={!preview.current}
+      className={`min-h-5 ${className} ${!preview.ok ? "text-red-700 dark:text-red-400" : preview.current ? "text-foreground" : "text-muted"}`}
+    >
+      {preview.message}
+    </p>
   );
 }
 
@@ -185,7 +231,9 @@ type Preview = { query: string; ok: boolean; message: string };
  * submit. Debounced; a newer draft aborts the older request, so answers never arrive
  * out of order. While a newer answer is on its way, the last one stays, marked busy.
  */
-function useLeavePreview(draft: Draft): { message: string; ok: boolean; current: boolean } {
+export type LeavePreview = { message: string; ok: boolean; current: boolean };
+
+function useLeavePreview(draft: Draft): LeavePreview {
   const [preview, setPreview] = useState<Preview | null>(null);
   const complete = draft.leaveTypeId !== "" && draft.startDate !== "";
   const query = new URLSearchParams(draft).toString();

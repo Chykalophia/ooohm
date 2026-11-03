@@ -329,6 +329,8 @@ export interface CompanyEventPayload extends PersonAttribution {
   accentColor: string | null;
   /** Added within version 1: `theme`, `square`, `soft` or `round`. */
   corners: string;
+  /** Added within version 1: how Home asks for time off, `form` or `sentence`. */
+  requestStyle: string;
 }
 
 /**

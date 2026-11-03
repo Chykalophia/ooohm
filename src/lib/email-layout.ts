@@ -88,12 +88,12 @@ export function link(href: string, label: string, accent: EmailAccent): string {
  */
 export function emailDocument(bodyHtml: string, accent: EmailAccent, footerHtml?: string): string {
   return (
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
     `<meta name="color-scheme" content="light"></head>` +
     `<body style="margin:0;padding:0;background:${GROUND}">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${GROUND}">` +
     `<tr><td align="center" style="padding:32px 16px">` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">` +
+    `<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px">` +
     `<tr><td style="padding:0 4px 14px;font-family:${FONT};font-size:17px;font-weight:600;letter-spacing:-0.01em;color:${accent.accentInk}">OOOhm</td></tr>` +
     `<tr><td style="background:#ffffff;border:1px solid ${BORDER};border-radius:14px;padding:24px;` +
     `font-family:${FONT};font-size:16px;line-height:1.5;color:${INK}">${bodyHtml}</td></tr>` +

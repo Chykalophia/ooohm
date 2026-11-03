@@ -16,7 +16,7 @@ import { createLinkCapture, inviteLinkRequest } from "@/lib/link-capture";
 import { log } from "@/lib/log";
 import { sendMail } from "@/lib/mail";
 import { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent } from "@/lib/email-layout";
-import { renderSignInEmail } from "@/lib/sign-in-email";
+import { renderSignInEmail, SIGN_IN_LINK_MINUTES } from "@/lib/sign-in-email";
 
 /** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
 const linkCapture = createLinkCapture();
@@ -99,7 +99,7 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       disableSignUp: true,
-      expiresIn: 60 * 15,
+      expiresIn: 60 * SIGN_IN_LINK_MINUTES,
       sendMagicLink: async ({ email, url, metadata }) => {
         if (linkCapture.intercept(metadata, url)) return;
         // The API answers 200 for every address, so it can't be used to discover who

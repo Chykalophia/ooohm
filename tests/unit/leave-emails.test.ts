@@ -236,8 +236,8 @@ test("a request email with an approve link leads with Approve, then Open in OOOh
   const out = renderLeaveEmail({ kind: "requested", recipientName: "Jo", leave: leave(), link: "https://x/approvals", approveLink });
   assert.match(out.text, /Approve: https:\/\/x\/approve\/abc\.def\nDecline or look closer in OOOhm: https:\/\/x\/approvals/);
   assert.ok(out.html.indexOf(">Approve</a>") < out.html.indexOf(">Open in OOOhm</a>"));
-  assert.match(out.html, /Declining needs a reason/);
-  assert.match(out.text, /Declining needs a reason/, "the plain text says it too");
+  assert.match(out.html, /To decline, open the request in OOOhm/);
+  assert.match(out.text, /To decline, open the request in OOOhm/, "the plain text says it too");
   assert.match(out.html, /<td bgcolor="#0f766e"[^>]*><a href="https:\/\/x\/approve\/abc\.def"/, "Outlook-safe: the cell carries the fill");
   const without = renderLeaveEmail({ kind: "requested", recipientName: "Jo", leave: leave(), link: "https://x/approvals" });
   assert.doesNotMatch(without.text, /Approve:/);

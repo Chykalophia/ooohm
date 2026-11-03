@@ -188,7 +188,7 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
     : [{ label: email.kind === "requested" ? "Review in OOOhm" : "Open in OOOhm", href: link, variant: "primary" }];
 
   const approveNote = approveLink
-    ? "The Approve link is for you alone and stops working once the request is decided. Declining needs a reason, so it happens in OOOhm."
+    ? "The Approve link is for you alone and stops working once the request is decided. To decline, open the request in OOOhm."
     : null;
   const text = [
     p.lead.map((s) => s.text).join(""),

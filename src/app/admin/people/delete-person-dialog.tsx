@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
 import { confirmationMatches, type DeletionBlockers, type DeletionMode } from "@/domain/person-deletion";
 import { IDLE } from "@/app/form-state";
+import { PendingLabel } from "@/components/ooo-dots";
 import { type DeleteState, deletePersonAction } from "@/app/admin/people/actions";
 import { dangerButton, dangerOutlineButton, field, outlineButton, subtleButton, textLink } from "@/app/styles";
 
@@ -217,7 +218,7 @@ export function DeletePersonDialog(props: DeletePersonDialogProps) {
 
               <div className="flex flex-wrap items-center gap-4">
                 <button type="submit" disabled={!matches || pending} className={dangerOutlineButton}>
-                  {pending ? "Deleting…" : schedules ? `Delete in ${props.graceDays} days` : "Delete permanently"}
+                  {pending ? <PendingLabel label="Deleting…" /> : schedules ? `Delete in ${props.graceDays} days` : "Delete permanently"}
                 </button>
                 <button type="button" onClick={() => dialog.current?.close()} className={subtleButton}>
                   Cancel

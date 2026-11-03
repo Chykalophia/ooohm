@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { PendingLabel } from "@/components/ooo-dots";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { requestLeaveAction } from "./actions";
 import { type FormState, IDLE, nextFormKey } from "./form-state";
@@ -48,7 +49,7 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
             aria-describedby={PREVIEW_ID}
             className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink disabled:opacity-60"
           >
-            {pending ? "Sending…" : "Request time off"}
+            {pending ? <PendingLabel label="Sending…" /> : "Request time off"}
           </button>
           <p aria-live="polite" className="text-sm">
             {state.status === "success" && <span className="text-accent-ink">{state.message}</span>}

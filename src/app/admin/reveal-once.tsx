@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { CopyField } from "@/app/copy-field";
+import { PendingLabel } from "@/components/ooo-dots";
 import { primaryButton, subtleButton, textLink } from "@/app/styles";
 import { REVEAL_IDLE, type RevealState } from "./reveal-state";
 
@@ -92,7 +93,7 @@ export function RevealForm({
               </button>
             ) : (
               <button type="submit" disabled={pending} className={buttonClassName}>
-                {pending ? pendingLabel : confirm ? (confirmLabel ?? "Yes") : submitLabel}
+                {pending ? <PendingLabel label={pendingLabel} /> : confirm ? (confirmLabel ?? "Yes") : submitLabel}
               </button>
             )}
             {confirm && asking && (

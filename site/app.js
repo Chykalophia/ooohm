@@ -462,7 +462,7 @@ function clips() {
     btn.className = "clip-toggle";
     const label = () => { btn.textContent = held ? "Play" : "Pause"; btn.setAttribute("aria-label", `${held ? "Play" : "Pause"} the clip`); };
     label();
-    btn.addEventListener("click", () => { held = !held; label(); held ? v.pause() : v.play().catch(() => {}); });
+    btn.addEventListener("click", () => { held = !held; label(); if (held) v.pause(); else v.play().catch(() => {}); });
     (v.closest(".browser")?.querySelector(".browser-bar") ?? v.parentElement).append(btn);
     whileVisible(v, () => { v.preload = "auto"; if (!held) v.play().catch(() => (v.controls = true)); }, () => v.pause(), 0.35);
   }

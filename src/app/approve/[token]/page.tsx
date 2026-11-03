@@ -25,15 +25,6 @@ const HEADLINES: Record<Exclude<EmailApproval["state"], "ready" | "approved">, s
 export default async function ApproveFromEmailPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const approval = await readEmailApproval(serviceContext(), decodeURIComponent(token));
-  const openApp = (
-    <Link
-      href="/approvals"
-      className="rounded-md text-sm text-accent-ink underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
-    >
-      {approval.state === "ready" ? "Decline or look closer in OOOhm" : "Open OOOhm"}
-    </Link>
-  );
-
   return (
     <main className="flex flex-1 items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border bg-surface p-8">
@@ -57,7 +48,16 @@ export default async function ApproveFromEmailPage({ params }: { params: Promise
         ) : (
           <h1 className="text-lg font-semibold tracking-tight">{HEADLINES[approval.state]}</h1>
         )}
-        <p>{openApp}</p>
+        {approval.state !== "ready" && (
+          <p>
+            <Link
+              href="/approvals"
+              className="rounded-md text-sm text-accent-ink underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
+            >
+              Open OOOhm
+            </Link>
+          </p>
+        )}
       </div>
     </main>
   );

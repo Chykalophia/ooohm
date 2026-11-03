@@ -6,6 +6,8 @@ x-app-env: &app-env
   DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+  # Opens /setup on an empty install (see .env.example); empty = off.
+  SETUP_TOKEN: ${SETUP_TOKEN:-}
   SMTP_HOST: ${SMTP_HOST:-mailpit}
   SMTP_PORT: ${SMTP_PORT:-1025}
   SMTP_SECURE: ${SMTP_SECURE:-false}

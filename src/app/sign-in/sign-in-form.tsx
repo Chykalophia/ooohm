@@ -10,8 +10,17 @@ const GENERIC_ERROR = "Something went wrong. Try again.";
 
 type State = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; email: string } | { kind: "error"; message: string };
 
-export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boolean; linkFailed: boolean }) {
-  const [email, setEmail] = useState("");
+export function SignInForm({
+  googleEnabled,
+  linkFailed,
+  initialEmail = "",
+}: {
+  googleEnabled: boolean;
+  linkFailed: boolean;
+  /** Prefills the email (after first-time setup). */
+  initialEmail?: string;
+}) {
+  const [email, setEmail] = useState(initialEmail);
   const [state, setState] = useState<State>(
     linkFailed ? { kind: "error", message: "That sign-in link didn't work. Request a new one." } : { kind: "idle" },
   );

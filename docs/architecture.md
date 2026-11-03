@@ -424,6 +424,13 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 
 ### Screens
 
+- `/setup` (`runFirstInstall`, `src/server/services/install.ts`): the first install of an empty OOOhm, from the
+  browser. Open only while `SETUP_TOKEN` is set and nothing is installed (no `installation` row, company or person);
+  otherwise a 404. With the token it creates the company, the default leave types (PTO first) and the first admin
+  (`can_self_approve`), audited as that admin `via: "first_install"`, writes the `installation` marker, and sends them
+  to sign in (it never signs anyone in: the emailed link proves the address). It runs under the companies table lock
+  `pnpm db:seed` and the TimeOff import take, so two racing setups cannot both win. `pnpm db:seed` writes the same
+  marker, so either path closes setup for good. Sign-in on an empty install says how to set it up.
 - `/` (dashboard): the request form (the one primary action) with its live preview, the person's balance per
   active leave type for the current year, and their latest five requests (with a link to all of them). A pending
   request with someone else says who has it and, once they have decided three requests in the last 180 days, how

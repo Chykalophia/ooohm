@@ -16,6 +16,7 @@ import { openDatabase } from "../src/db/connect";
 import * as schema from "../src/db/schema";
 import { nonEmptyEnv } from "../src/lib/integration-env";
 import { yearInTimeZone } from "../src/lib/dates";
+import { DEFAULT_LEAVE_TYPES } from "../src/domain/install";
 
 const config = resolveDatabaseConfig(nonEmptyEnv(process.env));
 const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
@@ -25,13 +26,6 @@ if (adminEmail && !z.email().safeParse(adminEmail).success) {
 
 const companyName = process.env.SEED_COMPANY_NAME?.trim() || "My Company";
 
-/** Default leave types. Allowance numbers are starting points that admins can change. */
-const DEFAULT_LEAVE_TYPES = [
-  { code: "PTO", name: "PTO (Scheduled Time Off)", color: "#0f766e", defaultAllowanceDays: 15 },
-  { code: "EMERGENCY", name: "Emergency Leave", color: "#b45309", defaultAllowanceDays: 3 },
-  { code: "SICK", name: "Sick Leave", color: "#be123c", defaultAllowanceDays: 5 },
-  { code: "BONUS", name: "Bonus Time Off", color: "#7c3aed", defaultAllowanceDays: 0 },
-] as const;
 
 const handle = await openDatabase(config, { purpose: "pnpm db:seed", max: 1 });
 const { db } = handle;
@@ -88,6 +82,8 @@ await db.transaction(async (tx) => {
       .returning();
     console.log(`Created admin ${admin.email}.`);
   }
+  // There is a company and a first admin now: the web setup (/setup) closes for good.
+  await tx.insert(schema.installation).values({ method: "seed" }).onConflictDoNothing();
   // Never grant allowances to someone who isn't (or is no longer) this company's admin.
   if (admin.companyId !== company.id || admin.role !== "admin" || !admin.isActive) {
     console.log(`${admin.email} exists but isn't an active admin of this company. Skipping allowances.`);

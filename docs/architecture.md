@@ -1524,9 +1524,10 @@ instance counts separately, so they are approximate. The submit limit is counted
 ### Migrations per host
 
 `pnpm db:migrate` everywhere; compose runs it in `migrate`, embedded mode also on start. On Vercel the `vercel-build`
-script runs `scripts/migrate.mts --if-production && next build`: migrations run only when `VERCEL_ENV` is
-`production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never goes live on an old
-schema. Preview builds never migrate; keeping previews off the production database is a deployment setting
+script runs `scripts/migrate.mts --if-production && scripts/seed.mts --if-production && next build`: migrations run
+only when `VERCEL_ENV` is `production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never
+goes live on an old schema. The seed then runs only on a production build with `SEED_ADMIN_EMAIL` set and no company
+yet, so it creates the first admin once and later builds skip it (`SEED_ON_DEPLOY=force` overrides for one deploy). Preview builds never migrate or seed; keeping previews off the production database is a deployment setting
 ([deploy-vercel.md](deploy-vercel.md#2-keep-previews-away-from-the-production-database)).
 
 Every environment value is trimmed when read (`nonEmptyEnv`), so a secret stored with a trailing newline (the

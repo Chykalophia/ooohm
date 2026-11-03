@@ -7,6 +7,12 @@
  *   SEED_COMPANY_NAME   default "My Company"
  *   SEED_ADMIN_EMAIL    required
  *   SEED_ADMIN_NAME     default: the part of the email before "@"
+ *
+ *   tsx scripts/seed.mts --if-production
+ *                       the Vercel build step: seeds only when VERCEL_ENV is "production",
+ *                       SEED_ADMIN_EMAIL is set and no company exists yet (a company means
+ *                       the instance is set up). SEED_ON_DEPLOY=force seeds an existing
+ *                       instance anyway; set it for one deploy, then remove it.
  */
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
@@ -17,6 +23,24 @@ import * as schema from "../src/db/schema";
 import { nonEmptyEnv } from "../src/lib/integration-env";
 import { yearInTimeZone } from "../src/lib/dates";
 import { DEFAULT_LEAVE_TYPES } from "../src/domain/install";
+
+const args = process.argv.slice(2);
+const unknown = args.filter((a) => a !== "--if-production");
+if (unknown.length > 0) {
+  console.error(`Unknown argument: ${unknown.join(" ")}. Usage: seed.mts [--if-production]`);
+  process.exit(2);
+}
+if (args.includes("--if-production")) {
+  const vercelEnv = process.env.VERCEL_ENV?.trim();
+  if (vercelEnv !== "production") {
+    console.log(`Skipping seed: VERCEL_ENV is "${vercelEnv ?? "unset"}", not "production". Only production builds seed.`);
+    process.exit(0);
+  }
+  if (!process.env.SEED_ADMIN_EMAIL?.trim()) {
+    console.log("Skipping seed: SEED_ADMIN_EMAIL is not set.");
+    process.exit(0);
+  }
+}
 
 const config = resolveDatabaseConfig(nonEmptyEnv(process.env));
 const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
@@ -29,6 +53,11 @@ const companyName = process.env.SEED_COMPANY_NAME?.trim() || "My Company";
 
 const handle = await openDatabase(config, { purpose: "pnpm db:seed", max: 1 });
 const { db } = handle;
+
+// The build-time seed (--if-production) runs only until the instance is set up: once a
+// company exists it skips, unless SEED_ON_DEPLOY=force. Checked under the lock below.
+const onlyIfNotSetUp = args.includes("--if-production") && process.env.SEED_ON_DEPLOY?.trim() !== "force";
+let alreadySetUp = false;
 
 if (!adminEmail) {
   // Invite-only: on a fresh database the seed admin is the only way anyone can sign in.
@@ -49,6 +78,14 @@ await db.transaction(async (tx) => {
   // the two cannot both see no company and each create one.
   await tx.execute(sql`LOCK TABLE ${schema.companies} IN SHARE ROW EXCLUSIVE MODE`);
   const companies = await tx.select().from(schema.companies).limit(2);
+  if (companies.length > 0 && onlyIfNotSetUp) {
+    alreadySetUp = true;
+    console.log("Skipping seed: this instance is already set up (a company exists). Set SEED_ON_DEPLOY=force for one deploy to seed anyway.");
+    return;
+  }
+  if (companies.length > 0 && args.includes("--if-production")) {
+    console.log("SEED_ON_DEPLOY=force: seeding an instance that is already set up. Remove the variable after this deploy.");
+  }
   if (companies.length > 1) {
     console.log("More than one company exists; the first-run seed doesn't apply. Skipping.");
     return;
@@ -107,4 +144,4 @@ await db.transaction(async (tx) => {
 });
 
 await handle.close();
-console.log("Seed complete.");
+if (!alreadySetUp) console.log("Seed complete.");

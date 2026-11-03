@@ -75,8 +75,8 @@ Optional: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (redirect URI `https://o
 ## 4. Connect the GitHub repository (5 min)
 
 **Project → Settings → Git → Connect Git Repository**: the OOOhm repository, production branch `main`. Pushes to `main`
-deploy to production. Vercel detects Next.js and runs `pnpm install`, then the `vercel-build` script (migrate, then
-`next build`); no build settings need changing.
+deploy to production. Vercel detects Next.js and runs `pnpm install`, then the `vercel-build` script (migrate, seed
+when `SEED_ADMIN_EMAIL` is set, then `next build`); no build settings need changing.
 
 ## 5. The domain (10 min, then DNS)
 
@@ -126,10 +126,16 @@ In the browser, once email works (step 9: the first admin signs in with an email
    plus any company or person, keeps `/setup` a 404 whatever the token says), so this only removes a secret nobody
    needs any more.
 
-`/setup` is a 404 while `SETUP_TOKEN` is unset and after setup, and a wrong token changes nothing. The CLI still works
-instead, for scripted installs: pull the production variables to a file outside the repository, then
-`DATABASE_URL="$DATABASE_URL_UNPOOLED" SEED_ADMIN_EMAIL=<your email> SEED_COMPANY_NAME=Chykalophia pnpm db:seed`.
-It closes the web setup too.
+`/setup` is a 404 while `SETUP_TOKEN` is unset and after setup, and a wrong token changes nothing.
+
+**Prefer a command?** `scripts/seed.mts` creates the same company and admin, and closes `/setup` too. Either:
+
+- **Let the deploy run it:** add `SEED_ADMIN_EMAIL` (and optionally `SEED_COMPANY_NAME`, `SEED_ADMIN_NAME`) to
+  Production and redeploy. `vercel-build` runs `scripts/seed.mts --if-production` after migrating; it seeds only on a
+  production build with `SEED_ADMIN_EMAIL` set and while no company exists, so later builds skip it. (`SEED_ON_DEPLOY=force`
+  for one deploy seeds an existing instance anyway; it only fills gaps.)
+- **Or run it yourself:** with the production variables loaded (below),
+  `DATABASE_URL="$DATABASE_URL_UNPOOLED" SEED_ADMIN_EMAIL=<your email> SEED_COMPANY_NAME=<company> pnpm db:seed`.
 
 For step 10 you need the production variables locally anyway:
 

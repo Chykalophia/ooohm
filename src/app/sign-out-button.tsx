@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { focusRing } from "@/app/styles";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export function SignOutButton() {
           Couldn&apos;t sign out. Try again.
         </span>
       )}
-      <button type="button" className="text-muted hover:text-foreground" onClick={signOut}>
+      <button type="button" className={`inline-flex min-h-6 items-center rounded-md text-muted hover:text-foreground ${focusRing}`} onClick={signOut}>
         Sign out
       </button>
     </span>

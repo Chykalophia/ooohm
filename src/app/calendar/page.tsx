@@ -38,7 +38,7 @@ const OFF_DAY = "bg-background bg-[repeating-linear-gradient(135deg,var(--color-
  * never look alike.
  */
 function dayStyle(day: CalendarDay): { cell: string; number: string } {
-  if (!day.inMonth) return { cell: "bg-transparent", number: "text-muted opacity-60" };
+  if (!day.inMonth) return { cell: "bg-transparent", number: "text-muted" };
   if (!day.isWorkingDay || day.holiday !== null) return { cell: OFF_DAY, number: "text-muted" };
   return { cell: "bg-surface", number: "text-foreground" };
 }

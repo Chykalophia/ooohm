@@ -215,7 +215,7 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 | `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
-| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners (the last four added within version 1), actorId, actor` |
+| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners (the last four added within version 1; `theme` and `corners` are key strings, and new keys may appear), actorId, actor` |
 
 **Calendar links**
 

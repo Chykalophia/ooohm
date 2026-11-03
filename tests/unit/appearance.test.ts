@@ -55,7 +55,7 @@ test("appearance: only Classic with its own accent follows dark mode", () => {
 });
 
 test("accent tokens: text on the fill and accent-coloured text both stay readable", () => {
-  for (const color of ["#f2a900", "#ffeb3b", "#2546d0", "#000000", "#ffffff", "#7f7f7f", "#838383"]) {
+  for (const color of ["#f2a900", "#ffeb3b", "#2546d0", "#000000", "#ffffff", "#7f7f7f", "#838383", "#777777", "#767676"]) {
     const t = accentTokens(color);
     assert.ok(contrastRatio(t.accent, t.accentForeground) >= 4.5, `${color}: label on the fill`);
     assert.ok(contrastRatio(t.accentInk, "#ffffff") >= 4.5, `${color}: ink on white`);

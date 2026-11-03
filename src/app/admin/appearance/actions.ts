@@ -24,7 +24,7 @@ export async function updateAppearanceAction(_prev: FormState, formData: FormDat
         accentColor: input.customAccent ? (input.accentColor ?? "") : null,
         corners: input.corners,
       });
-      return "Saved. Everyone sees the new look on their next page.";
+      return "Saved. Everyone sees the new look the next time a page fully loads.";
     },
     { invalid_input: "Pick one of the themes, a corner style from the list, and an accent colour like #2546d0." },
   );

@@ -33,7 +33,14 @@ export interface AccentTokens {
 /** Colour tokens for a custom accent. A pale accent such as yellow keeps its fill and gets a darker ink for text. */
 export function accentTokens(color: string): AccentTokens {
   const accent = normalizeHexColor(color);
-  const accentForeground = contrastRatio(accent, "#ffffff") >= contrastRatio(accent, "#111111") ? "#ffffff" : "#111111";
+  // White when it reads well enough; otherwise near-black, or pure black for mid greys
+  // (such as #777777) where neither white nor #111111 reaches 4.5:1.
+  const accentForeground =
+    contrastRatio(accent, "#ffffff") >= TEXT_CONTRAST
+      ? "#ffffff"
+      : contrastRatio(accent, "#111111") >= TEXT_CONTRAST
+        ? "#111111"
+        : "#000000";
   let accentInk = accent;
   for (let step = 1; step <= 10 && contrastRatio(accentInk, DARKEST_LIGHT_GROUND) < TEXT_CONTRAST; step++) {
     accentInk = mixWithBlack(accent, step / 10);

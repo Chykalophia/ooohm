@@ -3,14 +3,15 @@ import { notFound } from "next/navigation";
 import type { Actor } from "@/domain/actor";
 import { canAdminister } from "@/domain/admin-permissions";
 import { isDomainError } from "@/domain/errors";
+import { type Theme, themeOrDefault } from "@/domain/theme";
 import { requireActor } from "@/lib/auth";
 import type { ServiceContext } from "@/server/context";
 import { serviceContext } from "@/server/runtime";
 import { getApprovalNav } from "@/server/services/approvals";
 import type { HeaderNav } from "@/components/layout/app-header";
 
-/** A signed-in member of a company, ready to render a page. */
-export type MemberPage = { actor: Actor; ctx: ServiceContext; nav: HeaderNav };
+/** A signed-in member of a company, ready to render a page, with their chosen theme. */
+export type MemberPage = { actor: Actor; ctx: ServiceContext; nav: HeaderNav; theme: Theme };
 
 /** A signed-in person whose account has no company yet: the page shows {@link NoCompany} instead. */
 export type CompanylessPage = { actor: null; nav: HeaderNav };
@@ -26,16 +27,16 @@ export async function requireMemberPage(): Promise<MemberPage | CompanylessPage>
   const { user, actor } = await requireActor();
   const userName = user.name || user.email;
   if (!actor) return { actor: null, nav: { userName, approvals: null, member: false, admin: false } };
-  return memberPage(actor, userName);
+  return memberPage(actor, userName, themeOrDefault(user.theme));
 }
 
-function memberPage(actor: Actor, userName: string): MemberPage {
+function memberPage(actor: Actor, userName: string, theme: Theme): MemberPage {
   const ctx = serviceContext();
   const approvals = getApprovalNav(ctx, actor);
   // The page may bail out (a 404) before the header awaits this; mark the rejection as
   // handled so it isn't reported as unhandled. The header still sees it.
   approvals.catch(() => {});
-  return { actor, ctx, nav: { userName, approvals, member: true, admin: canAdminister(actor) } };
+  return { actor, ctx, nav: { userName, approvals, member: true, admin: canAdminister(actor) }, theme };
 }
 
 /**
@@ -46,7 +47,7 @@ function memberPage(actor: Actor, userName: string): MemberPage {
 export async function requireAdminPage(): Promise<MemberPage> {
   const { user, actor } = await requireActor();
   if (!actor || !canAdminister(actor)) notFound();
-  return memberPage(actor, user.name || user.email);
+  return memberPage(actor, user.name || user.email, themeOrDefault(user.theme));
 }
 
 /**

@@ -18,6 +18,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
+import { DEFAULT_THEME, THEMES } from "@/domain/theme";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -30,6 +31,8 @@ const timestamps = {
 // Enums
 
 export const roleEnum = pgEnum("role", ["employee", "manager", "admin"]);
+
+export const themeEnum = pgEnum("theme", THEMES);
 
 export const requestStatusEnum = pgEnum("leave_request_status", [
   "pending",
@@ -105,6 +108,8 @@ export const user = pgTable(
     scrubScheduledAt: timestamp("scrub_scheduled_at", { withTimezone: true }),
     /** The admin who asked for the scheduled scrub; the job's change is attributed to the system on their behalf. */
     scrubRequestedBy: text("scrub_requested_by").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
+    /** How they want the app drawn: light (the default), dark, or following their device. */
+    theme: themeEnum("theme").notNull().default(DEFAULT_THEME),
     ...timestamps,
   },
   (t) => [

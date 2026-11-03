@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { themeOrDefault } from "@/domain/theme";
+import { currentUser } from "@/lib/auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,12 +15,17 @@ export const metadata: Metadata = {
  * mismatch it cannot fix. The flag covers those elements' own attributes, one level
  * deep, so a real mismatch anywhere in the app is still reported.
  */
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="en" data-theme={await signedInTheme()} className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {children}
       </body>
     </html>
   );
+}
+
+/** Shares the page's own session lookup (`currentUser` is read once per render). */
+async function signedInTheme() {
+  return themeOrDefault((await currentUser())?.theme);
 }

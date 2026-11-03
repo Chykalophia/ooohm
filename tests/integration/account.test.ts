@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { getAccount, renameSelf } from "@/server/services/account";
+import { getAccount, renameSelf, setTheme } from "@/server/services/account";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
@@ -59,5 +59,38 @@ describe("your account", { skip }, () => {
     await rejectsWith(renameSelf(ctx, co.people.ana, "x".repeat(101)), "invalid_input");
     await rejectsWith(renameSelf(ctx, co.people.gone, "Back"), "forbidden");
     assert.deepEqual(await companyAudit(t.db, co.companyId), []);
+  });
+
+  test("a person's theme starts light and changes for them alone, with nothing audited or sent", async () => {
+    const co = await seedCompany(t.db, { ana: {}, bo: {} });
+    const other = await seedCompany(t.db, { cy: {} });
+    const ctx = createTestContext(t.db);
+    const themeOf = async (id: string) =>
+      (await t.db.select({ theme: schema.user.theme }).from(schema.user).where(eq(schema.user.id, id)))[0].theme;
+
+    assert.equal(await themeOf(co.people.ana.id), "light", "the default");
+    await setTheme(ctx, co.people.ana, "dark");
+    assert.deepEqual(
+      [await themeOf(co.people.ana.id), await themeOf(co.people.bo.id), await themeOf(other.people.cy.id)],
+      ["dark", "light", "light"],
+    );
+    await setTheme(ctx, co.people.ana, "system");
+    assert.equal(await themeOf(co.people.ana.id), "system");
+
+    assert.deepEqual(await companyAudit(t.db, co.companyId), [], "a display preference is not audited");
+    assert.deepEqual(await companyEvents(t.db, co.companyId), [], "nor sent to integrations");
+  });
+
+  test("a deactivated account cannot change its theme, and an actor naming another company changes nothing", async () => {
+    const co = await seedCompany(t.db, { ana: {}, gone: { isActive: false } });
+    const other = await seedCompany(t.db, { cy: {} });
+    const ctx = createTestContext(t.db);
+    await rejectsWith(setTheme(ctx, co.people.gone, "dark"), "forbidden");
+    await rejectsWith(setTheme(ctx, { ...co.people.ana, companyId: other.companyId }, "dark"), "forbidden");
+    const rows = await t.db.select({ theme: schema.user.theme }).from(schema.user).where(eq(schema.user.companyId, co.companyId));
+    assert.deepEqual(
+      rows.map((r) => r.theme),
+      ["light", "light"],
+    );
   });
 });

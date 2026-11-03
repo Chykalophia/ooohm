@@ -1,15 +1,17 @@
 /**
- * The signed-in person's own account: what they see on their settings page, and the one
- * thing they may change themselves, their display name. Email, role, department and
- * manager stay with admins (invite-only access; the email is the sign-in identity).
+ * The signed-in person's own account: what they see on their settings page, and what
+ * they may change themselves: their display name and their theme. Email, role,
+ * department and manager stay with admins (invite-only access; the email is the
+ * sign-in identity).
  */
 import type { Actor, Role } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { normalizePersonName } from "@/domain/people";
+import type { Theme } from "@/domain/theme";
 import type { ServiceContext } from "@/server/context";
 import { findDepartment } from "@/server/repositories/departments";
-import { findPerson, lockMember, updatePerson } from "@/server/repositories/users";
+import { findPerson, lockMember, updatePerson, updateTheme } from "@/server/repositories/users";
 import { recordAdminChange } from "./admin-access";
 import { personPayload, personSnapshot } from "./admin-people";
 import { inTransaction } from "./notify";
@@ -74,4 +76,14 @@ export async function renameSelf(ctx: ServiceContext, actor: Actor, rawName: str
     });
     return after.name;
   });
+}
+
+/**
+ * Saves how the actor wants the app drawn. A display preference of their own, so no
+ * audit row or event (see `@/domain/theme`).
+ *
+ * @throws DomainError `forbidden` for a deactivated or deleted account.
+ */
+export async function setTheme(ctx: ServiceContext, actor: Actor, theme: Theme): Promise<void> {
+  if (!(await updateTheme(ctx.db, actor.companyId, actor.id, theme))) throw new DomainError("forbidden");
 }

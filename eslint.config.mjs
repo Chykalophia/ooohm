@@ -139,10 +139,30 @@ const layers = [
   rules: { "no-restricted-imports": ["error", { paths, patterns }] },
 }));
 
+/**
+ * Colours come from the theme tokens in src/app/globals.css (`bg-surface`, `text-danger`),
+ * which hold a light and a dark value each. A palette class (`text-red-700`) or a `dark:`
+ * variant in a component would be right in one theme only.
+ */
+const paletteClass =
+  "(?:^|[\\s:])(?:bg|text|border|ring|outline|fill|stroke|divide|decoration|from|via|to|shadow|caret|placeholder)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d|(?:^|\\s)dark:";
+const paletteMessage = "Use a theme token from src/app/globals.css (bg-surface, text-muted, text-danger…), not a palette colour or dark: variant.";
+const themeTokens = {
+  files: ["src/app/**/*.tsx", "src/components/**/*.{ts,tsx}"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      { selector: `Literal[value=/${paletteClass}/]`, message: paletteMessage },
+      { selector: `TemplateElement[value.raw=/${paletteClass}/]`, message: paletteMessage },
+    ],
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   ...layers,
+  themeTokens,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

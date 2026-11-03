@@ -48,3 +48,16 @@ test("brand mark: Classic's dark favicon colours match the dark accent in global
   assert.match(dark, new RegExp(`--accent:\\s*${CLASSIC_DARK_MARK.tile};`));
   assert.match(dark, new RegExp(`--accent-foreground:\\s*${CLASSIC_DARK_MARK.mark};`));
 });
+
+test("brand mark: only #rrggbb colours reach the SVG, whatever is passed in", () => {
+  const hostile = '#000}</style><script>alert(1)</script><style>{';
+  for (const svg of [
+    faviconSvg(hostile),
+    faviconSvg("red;}.t{fill:url(javascript:alert(1))"),
+    faviconSvg(THEMES.classic.accent, { tile: hostile, mark: "expression(alert(1))" }),
+  ]) {
+    assert.doesNotMatch(svg, /script|javascript|expression|alert/i);
+    const style = /<style>(.*)<\/style>/.exec(svg)?.[1] ?? "";
+    for (const value of style.match(/(?<=(fill|stroke):)[^}]*/g) ?? []) assert.match(value, /^#[0-9a-f]{6}$/);
+  }
+});

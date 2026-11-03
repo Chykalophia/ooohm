@@ -67,6 +67,18 @@ export function darkMarkColors(accent: string): MarkColors {
   return markColors(tile);
 }
 
+const STRICT_HEX = /^#[0-9a-f]{6}$/;
+
+/**
+ * Every colour written into the SVG's `<style>` passes through here, so nothing but a
+ * `#rrggbb` value can ever reach the markup, whatever a caller hands in. Anything else
+ * becomes the default accent.
+ */
+function cssColor(color: string): string {
+  const hex = normalizeHexColor(color);
+  return STRICT_HEX.test(hex) ? hex : THEMES.classic.accent;
+}
+
 /** Where the Ω sits on the 32 grid so it is centred at {@link OHM_SCALE}. */
 export const OHM_OFFSET = Math.round(((32 - 32 * OHM_SCALE) / 2) * 100) / 100;
 
@@ -75,8 +87,9 @@ export const OHM_OFFSET = Math.round(((32 - 32 * OHM_SCALE) / 2) * 100) / 100;
  * system scheme in favicons keep it visible on a dark tab bar.
  */
 export function faviconSvg(accent: string, darkMark: MarkColors | null = null): string {
-  const light = markColors(accent);
-  const dark = darkMark ?? darkMarkColors(accent);
+  const safe = ({ tile, mark }: MarkColors): MarkColors => ({ tile: cssColor(tile), mark: cssColor(mark) });
+  const light = safe(markColors(accent));
+  const dark = safe(darkMark ?? darkMarkColors(accent));
   const style =
     `.t{fill:${light.tile}}.m{stroke:${light.mark}}` +
     (dark.tile === light.tile && dark.mark === light.mark ? "" : `@media (prefers-color-scheme:dark){.t{fill:${dark.tile}}.m{stroke:${dark.mark}}}`);

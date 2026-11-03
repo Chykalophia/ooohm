@@ -353,3 +353,49 @@ body,
   border-radius: var(--button-radius);
   box-shadow: var(--button-shadow);
 }
+
+/*
+ * The waiting dots (components/ooo-dots.tsx): the first two O's breathe, the third
+ * steps out, emptying to a ring and coming back. Still, with the last O hollow, for
+ * anyone who asked for less motion.
+ */
+.ooo-dots circle {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0;
+}
+.ooo-dots circle:nth-child(3) {
+  stroke-width: 2.1;
+  fill-opacity: 0;
+}
+.ooo-loading {
+  animation: ooo-fade-in 200ms ease-out 400ms both;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ooo-dots circle {
+    animation: ooo-breathe 1.4s ease-in-out infinite;
+  }
+  .ooo-dots circle:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .ooo-dots circle:nth-child(3) {
+    animation: ooo-step-out 1.4s ease-in-out 0.3s infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ooo-loading {
+    animation: none;
+  }
+}
+@keyframes ooo-breathe {
+  0%, 100% { opacity: 0.35; }
+  40% { opacity: 1; }
+}
+@keyframes ooo-step-out {
+  0%, 100% { opacity: 0.35; fill-opacity: 1; }
+  40% { opacity: 1; fill-opacity: 0; }
+}
+@keyframes ooo-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

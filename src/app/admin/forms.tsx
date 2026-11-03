@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { PendingLabel } from "@/components/ooo-dots";
 import { type FormState, IDLE, nextFormKey } from "@/app/form-state";
 import { dangerButton, primaryButton, subtleButton } from "@/app/styles";
 
@@ -72,7 +73,7 @@ export function AdminForm({
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <button type="submit" disabled={pending} className={buttonClassName}>
-          {pending ? pendingLabel : submitLabel}
+          {pending ? <PendingLabel label={pendingLabel} /> : submitLabel}
         </button>
         <Outcome state={state} success />
       </div>

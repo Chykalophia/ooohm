@@ -495,6 +495,16 @@ CRON_TZ=America/Chicago
   inside its range. The agenda follows the same rule: it lists a request only if it costs at least one day of
   the month. Previous, Today and Next are plain links. The month is parsed with zod; anything malformed
   or outside 1900 to 2999 falls back to the current month in the company's time zone.
+  The grid is also a way to ask for time off (`month-grid.tsx`): drag across days, or click one and
+  Shift-click another, and a short form under the month shows the dates, the same live preview as Home
+  and a leave type picker, then posts to the same `requestLeaveAction` (full days). With a keyboard, the
+  days are one tab stop: arrow keys move, Enter or Space picks a day, Shift with an arrow stretches the pick,
+  and Escape clears it. Phones keep the agenda; Home's form works everywhere.
+- `/calendar?view=year&year=YYYY`: the person's whole year as twelve small months (`getYearCalendar`, three
+  queries). Approved leave fills a day in its type's colour, pending leave outlines it, company holidays are
+  outlined in ink and today is filled in ink. The squares are hidden from screen readers; each month's
+  heading links to its month view, and its leave and holidays are read out as a list instead. A Month / Year
+  switch sits beside the page heading.
 - `/team?month=YYYY-MM&department=<id>`: "who's out". Every active member of the company with approved or
   pending leave that costs at least one working day of the month (`entriesCostingDaysIn`: a Thursday-to-Sunday
   request belongs to the Thursday's month, not to the month holding only its weekend), grouped by person (by name), each person's leave by date, pending marked

@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { DEFAULT_APPEARANCE, THEME_KEYS, THEMES } from "@/domain/appearance";
 import {
-  CLASSIC_DARK_ACCENT,
+  CLASSIC_DARK_MARK,
   DARK_TAB,
   appearanceAccent,
-  appearanceDarkAccent,
+  appearanceDarkMark,
   darkMarkColors,
   faviconSvg,
   markColors,
@@ -32,8 +33,18 @@ test("brand mark: the Ω reads on its tile, and the tile reaches 3:1 on a dark t
 test("brand mark: a dark-mode variant appears when the tile needs lifting or the theme has a dark accent", () => {
   assert.doesNotMatch(faviconSvg(THEMES.signal.accent), /prefers-color-scheme/);
   assert.match(faviconSvg(THEMES.graphite.accent), /prefers-color-scheme:dark/);
-  assert.equal(appearanceDarkAccent(DEFAULT_APPEARANCE), CLASSIC_DARK_ACCENT);
-  assert.equal(appearanceDarkAccent({ ...DEFAULT_APPEARANCE, accentColor: "#123456" }), null);
-  assert.equal(appearanceDarkAccent({ ...DEFAULT_APPEARANCE, theme: "plum" }), null);
-  assert.match(faviconSvg(THEMES.classic.accent, CLASSIC_DARK_ACCENT), /prefers-color-scheme:dark\)\{\.t\{fill:#2dd4bf\}/);
+  assert.equal(appearanceDarkMark(DEFAULT_APPEARANCE), CLASSIC_DARK_MARK);
+  assert.equal(appearanceDarkMark({ ...DEFAULT_APPEARANCE, accentColor: "#123456" }), null);
+  assert.equal(appearanceDarkMark({ ...DEFAULT_APPEARANCE, theme: "plum" }), null);
+  assert.match(
+    faviconSvg(THEMES.classic.accent, CLASSIC_DARK_MARK),
+    /prefers-color-scheme:dark\)\{\.t\{fill:#2dd4bf\}\.m\{stroke:#042f2e\}/,
+  );
+});
+
+test("brand mark: Classic's dark favicon colours match the dark accent in globals.css", () => {
+  const css = readFileSync(new URL("../../src/app/globals.css", import.meta.url), "utf8");
+  const dark = /\[data-scheme="auto"\]\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+  assert.match(dark, new RegExp(`--accent:\\s*${CLASSIC_DARK_MARK.tile};`));
+  assert.match(dark, new RegExp(`--accent-foreground:\\s*${CLASSIC_DARK_MARK.mark};`));
 });

@@ -3,10 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { focusRing } from "@/components/ui/styles";
+import { SteadyLabel } from "@/components/ui/steady-label";
+import { cx, focusRing } from "@/components/ui/styles";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 
-const item = `block w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-background ${focusRing}`;
+/** One row of the menu: the whole row is the target, highlighted on hover. */
+const row = `block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-background ${focusRing}`;
+const item = cx(row, "text-foreground");
+/** Sign out: the same row, quieter. */
+const quietItem = cx(row, "text-muted hover:text-foreground");
 
 /**
  * The signed-in person's name in the header, opening their personal options: their
@@ -57,9 +62,14 @@ export function AccountMenu({ userName, member, active }: { userName: string; me
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1 rounded-md hover:text-foreground ${focusRing} ${active || open ? "font-medium text-foreground" : "text-muted"}`}
+        className={`flex items-center gap-1 rounded-md hover:text-foreground ${focusRing} ${active || open ? "text-foreground" : "text-muted"}`}
       >
-        <span className="max-w-[12rem] truncate">{userName}</span>
+        {/* Bold while open or on the account page, at a steady width: opening the menu moves nothing. */}
+        <span className="flex min-w-0 max-w-[12rem]">
+          <SteadyLabel bold={active || open} truncate>
+            {userName}
+          </SteadyLabel>
+        </span>
         <svg aria-hidden viewBox="0 0 20 20" className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} fill="currentColor">
           <path d="M5.25 7.5 10 12.25 14.75 7.5z" />
         </svg>
@@ -89,8 +99,8 @@ export function AccountMenu({ userName, member, active }: { userName: string; me
               </>
             )}
           </ul>
-          <div className={`${member ? "border-t border-border pt-1" : ""} px-3 py-2 text-sm`}>
-            <SignOutButton />
+          <div className={member ? "border-t border-border pt-1" : undefined}>
+            <SignOutButton className={quietItem} />
           </div>
         </div>
       )}

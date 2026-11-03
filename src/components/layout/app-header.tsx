@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { use } from "react";
 import { REQUEST_FORM_ID } from "./anchors";
+import { SteadyLabel } from "@/components/ui/steady-label";
 import { buttonClass, cx, focusRing } from "@/components/ui/styles";
 import { AccountMenu } from "./account-menu";
 import { Logo } from "./logo";
@@ -26,9 +27,9 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={cx("rounded-md hover:text-foreground", focusRing, active ? "font-medium text-foreground" : "text-muted")}
+      className={cx("rounded-md hover:text-foreground", focusRing, active ? "text-foreground" : "text-muted")}
     >
-      {children}
+      <SteadyLabel bold={active}>{children}</SteadyLabel>
     </Link>
   );
 }
@@ -43,6 +44,10 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
  * nobody has to know the logo leads to it. It is an accent outline, so each page's own
  * main action stays the one filled button. The person's name opens their own options
  * ({@link AccountMenu}).
+ *
+ * The header is the same size, with every link in the same place, on every page: the
+ * current link's bold never changes its width ({@link SteadyLabel}), and on the
+ * dashboard an invisible copy of "Request time off" keeps its place.
  */
 export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSection }) {
   // `use` rather than `await`, so the header stays an ordinary component: it renders
@@ -83,11 +88,17 @@ export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSec
           </NavLink>
         )}
         <AccountMenu userName={nav.userName} member={nav.member} active={current === "account"} />
-        {nav.member && current !== "home" && (
-          <Link href={`/#${REQUEST_FORM_ID}`} className={buttonClass("accent", "sm")}>
-            Request time off
-          </Link>
-        )}
+        {nav.member &&
+          (current === "home" ? (
+            // Holds the button's place (visibility: hidden, so it is neither seen, read nor focused).
+            <span aria-hidden className={cx(buttonClass("accent", "sm"), "invisible")}>
+              Request time off
+            </span>
+          ) : (
+            <Link href={`/#${REQUEST_FORM_ID}`} className={buttonClass("accent", "sm")}>
+              Request time off
+            </Link>
+          ))}
       </nav>
     </header>
   );

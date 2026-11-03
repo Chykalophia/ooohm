@@ -24,7 +24,7 @@ import type { ServiceContext } from "../../src/server/context";
 import { createAdapterRegistry } from "../../src/server/integrations/adapter";
 import { getPersonDetail, listPeople } from "../../src/server/services/admin-people";
 import { listBalancesForApi, listEventsForApi, listLeaveRequestsForApi, listUsersForApi } from "../../src/server/services/api-v1";
-import { getApprovalNav, listApprovalInbox } from "../../src/server/services/approvals";
+import { getApprovalNav, getApprovalTriage } from "../../src/server/services/approvals";
 import { getAuditLog } from "../../src/server/services/audit-log";
 import { getMonthCalendar, getTeamCalendar } from "../../src/server/services/calendar";
 import { getDashboard } from "../../src/server/services/leave-requests";
@@ -62,13 +62,25 @@ async function seedCompany(name: string) {
   const [company] = await db.insert(schema.companies).values({ name }).returning();
   const types = await db
     .insert(schema.leaveTypes)
-    .values(["PTO", "SICK", "EMERGENCY", "BONUS"].map((code, i) => ({ companyId: company.id, code, name: code, sortOrder: i, defaultAllowanceDays: code === "PTO" ? 20 : null })))
+    .values(
+      ["PTO", "SICK", "EMERGENCY", "BONUS"].map((code, i) => ({
+        companyId: company.id,
+        code,
+        name: code,
+        sortOrder: i,
+        defaultAllowanceDays: code === "PTO" ? 20 : null,
+      })),
+    )
     .returning();
   const departments = await db
     .insert(schema.departments)
     .values(["Engineering", "Operations", "Sales"].map((n) => ({ companyId: company.id, name: n })))
     .returning();
-  await db.insert(schema.holidays).values(YEARS.flatMap((y) => [`${y}-01-01`, `${y}-07-03`, `${y}-12-25`].map((date) => ({ companyId: company.id, date, name: "Holiday" }))));
+  await db
+    .insert(schema.holidays)
+    .values(
+      YEARS.flatMap((y) => [`${y}-01-01`, `${y}-07-03`, `${y}-12-25`].map((date) => ({ companyId: company.id, date, name: "Holiday" }))),
+    );
   const people = Array.from({ length: PEOPLE }, (_, i) => ({
     id: randomUUID(),
     companyId: company.id,
@@ -80,9 +92,14 @@ async function seedCompany(name: string) {
   }));
   await db.insert(schema.user).values(people);
   for (const p of people.slice(5)) {
-    await db.update(schema.user).set({ managerId: people[1 + (people.indexOf(p) % 4)].id }).where(eq(schema.user.id, p.id));
+    await db
+      .update(schema.user)
+      .set({ managerId: people[1 + (people.indexOf(p) % 4)].id })
+      .where(eq(schema.user.id, p.id));
   }
-  await db.insert(schema.allowances).values(people.flatMap((p) => YEARS.map((year) => ({ userId: p.id, leaveTypeId: types[0].id, year, days: 20 }))));
+  await db
+    .insert(schema.allowances)
+    .values(people.flatMap((p) => YEARS.map((year) => ({ userId: p.id, leaveTypeId: types[0].id, year, days: 20 }))));
 
   const requests: (typeof schema.leaveRequests.$inferInsert & { id: string })[] = [];
   const days: (typeof schema.leaveRequestDays.$inferInsert)[] = [];
@@ -128,9 +145,17 @@ async function seedCompany(name: string) {
   }));
   for (let i = 0; i < audit.length; i += 500) {
     await db.insert(schema.auditLog).values(audit.slice(i, i + 500));
-    await db.insert(schema.eventsOutbox).values(audit.slice(i, i + 500).map((a) => ({ companyId: company.id, type: "leave.requested", payload: { requestId: a.entityId } })));
+    await db
+      .insert(schema.eventsOutbox)
+      .values(audit.slice(i, i + 500).map((a) => ({ companyId: company.id, type: "leave.requested", payload: { requestId: a.entityId } })));
   }
-  const actor = (p: (typeof people)[number]): Actor => ({ id: p.id, companyId: company.id, role: p.role, canSelfApprove: false, source: byUser(p.id) });
+  const actor = (p: (typeof people)[number]): Actor => ({
+    id: p.id,
+    companyId: company.id,
+    role: p.role,
+    canSelfApprove: false,
+    source: byUser(p.id),
+  });
   return { companyId: company.id, admin: actor(people[0]), manager: actor(people[1]), employee: actor(people[10]) };
 }
 
@@ -160,14 +185,18 @@ try {
   await seedCompany("Noise Co");
   const co = await seedCompany("Perf Co");
   await client.unsafe("analyze");
-  const counts = await client.unsafe("select (select count(*) from leave_requests) as requests, (select count(*) from audit_log) as audit, (select count(*) from \"user\") as people");
+  const counts = await client.unsafe(
+    'select (select count(*) from leave_requests) as requests, (select count(*) from audit_log) as audit, (select count(*) from "user") as people',
+  );
   console.log(`Seeded: ${JSON.stringify(counts[0])}`);
 
   await explain("dashboard (employee)", () => getDashboard(ctx, co.employee));
   await explain("calendar month (employee)", () => getMonthCalendar(ctx, co.employee, "2026-03"));
   await explain("team calendar (everyone)", () => getTeamCalendar(ctx, co.employee, { month: "2026-03" }));
-  await explain("approvals inbox (admin)", () => listApprovalInbox(ctx, co.admin));
-  await explain("approvals inbox (manager)", () => listApprovalInbox(ctx, co.manager));
+  await explain("approvals: needs you (admin)", () => getApprovalTriage(ctx, co.admin));
+  await explain("approvals: waiting on others (admin)", () => getApprovalTriage(ctx, co.admin, { view: "others" }));
+  await explain("approvals: needs you (manager)", () => getApprovalTriage(ctx, co.manager));
+  await explain("approvals: settled (manager)", () => getApprovalTriage(ctx, co.manager, { view: "settled" }));
   await explain("header approvals nav (manager)", () => getApprovalNav(ctx, co.manager));
   await explain("admin people list", () => listPeople(ctx, co.admin, { status: "active" }));
   await explain("admin person detail", () => getPersonDetail(ctx, co.admin, co.employee.id, 2026));

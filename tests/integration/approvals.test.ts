@@ -4,10 +4,11 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { isDomainError } from "@/domain/errors";
 import { updateStatusIfCurrent } from "@/server/repositories/leave-requests";
-import { decideLeaveRequest, getApprovalNav, listApprovalInbox } from "@/server/services/approvals";
+import { type ApprovalsView, decideLeaveRequest, getApprovalNav, getApprovalTriage } from "@/server/services/approvals";
 import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
-import { auditFor, eventsFor, seedCompany } from "./fixtures";
+import { auditFor, decidable, eventsFor, seedCompany } from "./fixtures";
+import type { PageCursor } from "@/domain/paging";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 describe("approvals: decide, inbox and navigation", { skip }, () => {
@@ -61,8 +62,14 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
 
     const aAudit = await auditFor(t.db, a.id);
     const rAudit = await auditFor(t.db, r.id);
-    assert.deepEqual(aAudit.map((x) => x.action), ["leave_request.requested", "leave_request.approved"]);
-    assert.deepEqual(rAudit.map((x) => x.action), ["leave_request.requested", "leave_request.rejected"]);
+    assert.deepEqual(
+      aAudit.map((x) => x.action),
+      ["leave_request.requested", "leave_request.approved"],
+    );
+    assert.deepEqual(
+      rAudit.map((x) => x.action),
+      ["leave_request.requested", "leave_request.rejected"],
+    );
     assert.equal(aAudit[1].actorId, approved.co.people.manager.id);
     assert.deepEqual(
       [(aAudit[1].before as { status: string }).status, (aAudit[1].after as { status: string }).status],
@@ -71,8 +78,14 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
 
     const aEvents = await eventsFor(t.db, approved.co.companyId, a.id);
     const rEvents = await eventsFor(t.db, rejected.co.companyId, r.id);
-    assert.deepEqual(aEvents.map((e) => e.type), ["leave.requested", "leave.approved"]);
-    assert.deepEqual(rEvents.map((e) => e.type), ["leave.requested", "leave.rejected"]);
+    assert.deepEqual(
+      aEvents.map((e) => e.type),
+      ["leave.requested", "leave.approved"],
+    );
+    assert.deepEqual(
+      rEvents.map((e) => e.type),
+      ["leave.requested", "leave.rejected"],
+    );
     assert.deepEqual(aEvents[1].payload, {
       requestId: a.id,
       userId: approved.co.people.ana.id,
@@ -88,10 +101,14 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
 
     await approved.ctx.settle();
     await rejected.ctx.settle();
-    assert.deepEqual(approved.ctx.sent.map((m) => [m.to, m.subject]), [[approved.co.people.ana.email, "Your time off is approved"]]);
-    assert.deepEqual(rejected.ctx.sent.map((m) => [m.to, m.subject]), [
-      [rejected.co.people.ana.email, "Your time off request was declined"],
-    ]);
+    assert.deepEqual(
+      approved.ctx.sent.map((m) => [m.to, m.subject]),
+      [[approved.co.people.ana.email, "Your time off is approved"]],
+    );
+    assert.deepEqual(
+      rejected.ctx.sent.map((m) => [m.to, m.subject]),
+      [[rejected.co.people.ana.email, "Your time off request was declined"]],
+    );
     assert.match(rejected.ctx.sent[0].text, /Reason: Launch week/);
     assert.match(approved.ctx.sent[0].text, /Note from approver: Have fun/);
 
@@ -100,10 +117,7 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
       getDashboard(approved.ctx, approved.co.people.ana),
       getDashboard(rejected.ctx, rejected.co.people.ana),
     ]);
-    assert.deepEqual(
-      [aDash.requests[0].decisionNote, rDash.requests[0].decisionNote],
-      ["Have fun", "Launch week"],
-    );
+    assert.deepEqual([aDash.requests[0].decisionNote, rDash.requests[0].decisionNote], ["Have fun", "Launch week"]);
   });
 
   test("an admin may decide any request in the company; others may not; nobody decides their own", async () => {
@@ -118,7 +132,10 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
       decideLeaveRequest(ctx, co.people.boss, { requestId: req.id, decision: "approve", reason: "x".repeat(501) }),
       "invalid_input",
     );
-    assert.deepEqual((await auditFor(t.db, req.id)).map((a) => a.action), ["leave_request.requested"]);
+    assert.deepEqual(
+      (await auditFor(t.db, req.id)).map((a) => a.action),
+      ["leave_request.requested"],
+    );
 
     const decided = await decideLeaveRequest(ctx, co.people.boss, { requestId: req.id, decision: "reject" });
     assert.equal(decided.status, "rejected");
@@ -129,7 +146,10 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     const solo = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);
     const req = await submitLeaveRequest(ctx, solo.people.boss, { leaveTypeId: solo.pto, startDate: "2026-11-03", dayPortion: "full" });
-    assert.deepEqual((await listApprovalInbox(ctx, solo.people.boss)).items.map((r) => r.id), [req.id]);
+    assert.deepEqual(
+      (await decidable(ctx, solo.people.boss)).items.map((r) => r.id),
+      [req.id],
+    );
     const approved = await decideLeaveRequest(ctx, solo.people.boss, { requestId: req.id, decision: "approve" });
     assert.equal(approved.status, "approved");
   });
@@ -146,12 +166,18 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     const demoted = { ...co.people.boss, role: "employee" as const };
     const newAdmin = { ...co.people.later, role: "admin" as const };
 
-    assert.deepEqual((await listApprovalInbox(ctx, demoted)).items, []);
+    assert.deepEqual((await decidable(ctx, demoted)).items, []);
     assert.deepEqual(await getApprovalNav(ctx, demoted), { visible: false, pending: 0 });
     await rejectsWith(decideLeaveRequest(ctx, demoted, { requestId: req.id, decision: "approve" }), "forbidden");
-    assert.deepEqual((await auditFor(t.db, req.id)).map((a) => a.action), ["leave_request.requested"]);
+    assert.deepEqual(
+      (await auditFor(t.db, req.id)).map((a) => a.action),
+      ["leave_request.requested"],
+    );
 
-    assert.deepEqual((await listApprovalInbox(ctx, newAdmin)).items.map((r) => r.id), [req.id]);
+    assert.deepEqual(
+      (await decidable(ctx, newAdmin)).items.map((r) => r.id),
+      [req.id],
+    );
     const approved = await decideLeaveRequest(ctx, newAdmin, { requestId: req.id, decision: "approve" });
     assert.equal(approved.status, "approved");
   });
@@ -163,7 +189,10 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     assert.equal(req.approverId, co.people.manager.id);
     await t.db.update(schema.user).set({ managerId: null }).where(eq(schema.user.id, co.people.ana.id));
     await rejectsWith(decideLeaveRequest(ctx, co.people.manager, { requestId: req.id, decision: "approve" }), "forbidden");
-    assert.deepEqual((await auditFor(t.db, req.id)).map((a) => a.action), ["leave_request.requested"]);
+    assert.deepEqual(
+      (await auditFor(t.db, req.id)).map((a) => a.action),
+      ["leave_request.requested"],
+    );
 
     // Its pair: put the manager back and the same assignment decides again.
     await t.db.update(schema.user).set({ managerId: co.people.manager.id }).where(eq(schema.user.id, co.people.ana.id));
@@ -210,11 +239,10 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     await ctx.settle();
     assert.deepEqual(ctx.sent.map((m) => m.to).sort(), [co.people.ana.email, co.people.manager.email].sort());
     await rejectsWith(decideLeaveRequest(ctx, co.people.manager, { requestId: req.id, decision: "approve" }), "invalid_transition");
-    assert.deepEqual((await auditFor(t.db, req.id)).map((a) => a.action), [
-      "leave_request.requested",
-      "leave_request.approved",
-      "leave_request.cancelled",
-    ]);
+    assert.deepEqual(
+      (await auditFor(t.db, req.id)).map((a) => a.action),
+      ["leave_request.requested", "leave_request.approved", "leave_request.cancelled"],
+    );
   });
 
   test("concurrent decisions on one request: exactly one wins and only it is recorded", async () => {
@@ -241,7 +269,7 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     const boReq = await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-16", dayPortion: "full" });
     const mgrReq = await submitLeaveRequest(ctx, co.people.manager, { leaveTypeId: co.pto, startDate: "2026-11-17", dayPortion: "full" });
 
-    const ids = async (who: keyof typeof co.people) => (await listApprovalInbox(ctx, co.people[who])).items.map((r) => r.id).sort();
+    const ids = async (who: keyof typeof co.people) => (await decidable(ctx, co.people[who])).items.map((r) => r.id).sort();
     assert.deepEqual(await ids("manager"), [req.id, boReq.id].sort(), "manager: their reports, not their own request");
     assert.deepEqual(await ids("boss"), [req.id, boReq.id, mgrReq.id].sort(), "admin: every pending request");
     assert.deepEqual(await ids("ana"), []);
@@ -249,13 +277,13 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     await decideLeaveRequest(ctx, co.people.manager, { requestId: req.id, decision: "approve" });
     assert.deepEqual(await ids("manager"), [boReq.id]);
 
-    const { items: inbox, total } = await listApprovalInbox(ctx, co.people.manager);
+    const { items: inbox, total } = await decidable(ctx, co.people.manager);
     assert.equal(total, 1);
     assert.equal(inbox[0].requesterName, "Bo");
     assert.equal(inbox[0].leaveTypeName, "PTO");
 
     // An admin can tell which requests are routed to someone else.
-    const { items: adminInbox } = await listApprovalInbox(ctx, co.people.boss);
+    const { items: adminInbox } = await decidable(ctx, co.people.boss);
     assert.deepEqual(
       adminInbox.map((r) => [r.id, r.approverName]).sort(),
       [
@@ -270,21 +298,26 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-16", dayPortion: "full" });
     await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-17", dayPortion: "full" });
 
-    const first = await listApprovalInbox(ctx, co.people.manager, { size: 2 });
-    assert.deepEqual([first.items.length, first.total, first.previous], [2, 3, null]);
-    assert.deepEqual(first.items.map((r) => r.startDate), ["2026-11-09", "2026-11-16"], "earliest dates first");
-    const second = await listApprovalInbox(ctx, co.people.manager, { size: 2, page: first.next! });
-    assert.deepEqual([second.items.map((r) => r.startDate), second.next, second.total], [["2026-11-17"], null, 3]);
-    assert.deepEqual((await listApprovalInbox(ctx, co.people.manager, { size: 2, page: second.previous! })).items, first.items);
+    const tab = (size: number, page?: PageCursor) => getApprovalTriage(ctx, co.people.manager, { size, page });
+    const first = await tab(2);
+    assert.deepEqual([first.items.length, first.needsYouTotal, first.previous], [2, 3, null]);
+    assert.deepEqual(
+      first.items.map((r) => r.startDate),
+      ["2026-11-09", "2026-11-16"],
+      "earliest dates first",
+    );
+    const second = await tab(2, first.next!);
+    assert.deepEqual([second.items.map((r) => r.startDate), second.next, second.needsYouTotal], [["2026-11-17"], null, 3]);
+    assert.deepEqual((await tab(2, second.previous!)).items, first.items);
 
     // Deciding one on page 1 brings the next one up into its place.
     await decideLeaveRequest(ctx, co.people.manager, { requestId: first.items[0].id, decision: "approve" });
-    const after = await listApprovalInbox(ctx, co.people.manager, { size: 2 });
-    assert.deepEqual([after.items.map((r) => r.startDate), after.next, after.total], [["2026-11-16", "2026-11-17"], null, 2]);
+    const after = await tab(2);
+    assert.deepEqual([after.items.map((r) => r.startDate), after.next, after.needsYouTotal], [["2026-11-16", "2026-11-17"], null, 2]);
 
-    const whole = await listApprovalInbox(ctx, co.people.manager, { size: 3 });
-    assert.deepEqual([whole.items.length, whole.total, whole.next], [2, 2, null]);
-    assert.equal((await getApprovalNav(ctx, co.people.manager)).pending, first.total - 1);
+    const whole = await tab(3);
+    assert.deepEqual([whole.items.length, whole.needsYouTotal, whole.next], [2, 2, null]);
+    assert.equal((await getApprovalNav(ctx, co.people.manager)).pending, first.needsYouTotal - 1);
   });
 
   test("the Approvals link shows for managers and admins, and for anyone with something assigned", async () => {
@@ -305,5 +338,98 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     assert.deepEqual(await getApprovalNav(ctx, co.people.lead), { visible: true, pending: 1 });
     assert.deepEqual(await getApprovalNav(ctx, co.people.bo), { visible: false, pending: 0 });
     assert.deepEqual(await getApprovalNav(ctx, co.people.boss), { visible: true, pending: 1 });
+  });
+
+  test("triage: Needs you, Waiting on others and Settled, sorted by whose move it is", async () => {
+    const { co, ctx, req } = await pendingRequest();
+    const boReq = await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-16", dayPortion: "full" });
+    const mgrReq = await submitLeaveRequest(ctx, co.people.manager, { leaveTypeId: co.pto, startDate: "2026-11-17", dayPortion: "full" });
+    await decideLeaveRequest(ctx, co.people.manager, { requestId: req.id, decision: "reject", reason: "Launch week" });
+    // The boss overrides the manager on Bo's request; it is the boss's decision, not the manager's.
+    await decideLeaveRequest(ctx, co.people.boss, { requestId: boReq.id, decision: "approve" });
+
+    const view = (who: keyof typeof co.people, v: ApprovalsView) => getApprovalTriage(ctx, co.people[who], { view: v });
+    const manager = await view("manager", "settled");
+    assert.deepEqual([manager.needsYouTotal, manager.waitingTotal], [0, 0]);
+    assert.deepEqual(
+      manager.settled.map((d) => [d.id, d.decision, d.decisionNote]),
+      [[req.id, "rejected", "Launch week"]],
+    );
+    assert.equal((await view("manager", "others")).view, "mine", "Waiting on others is for admins only");
+
+    assert.deepEqual(
+      (await view("boss", "mine")).items.map((r) => r.id),
+      [mgrReq.id],
+      "routed to the boss",
+    );
+    assert.deepEqual((await view("boss", "others")).items, []);
+    assert.deepEqual(
+      (await view("boss", "settled")).settled.map((d) => [d.id, d.decision, d.status]),
+      [[boReq.id, "approved", "approved"]],
+    );
+
+    // Pending work assigned to the manager shows the admin as waiting on someone else.
+    const later = await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: co.pto, startDate: "2026-11-23", dayPortion: "full" });
+    const again = await view("boss", "others");
+    assert.deepEqual(
+      again.items.map((r) => r.id),
+      [later.id],
+    );
+    assert.deepEqual([again.needsYouTotal, again.waitingTotal], [1, 1]);
+
+    // A cancel after the decision shows on Settled as the request's current status.
+    await cancelLeaveRequest(ctx, co.people.bo, boReq.id);
+    assert.deepEqual(
+      (await view("boss", "settled")).settled.map((d) => [d.decision, d.status]),
+      [["approved", "cancelled"]],
+    );
+
+    // Self-approval is recorded as the requester's own decision, but never lists on their Settled.
+    await t.db.update(schema.user).set({ canSelfApprove: true }).where(eq(schema.user.id, co.people.boss.id));
+    await submitLeaveRequest(ctx, co.people.boss, { leaveTypeId: co.pto, startDate: "2026-11-24", dayPortion: "full" });
+    assert.equal((await view("boss", "settled")).settled.length, 1);
+  });
+
+  test("triage shows who else is off: the requester's department, or everyone without one", async () => {
+    const co = await seedCompany(t.db, {
+      boss: { role: "admin" },
+      ana: { managerKey: "boss" },
+      bo: { managerKey: "boss" },
+      cy: { managerKey: "boss" },
+    });
+    const ctx = createTestContext(t.db, { now: new Date("2026-11-03T09:00:00Z") });
+    const [design] = await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Design" }).returning();
+    const [sales] = await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Sales" }).returning();
+    await t.db.update(schema.user).set({ departmentId: design.id }).where(eq(schema.user.id, co.people.ana.id));
+    await t.db.update(schema.user).set({ departmentId: design.id }).where(eq(schema.user.id, co.people.bo.id));
+    await t.db.update(schema.user).set({ departmentId: sales.id }).where(eq(schema.user.id, co.people.cy.id));
+
+    const bo = await submitLeaveRequest(ctx, co.people.bo, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-10",
+      endDate: "2026-11-12",
+      dayPortion: "full",
+    });
+    const cy = await submitLeaveRequest(ctx, co.people.cy, { leaveTypeId: co.pto, startDate: "2026-11-11", dayPortion: "full" });
+    const ana = await submitLeaveRequest(ctx, co.people.ana, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-09",
+      endDate: "2026-11-11",
+      dayPortion: "full",
+    });
+    await decideLeaveRequest(ctx, co.people.boss, { requestId: bo.id, decision: "approve" });
+
+    const { items } = await getApprovalTriage(ctx, co.people.boss);
+    const byId = new Map(items.map((r) => [r.id, r]));
+    // Ana (Design) overlaps Bo (Design, approved); Cy is in Sales, so not counted.
+    assert.deepEqual(byId.get(ana.id)?.alsoOff, { others: 1, line: "Bo is off then too." });
+    assert.equal(byId.get(ana.id)?.requesterDepartmentName, "Design");
+    // Cy's Sales colleagues are not off; Bo and Ana are in another department.
+    assert.deepEqual(byId.get(cy.id)?.alsoOff, { others: 0, line: "Nobody else in Sales is off then." });
+
+    // Without a department, everyone counts, and pending leave is marked as such.
+    await t.db.update(schema.user).set({ departmentId: null }).where(eq(schema.user.id, co.people.cy.id));
+    const cyAgain = (await getApprovalTriage(ctx, co.people.boss)).items.find((r) => r.id === cy.id);
+    assert.deepEqual(cyAgain?.alsoOff, { others: 2, line: "Also off then: Ana (not approved yet) and Bo." });
   });
 });

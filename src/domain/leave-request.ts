@@ -73,21 +73,7 @@ export function normalizeNote(note: string | null | undefined): string | null {
  */
 export function rangesOverlap(a: LeaveRange, b: LeaveRange): boolean {
   if (a.startDate > b.endDate || b.startDate > a.endDate) return false;
-  const complementaryHalves =
-    a.dayPortion !== "full" && b.dayPortion !== "full" && a.dayPortion !== b.dayPortion;
+  const complementaryHalves = a.dayPortion !== "full" && b.dayPortion !== "full" && a.dayPortion !== b.dayPortion;
   // Half days are single-day, so two halves that intersect fall on the same date.
   return !complementaryHalves;
-}
-
-/**
- * Other people's leave that shares at least one date with `request`, for the "also off
- * then" hint an approver sees. Plain date intersection: a morning and an afternoon on
- * the same date both count, since the hint is about who is around, not about overlap
- * rules. Information only; it never blocks a request.
- */
-export function othersOffDuring<T extends { userId: string; startDate: string; endDate: string }>(
-  request: { userId: string; startDate: string; endDate: string },
-  entries: readonly T[],
-): T[] {
-  return entries.filter((e) => e.userId !== request.userId && e.startDate <= request.endDate && request.startDate <= e.endDate);
 }

@@ -1,61 +1,140 @@
 import type { Metadata } from "next";
-import { formatDays, formatLeaveDates } from "@/lib/format";
-import { listApprovalInbox } from "@/server/services/approvals";
+import { formatDays, formatInstantDate, formatLeaveDates } from "@/lib/format";
+import { type ApprovalsView, getApprovalTriage } from "@/server/services/approvals";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
+import { StatusBadge } from "@/components/leave/status-badge";
+import { Pager } from "@/components/navigation/pager";
+import { TabNav } from "@/components/navigation/tab-nav";
 import { Card } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
-import { Pager } from "@/components/navigation/pager";
+import { cx, surface } from "@/components/ui/styles";
 import { requireMemberPage } from "@/app/_lib/page-context";
-import { pagerLinks, readPageParams } from "@/app/_lib/paging";
+import { listHref, pagerLinks, readPageParams } from "@/app/_lib/paging";
 import { DecisionForm } from "./decision-form";
 
 export const metadata: Metadata = { title: "Approvals · OOOhm" };
 
+const PATH = "/approvals";
+
+/** The `?view=` of each tab; Needs you is the page itself. */
+const VIEW_PARAM: Record<ApprovalsView, string | undefined> = { mine: undefined, others: "waiting", settled: "settled" };
+
+function readView(value: string | string[] | undefined): ApprovalsView {
+  const v = Array.isArray(value) ? value[0] : value;
+  return v === "waiting" ? "others" : v === "settled" ? "settled" : "mine";
+}
+
+/**
+ * Approvals, sorted by whose move it is: Needs you, Waiting on others (admins, when
+ * anything is), and Settled (what the person decided lately). The pending tabs page ten
+ * at a time; each request says who else in the requester's department is off then.
+ */
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="approvals" />;
 
   const { actor } = page;
-  const { cursor, number } = readPageParams(await searchParams);
-  const inbox = await listApprovalInbox(page.ctx, actor, { page: cursor });
-  const { items, total } = inbox;
-  const pager = pagerLinks("/approvals", inbox, number);
+  const params = await searchParams;
+  const { cursor, number } = readPageParams(params);
+  const triage = await getApprovalTriage(page.ctx, actor, { view: readView(params.view), page: cursor });
+  // Waiting on others shows only when something is there; a link to an empty tab adds noise.
+  const view = triage.view === "others" && triage.waitingTotal === 0 && !triage.previous ? "mine" : triage.view;
+  const href = (v: ApprovalsView) => listHref(PATH, { view: VIEW_PARAM[v] });
+  const pager = pagerLinks(PATH, triage, number, { keep: { view: VIEW_PARAM[view] } });
+
+  const tabs = [
+    { href: href("mine"), label: "Needs you", count: triage.needsYouTotal, current: view === "mine" },
+    ...(triage.waitingTotal > 0 || view === "others"
+      ? [{ href: href("others"), label: "Waiting on others", count: triage.waitingTotal, current: view === "others" }]
+      : []),
+    { href: href("settled"), label: "Settled", current: view === "settled" },
+  ];
 
   return (
     <AppPage nav={page.nav} current="approvals" title="Approvals">
-      {items.length === 0 ? (
-        <>
-          {/* A later page emptied by deciding what was on it: the earlier pages still wait. */}
-          <p className="text-muted">{inbox.previous ? "Nothing on this page is waiting for you now." : "Nothing is waiting for you."}</p>
-          <Pager label="Approvals pages" links={pager} />
-        </>
+      <TabNav label="Approvals" items={tabs} />
+
+      {view === "settled" ? (
+        <Settled decisions={triage.settled} days={triage.settledDays} timeZone={triage.timeZone} />
       ) : (
         <>
-          {total > items.length && <p className="text-sm text-muted">{total} waiting, earliest dates first.</p>}
-          <ul className="space-y-4">
-            {items.map((r) => (
-              <Card as="li" key={r.id} className="space-y-4">
-                <div className="space-y-1">
-                  <p className="font-medium break-words">
-                    {r.requesterName || r.requesterEmail}
-                    {r.requesterName && <span className="ml-2 text-sm font-normal text-muted">{r.requesterEmail}</span>}
-                  </p>
-                  <ColorLabel color={r.leaveTypeColor}>{formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}</ColorLabel>
-                  <p className="text-sm text-muted">
-                    {r.leaveTypeName} · {formatDays(r.days)}
-                    {r.approverId !== actor.id && ` · Assigned to ${r.approverName || "someone else"}`}
-                  </p>
-                  {r.note && <p className="text-sm break-words">{r.note}</p>}
-                  {r.alsoOff && <p className="text-sm text-muted break-words">Also off then: {r.alsoOff}</p>}
-                </div>
-                <DecisionForm requestId={r.id} />
-              </Card>
-            ))}
-          </ul>
+          {view === "others" && <p className="text-sm text-muted">Assigned to someone else. As an admin you can still decide them.</p>}
+          {triage.items.length === 0 ? (
+            <p className="text-muted">
+              {triage.previous
+                ? "Nothing on this page is waiting for you now."
+                : view === "others"
+                  ? "Nothing is waiting on anyone else."
+                  : triage.waitingTotal > 0
+                    ? `Nothing needs you right now. ${triage.waitingTotal === 1 ? "One request is" : `${triage.waitingTotal} requests are`} waiting on someone else.`
+                    : "Nothing needs you right now."}
+            </p>
+          ) : (
+            <ul className="space-y-4">
+              {triage.items.map((r) => (
+                <Card as="li" key={r.id} className="space-y-4">
+                  <div className="space-y-1">
+                    <p className="font-medium break-words">
+                      {r.requesterName || r.requesterEmail}
+                      {r.requesterName && <span className="ml-2 text-sm font-normal text-muted">{r.requesterEmail}</span>}
+                    </p>
+                    <ColorLabel color={r.leaveTypeColor}>{formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}</ColorLabel>
+                    <p className="text-sm text-muted">
+                      {r.leaveTypeName} · {formatDays(r.days)}
+                      {r.approverId && r.approverId !== actor.id && ` · Assigned to ${r.approverName || "someone else"}`}
+                    </p>
+                    {r.note && <p className="text-sm break-words">{r.note}</p>}
+                    {r.alsoOff && (
+                      <p className={cx("text-sm break-words", r.alsoOff.others > 0 ? "font-medium" : "text-muted")}>{r.alsoOff.line}</p>
+                    )}
+                  </div>
+                  <DecisionForm requestId={r.id} />
+                </Card>
+              ))}
+            </ul>
+          )}
           <Pager label="Approvals pages" links={pager} />
         </>
       )}
     </AppPage>
+  );
+}
+
+type Decision = Awaited<ReturnType<typeof getApprovalTriage>>["settled"][number];
+
+/** What the person approved or declined in the last `days` days, newest first, each with its status now. */
+function Settled({ decisions, days, timeZone }: { decisions: readonly Decision[]; days: number; timeZone: string }) {
+  if (decisions.length === 0) return <p className="text-muted">You haven’t decided anything in the last {days} days.</p>;
+  return (
+    <>
+      <p className="text-sm text-muted">What you decided in the last {days} days, newest first.</p>
+      <ul className={cx("divide-y divide-border", surface)}>
+        {decisions.map((d) => (
+          <li
+            key={`${d.id}-${d.decidedAt.toISOString()}`}
+            className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <div className="min-w-0 space-y-1">
+              <p className="font-medium break-words">{d.requesterName || d.requesterEmail}</p>
+              <ColorLabel color={d.leaveTypeColor}>{formatLeaveDates(d.startDate, d.endDate, d.dayPortion)}</ColorLabel>
+              <p className="text-sm text-muted">
+                {d.leaveTypeName} · {formatDays(d.days)} · {d.decision === "approved" ? "Approved" : "Declined"} by you on{" "}
+                {formatInstantDate(d.decidedAt, timeZone)}
+              </p>
+              {d.decisionNote && (
+                <p className="text-sm break-words">
+                  <span className="text-muted">Your note: </span>
+                  {d.decisionNote}
+                </p>
+              )}
+            </div>
+            <div className="shrink-0">
+              <StatusBadge status={d.status} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

@@ -412,11 +412,13 @@ else's request skip the check (no extra reads).
 | Cancelled | Requester, plus the approver unless the approver is the person cancelling |
 | Recounted by a calendar change | Requester only, saying which holiday or the working days changed; not when only the year split moved |
 
-"Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`) lists other active people's approved and
-pending leave sharing a date with the request, at most five then "and N more": the same names and dates the
-team calendar shows every member, never a note or a balance. The Approvals page shows it under each request
-(one range query for the whole inbox). It is information only and never blocks a request; rules about how many
-people may be off at once are a separate, future feature.
+"Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`, sentences from `src/domain/overlap.ts`)
+is one line about other active people in the requester's department (everyone, when they have none) whose approved
+or pending leave costs a working day within the request's dates: "Nobody else in Design is off then.", "Aisha Khan
+is off then too." or "Also off then: A, B (not approved yet), C and 2 more." Each person is counted once. It shows
+the same names and dates the team calendar shows every member, never a note or a balance. The Approvals page shows
+it under each request (three queries for the whole page) and the review email carries it. It is information only and
+never blocks a request; rules about how many people may be off at once are a separate, future feature.
 
 Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base URL.
 
@@ -429,16 +431,19 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 - `/requests` ("Your requests", in the account menu): every request the person has sent, latest dates first, ten a
   page. Each is a card (`RequestCard`, shared with the dashboard) that opens `/requests/[id]`; the whole card is the
   link (its dates, stretched over it) and lifts on hover. While a request can be cancelled (pending or approved,
-  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`, two steps, saying what happens:
-  days back to the balance for approved leave, and the approver is told unless the person approves their own).
+  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`): one click starts an 8-second
+  countdown with Undo, and the cancel is sent when it ends (leaving the page sends it at once).
 - `/requests/[id]`: one of the person's own requests in full (type, days, who it waits for or who decided it,
   when it was sent and decided, both notes) with Cancel request. Someone else's request is a 404, as an unknown one
   is. The personal calendar's chips and agenda rows link here.
-- `/approvals`: pending requests the person can decide (assigned to them; admins see every pending request
-  in the company, each marked with who it is assigned to), earliest dates first, each with Approve / Decline
-  and an optional reason the requester sees either way. Ten a page, with Previous and Next; when there is more
-  than a page, a note gives the full count. The header links here for managers, admins, and anyone with something
-  currently assigned to them.
+- `/approvals`: three tabs (`getApprovalTriage`, `TabNav`). **Needs you** holds pending requests assigned to the
+  person (for admins, also any with no approver); **Waiting on others**, shown only when it has something, holds
+  the pending requests an admin may decide but that are assigned to someone else; **Settled** lists what the
+  person approved or declined in the last 30 days (not their own self-approved requests), read from the audit log,
+  with each request's current status. Pending requests are earliest dates first, ten a page with Previous and
+  Next, each with Approve / Decline, an optional reason the requester sees either way, and the line on who else is
+  off then (above). The header links here for managers, admins, and anyone with something currently assigned to
+  them.
 
 ## Balances (M3)
 

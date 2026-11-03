@@ -75,7 +75,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
           </dl>
           {r.cancellable && (
             <div className="border-t border-border pt-4">
-              <CancelRequest request={r} me={me} focusOnSuccess={STATUS_ID} />
+              <CancelRequest request={r} focusOnSuccess={STATUS_ID} />
             </div>
           )}
         </div>

@@ -25,7 +25,8 @@ import {
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
 import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
-import { findMember, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { findDepartment } from "@/server/repositories/departments";
+import { findMember, findPerson, listActiveAdmins, lockMember } from "@/server/repositories/users";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { alsoOffFor } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
@@ -143,7 +144,11 @@ export async function submitLeaveRequest(
         mail.push({ to: me.email, email: { kind: "approved", recipientName: me.name, leave, reason: null, link: `${ctx.appUrl}/` } });
       }
     } else if (approver && approver.id !== actor.id) {
-      const alsoOff = (await alsoOffFor(tx, actor.companyId, [{ ...final, userId: actor.id }])).get(final.id) ?? null;
+      // Who else is off, scoped to the requester's department as on the Approvals page.
+      const person = await findPerson(tx, actor.companyId, actor.id);
+      const department = person?.departmentId ? await findDepartment(tx, actor.companyId, person.departmentId) : undefined;
+      const request = { ...final, userId: actor.id, departmentId: department?.id ?? null, departmentName: department?.name ?? null };
+      const alsoOff = (await alsoOffFor(tx, actor.companyId, [request])).get(final.id)?.line ?? null;
       mail.push({
         to: approver.email,
         email: { kind: "requested", recipientName: approver.name, leave, alsoOff, link: `${ctx.appUrl}/approvals` },

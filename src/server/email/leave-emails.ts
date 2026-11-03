@@ -34,7 +34,7 @@ export type LeaveEmail =
       kind: "requested";
       recipientName: string;
       leave: LeaveSummary;
-      /** Who else is off on those dates (`formatAlsoOff`), when anyone is. */
+      /** Who else is off on those dates, as the approver reads it on Approvals (`alsoOffFor`). */
       alsoOff?: string | null;
       link: string;
     }
@@ -56,12 +56,7 @@ export type LeaveEmail =
 
 /** Escapes `& < > " '` for HTML text and attribute values. */
 export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 interface Parts {
@@ -80,7 +75,7 @@ function parts(email: LeaveEmail): Parts {
       return {
         subject: "Time off request to review",
         intro: `${leave.requesterName} asked for time off.`,
-        extra: email.alsoOff ? { label: "Also off then", value: email.alsoOff } : undefined,
+        extra: email.alsoOff ? { label: "Who else is off", value: email.alsoOff } : undefined,
         showNote: true,
         action: "Review it in OOOhm",
       };
@@ -162,16 +157,7 @@ export function renderLeaveEmail(input: LeaveEmail): EmailContent {
   if (p.extra) details.push(p.extra);
 
   const greeting = recipientName ? `Hi ${recipientName},` : "Hi,";
-  const text = [
-    greeting,
-    "",
-    p.intro,
-    "",
-    ...details.map((d) => `${d.label}: ${d.value}`),
-    "",
-    `${p.action}: ${link}`,
-    "",
-  ].join("\n");
+  const text = [greeting, "", p.intro, "", ...details.map((d) => `${d.label}: ${d.value}`), "", `${p.action}: ${link}`, ""].join("\n");
 
   const rows = details
     .map(

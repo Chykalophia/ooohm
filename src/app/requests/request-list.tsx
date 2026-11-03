@@ -26,7 +26,7 @@ export function RequestList({
           request={r}
           me={me}
           href={`/requests/${r.id}`}
-          action={r.cancellable ? <CancelRequest request={r} me={me} focusOnSuccess={focusAfterCancel} /> : undefined}
+          action={r.cancellable ? <CancelRequest request={r} focusOnSuccess={focusAfterCancel} /> : undefined}
         />
       ))}
     </ul>

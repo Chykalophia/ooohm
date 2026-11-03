@@ -95,18 +95,13 @@ export async function listPersonalEntries(ex: Executor, companyId: string, userI
  * @param departmentId Only people in this department; already checked to belong to
  *   the company.
  */
-export async function listTeamEntries(
-  ex: Executor,
-  companyId: string,
-  from: string,
-  to: string,
-  departmentId: string | null = null,
-) {
+export async function listTeamEntries(ex: Executor, companyId: string, from: string, to: string, departmentId: string | null = null) {
   return ex
     .select({
       ...entryFields,
       personName: user.name,
       personEmail: user.email,
+      departmentId: user.departmentId,
       departmentName: departments.name,
     })
     .from(leaveRequests)

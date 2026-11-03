@@ -26,7 +26,7 @@ import {
   getDeletionPreview,
   runDueScrubs,
 } from "@/server/services/admin-people-deletion";
-import { decideLeaveRequest, listApprovalInbox } from "@/server/services/approvals";
+import { decideLeaveRequest } from "@/server/services/approvals";
 import { getAuditLog } from "@/server/services/audit-log";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { getTeamCalendar } from "@/server/services/calendar";
@@ -36,7 +36,7 @@ import { DAILY_JOBS, runDueJobs } from "@/server/services/scheduled-jobs";
 import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
 import { createWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
-import { companyAudit, companyEvents, seedCompany } from "./fixtures";
+import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 const NOW = new Date("2026-11-02T15:00:00Z");
@@ -74,7 +74,9 @@ async function findTraces(t: TestDatabase, needles: readonly string[]): Promise<
   assert.ok(columns.length > 40, `the scan sees the schema (${columns.length} columns)`);
   for (const { table, column } of columns) {
     for (const needle of needles) {
-      const [row] = await t.query<{ n: number }>`select count(*)::int as n from ${sql.identifier(table)} where strpos(lower(${sql.identifier(column)}::text), ${needle.toLowerCase()}) > 0`;
+      const [row] = await t.query<{
+        n: number;
+      }>`select count(*)::int as n from ${sql.identifier(table)} where strpos(lower(${sql.identifier(column)}::text), ${needle.toLowerCase()}) > 0`;
       if (Number(row.n) > 0) hits.push(`${table}.${column} contains "${needle}" (${row.n})`);
     }
   }
@@ -115,7 +117,13 @@ describe("admin: deleting people", { skip }, () => {
     const ctx = createTestContext(t.db, { now: NOW });
     const zebEmail = `zebulon.quixtrade-${randomUUID().slice(0, 6)}@example.com`;
     if (options.grace) {
-      await updateCompanySettings(ctx, boss, { name: "Acme", timezone: "UTC", workingDays: [1, 2, 3, 4, 5], allowancePolicy: "annual_calendar_year", deletionGrace: true });
+      await updateCompanySettings(ctx, boss, {
+        name: "Acme",
+        timezone: "UTC",
+        workingDays: [1, 2, 3, 4, 5],
+        allowancePolicy: "annual_calendar_year",
+        deletionGrace: true,
+      });
     }
     const { endpoint } = await createWebhookEndpoint(ctx, boss, {
       url: `https://hooks-${randomUUID().slice(0, 8)}.example.com/ooohm`,
@@ -125,19 +133,64 @@ describe("admin: deleting people", { skip }, () => {
     // Labels admins type on company settings name people too.
     await createApiKey(ctx, boss, { name: `${ZEB_NAME} - Zapier` });
 
-    const zebRow = await invitePerson(ctx, boss, { email: zebEmail, name: FORMER_NAME, departmentId: null, managerId: boss.id, role: "manager", canSelfApprove: false });
-    await updatePerson(ctx, boss, zebRow.id, { name: ZEB_NAME, departmentId: null, managerId: boss.id, role: "manager", canSelfApprove: false });
-    const zeb: Actor = { id: zebRow.id, companyId: co.companyId, role: "manager", canSelfApprove: false, source: { kind: "user", userId: zebRow.id } };
+    const zebRow = await invitePerson(ctx, boss, {
+      email: zebEmail,
+      name: FORMER_NAME,
+      departmentId: null,
+      managerId: boss.id,
+      role: "manager",
+      canSelfApprove: false,
+    });
+    await updatePerson(ctx, boss, zebRow.id, {
+      name: ZEB_NAME,
+      departmentId: null,
+      managerId: boss.id,
+      role: "manager",
+      canSelfApprove: false,
+    });
+    const zeb: Actor = {
+      id: zebRow.id,
+      companyId: co.companyId,
+      role: "manager",
+      canSelfApprove: false,
+      source: { kind: "user", userId: zebRow.id },
+    };
 
     // Zebulon's own leave, approved by the boss with a note; allowances for two years.
-    const own = await submitLeaveRequest(ctx, zeb, { leaveTypeId: co.pto, startDate: "2026-11-09", endDate: "2026-11-10", dayPortion: "full", note: "Dentist, private" });
+    const own = await submitLeaveRequest(ctx, zeb, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-09",
+      endDate: "2026-11-10",
+      dayPortion: "full",
+      note: "Dentist, private",
+    });
     await decideLeaveRequest(ctx, boss, { requestId: own.id, decision: "approve", reason: "Enjoy" });
     await submitLeaveRequest(ctx, zeb, { leaveTypeId: co.pto, startDate: "2026-12-14", endDate: "2026-12-14", dayPortion: "full" });
-    await setAllowanceOverride(ctx, boss, { userId: zeb.id, leaveTypeId: co.pto, year: 2026, days: 20, adjustmentDays: 0, reason: "Senior" });
-    await setAllowanceOverride(ctx, boss, { userId: zeb.id, leaveTypeId: co.pto, year: 2027, days: 22, adjustmentDays: 0, reason: "Senior" });
+    await setAllowanceOverride(ctx, boss, {
+      userId: zeb.id,
+      leaveTypeId: co.pto,
+      year: 2026,
+      days: 20,
+      adjustmentDays: 0,
+      reason: "Senior",
+    });
+    await setAllowanceOverride(ctx, boss, {
+      userId: zeb.id,
+      leaveTypeId: co.pto,
+      year: 2027,
+      days: 22,
+      adjustmentDays: 0,
+      reason: "Senior",
+    });
 
     // Mia reports to Zebulon for a while; Zebulon approves her leave, then she moves back.
-    await updatePerson(ctx, boss, mia.id, { name: mia.name, departmentId: null, managerId: zeb.id, role: "employee", canSelfApprove: false });
+    await updatePerson(ctx, boss, mia.id, {
+      name: mia.name,
+      departmentId: null,
+      managerId: zeb.id,
+      role: "employee",
+      canSelfApprove: false,
+    });
     const miaLeave = await submitLeaveRequest(ctx, mia, {
       leaveTypeId: co.pto,
       startDate: "2026-11-16",
@@ -146,7 +199,13 @@ describe("admin: deleting people", { skip }, () => {
       note: `Swapping with ${ZEB_NAME} (${zebEmail})`,
     });
     await decideLeaveRequest(ctx, zeb, { requestId: miaLeave.id, decision: "approve", reason: "Covered" });
-    await updatePerson(ctx, boss, mia.id, { name: mia.name, departmentId: null, managerId: boss.id, role: "employee", canSelfApprove: false });
+    await updatePerson(ctx, boss, mia.id, {
+      name: mia.name,
+      departmentId: null,
+      managerId: boss.id,
+      role: "employee",
+      canSelfApprove: false,
+    });
     // Text that names them with odd spacing and nothing else of theirs (no email, no id).
     const miaCover = await submitLeaveRequest(ctx, mia, {
       leaveTypeId: co.pto,
@@ -158,7 +217,9 @@ describe("admin: deleting people", { skip }, () => {
     await decideLeaveRequest(ctx, boss, { requestId: miaCover.id, decision: "approve", reason: "OK, Zebulon\nQuixtrade agreed" });
 
     await issueCalendarFeed(ctx, zeb, "personal");
-    await t.db.insert(schema.account).values({ id: randomUUID(), accountId: `google-${randomUUID()}`, providerId: "google", userId: zeb.id });
+    await t.db
+      .insert(schema.account)
+      .values({ id: randomUUID(), accountId: `google-${randomUUID()}`, providerId: "google", userId: zeb.id });
     await t.db.insert(schema.verification).values({
       id: randomUUID(),
       identifier: randomUUID(),
@@ -199,10 +260,15 @@ describe("admin: deleting people", { skip }, () => {
     await dispatchOutboxBatch(ctx);
     const sent = recorder();
     await deliverDueWebhooks(ctx, { fetch: sent.fetch });
-    assert.ok(sent.bodies.some((b) => b.includes(zebEmail)), "the webhook received Zebulon's email before the delete");
+    assert.ok(
+      sent.bodies.some((b) => b.includes(zebEmail)),
+      "the webhook received Zebulon's email before the delete",
+    );
     await deactivatePerson(ctx, boss, zeb.id);
     // A session that outlived deactivation (one created in the same instant): a delete removes it all the same.
-    await t.db.insert(schema.session).values({ id: randomUUID(), token: randomUUID(), userId: zeb.id, expiresAt: new Date(NOW.getTime() + 30 * DAY) });
+    await t.db
+      .insert(schema.session)
+      .values({ id: randomUUID(), token: randomUUID(), userId: zeb.id, expiresAt: new Date(NOW.getTime() + 30 * DAY) });
     await dispatchOutboxBatch(ctx);
     // A pending body that is not JSON (written by some earlier version) cannot be redacted.
     await t.db.insert(schema.webhookDeliveries).values({
@@ -263,7 +329,18 @@ describe("admin: deleting people", { skip }, () => {
     // The tombstone.
     const row = await userRow(t.db, zeb.id);
     assert.deepEqual(
-      [row.name, row.email, row.isActive, row.deletionMode, row.deletedAt?.getTime(), row.role, row.managerId, row.departmentId, row.emailVerified, row.scrubScheduledAt],
+      [
+        row.name,
+        row.email,
+        row.isActive,
+        row.deletionMode,
+        row.deletedAt?.getTime(),
+        row.role,
+        row.managerId,
+        row.departmentId,
+        row.emailVerified,
+        row.scrubScheduledAt,
+      ],
       [outcome.tombstoneName, tombstoneEmail(zeb.id), false, "scrubbed", NOW.getTime(), "employee", null, null, false, null],
     );
 
@@ -274,31 +351,64 @@ describe("admin: deleting people", { skip }, () => {
     assert.equal(await count(t.db.select().from(schema.session).where(eq(schema.session.userId, zeb.id))), 0);
     assert.equal(await count(t.db.select().from(schema.account).where(eq(schema.account.userId, zeb.id))), 0);
     assert.equal(await count(t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.userId, zeb.id))), 0);
-    assert.equal(await count(t.db.select().from(schema.verification).where(sql`strpos(${schema.verification.value}, ${zebEmail}) > 0`)), 0);
-    assert.equal(await count(t.db.select().from(schema.verification).where(eq(schema.verification.id, otherLink))), 1, "another person's link stays");
+    assert.equal(
+      await count(
+        t.db
+          .select()
+          .from(schema.verification)
+          .where(sql`strpos(${schema.verification.value}, ${zebEmail}) > 0`),
+      ),
+      0,
+    );
+    assert.equal(
+      await count(t.db.select().from(schema.verification).where(eq(schema.verification.id, otherLink))),
+      1,
+      "another person's link stays",
+    );
 
     // What belongs to others stays: Mia's request, decided by the tombstone, with her note redacted.
     const [miaAfter] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, miaLeave.id));
     assert.deepEqual([miaAfter.status, miaAfter.approverId, miaAfter.decisionNote], ["approved", zeb.id, "Covered"]);
     assert.equal(miaAfter.note, `Swapping with ${outcome.tombstoneName} (${tombstoneEmail(zeb.id)})`);
     const decidedByZeb = (await companyAudit(t.db, co.companyId)).filter((a) => a.actorId === zeb.id);
-    assert.ok(decidedByZeb.some((a) => a.action === "leave_request.approved" && a.subjectUserId === mia.id), "their approval of Mia's leave is still on record");
+    assert.ok(
+      decidedByZeb.some((a) => a.action === "leave_request.approved" && a.subjectUserId === mia.id),
+      "their approval of Mia's leave is still on record",
+    );
 
     // Exactly one audit row about them now: the delete, by the admin, counts only.
     const aboutZeb = (await companyAudit(t.db, co.companyId)).filter((a) => a.subjectUserId === zeb.id);
     assert.equal(aboutZeb.length, 1);
     const [deleted] = aboutZeb;
-    assert.deepEqual([deleted.action, deleted.actorKind, deleted.actorId, deleted.entityId, deleted.before], ["user.deleted", "user", boss.id, zeb.id, null]);
+    assert.deepEqual(
+      [deleted.action, deleted.actorKind, deleted.actorId, deleted.entityId, deleted.before],
+      ["user.deleted", "user", boss.id, zeb.id, null],
+    );
     assert.deepEqual(Object.keys(deleted.after as object), ["mode", "counts"]);
     const counts = (deleted.after as { mode: string; counts: Record<string, number> }).counts;
     assert.equal((deleted.after as { mode: string }).mode, "scrubbed");
     assert.deepEqual(
-      [counts.leaveRequestsDeleted, counts.allowancesDeleted, counts.auditEntriesDeleted, counts.sessionsDeleted, counts.accountsDeleted, counts.verificationsDeleted, counts.calendarFeedsDeleted],
+      [
+        counts.leaveRequestsDeleted,
+        counts.allowancesDeleted,
+        counts.auditEntriesDeleted,
+        counts.sessionsDeleted,
+        counts.accountsDeleted,
+        counts.verificationsDeleted,
+        counts.calendarFeedsDeleted,
+      ],
       [2, 2, preview.counts.auditEntries, 1, 1, 1, 1],
     );
     assert.equal(counts.deliveriesFailed, 1, "the pending body that is not JSON is stopped");
-    assert.ok(counts.eventsRedacted > 0 && counts.deliveriesRedacted > 0 && counts.importRunsRedacted === 1 && counts.auditEntriesRedacted >= 1, JSON.stringify(counts));
-    assert.deepEqual([counts.notesRedacted, counts.settingsRedacted, counts.pendingRequestsWithdrawn], [2, 2, 0], "two notes, the key name and the webhook description; a scrub deletes rather than withdraws");
+    assert.ok(
+      counts.eventsRedacted > 0 && counts.deliveriesRedacted > 0 && counts.importRunsRedacted === 1 && counts.auditEntriesRedacted >= 1,
+      JSON.stringify(counts),
+    );
+    assert.deepEqual(
+      [counts.notesRedacted, counts.settingsRedacted, counts.pendingRequestsWithdrawn],
+      [2, 2, 0],
+      "two notes, the key name and the webhook description; a scrub deletes rather than withdraws",
+    );
     const auditAfter = await companyAudit(t.db, co.companyId);
     assert.equal(auditAfter.length, auditBefore.length - preview.counts.auditEntries + 1, "only their rows went, and one came");
 
@@ -317,15 +427,24 @@ describe("admin: deleting people", { skip }, () => {
 
     // Nothing left: every text, varchar and jsonb column of every table, case-insensitively.
     assert.deepEqual(await findTraces(t, [...NAME_PARTS, zebEmail]), []);
-    const miaReason = (await companyAudit(t.db, co.companyId)).find((a) => a.subjectUserId === mia.id && (a.after as { reason?: string } | null)?.reason);
+    const miaReason = (await companyAudit(t.db, co.companyId)).find(
+      (a) => a.subjectUserId === mia.id && (a.after as { reason?: string } | null)?.reason,
+    );
     assert.equal(
       (miaReason?.after as { userId: string; reason: string }).reason,
       `Covering for ${outcome.tombstoneName} (once ${outcome.tombstoneName}), ${tombstoneEmail(zeb.id)}`,
       "a reason on a colleague's row loses their names, the former one too",
     );
     assert.equal((miaReason?.after as { userId: string }).userId, mia.id);
-    const [cover] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.note, `Cover: ${outcome.tombstoneName}`));
-    assert.equal(cover?.decisionNote, `OK, ${outcome.tombstoneName} agreed`, "a name split by two spaces or a line break is found and replaced");
+    const [cover] = await t.db
+      .select()
+      .from(schema.leaveRequests)
+      .where(eq(schema.leaveRequests.note, `Cover: ${outcome.tombstoneName}`));
+    assert.equal(
+      cover?.decisionNote,
+      `OK, ${outcome.tombstoneName} agreed`,
+      "a name split by two spaces or a line break is found and replaced",
+    );
     const [key] = await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.companyId, co.companyId));
     assert.equal(key.name, `${outcome.tombstoneName} - Zapier`);
     const [ep] = await t.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, endpoint.id));
@@ -338,7 +457,10 @@ describe("admin: deleting people", { skip }, () => {
     assert.ok(sent.bodies.length >= 2, `sent ${sent.bodies.length}`);
     for (const body of sent.bodies) assert.ok(!body.toLowerCase().includes("zebulon") && !body.includes(zebEmail), body);
     const stopped = await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.lastError, "subject_deleted"));
-    assert.deepEqual(stopped.map((d) => [d.endpointId, d.status]), [[endpoint.id, "failed"]]);
+    assert.deepEqual(
+      stopped.map((d) => [d.endpointId, d.status]),
+      [[endpoint.id, "failed"]],
+    );
 
     // History names the tombstone; pickers, People and the team view never show it.
     const log = await getAuditLog(ctx, boss, { actorId: zeb.id });
@@ -359,15 +481,21 @@ describe("admin: deleting people", { skip }, () => {
     assert.equal((await t.db.select().from(schema.allowances).where(eq(schema.allowances.userId, zeb.id))).length, 0);
     const client = { keyId: randomUUID(), companyId: co.companyId, scopes: ["read" as const] };
     assert.deepEqual((await listBalancesForApi(ctx, client, { year: 2026, userId: zeb.id })).data, []);
-    assert.ok((await listBalancesForApi(ctx, client, { year: 2026, userId: mia.id })).data.length > 0, "a living person still has balances");
+    assert.ok(
+      (await listBalancesForApi(ctx, client, { year: 2026, userId: mia.id })).data.length > 0,
+      "a living person still has balances",
+    );
   });
 
   test("keep records: sign-in and email go, history stays under '<Name> (deleted)', and the address can be invited again as a new person", async () => {
     const { co, ctx, boss, zeb, zebEmail, own } = await richCompany();
     const eventsBefore = await companyEvents(t.db, co.companyId);
     const auditBefore = await companyAudit(t.db, co.companyId);
-    const inboxBefore = await listApprovalInbox(ctx, boss);
-    assert.ok(inboxBefore.items.some((i) => i.requesterId === zeb.id), "their December request waits in Approvals");
+    const inboxBefore = await decidable(ctx, boss);
+    assert.ok(
+      inboxBefore.items.some((i) => i.requesterId === zeb.id),
+      "their December request waits in Approvals",
+    );
     const outcome = await deletePerson(ctx, boss, zeb.id, { mode: "records_kept", confirmName: ZEB_NAME });
     assert.equal(outcome.outcome, "deleted");
     if (outcome.outcome !== "deleted") return;
@@ -376,17 +504,27 @@ describe("admin: deleting people", { skip }, () => {
     assert.equal(outcome.counts.pendingRequestsWithdrawn, 1);
     const theirs = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.userId, zeb.id));
     assert.deepEqual(theirs.map((r) => r.status).sort(), ["approved", "cancelled"]);
-    assert.ok(!(await listApprovalInbox(ctx, boss)).items.some((i) => i.requesterId === zeb.id), "gone from Approvals");
+    assert.ok(!(await decidable(ctx, boss)).items.some((i) => i.requesterId === zeb.id), "gone from Approvals");
 
     // Their kept balances are still served.
     const client = { keyId: randomUUID(), companyId: co.companyId, scopes: ["read" as const] };
     const kept = (await listBalancesForApi(ctx, client, { year: 2026, userId: zeb.id })).data;
-    assert.deepEqual(kept.map((b) => [b.userId, b.leaveTypeId, b.allowance, b.used, b.pending]), [[zeb.id, co.pto, 20, 2, 0]]);
+    assert.deepEqual(
+      kept.map((b) => [b.userId, b.leaveTypeId, b.allowance, b.used, b.pending]),
+      [[zeb.id, co.pto, 20, 2, 0]],
+    );
 
     const row = await userRow(t.db, zeb.id);
-    assert.deepEqual([row.name, row.email, row.deletionMode, row.isActive], [`${ZEB_NAME} (deleted)`, tombstoneEmail(zeb.id), "records_kept", false]);
+    assert.deepEqual(
+      [row.name, row.email, row.deletionMode, row.isActive],
+      [`${ZEB_NAME} (deleted)`, tombstoneEmail(zeb.id), "records_kept", false],
+    );
     const [ownAfter] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, own.id));
-    assert.deepEqual([ownAfter.status, ownAfter.note, ownAfter.decisionNote], ["approved", "Dentist, private", "Enjoy"], "their history stays");
+    assert.deepEqual(
+      [ownAfter.status, ownAfter.note, ownAfter.decisionNote],
+      ["approved", "Dentist, private", "Enjoy"],
+      "their history stays",
+    );
     assert.equal((await t.db.select().from(schema.allowances).where(eq(schema.allowances.userId, zeb.id))).length, 2);
     assert.equal((await t.db.select().from(schema.session).where(eq(schema.session.userId, zeb.id))).length, 0);
     assert.equal((await t.db.select().from(schema.account).where(eq(schema.account.userId, zeb.id))).length, 0);
@@ -404,12 +542,22 @@ describe("admin: deleting people", { skip }, () => {
     // The email is gone everywhere; the name stays (that is the point of keeping records).
     assert.deepEqual(await findTraces(t, [zebEmail]), []);
     const created = auditAfter.find((a) => a.action === "user.created" && a.subjectUserId === zeb.id);
-    assert.deepEqual([(created?.after as { name: string }).name, (created?.after as { email: string }).email], [FORMER_NAME, tombstoneEmail(zeb.id)]);
+    assert.deepEqual(
+      [(created?.after as { name: string }).name, (created?.after as { email: string }).email],
+      [FORMER_NAME, tombstoneEmail(zeb.id)],
+    );
     const log = await getAuditLog(ctx, boss, { subjectUserId: zeb.id });
     assert.ok(log.entries.length > 5 && log.entries.every((e) => e.subjectName === `${ZEB_NAME} (deleted)`));
 
     // Re-invite: a brand-new person, nothing linking them to the tombstone.
-    const again = await invitePerson(ctx, boss, { email: zebEmail, name: ZEB_NAME, departmentId: null, managerId: null, role: "employee", canSelfApprove: false });
+    const again = await invitePerson(ctx, boss, {
+      email: zebEmail,
+      name: ZEB_NAME,
+      departmentId: null,
+      managerId: null,
+      role: "employee",
+      canSelfApprove: false,
+    });
     assert.notEqual(again.id, zeb.id);
     const fresh = await userRow(t.db, again.id);
     assert.deepEqual([fresh.email, fresh.isActive, fresh.deletedAt, fresh.managerId], [zebEmail, true, null, null]);
@@ -431,11 +579,14 @@ describe("admin: deleting people", { skip }, () => {
     const { boss, mgr, ana, emp } = co.people;
     const blockersOf = async (id: string, name: string) => {
       let blockers: unknown;
-      await assert.rejects(deletePerson(ctx, boss, id, { mode: "scrubbed", confirmName: name }), (err: { code?: string; details?: unknown }) => {
-        assert.equal(err.code, "deletion_blocked");
-        blockers = err.details;
-        return true;
-      });
+      await assert.rejects(
+        deletePerson(ctx, boss, id, { mode: "scrubbed", confirmName: name }),
+        (err: { code?: string; details?: unknown }) => {
+          assert.equal(err.code, "deletion_blocked");
+          blockers = err.details;
+          return true;
+        },
+      );
       return blockers as { stillActive: boolean; reports: { id: string }[]; pendingApprovals: number; lastAdmin: boolean };
     };
     const auditCount = async () => (await companyAudit(t.db, co.companyId)).length;
@@ -453,7 +604,12 @@ describe("admin: deleting people", { skip }, () => {
 
     // Pending requests to decide.
     await t.db.update(schema.user).set({ managerId: null }).where(eq(schema.user.id, ana.id));
-    const req = await submitLeaveRequest(ctx, ana, { leaveTypeId: co.pto, startDate: "2026-11-09", endDate: "2026-11-09", dayPortion: "full" });
+    const req = await submitLeaveRequest(ctx, ana, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-09",
+      endDate: "2026-11-09",
+      dayPortion: "full",
+    });
     await t.db.update(schema.leaveRequests).set({ approverId: mgr.id }).where(eq(schema.leaveRequests.id, req.id));
     const pending = await blockersOf(mgr.id, mgr.name);
     assert.deepEqual([pending.reports, pending.pendingApprovals], [[], 1]);
@@ -497,24 +653,35 @@ describe("admin: deleting people", { skip }, () => {
     if (scheduled.outcome !== "scheduled") return;
     assert.deepEqual([scheduled.scheduledFor.getTime(), scheduled.alreadyScheduled], [NOW.getTime() + 7 * DAY, false]);
     let row = await userRow(t.db, zeb.id);
-    assert.deepEqual([row.scrubScheduledAt?.getTime(), row.scrubRequestedBy, row.deletedAt, row.email], [NOW.getTime() + 7 * DAY, boss.id, null, zebEmail]);
+    assert.deepEqual(
+      [row.scrubScheduledAt?.getTime(), row.scrubRequestedBy, row.deletedAt, row.email],
+      [NOW.getTime() + 7 * DAY, boss.id, null, zebEmail],
+    );
     assert.equal((await companyAudit(t.db, co.companyId, "user.deletion_scheduled")).length, 1);
-    assert.deepEqual((await companyEvents(t.db, co.companyId, "user.deletion_scheduled")).map((e) => e.payload), [
-      { userId: zeb.id, scheduledFor: scheduled.scheduledFor.toISOString(), actorId: boss.id, actor: { type: "user", id: boss.id } },
-    ]);
+    assert.deepEqual(
+      (await companyEvents(t.db, co.companyId, "user.deletion_scheduled")).map((e) => e.payload),
+      [{ userId: zeb.id, scheduledFor: scheduled.scheduledFor.toISOString(), actorId: boss.id, actor: { type: "user", id: boss.id } }],
+    );
     const listed = (await listPeople(ctx, boss, { status: "all" })).people.find((p) => p.id === zeb.id);
     assert.equal(listed?.scrubScheduledAt?.getTime(), scheduled.scheduledFor.getTime(), "the People list shows the date");
 
     // Asking again changes nothing; undo clears it (audited); doing undo again is a no-op.
     const later = createTestContext(t.db, { now: new Date(NOW.getTime() + 5 * DAY) });
     const again = await deletePerson(later, boss, zeb.id, { mode: "scrubbed", confirmName: ZEB_NAME });
-    assert.deepEqual(again, { outcome: "scheduled", userId: zeb.id, scheduledFor: scheduled.scheduledFor, alreadyScheduled: true }, "the date it already had");
+    assert.deepEqual(
+      again,
+      { outcome: "scheduled", userId: zeb.id, scheduledFor: scheduled.scheduledFor, alreadyScheduled: true },
+      "the date it already had",
+    );
     assert.equal((await companyAudit(t.db, co.companyId, "user.deletion_scheduled")).length, 1);
     assert.equal(await cancelScheduledDeletion(ctx, boss, zeb.id), true);
     assert.equal(await cancelScheduledDeletion(ctx, boss, zeb.id), false);
     row = await userRow(t.db, zeb.id);
     assert.deepEqual([row.scrubScheduledAt, row.scrubRequestedBy], [null, null]);
-    assert.deepEqual((await companyEvents(t.db, co.companyId, "user.deletion_cancelled")).map((e) => (e.payload as { userId: string }).userId), [zeb.id]);
+    assert.deepEqual(
+      (await companyEvents(t.db, co.companyId, "user.deletion_cancelled")).map((e) => (e.payload as { userId: string }).userId),
+      [zeb.id],
+    );
 
     // Reactivating cancels a schedule too (only a deactivated person can wait for one).
     await deletePerson(ctx, boss, zeb.id, { mode: "scrubbed", confirmName: ZEB_NAME });
@@ -554,19 +721,43 @@ describe("admin: deleting people", { skip }, () => {
     });
     const log = await getAuditLog(dueCtx, boss, { action: "user.deleted" });
     assert.equal(log.entries[0].actorLabel, "System: scheduled deletion, requested by Boss");
-    assert.equal((await companyAudit(t.db, co.companyId)).filter((a) => a.subjectUserId === zeb.id).length, 1, "the schedule rows went with the rest");
+    assert.equal(
+      (await companyAudit(t.db, co.companyId)).filter((a) => a.subjectUserId === zeb.id).length,
+      1,
+      "the schedule rows went with the rest",
+    );
     assert.deepEqual(await runDueScrubs(dueCtx), { scrubbed: 0, blocked: 0 }, "nothing left to do");
   });
 
   test("grace period: a due scrub a rule now refuses waits; keeping records never waits and replaces a scheduled scrub", async () => {
-    const co = await seedCompany(t.db, { boss: { role: "admin" }, zed: { isActive: false }, ana: {}, kim: { isActive: false }, lee: { isActive: false } });
+    const co = await seedCompany(t.db, {
+      boss: { role: "admin" },
+      zed: { isActive: false },
+      ana: {},
+      kim: { isActive: false },
+      lee: { isActive: false },
+    });
     const ctx = createTestContext(t.db, { now: NOW });
     const { boss, zed, ana, kim, lee } = co.people;
-    await updateCompanySettings(ctx, boss, { name: "Acme", timezone: "UTC", workingDays: [1, 2, 3, 4, 5], allowancePolicy: "annual_calendar_year", deletionGrace: true });
+    await updateCompanySettings(ctx, boss, {
+      name: "Acme",
+      timezone: "UTC",
+      workingDays: [1, 2, 3, 4, 5],
+      allowancePolicy: "annual_calendar_year",
+      deletionGrace: true,
+    });
     await deletePerson(ctx, boss, zed.id, { mode: "scrubbed", confirmName: "Zed" });
     // Lee's scrub falls due an hour after Zed's, so a run meets Zed's first.
-    await deletePerson(createTestContext(t.db, { now: new Date(NOW.getTime() + 3_600_000) }), boss, lee.id, { mode: "scrubbed", confirmName: "Lee" });
-    const req = await submitLeaveRequest(ctx, ana, { leaveTypeId: co.pto, startDate: "2026-11-09", endDate: "2026-11-09", dayPortion: "full" });
+    await deletePerson(createTestContext(t.db, { now: new Date(NOW.getTime() + 3_600_000) }), boss, lee.id, {
+      mode: "scrubbed",
+      confirmName: "Lee",
+    });
+    const req = await submitLeaveRequest(ctx, ana, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-09",
+      endDate: "2026-11-09",
+      dayPortion: "full",
+    });
     await t.db.update(schema.leaveRequests).set({ approverId: zed.id }).where(eq(schema.leaveRequests.id, req.id));
     const later = createTestContext(t.db, { now: new Date(NOW.getTime() + 8 * DAY) });
     // A run that may carry out one scrub passes over Zed's (blocked) and does Lee's.
@@ -592,16 +783,44 @@ describe("admin: deleting people", { skip }, () => {
       const { boss } = co.people;
       const ctx = createTestContext(t.db, { now: NOW });
       const domain = `acme-${randomUUID().slice(0, 8)}.example.com`;
-      await createWebhookEndpoint(ctx, boss, { url: `https://hooks-${randomUUID().slice(0, 8)}.example.com/x`, description: "", eventTypes: ["user.created", "user.updated"] });
-      const ed = await invitePerson(ctx, boss, { email: `ed@${domain}`, name: "Ed Stone", departmentId: null, managerId: null, role: "employee", canSelfApprove: false });
-      const ted = await invitePerson(ctx, boss, { email: `ted@${domain}`, name: "Ted Park", departmentId: null, managerId: null, role: "employee", canSelfApprove: false });
-      await updatePerson(ctx, boss, ted.id, { name: "Ted Park", departmentId: null, managerId: boss.id, role: "employee", canSelfApprove: false });
+      await createWebhookEndpoint(ctx, boss, {
+        url: `https://hooks-${randomUUID().slice(0, 8)}.example.com/x`,
+        description: "",
+        eventTypes: ["user.created", "user.updated"],
+      });
+      const ed = await invitePerson(ctx, boss, {
+        email: `ed@${domain}`,
+        name: "Ed Stone",
+        departmentId: null,
+        managerId: null,
+        role: "employee",
+        canSelfApprove: false,
+      });
+      const ted = await invitePerson(ctx, boss, {
+        email: `ted@${domain}`,
+        name: "Ted Park",
+        departmentId: null,
+        managerId: null,
+        role: "employee",
+        canSelfApprove: false,
+      });
+      await updatePerson(ctx, boss, ted.id, {
+        name: "Ted Park",
+        departmentId: null,
+        managerId: boss.id,
+        role: "employee",
+        canSelfApprove: false,
+      });
       await deactivatePerson(ctx, boss, ed.id);
       await dispatchOutboxBatch(ctx);
       await ctx.settle();
 
-      const tedAudit = async () => (await companyAudit(t.db, co.companyId)).filter((a) => a.subjectUserId === ted.id).map((a) => JSON.stringify([a.before, a.after]));
-      const tedEvents = async () => (await companyEvents(t.db, co.companyId)).filter((e) => (e.payload as { userId?: string }).userId === ted.id).map((e) => JSON.stringify(e.payload));
+      const tedAudit = async () =>
+        (await companyAudit(t.db, co.companyId)).filter((a) => a.subjectUserId === ted.id).map((a) => JSON.stringify([a.before, a.after]));
+      const tedEvents = async () =>
+        (await companyEvents(t.db, co.companyId))
+          .filter((e) => (e.payload as { userId?: string }).userId === ted.id)
+          .map((e) => JSON.stringify(e.payload));
       const tedDeliveries = async () =>
         (await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.companyId, co.companyId)))
           .filter((d) => d.body.includes(`"userId":"${ted.id}"`))
@@ -624,29 +843,72 @@ describe("admin: deleting people", { skip }, () => {
   test("a colleague with the same name keeps every record of theirs through the other's scrub", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db, { now: NOW });
-    const person = (email: string) => ({ email, name: "Sam Lee", departmentId: null, managerId: null, role: "employee", canSelfApprove: false });
+    const person = (email: string) => ({
+      email,
+      name: "Sam Lee",
+      departmentId: null,
+      managerId: null,
+      role: "employee",
+      canSelfApprove: false,
+    });
     const gone = await invitePerson(ctx, co.people.boss, person(`sam.a-${randomUUID().slice(0, 6)}@example.com`));
     const stays = await invitePerson(ctx, co.people.boss, person(`sam.b-${randomUUID().slice(0, 6)}@example.com`));
     // Free text on the surviving Sam Lee's own records: their note, and a reason on their allowance.
-    const samB: Actor = { id: stays.id, companyId: co.companyId, role: "employee", canSelfApprove: false, source: { kind: "user", userId: stays.id } };
-    const note = await submitLeaveRequest(ctx, samB, { leaveTypeId: co.pto, startDate: "2026-11-09", endDate: "2026-11-09", dayPortion: "full", note: "Sam Lee: dentist" });
-    await setAllowanceOverride(ctx, co.people.boss, { userId: stays.id, leaveTypeId: co.pto, year: 2026, days: 22, adjustmentDays: 0, reason: "Raise for Sam Lee after review" });
-    const theirAudit = async () => (await companyAudit(t.db, co.companyId)).filter((a) => a.subjectUserId === stays.id).map((a) => JSON.stringify([a.id, a.before, a.after]));
+    const samB: Actor = {
+      id: stays.id,
+      companyId: co.companyId,
+      role: "employee",
+      canSelfApprove: false,
+      source: { kind: "user", userId: stays.id },
+    };
+    const note = await submitLeaveRequest(ctx, samB, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-09",
+      endDate: "2026-11-09",
+      dayPortion: "full",
+      note: "Sam Lee: dentist",
+    });
+    await setAllowanceOverride(ctx, co.people.boss, {
+      userId: stays.id,
+      leaveTypeId: co.pto,
+      year: 2026,
+      days: 22,
+      adjustmentDays: 0,
+      reason: "Raise for Sam Lee after review",
+    });
+    const theirAudit = async () =>
+      (await companyAudit(t.db, co.companyId))
+        .filter((a) => a.subjectUserId === stays.id)
+        .map((a) => JSON.stringify([a.id, a.before, a.after]));
     const theirEvents = async () =>
-      (await companyEvents(t.db, co.companyId)).filter((e) => (e.payload as { userId?: string }).userId === stays.id).map((e) => JSON.stringify(e.payload));
+      (await companyEvents(t.db, co.companyId))
+        .filter((e) => (e.payload as { userId?: string }).userId === stays.id)
+        .map((e) => JSON.stringify(e.payload));
     const before = { audit: await theirAudit(), events: await theirEvents() };
     assert.ok(before.audit.some((a) => a.includes("Raise for Sam Lee")) && before.events.length >= 3, JSON.stringify(before));
     await deactivatePerson(ctx, co.people.boss, gone.id);
     await deletePerson(ctx, co.people.boss, gone.id, { mode: "scrubbed", confirmName: "Sam Lee" });
 
-    assert.deepEqual({ audit: await theirAudit(), events: await theirEvents() }, before, "the namesake's records, free text included, are untouched");
+    assert.deepEqual(
+      { audit: await theirAudit(), events: await theirEvents() },
+      before,
+      "the namesake's records, free text included, are untouched",
+    );
     const [noteAfter] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, note.id));
     assert.equal(noteAfter.note, "Sam Lee: dentist");
 
     const created = (await companyAudit(t.db, co.companyId, "user.created")).filter((a) => a.subjectUserId === stays.id);
-    assert.deepEqual(created.map((a) => (a.after as { name: string; email: string }).name), ["Sam Lee"]);
-    const events = (await companyEvents(t.db, co.companyId, "user.created")).map((e) => e.payload as { userId: string; name: string; email: string });
-    assert.deepEqual(events.find((p) => p.userId === stays.id), { ...events.find((p) => p.userId === stays.id), name: "Sam Lee", email: stays.email });
+    assert.deepEqual(
+      created.map((a) => (a.after as { name: string; email: string }).name),
+      ["Sam Lee"],
+    );
+    const events = (await companyEvents(t.db, co.companyId, "user.created")).map(
+      (e) => e.payload as { userId: string; name: string; email: string },
+    );
+    assert.deepEqual(
+      events.find((p) => p.userId === stays.id),
+      { ...events.find((p) => p.userId === stays.id), name: "Sam Lee", email: stays.email },
+    );
     assert.equal(events.find((p) => p.userId === gone.id)?.name, `Former employee #${gone.id.replaceAll("-", "").slice(0, 6)}`);
     assert.equal((await userRow(t.db, stays.id)).name, "Sam Lee");
   });
@@ -655,16 +917,21 @@ describe("admin: deleting people", { skip }, () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, mgr: { role: "manager" }, kim: { managerKey: "mgr" } });
     const ctx = createTestContext(t.db, { now: NOW });
     const { boss, mgr, kim } = co.people;
-    const req = await submitLeaveRequest(ctx, kim, { leaveTypeId: co.pto, startDate: "2026-11-09", endDate: "2026-11-09", dayPortion: "full" });
+    const req = await submitLeaveRequest(ctx, kim, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-09",
+      endDate: "2026-11-09",
+      dayPortion: "full",
+    });
     await deactivatePerson(ctx, boss, kim.id);
-    assert.equal((await listApprovalInbox(ctx, mgr)).total, 1, "deactivating keeps their request waiting");
+    assert.equal((await decidable(ctx, mgr)).total, 1, "deactivating keeps their request waiting");
 
     const auditBefore = (await companyAudit(t.db, co.companyId)).length;
     const eventsBefore = (await companyEvents(t.db, co.companyId)).length;
     await deletePerson(ctx, boss, kim.id, { mode: "records_kept", confirmName: "Kim" });
     const [after] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, req.id));
     assert.equal(after.status, "cancelled");
-    assert.equal((await listApprovalInbox(ctx, mgr)).total, 0);
+    assert.equal((await decidable(ctx, mgr)).total, 0);
     await rejectsWith(decideLeaveRequest(ctx, boss, { requestId: req.id, decision: "approve" }), "invalid_transition");
     assert.deepEqual(
       [(await companyAudit(t.db, co.companyId)).length, (await companyEvents(t.db, co.companyId)).length],
@@ -681,9 +948,20 @@ describe("admin: deleting people", { skip }, () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const { boss } = co.people;
     const ctx = createTestContext(t.db, { now: NOW });
-    await createWebhookEndpoint(ctx, boss, { url: `https://hooks-${randomUUID().slice(0, 8)}.example.com/x`, description: "", eventTypes: ["user.created"] });
+    await createWebhookEndpoint(ctx, boss, {
+      url: `https://hooks-${randomUUID().slice(0, 8)}.example.com/x`,
+      description: "",
+      eventTypes: ["user.created"],
+    });
     const email = `quill.ostrander-${randomUUID().slice(0, 6)}@example.com`;
-    const qo = await invitePerson(ctx, boss, { email, name: "Quill Ostrander", departmentId: null, managerId: null, role: "employee", canSelfApprove: false });
+    const qo = await invitePerson(ctx, boss, {
+      email,
+      name: "Quill Ostrander",
+      departmentId: null,
+      managerId: null,
+      role: "employee",
+      canSelfApprove: false,
+    });
     await deactivatePerson(ctx, boss, qo.id);
     await dispatchOutboxBatch(ctx);
     await ctx.settle();
@@ -714,7 +992,7 @@ describe("admin: deleting people", { skip }, () => {
 
   test("the records export: requests, balances per year and audit entries, admin-only, audited, no formulas", async () => {
     const { co, ctx, boss, zeb, own } = await richCompany();
-    await t.db.update(schema.leaveRequests).set({ note: "=HYPERLINK(\"x\")" }).where(eq(schema.leaveRequests.id, own.id));
+    await t.db.update(schema.leaveRequests).set({ note: '=HYPERLINK("x")' }).where(eq(schema.leaveRequests.id, own.id));
     const { fileName, csv } = await exportPersonRecords(ctx, boss, zeb.id);
     assert.equal(fileName, `ooohm-records-${zeb.id.replaceAll("-", "").slice(0, 6)}.csv`);
     const lines = csv.split("\r\n");
@@ -725,7 +1003,10 @@ describe("admin: deleting people", { skip }, () => {
     assert.ok(lines.filter((l) => l.startsWith("audit,")).length >= 8);
     assert.ok(csv.includes(`"'=HYPERLINK(""x"")"`), "a formula-looking note is neutralized");
     const exported = await companyAudit(t.db, co.companyId, "user.records_exported");
-    assert.deepEqual(exported.map((a) => [a.actorId, a.subjectUserId]), [[boss.id, zeb.id]]);
+    assert.deepEqual(
+      exported.map((a) => [a.actorId, a.subjectUserId]),
+      [[boss.id, zeb.id]],
+    );
     assert.equal((await companyEvents(t.db, co.companyId, "user.records")).length, 0, "an export changes nothing, so no event");
   });
 });

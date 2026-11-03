@@ -4,6 +4,8 @@ import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor, Role } from "@/domain/actor";
 import { byUser } from "@/domain/change-source";
+import type { ServiceContext } from "@/server/context";
+import { getApprovalTriage } from "@/server/services/approvals";
 
 export interface PersonSpec {
   role?: Role;
@@ -28,11 +30,11 @@ export interface Company {
  * company, so tests in one file never see each other's rows.
  */
 export async function seedCompany(db: Database, people: Record<string, PersonSpec>): Promise<Company> {
-  const [company] = await db.insert(schema.companies).values({ name: `Co ${randomUUID().slice(0, 8)}` }).returning();
-  const [pto] = await db
-    .insert(schema.leaveTypes)
-    .values({ companyId: company.id, code: "PTO", name: "PTO", sortOrder: 0 })
+  const [company] = await db
+    .insert(schema.companies)
+    .values({ name: `Co ${randomUUID().slice(0, 8)}` })
     .returning();
+  const [pto] = await db.insert(schema.leaveTypes).values({ companyId: company.id, code: "PTO", name: "PTO", sortOrder: 0 }).returning();
   const [archived] = await db
     .insert(schema.leaveTypes)
     .values({ companyId: company.id, code: "OLD", name: "Old", sortOrder: 1, archivedAt: new Date() })
@@ -70,6 +72,18 @@ export async function seedCompany(db: Database, people: Record<string, PersonSpe
     }
   }
   return { companyId: company.id, pto: pto.id, archived: archived.id, people: out };
+}
+
+/**
+ * Every pending request `actor` may decide, first page of both Approvals tabs (Needs you,
+ * then Waiting on others), with their combined count: what one inbox used to hold.
+ */
+export async function decidable(ctx: ServiceContext, actor: Actor) {
+  const mine = await getApprovalTriage(ctx, actor, { view: "mine", size: 100 });
+  const others = await getApprovalTriage(ctx, actor, { view: "others", size: 100 });
+  // A non-admin asking for "others" gets their own tab back; count it once.
+  const items = [...mine.items, ...(others.view === "others" ? others.items : [])];
+  return { items, total: mine.needsYouTotal + mine.waitingTotal };
 }
 
 /** Audit rows for one request, oldest first. */

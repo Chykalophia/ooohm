@@ -264,23 +264,3 @@ export function formatRecountOutcome(outcome: {
   }
   return parts.join(" ");
 }
-
-/** How many requests the "also off then" hint lists (each a person and their dates) before it says "and N more". */
-export const ALSO_OFF_SHOWN = 5;
-
-/**
- * Who else is off during a request, for its approver, e.g. "Victor: Mon, Dec 21 to Tue,
- * Dec 22, 2026; Chrismer: Wed, Dec 23, 2026 (afternoon, pending); and 2 more". `null`
- * when nobody is.
- */
-export function formatAlsoOff(
-  entries: readonly { name: string; startDate: string; endDate: string; dayPortion: "full" | "am" | "pm"; pending: boolean }[],
-): string | null {
-  if (entries.length === 0) return null;
-  const shown = entries.slice(0, ALSO_OFF_SHOWN).map((e) => {
-    const marks = [e.dayPortion === "full" ? null : PORTION_LABEL[e.dayPortion], e.pending ? "pending" : null].filter(Boolean);
-    return `${e.name}: ${formatLeaveDates(e.startDate, e.endDate)}${marks.length > 0 ? ` (${marks.join(", ")})` : ""}`;
-  });
-  const more = entries.length - shown.length;
-  return more > 0 ? `${shown.join("; ")}; and ${more} more` : shown.join("; ");
-}

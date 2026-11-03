@@ -1,6 +1,6 @@
-import { and, asc, count, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { leaveRequests, leaveTypes, user } from "@/db/schema";
+import { auditLog, departments, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { LeaveStatus } from "@/domain/leave-request";
 import type { PageRequest } from "@/domain/paging";
@@ -224,6 +224,12 @@ export interface InboxScope {
   companyId: string;
   deciderId: string;
   isAdmin: boolean;
+  /**
+   * Narrows an admin's inbox: `mine` is what is assigned to them or to nobody, `others`
+   * what is assigned to someone else. Omitted, the whole inbox. A non-admin's inbox is
+   * all `mine`.
+   */
+  part?: "mine" | "others";
 }
 
 /**
@@ -236,18 +242,19 @@ export interface InboxScope {
 function inboxWhere(scope: InboxScope): SQL | undefined {
   const assigned = eq(leaveRequests.approverId, scope.deciderId);
   const notOwn = ne(leaveRequests.userId, scope.deciderId);
-  return and(
-    eq(leaveRequests.companyId, scope.companyId),
-    eq(leaveRequests.status, "pending"),
-    scope.isAdmin ? or(assigned, notOwn) : and(assigned, notOwn),
-  );
+  let who: SQL | undefined;
+  if (!scope.isAdmin) who = scope.part === "others" ? sql`false` : and(assigned, notOwn);
+  else if (scope.part === "mine") who = or(assigned, and(isNull(leaveRequests.approverId), notOwn));
+  else if (scope.part === "others") who = and(ne(leaveRequests.approverId, scope.deciderId), notOwn);
+  else who = or(assigned, notOwn);
+  return and(eq(leaveRequests.companyId, scope.companyId), eq(leaveRequests.status, "pending"), who);
 }
 
 /**
  * A page of the pending requests the inbox shows for `scope`, earliest start first (then
- * first sent), with requester, leave type and assigned approver names joined in: at most
- * `limit` rows, one query. Keyed on `[start_date, created_at, id]` like
- * {@link listRequestsForUser}.
+ * first sent), with requester (and their department), leave type and assigned approver
+ * names joined in: at most `limit` rows, one query. Keyed on `[start_date, created_at,
+ * id]` like {@link listRequestsForUser}.
  */
 export async function listInbox(ex: Executor, scope: InboxScope, limit: number, page?: PageRequest) {
   const keyset = keysetPage("asc", [leaveRequests.startDate, leaveRequests.createdAt, leaveRequests.id], page, dateInstantId);
@@ -266,12 +273,15 @@ export async function listInbox(ex: Executor, scope: InboxScope, limit: number, 
       requesterId: leaveRequests.userId,
       requesterName: requester.name,
       requesterEmail: requester.email,
+      requesterDepartmentId: requester.departmentId,
+      requesterDepartmentName: departments.name,
       approverId: leaveRequests.approverId,
       approverName: approver.name,
     })
     .from(leaveRequests)
     .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
     .innerJoin(requester, eq(requester.id, leaveRequests.userId))
+    .leftJoin(departments, eq(departments.id, requester.departmentId))
     .leftJoin(approver, eq(approver.id, leaveRequests.approverId))
     .where(and(inboxWhere(scope), keyset.where))
     .orderBy(...keyset.orderBy)
@@ -324,4 +334,49 @@ export async function updateRequestDays(tx: Transaction, companyId: string, id: 
   // The caller locked the row earlier in this transaction, so it is there; fail loudly if not.
   if (!row) throw new Error(`leave request ${id} missing while its days were updated`);
   return row;
+}
+
+/** The two audit actions that record a decision on a request. */
+const DECISION_ACTIONS = ["leave_request.approved", "leave_request.rejected"] as const;
+
+/**
+ * Requests `deciderId` approved or declined since `since`, newest decision first, with
+ * the decision as audited and the request as it is now (it may have been cancelled
+ * since). Leaves out the decider's own requests, which self-approval also records as
+ * theirs. At most `limit` rows, one query on `audit_log_company_actor_idx`.
+ */
+export async function listRecentDecisions(ex: Executor, q: { companyId: string; deciderId: string; since: Date }, limit: number) {
+  return ex
+    .select({
+      id: leaveRequests.id,
+      action: auditLog.action,
+      decidedAt: auditLog.createdAt,
+      status: leaveRequests.status,
+      startDate: leaveRequests.startDate,
+      endDate: leaveRequests.endDate,
+      dayPortion: leaveRequests.dayPortion,
+      days: leaveRequests.days,
+      decisionNote: leaveRequests.decisionNote,
+      leaveTypeName: leaveTypes.name,
+      leaveTypeColor: leaveTypes.color,
+      requesterName: requester.name,
+      requesterEmail: requester.email,
+    })
+    .from(auditLog)
+    .innerJoin(leaveRequests, eq(sql`${leaveRequests.id}::text`, auditLog.entityId))
+    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
+    .innerJoin(requester, eq(requester.id, leaveRequests.userId))
+    .where(
+      and(
+        eq(auditLog.companyId, q.companyId),
+        eq(auditLog.actorId, q.deciderId),
+        gte(auditLog.createdAt, q.since),
+        inArray(auditLog.action, [...DECISION_ACTIONS]),
+        eq(auditLog.entityType, "leave_request"),
+        eq(leaveRequests.companyId, q.companyId),
+        ne(leaveRequests.userId, q.deciderId),
+      ),
+    )
+    .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
+    .limit(limit);
 }

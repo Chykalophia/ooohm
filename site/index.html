@@ -55,7 +55,7 @@
         </div>
 
         <div class="hero-demo" aria-label="Try the request sentence">
-          <form class="card sentence-card" data-sentence>
+          <form class="card sentence-card" data-sentence aria-label="Request time off">
             <p class="card-title">Request time off</p>
             <p class="sentence">
               I’m taking
@@ -206,9 +206,9 @@
         <div class="card year-card" data-year>
           <div class="year-head">
             <p class="card-title">PTO for <span data-year-label>2026</span></p>
-            <div class="seg" role="radiogroup" aria-label="Carryover for PTO">
-              <button type="button" role="radio" aria-checked="true" data-carry="0">Carryover off</button>
-              <button type="button" role="radio" aria-checked="false" data-carry="5">Up to 5 days</button>
+            <div class="seg" role="group" aria-label="Carryover for PTO">
+              <button type="button" aria-pressed="true" data-carry="0">Carryover off</button>
+              <button type="button" aria-pressed="false" data-carry="5">Up to 5 days</button>
             </div>
           </div>
           <div class="squares big" data-year-squares aria-hidden="true"></div>
@@ -301,16 +301,16 @@
           <div class="theme-stage">
             <img data-theme-img src="media/themes/classic.jpg" alt="The OOOhm home screen in the Classic theme" width="1260" height="840" loading="lazy">
           </div>
-          <div class="theme-picker" role="radiogroup" aria-label="Preview a theme">
-            <button type="button" role="radio" aria-checked="true" data-theme="classic" style="--sw:#0f766e">Classic</button>
-            <button type="button" role="radio" aria-checked="false" data-theme="cobalt" style="--sw:#2546d0">Cobalt</button>
-            <button type="button" role="radio" aria-checked="false" data-theme="marigold" style="--sw:#f2a900">Ink &amp; Marigold</button>
-            <button type="button" role="radio" aria-checked="false" data-theme="saffron" style="--sw:#ff9f1c">Saffron</button>
-            <button type="button" role="radio" aria-checked="false" data-theme="graphite" style="--sw:#18181b">Graphite</button>
-            <button type="button" role="radio" aria-checked="false" data-theme="plum" style="--sw:#6b2d5c">Plum</button>
-            <button type="button" role="radio" aria-checked="false" data-theme="signal" style="--sw:#e0301e">Signal</button>
-            <button type="button" role="radio" aria-checked="false" data-theme="forest" style="--sw:#1f4d3a">Forest</button>
-            <button type="button" role="radio" aria-checked="false" data-theme="frost" style="--sw:#1f6feb">Frost</button>
+          <div class="theme-picker" role="group" aria-label="Preview a theme">
+            <button type="button" aria-pressed="true" data-theme="classic" style="--sw:#0f766e">Classic</button>
+            <button type="button" aria-pressed="false" data-theme="cobalt" style="--sw:#2546d0">Cobalt</button>
+            <button type="button" aria-pressed="false" data-theme="marigold" style="--sw:#f2a900">Ink &amp; Marigold</button>
+            <button type="button" aria-pressed="false" data-theme="saffron" style="--sw:#ff9f1c">Saffron</button>
+            <button type="button" aria-pressed="false" data-theme="graphite" style="--sw:#18181b">Graphite</button>
+            <button type="button" aria-pressed="false" data-theme="plum" style="--sw:#6b2d5c">Plum</button>
+            <button type="button" aria-pressed="false" data-theme="signal" style="--sw:#e0301e">Signal</button>
+            <button type="button" aria-pressed="false" data-theme="forest" style="--sw:#1f4d3a">Forest</button>
+            <button type="button" aria-pressed="false" data-theme="frost" style="--sw:#1f6feb">Frost</button>
           </div>
         </div>
       </div>

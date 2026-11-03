@@ -7,7 +7,7 @@
  *   pnpm tsx --env-file=.env site/demo/demo-data.mts
  */
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as s from "../../src/db/schema";
@@ -41,7 +41,7 @@ if (!maya) throw new Error("maya@example.com not found. Run `pnpm db:seed` with 
 const depts: Record<string, string> = {};
 for (const name of ["Design", "Engineering", "Sales"]) {
   const [d] = await db.insert(s.departments).values({ companyId: company.id, name }).onConflictDoNothing().returning();
-  depts[name] = d?.id ?? (await db.select().from(s.departments).where(and(eq(s.departments.companyId, company.id), eq(s.departments.name, name))))[0].id;
+  depts[name] = d?.id ?? (await db.select().from(s.departments).where(and(eq(s.departments.companyId, company.id), sql`lower(${s.departments.name}) = lower(${name})`)))[0].id;
 }
 await db.update(s.user).set({ departmentId: depts.Design }).where(eq(s.user.id, maya.id));
 

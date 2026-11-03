@@ -24,6 +24,8 @@ the project, not in a `vercel.json`, because the app's `vercel.json` sits at the
 - Output Directory: `site`.
 - Ignored Build Step: `[ -d site ] || exit 0; git diff --quiet "${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}" HEAD -- site`,
   so a push deploys only when something under `site/` changed since the last deployment.
+  A branch without `site/` never deploys, so to retire the site, remove the domain or the Vercel project
+  rather than deleting the folder.
 
 Any other static host works too: serve the folder as is.
 

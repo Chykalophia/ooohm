@@ -311,12 +311,12 @@ function year() {
   $$("[data-carry]", card).forEach((b) =>
     b.addEventListener("click", () => {
       carry = Number(b.dataset.carry);
-      $$("[data-carry]", card).forEach((o) => o.setAttribute("aria-checked", String(o === b)));
+      $$("[data-carry]", card).forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
       clearTimeout(timer);
       show(items.length - 1);
     }),
   );
-  $("[data-year-replay]", card).addEventListener("click", () => run(0));
+  $("[data-year-replay]", card).addEventListener("click", () => (reduceMotion ? show(items.length - 1) : run(0)));
   if (reduceMotion) return show(items.length - 1);
   show(0);
   whileVisible(card, () => { if (!started) { started = true; run(0); } }, () => {}, 0.5);
@@ -498,7 +498,7 @@ function themes() {
     current = i;
     clearTimeout(swap);
     const b = buttons[i];
-    buttons.forEach((o) => o.setAttribute("aria-checked", String(o === b)));
+    buttons.forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
     const src = `media/themes/${b.dataset.theme}.jpg`;
     const next = buttons[(i + 1) % buttons.length].dataset.theme;
     if (!preload.has(next)) { preload.add(next); new Image().src = `media/themes/${next}.jpg`; }

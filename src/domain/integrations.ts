@@ -13,6 +13,7 @@ import {
   INTEGRATION_EVENT_TYPES,
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
+  LEAVE_RECOUNTED_EVENT_TYPE,
 } from "./events";
 import { oneLine } from "./text";
 
@@ -83,7 +84,7 @@ const values = <T extends Record<string, string>>(o: T) => Object.values(o) as s
 
 /** Every event type an endpoint may subscribe to, grouped. Every outbox type is here; `ping` is not (it is always sent). */
 export const WEBHOOK_EVENT_GROUPS: readonly EventTypeGroup[] = [
-  { label: "Leave", common: true, types: [...values(LEAVE_EVENT_TYPES), LEAVE_REASSIGNED_EVENT_TYPE] },
+  { label: "Leave", common: true, types: [...values(LEAVE_EVENT_TYPES), LEAVE_REASSIGNED_EVENT_TYPE, LEAVE_RECOUNTED_EVENT_TYPE] },
   { label: "Balances", common: true, types: values(BALANCE_EVENT_TYPES) },
   {
     label: "People",

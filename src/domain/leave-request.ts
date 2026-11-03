@@ -73,8 +73,7 @@ export function normalizeNote(note: string | null | undefined): string | null {
  */
 export function rangesOverlap(a: LeaveRange, b: LeaveRange): boolean {
   if (a.startDate > b.endDate || b.startDate > a.endDate) return false;
-  const complementaryHalves =
-    a.dayPortion !== "full" && b.dayPortion !== "full" && a.dayPortion !== b.dayPortion;
+  const complementaryHalves = a.dayPortion !== "full" && b.dayPortion !== "full" && a.dayPortion !== b.dayPortion;
   // Half days are single-day, so two halves that intersect fall on the same date.
   return !complementaryHalves;
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { auditActionLabel, auditFieldLabel, describeAuditChange, diffAuditSnapshots, isAuditAction } from "@/domain/audit";
 import { ADMIN_EVENT_TYPES, ALLOWANCE_AUDIT_ACTIONS, CALENDAR_FEED_EVENT_TYPES, leaveAuditAction } from "@/domain/events";
+import { LEAVE_STATUSES } from "@/domain/leave-request";
 
 const names = {
   person: (id: string) => ({ u1: "Ana", u2: "Ben" })[id],
@@ -11,7 +12,8 @@ const names = {
 
 test("every action the app writes has a label", () => {
   const written = [
-    ...["requested", "approved", "rejected", "cancelled", "reassigned"].map((e) => leaveAuditAction(e as "requested")),
+    // Every leave transition: the non-status events, and each status a request can move into.
+    ...(["requested", "reassigned", "recounted", ...LEAVE_STATUSES.filter((s) => s !== "pending")] as const).map((e) => leaveAuditAction(e)),
     ...Object.values(ALLOWANCE_AUDIT_ACTIONS),
     ...Object.values(CALENDAR_FEED_EVENT_TYPES),
     ...Object.values(ADMIN_EVENT_TYPES),
@@ -91,4 +93,29 @@ test("a field only one snapshot has reads as a fact, not as a change from none; 
 test("fields without a label are spelled out from camelCase", () => {
   assert.equal(auditFieldLabel("carriedOverDays"), "Carried over");
   assert.equal(auditFieldLabel("someNewField"), "Some new field");
+});
+
+test("a stored instant reads as the reader's time when a formatter is given, and as stored without one", () => {
+  const names = { person: () => undefined, department: () => undefined, leaveType: () => undefined };
+  const after = { revokedAt: "2026-11-03T01:43:53.883Z", startDate: "2026-11-02" };
+  assert.deepEqual(describeAuditChange(null, after, names), ["Turned off: 2026-11-03T01:43:53.883Z", "From: 2026-11-02"]);
+  assert.deepEqual(describeAuditChange(null, after, { ...names, instant: (iso: string) => `at ${iso.slice(11, 16)}` }), [
+    "Turned off: at 01:43",
+    "From: 2026-11-02",
+  ]);
+});
+
+test("only time fields print as times; a note shaped like a time, real or impossible, prints as typed and never throws", () => {
+  const names = {
+    person: () => undefined,
+    department: () => undefined,
+    leaveType: () => undefined,
+    // As the service formats: an impossible date would throw in Intl.
+    instant: (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", hour: "numeric", minute: "2-digit" }).format(new Date(iso)),
+  };
+  assert.deepEqual(
+    describeAuditChange(null, { note: "2026-13-45T99:99:99Z", decisionNote: "2026-11-03T01:43:53.883Z", revokedAt: "2026-11-03T01:43:53.883Z" }, names),
+    ["Note: 2026-13-45T99:99:99Z", "Decision note: 2026-11-03T01:43:53.883Z", "Turned off: 1:43 AM"],
+  );
+  assert.deepEqual(describeAuditChange(null, { revokedAt: "2026-13-45T99:99:99Z" }, names), ["Turned off: 2026-13-45T99:99:99Z"], "an impossible stored time prints as stored");
 });

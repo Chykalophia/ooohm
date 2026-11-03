@@ -2,9 +2,10 @@
 
 import { z } from "zod";
 import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH } from "@/domain/leave-type-settings";
-import { createLeaveType, moveLeaveType, setLeaveTypeArchived, updateLeaveType } from "@/server/services/admin-leave-types";
-import type { FormState } from "@/app/form-state";
-import { adminAction, formFields } from "@/app/admin/admin-action";
+import { createLeaveType, reorderLeaveTypes, setLeaveTypeArchived, updateLeaveType } from "@/server/services/admin-leave-types";
+import type { FormState } from "@/components/forms/form-state";
+import { adminAction } from "@/app/admin/admin-action";
+import { formFields } from "@/app/_lib/form-fields";
 
 const MESSAGES = {
   already_exists: "Another leave type already uses that code.",
@@ -62,15 +63,20 @@ export async function archiveLeaveTypeAction(_prev: FormState, formData: FormDat
   );
 }
 
-export async function moveLeaveTypeAction(_prev: FormState, formData: FormData): Promise<FormState> {
+/**
+ * Saves the order the leave types were dragged into: every active type's id, first to
+ * last. Takes the list itself, not a form: it is sent by the sortable list on drop.
+ */
+export async function reorderLeaveTypesAction(order: string[]): Promise<FormState> {
   return adminAction(
-    "leave_type_move",
-    formData,
-    z.object({ id: formFields.id, direction: z.enum(["up", "down"]) }),
-    async (ctx, actor, { id, direction }) => {
-      await moveLeaveType(ctx, actor, id, direction);
-      return "Moved.";
+    "leave_type_reorder",
+    { order },
+    z.object({ order: z.array(formFields.id).min(1).max(200) }),
+    async (ctx, actor, { order }) => ((await reorderLeaveTypes(ctx, actor, order)) ? "Order saved." : "Already in that order."),
+    {
+      ...MESSAGES,
+      invalid_input: "That order couldn't be read. Reload the page and try again.",
+      conflict: "The leave types changed since this page loaded. The list is up to date now; try again.",
     },
-    MESSAGES,
   );
 }

@@ -26,7 +26,7 @@ const USAGE = `Usage: pnpm import:timeoff -- --file <timeoff.sqlite> (--company 
 
   --file <path>            TimeOff.Management's SQLite database (opened read-only)
   --company <id>           import into this existing OOOhm company (usually the seeded one)
-  --create-company <name>  or create a new company for it
+  --create-company <name>  or create the company for it (only when the database has no company yet)
   --actor <email>          you: an active admin of that company (with --create-company, one of
                            TimeOff's admins). Every change is recorded as yours, via the import
   --apply                  commit (default: dry run, nothing is written)

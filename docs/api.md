@@ -135,13 +135,16 @@ Ids are strings. Every payload says who or what made the change in two fields:
   ```
 
   `user` is a person; `via` is present only when they acted through something they started (an integration's
-  sync when they pressed **Sync now**, or a one-time import they ran, `timeoff_import`). `api_key` is a change made with an API key: `id` is the person who created
+  sync when they pressed **Sync now**, a one-time import they ran, `timeoff_import`, or an approval through the
+  request email's Approve link, `email_link`). `api_key` is a change made with an API key: `id` is the person who created
   the key (the v1 API is read-only, so none are sent yet). `system` is a process with no person behind it;
   `requestedBy` (added within version 1) is present when a person asked for that run ahead of time (an admin who
   scheduled a deletion), and is not the actor.
-  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`, and
-  `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`). Expect more; treat an unknown one as
-  opaque.
+  `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`,
+  `holiday_change`, `working_days_change`, `email_link` (added within version 1: an approver who approved from
+  the request email's Approve link), `first_install` (added within version 1: the first admin, creating themself
+  and the default leave types through the web setup), and `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`).
+  Expect more; treat an unknown one as opaque.
 - **`actorId`** is kept for compatibility: the person, when there is one (`actor.id`), or `null` for a `system`
   change. Prefer `actor`.
 
@@ -155,8 +158,9 @@ For example, the year rollover's `balance.adjusted` carries `"actorId": null, "a
 | `leave.requested` | A request is submitted (also for self-approved ones, followed by `leave.approved`) |
 | `leave.approved` | An approver or admin approves, or a request is self-approved |
 | `leave.rejected` | An approver or admin declines |
-| `leave.cancelled` | The requester cancels a pending or approved request. Approved leave that ended before the current year (in the company's time zone) cannot be cancelled, so no `leave.cancelled` follows for it |
+| `leave.cancelled` | The requester cancels a pending or approved request. Approved leave that ended before the current year (in the company's time zone) cannot be cancelled, so no `leave.cancelled` follows for it. |
 | `leave.reassigned` | A pending request moves to another approver (adds `previousApproverId`, `approverId`) |
+| `leave.recounted` | A pending or approved request's days changed because an admin added or deleted a company holiday on its dates, or changed the working days: its total, or only how its days split between years (then `days` equals `previousDays`). `days` is the new count (it can be `0` when the request now falls entirely on holidays or non-working days; the request is kept, never cancelled); adds `previousDays`. Only the current and later years are recounted. The actor is the admin, with `via` `holiday_change` or `working_days_change`. Endpoints subscribe to event types explicitly, so an integration that mirrors leave days should add this one |
 
 Payload: `requestId, userId, leaveTypeId, startDate, endDate, dayPortion ("full" | "am" | "pm"), days, status, actorId, actor`.
 
@@ -174,7 +178,7 @@ row after the change).
 | Type | When |
 | --- | --- |
 | `user.created` | An admin invites someone, or an adapter's sync adds them |
-| `user.updated` | Name, department, manager, role or self-approval changed |
+| `user.updated` | Name, department, manager, role or self-approval changed. Usually by an admin; a person can also change their own name, and is then the actor |
 | `user.deactivated`, `user.reactivated` | |
 | `user.invite_resent` | An admin sent a new sign-in link |
 
@@ -215,7 +219,7 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 | `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
-| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace (added within version 1), actorId, actor` |
+| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId, actor`. `deletionGrace`, `managersSeeDetails`, `theme`, `accentColor`, `corners`, `requestStyle` and `layout` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, `accentColor` is `#rrggbb` or null, `requestStyle` is `form` or `sentence`, and `layout` is `standard`, `tonal`, `grouped`, `compact` or `legible`. New theme, corner, request-style and layout keys may appear. |
 
 **Calendar links**
 

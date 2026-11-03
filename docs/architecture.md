@@ -20,7 +20,8 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 
 | Layer | Path | Owns | May import |
 | --- | --- | --- | --- |
-| Presentation | `src/app/**` | Pages, layouts, client components, server actions, route handlers | services, `@/server/runtime`, domain types, constants and pure functions, `lib` |
+| Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | services, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
+| Shared UI | `src/components/**` | Reusable components and class recipes that render what a page passes in | domain types and pure functions, `lib` (not `env`, `db`, `auth`); never `src/app` or `src/server` |
 | Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/email`, `lib` (not `env`, `db`, `auth`) |
 | Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
 | Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
@@ -28,14 +29,82 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 
 Rules of thumb:
 
-- **Pages and actions are thin.** Parse input with zod, call `requireActor()`, call one service function, map
-  the result to UI. No Drizzle in `src/app`.
+- **Pages and actions are thin.** A page calls its loader, one or two service functions, and renders shared
+  components; an action is a zod schema and one service call. No Drizzle in `src/app`. See
+  [Presentation](#presentation).
 - **Services own the transaction.** A service opens `db.transaction`, re-reads what it needs inside it, checks
   permissions against that data, writes, and records the change. Email is returned from the transaction
   callback and sent by `commitThenNotify` after commit, so a rolled-back change never emails anyone.
 - **Repositories have no rules.** They take ids that the service already scoped to the actor's company.
 - **The domain decides.** `ManagerApprovalRule`, `countLeaveDays`, the status state machine and the
   permission checks are pure functions with unit tests.
+
+### Presentation
+
+Every screen is built from the same pieces, so a rule about how something looks or behaves lives in one file.
+
+**Pages** start with a loader from `src/app/_lib/page-context.ts`: `requireMemberPage()` (the session, or a
+redirect to sign-in; the service context; what the header needs) or `requireAdminPage()` (the same, or a 404 for
+non-admins). A person whose account has no company gets `actor: null`, and the page returns
+`<NoCompany nav={page.nav} …/>`. The header's approvals count starts loading in the loader and is awaited by
+the header, so it runs alongside the page's own queries. Detail pages wrap their read in `orNotFound()`, which
+turns `not_found` into the 404 page. A page then renders inside `AppPage` (or `AdminShell`, which adds the admin
+sub-navigation): the header, the page's one `h1` with its description and main action, then its content.
+
+**Server actions** are a zod schema (common field schemas are in `src/app/_lib/form-fields.ts`) and one
+service call, run through the pipeline in `src/app/_lib/action-pipeline.ts` (wired to Next.js in
+`server-action.ts`; its order of steps is unit-tested with fakes): session, company, role (for `who: "admin"`), parse, the service call through
+`runActionWith`, then `refresh()` after a success. `runFormAction` returns a calm message (`FormState`),
+`runStateAction` returns an action's own state (a revealed secret, a new calendar link) and `runActionThenGo`
+navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these with `who: "admin"`.
+
+**Shared components** live in `src/components`, by kind; route-specific ones sit beside their route
+(`src/app/admin/people/delete-person-dialog.tsx`):
+
+| Folder | Holds |
+| --- | --- |
+| `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField`, `SteadyLabel` (text that turns bold without changing width, so navigation never shifts), `DataTable` (a dense table for long records: sticky header, rows that open to their detail), `SortableList` (a list reordered by dragging a handle, with mouse, touch or keyboard, saved on drop), `TableToolbar` (its search, Filters panel and filter chips), `useFilterForm` (the behaviour of every filter form) |
+| `forms/` | Forms bound to server actions: `useFormAction` (no automatic reset, so a refused submit keeps what was typed), `useConfirm` (the "ask first" step, with focus moved to the question and back), `ActionForm`, `InlineAction` (a quiet action on a record, optionally confirmed first), `Reveal`, `RevealForm` (a secret shown once), `FormStatus` and `ErrorMessage` |
+| `layout/` | The page frame: `AppPage`, `AppHeader`, `AccountMenu`, `NoCompany`, the logo |
+| `navigation/` | `PillNav`, `MonthNav`, `YearNav`, `Pager`, `PageSizeNav` |
+| `leave/` | Leave and balance displays: `StatusBadge`, `LeaveChip`, `BalanceSummary`, `BalanceList`, `BalanceFigures`, `LeaveTypeName` |
+
+Components render what they are given: they never load data, read the session or import from `src/app` or
+`src/server` (`pnpm lint` enforces this; the one auth import allowed is `@/lib/auth-client`, the browser's
+sign-in client behind Sign out). The header reads the approvals count with React's `use`, so it is an ordinary
+component, not an async one. Controls take their classes from the recipes in
+`src/components/ui/styles.ts` (`buttonClass(variant, size)`, `field`, `textLink`, `errorText`…) rather than
+spelling out Tailwind classes again, so the one accent colour, the focus ring and the error colour stay the same
+everywhere; `cx()` joins optional classes. Two classes that set the same property (`p-4` and `p-5`) must never be
+combined, since which one wins depends on stylesheet order: a component offers a variant instead (`Card`'s
+`padding`).
+
+**Look: the company's theme and each person's colour mode.** An admin picks the company's theme (Admin →
+Appearance, below): colours, fonts, corners, depth. Each person picks a colour mode on their account page: light
+(the default), dark or automatic (follows the device). It is `user.colorMode` (the column is still named `theme`),
+read with the session. The root layout writes both to `<html>` (`htmlAppearance`): `data-ui` for the theme and
+`data-mode` for the mode, which sets `color-scheme`. A theme with a dark version (Classic, with its own accent) holds
+each colour's two values in `light-dark()`, so the first paint is right with no script and automatic switches as
+the device does; on any other theme `data-mode` is forced to light. Colours come only from tokens (`bg-surface`,
+`text-muted`, `text-accent-ink`, `text-danger`…): `pnpm lint` refuses palette classes (`text-red-700`) and `dark:` in
+`src/app` and `src/components`. A new colour is a new token, with a dark value in every theme that has one. The
+colour mode is a display preference of the person's own, so changing it writes no audit row or event.
+
+**Long lists.** Every list that grows with use is paged, never capped: the audit log (25 a page), people (50, by
+name), "Your requests" (10, latest dates first), approvals (10, earliest first) and an endpoint's
+webhook deliveries (25). Short lists that stay small by nature (departments, leave types, a year's holidays, API
+keys, calendar links, webhook endpoints, which stop at 20) are not. Pages are keyset, both ways
+(`src/domain/paging.ts`): a page is the `size + 1` rows just after (or, for Previous, just before) the sort key of
+the row at its edge, so each page is one read however deep someone goes (Previous adds a one-row read), and no row
+is skipped or shown twice because rows were added or removed in between (a row added behind the page shows on the
+earlier pages). The audit log, deliveries and the inbox read their indexes in order; people and a person's requests
+sort a company's (or a person's) rows, which stays small. The key travels as an opaque token in `?after=` /
+`?before=`; each list checks every part (a uuid, a date, an instant, or text up to a length and without NUL) and
+reads anything else as page 1. Repositories build the query with `keysetPage` (`src/server/repositories/keyset.ts`), services read
+with `readPage`, and pages render `Pager` (Previous, Page N, Next) from `pagerLinks` (`src/app/_lib/paging.ts`),
+which keeps the list's filters. The page number is a label the links count, not an offset. Previous reaching the
+start with less than a page left shows the real first page; any other Previous reads one row past the page to know
+whether a Next is still there, since the rows after it may have gone (requests decided, people deleted).
 
 ### Composition root
 
@@ -50,6 +119,20 @@ builds its own with `scriptContext` (`scripts/script-context.mts`). Tests build 
 
 ## Cross-cutting conventions
 
+### Signing in
+
+Invite-only: an admin (or the first install) creates every account, and no sign-in method creates one. People sign in
+with an emailed magic link, Google when it is configured, or a **passkey** (Better Auth's passkey plugin,
+`@better-auth/passkey`; credentials in the `passkey` table). A passkey is added on the account page, so only by
+someone already signed in (`registration.requireSession`), and removed there too; Home suggests one until the person
+has any. The sign-in page offers "Sign in with a passkey", and the email field lets the browser suggest saved passkeys
+(`autocomplete="email webauthn"`, conditional mediation). Every method ends in the same session hook, which refuses a
+deactivated person; a delete removes their passkeys with the rest of their sign-in data (`deleteSignInOf`).
+
+A passkey is bound to a domain (the relying party ID): the host of `BETTER_AUTH_URL`, or `PASSKEY_RP_ID` when set to a
+parent domain of it (`passkeyRelyingParty`, `src/lib/passkey-rp.ts`, checked at start). Set the parent domain before
+anyone adds a passkey if the app will move between its subdomains: a passkey made for one host does not work on another.
+
 ### Actor and authorization
 
 `requireActor()` (`src/lib/auth.ts`) returns the session user and an `Actor` (`id`, `companyId`, `role`,
@@ -63,7 +146,7 @@ indistinguishable from one that does not exist (`not_found`).
 ### Errors
 
 Expected failures throw `DomainError` with a stable `code` (`src/domain/errors.ts`). Server actions run
-service calls through `runAction` (`src/app/run-action.ts`), which maps each code to a calm message and logs
+service calls through `runActionWith` (`src/app/_lib/run-action.ts`), which maps each code to a calm message and logs
 anything else as `<event>_failed`, returning a generic retry message. Stack traces never reach the browser.
 
 Some codes carry structured `details` so the message can be specific without parsing text:
@@ -87,7 +170,8 @@ backfilled it for rows written before M5. It takes a `Transaction`, not the pool
 one. `audit_log.created_at` and `events_outbox.created_at` default to `clock_timestamp()`, so rows written in
 one transaction (e.g. `leave.requested` then `leave.approved` for a self-approved request) keep their order.
 
-The one documented exception is the one-time import (M7, below): each imported row is audited (`import.*`
+Two documented exceptions. A person's own colour mode is a display preference: changing it writes no audit row and no
+event (see Look, above). And the one-time import (M7, below): each imported row is audited (`import.*`
 actions, written in bulk with `insertAuditEntries`) without a per-row event, and the import writes a single
 `import.completed` event instead.
 
@@ -121,7 +205,7 @@ How sources are chosen, type-enforced so a new call site cannot leave one out (e
 - The TimeOff import (M7) is started by a person, so it is that person's change: `{ kind: "user", userId: <admin>,
   via: "timeoff_import" }` on every audit row it writes and on `import.completed`. The CLI's required `--actor <email>`
   names the admin; it is resolved inside the import's transaction, after people are imported, and must be an
-  active admin of the target company (existing, or just imported with `--create-company`), or the import rolls back.
+  active admin of the target company (existing, or just imported with `--create-company`, which only runs when no company exists yet), or the import rolls back.
 - A full-scrub delete that waited out the company's grace period ([People lifecycle](#people-lifecycle-and-privacy-m8))
   is run by the daily job: `{ kind: "system", process: "scheduled_scrub", requestedBy: <the admin who asked> }`. The
   process made the change, so `actor_id` stays empty; `requestedBy` only names who asked, and the label reads
@@ -186,12 +270,13 @@ Payload (v1): `feedId, userId, kind, reason, actorId` (`reason` is `null` on `is
 the audit row (`kind, createdAt, revokedAt`) ever holds the token or its hash.
 
 Admin events (M5), registered in `ADMIN_EVENT_TYPES` (`src/domain/events.ts`). For each, the audit `action` is
-the event type, and `actorId` is the admin.
+the event type, and `actorId` is the admin unless a row below says otherwise (a self-rename, an adapter sync or a
+scheduled scrub).
 
 | Event | When | Payload (v1) |
 | --- | --- | --- |
 | `user.created` | An admin invites someone | `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId`: the person after the change |
-| `user.updated` | An admin changes name, department, manager, role or self-approval | same |
+| `user.updated` | An admin changes name, department, manager, role or self-approval; or a person changes their own name on `/account` (actor = that person) | same |
 | `user.deactivated` | An admin deactivates someone | same |
 | `user.reactivated` | An admin reactivates someone | same |
 | `user.invite_resent` | An admin sends someone a new sign-in link | same |
@@ -200,14 +285,15 @@ the event type, and `actorId` is the admin.
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | | `companyId, name, timezone, workingDays, allowancePolicy, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId` |
 
-One more event comes with M5 but is not an admin event: it is `LEAVE_REASSIGNED_EVENT_TYPE`, outside
-`ADMIN_EVENT_TYPES`, and its audit `action` follows the leave request actions instead of the event type.
+Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
+`ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
 
 | Event | When | Audit `action` | Payload (v1) |
 | --- | --- | --- | --- |
 | `leave.reassigned` | A pending request moves to another approver: its approver was deactivated or demoted from admin, the requester's manager changed, or someone was invited as admin, promoted to admin or reactivated who can now take a request an admin had routed to themself (actor = the admin) | `leave_request.reassigned` | the `leave.*` payload plus `previousApproverId, approverId` (either may be `null`) |
+| `leave.recounted` | A holiday or working-days change changed a pending or approved request's days, its total or only its split between years (so `days` may equal `previousDays`) (actor = the admin, `via` `holiday_change` or `working_days_change`) | `leave_request.recounted` | the `leave.*` payload (new `days`) plus `previousDays` |
 
 No payload ever holds a session, token, sign-in link or the admin's free-text reason. Emails are in `user.*`
 payloads because integrations sync people by address. Since M6, `user.created` and `user.updated` can also come
@@ -248,8 +334,9 @@ time zone (`todayInTimeZone`).
 
 Notification emails (`src/server/email/leave-emails.ts`) have fixed subjects. Names, notes and reasons go in
 the body only (HTML-escaped there), never in a header; names are also collapsed to one line of at most 100
-characters. People cannot rename themselves (Better Auth's `/update-user` is disabled), since a name reaches
-approvers' inboxes and emails. Sends run after commit (`after()` in the app), each in
+characters. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
+(`renameSelf`), which normalizes it and records it as their own `user.updated`, since a name reaches approvers'
+inboxes and emails. Sends run after commit (`after()` in the app), each in
 its own try/catch; failures are logged as `leave_email_failed` with the request id and email kind, never the
 address, and never fail the user's action.
 
@@ -272,7 +359,8 @@ address, and never fail the user's action.
       allowance policy.
    2. Counts days server-side, split by calendar year: working days (company `working_days`, ISO weekdays)
       from start to end inclusive, minus company holidays; a half day is 0.5. A request worth 0 days is
-      refused.
+      refused (`zero_days`), naming the holidays it fell on ("Fri, Dec 25, 2026 is Christmas Day, a company
+      holiday, so there's nothing to request.").
    3. Refuses an overlap with the requester's own pending or approved requests. A morning and an afternoon
       half day on the same date do not overlap.
    4. Refuses (`insufficient_balance`) when a tracked leave type's balance cannot cover the request in any
@@ -329,27 +417,84 @@ else's request skip the check (no extra reads).
 
 ### Emails
 
+How mail leaves: services only ever call `ctx.mailer` (`Mailer`, `src/server/context.ts`), which the composition root
+wires to `sendMail` in `src/lib/mail`. That sends through the `MailTransport` that `MAIL_TRANSPORT` names, built on
+first use from `registry.ts`: `smtp` (nodemailer; `smtp-options.ts` decides TLS) or `sendgrid` (one HTTPS request to
+SendGrid's Mail Send API, with click and open tracking off so token links reach people unchanged). A transport
+resolves once its provider accepts the message and throws `MailSendError` (the provider and its answer, never a
+credential) otherwise. Adding a provider is one file implementing `MailTransport` and one registry entry.
+
+
 | Transition | Recipients |
 | --- | --- |
-| Requested (routed) | Approver (not when it is the requester) |
+| Requested (routed) | Approver (not when it is the requester), with who else is off then |
 | Requested (self-approved) | Requester gets "approved"; no review email |
 | Approved | Requester, with the approver's note if they wrote one |
 | Rejected | Requester, with the reason |
 | Cancelled | Requester, plus the approver unless the approver is the person cancelling |
+| Recounted by a calendar change | Requester only, saying which holiday or the working days changed; not when only the year split moved |
+
+"Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`, sentences from `src/domain/overlap.ts`)
+is one line about other active people in the requester's department (everyone, when they have none) whose approved
+or pending leave costs a working day within the request's dates: "Nobody else in Design is off then.", "Aisha Khan
+is off then too." or "Also off then: A, B (not approved yet), C and 2 more." Each person is counted once. It shows
+the same names and dates the team calendar shows every member, never a note or a balance. The Approvals page shows
+it under each request (three queries for the whole page) and the review email carries it. It is information only and
+never blocks a request; rules about how many people may be off at once are a separate, future feature.
 
 Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base URL.
 
 ### Screens
 
+- `/setup` (`runFirstInstall`, `src/server/services/install.ts`): the first install of an empty OOOhm, from the
+  browser. Open only while `SETUP_TOKEN` is set and nothing is installed (no `installation` row, company or person);
+  otherwise a 404. With the token it creates the company, the default leave types (PTO first) and the first admin
+  (`can_self_approve`), audited as that admin `via: "first_install"`, writes the `installation` marker, and sends them
+  to sign in (it never signs anyone in: the emailed link proves the address). It runs under the companies table lock
+  `pnpm db:seed` and the TimeOff import take, so two racing setups cannot both win. `pnpm db:seed` writes the same
+  marker, so either path closes setup for good. Sign-in on an empty install says how to set it up.
 - `/` (dashboard): the request form (the one primary action) with its live preview, the person's balance per
-  active leave type for the current year, and their own requests with a two-step cancel. A decision note shows under approved and declined requests. Defaults: first active leave type by
+  active leave type for the current year, and their latest five requests (with a link to all of them). A pending
+  request with someone else says who has it and, once they have decided three requests in the last 180 days, how
+  long they usually take (their median, rounded up: "usually decides within a day"). Defaults: first active leave type by
   sort order, the first working day (not a holiday) from today in the company's time zone (`nextWorkingDay`),
   end = start, full day.
-- `/approvals`: pending requests the person can decide (assigned to them; admins see every pending request
-  in the company, each marked with who it is assigned to), earliest dates first, each with Approve / Decline
-  and an optional reason the requester sees either way. At most 100 show at once, with a note giving the full
-  count when there are more. The header links here for managers, admins, and anyone with something
-  currently assigned to them.
+  From November 1 (company time zone) a quiet note names the days of the main leave type (the first active one,
+  the form's default) that will not carry into next year (what is left minus what carryover keeps), once per
+  year per browser. Only that type, so nobody is told to use up sick days. After
+  the person's first approved request, a note suggests adding their time off to their own calendar until they
+  have a live calendar link in this company (`shouldSuggestCalendarFeed`). Both are dismissed with "Got it",
+  kept in `localStorage` under a key that names the person and company. (The expiry reminder is
+  on Home rather than by email: the worker that runs daily jobs holds no SMTP settings.)
+- Shortcuts: ⌘K (Ctrl+K) on any page for members of a company opens a "Go to" list of the screens the person
+  can reach (`JumpMenu`, from the header). On Approvals, J and K move between requests, A approves the focused one, and D
+  moves to its reason so Enter declines (`approvals/approval-keys.tsx`); with no request in focus yet, the first of these
+  keys focuses the first request. None of them shows until a key is pressed, and they are ignored while typing
+  and with Shift, Alt, Ctrl or ⌘ held (⌘K/Ctrl+K aside).
+- `/requests` ("Your requests", in the account menu): every request the person has sent, latest dates first, ten a
+  page. Each is a card (`RequestCard`, shared with the dashboard) that opens `/requests/[id]`; the whole card is the
+  link (its dates, stretched over it) and lifts on hover. While a request can be cancelled (pending or approved,
+  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`): one click starts an 8-second
+  countdown with Undo, and the cancel is sent when it ends (leaving the page sends it at once).
+- `/requests/[id]`: one of the person's own requests in full (type, days, who it waits for or who decided it,
+  when it was sent and decided, both notes) with Cancel request. Someone else's request is a 404, as an unknown one
+  is. The personal calendar's chips and agenda rows link here.
+- `/approvals`: three tabs (`getApprovalTriage`, `TabNav`). **Needs you** holds pending requests assigned to the
+  person (for admins, also any with no approver); **Waiting on others**, shown only when it has something, holds
+  the pending requests an admin may decide but that are assigned to someone else; **Settled** lists what the
+  person approved or declined in the last 30 days (not their own self-approved requests), read from the audit log,
+  with each request's current status. Pending requests are earliest dates first, ten a page with Previous and
+  Next, each with Approve / Decline, an optional reason the requester sees either way, and the line on who else is
+  off then (above). The header links here for managers, admins, and anyone with something currently assigned to
+  them.
+- `/approve/<token>`: where a request email's **Approve** button lands, with no sign-in. The token
+  (`src/lib/email-link-token.ts`) is HMAC-signed claims, not stored: the request, the approver the email went
+  to, and a 7-day expiry, under a key derived from `BETTER_AUTH_SECRET` (`ctx.linkKey`; processes without it
+  send no such links). Opening the page changes nothing, because mail scanners open links; the Approve button
+  (a server action) runs the same `decideLeaveRequest` as the Approvals page, as that approver with
+  `via: "email_link"`, so every check still applies and the audit row says how it was decided. A decided
+  request makes the link inert. Declining needs a reason, so it happens in the app. The page sends
+  `<meta name="referrer" content="no-referrer">` and `noindex`.
 
 ## Balances (M3)
 
@@ -390,9 +535,46 @@ also returns each person and type's latest row before the earliest year asked fo
 `splitLeaveDaysByYear` (`src/domain/leave-days.ts`) counts a request's working days per calendar year: Thu
 Dec 31 to Mon Jan 4 (Jan 1 a holiday) is 1 day in the first year and 1 in the next. Submit stores the split in
 `leave_request_days (request_id, year, days)` in the same transaction as the request; the rows always add up
-to `leave_requests.days`, which stays the total. Balances only ever read these rows, so editing holidays or
-working days later never changes a past balance. Rejected and cancelled requests drop out because balances
-sum only `pending` and `approved` requests.
+to `leave_requests.days`, which stays the total. Balances only ever read these rows. A holiday or working-days
+change rewrites them for the years still open (see [Recount after a calendar change](#recount-after-a-calendar-change)),
+never for a closed year, so a settled balance never moves. Rejected and cancelled requests drop out because
+balances sum only `pending` and `approved` requests.
+
+### Recount after a calendar change
+
+Adding or deleting a company holiday (one, or the US federal set) and changing the working days run
+`recountLeave` (`src/server/services/leave-recount.ts`) in the same transaction, under `lockCompany`:
+
+1. It locks (`FOR UPDATE`) the company's pending and approved requests that include a changed date (every open
+   one, for working days), skipping dates before Jan 1 of the current year in the company's time zone. Requests
+   between two changed dates are not touched.
+2. It counts each request with the calendar before and after the change and moves its stored split by the
+   difference, per open year (`applyCalendarChange`). Closed years keep their stored days: those balances are
+   settled and carried over, so a past year is fixed with an adjustment instead. Applying only the difference
+   leaves any earlier correction to the split alone, and the email names only this change. A year never goes
+   below 0, and the amount that would have taken it there is not kept: if the stored split already counted fewer
+   days than the calendar (an imported split), taking that year to 0 and undoing the change restores the
+   calendar's count. Keeping it would need a per-year offset stored with the request.
+3. A request whose split changed gets new `leave_request_days` rows and a new `days` total, and writes
+   `leave_request.recounted` / `leave.recounted` (payload adds `previousDays`), naming the admin `via`
+   `holiday_change` or `working_days_change`.
+4. A request that now falls entirely on non-working days is kept at 0 days, never cancelled: nothing comes off
+   the balance, the person may cancel it, and undoing the change (deleting the holiday, ticking the day again)
+   restores its count. A mistaken change therefore never destroys anyone's leave. Submits still refuse a new
+   request worth 0 days; migration `0013` lets a recounted one hold 0 (`leave_requests_days_nonneg`, and a half
+   day may be 0).
+5. A request that now costs more is kept even if it overdraws a tracked balance, because the time was already
+   booked. The admin's confirmation names each balance now over, and the person's email says so.
+6. Each request whose total changed emails its requester after commit ("Fri, Dec 25, 2026 is now a company
+   holiday (Christmas Day), so the time off below now takes 4 days instead of 5 days."); someone with three
+   affected requests gets three. A request whose days only moved between years is audited but not emailed.
+
+The writes are sequential, a handful per changed request. That is fine for a small team; a company with
+thousands of open requests changing its working days would want them batched.
+
+Submits take the company row `FOR SHARE` (`shareLockCompany`) before anything else, so a request is never
+counted with a calendar that is being replaced: a submit waits for a running recount, and a recount for
+submits already counting. `holiday-recount.test.ts` pins this with two connections.
 
 Migration `0004` backfills existing requests: one row at the stored total for a request inside one year; for
 one over New Year, the working days counted at migration time up to Dec 31 (capped at the stored total) go to
@@ -413,8 +595,12 @@ frees days, so neither needs it.
 
 The request form asks `GET /api/leave-preview?leaveTypeId=&startDate=&endDate=&dayPortion=` 300 ms after the
 last change, and shows the answer in an `aria-live="polite"` line that the submit button also references
-(`aria-describedby`): "This is 3 days. You'll have 12 days left for 2026.", or the exact message submit would
-give ("That's 5 days, but you only have 2 days left for 2026.", "Those dates are all weekends or holidays...").
+(`aria-describedby`): "This request takes 3 days. Afterwards you'd have 12 days left for 2026.", or the exact
+message submit would give ("That's 5 days, but you only have 2 days left for 2026.", "Those dates are all
+weekends or holidays..."). After a successful submit the fields reset and the line stays empty until the draft
+changes (`showsPreview`), so it never describes the blank form as if it were the request just sent; the
+confirmation next to the button names what was sent ("Sent for approval: Mon, Nov 9 to Fri, Nov 13, 2026
+(5 days).").
 The route handler calls `previewLeaveRequest`, which runs `assessLeaveRequest` without writing; the client
 does no day counting. A newer draft aborts the previous request, so answers never arrive out of order. It is
 a route handler rather than a server action because Next.js runs a client's server actions one at a time,
@@ -495,14 +681,43 @@ CRON_TZ=America/Chicago
   inside its range. The agenda follows the same rule: it lists a request only if it costs at least one day of
   the month. Previous, Today and Next are plain links. The month is parsed with zod; anything malformed
   or outside 1900 to 2999 falls back to the current month in the company's time zone.
+  The grid is also a way to ask for time off (`month-grid.tsx`): drag across days, or click one and
+  Shift-click another, and a short form under the month shows the dates, the same live preview as Home
+  and a leave type picker, then posts to the same `requestLeaveAction` (full days). With a keyboard, the
+  days are one tab stop: arrow keys move, Enter or Space picks a day, Shift with an arrow stretches the pick,
+  and Escape clears it. Each day is a button filling its cell behind the content; its leave chips sit above
+  it and stay links to their requests, so a click on a chip opens the request and a drag across chips still
+  stretches the pick. Phones keep the agenda; Home's form works everywhere.
+- `/calendar?view=year&year=YYYY`: the person's whole year as twelve small months (`getYearCalendar`, three
+  queries). Approved leave fills a day in its type's colour, pending leave outlines it, company holidays are
+  outlined in ink and today is filled in ink (leave wins over both; today on leave gets an ink ring). The
+  squares are hidden from screen readers; each month's heading links to its month view, and its leave and
+  holidays are read out as a list instead. A Month / Year switch sits beside the page heading.
 - `/team?month=YYYY-MM&department=<id>`: "who's out". Every active member of the company with approved or
   pending leave that costs at least one working day of the month (`entriesCostingDaysIn`: a Thursday-to-Sunday
   request belongs to the Thursday's month, not to the month holding only its weekend), grouped by person (by name), each person's leave by date, pending marked
   "Waiting for approval". Department filters are links ("Everyone", then each department); an id that is not a
-  department of the actor's company falls back to everyone. Deactivated people do not appear.
+  department of the actor's company falls back to everyone. Deactivated people do not appear. Each name opens
+  that person's page.
+- `/team/[id]` (`getTeamMember`): one active member of the company, in two tiers. Everyone sees what the team
+  calendar shows: name, department, manager, and their approved and pending leave from 60 days ago to a year
+  ahead (only leave that costs a working day), split into "Coming up" and "In the last 60 days". The person,
+  admins, and their direct manager while **Admin → Company → Managers can see their team's balances and notes**
+  is on (`companies.managers_see_details`, on by default) also see each request's days, note and approver's
+  reason, and this year's balances (`canSeeLeaveDetails`, in `domain/leave-permissions.ts`). For anyone else
+  the service drops those fields before returning, so they never reach the page. Inactive, deleted and
+  other companies' people are a 404.
 - `/calendar/subscriptions`: the two feeds (below), linked from both pages.
 
-The header links Calendar and Team for every member of a company. No `proxy.ts` gates routes: each page calls
+The header links Calendar and Team for every member of a company, and on every page but the dashboard a **Request
+time off** link to the dashboard's form (`/#request`, an accent outline, so each screen keeps one filled main
+action). The person's name opens their own options (`AccountMenu`, a disclosure rather than an ARIA menu: Escape,
+an outside click or a navigation closes it): **Your account**, **Calendar subscriptions** and **Sign out**.
+`/account` shows their email, role, department and manager, and lets them change their display name
+(`renameSelf`, recorded as their own `user.updated`); everything else stays with admins, and the email is the
+sign-in identity.
+
+No `proxy.ts` gates routes: each page calls
 `requireActor()`, which redirects to `/sign-in` without a session, and the ICS route is public by design.
 
 ### Queries
@@ -621,9 +836,10 @@ departments, leave types, allowances, holidays, company) and `audit-log.ts`, and
 - writes `audit_log` and an `events_outbox` row in the same transaction (`recordAdminChange`), and records
   nothing when a save changes nothing.
 
-Pages under `/admin/**` call `requireAdminPage()` (`src/app/admin/admin-shell.tsx`), which answers 404 to
-non-admins. Server actions go through `adminAction()` (`src/app/admin/admin-action.ts`): session, admin check,
-zod parse of the form, one service call through `runAction`, then `refresh()`. Next.js server actions only run
+Pages under `/admin/**` call `requireAdminPage()` (`src/app/_lib/page-context.ts`), which answers 404 to
+non-admins, and render inside `AdminShell` (`src/app/admin/admin-shell.tsx`). Server actions go through
+`adminAction()` (`src/app/admin/admin-action.ts`), the shared action pipeline with the admin role required:
+session, admin check, zod parse of the form, one service call through `runActionWith`, then `refresh()`. Next.js server actions only run
 for `POST`s whose `Origin` matches the host (see `node_modules/next/dist/docs/01-app/02-guides/data-security.md`,
 "Allowed origins"), and Better Auth's session cookie is `SameSite=Lax`, which covers CSRF; no extra token is
 needed. Behind a proxy that rewrites `Host`, set `serverActions.allowedOrigins` in `next.config.ts`.
@@ -721,8 +937,10 @@ and reorder. Types are never deleted. Archived types leave the request form (`le
 but history and calendars keep them, and so do balances: an archived type shows (marked "archived") on the
 dashboard, the admin person page and the allowance editor for any year the person has an allowance row or
 approved or pending days of it, so its allowance can still be corrected. The year rollover skips archived types
-(no new-year rows, no carryover into a type nobody can book). A restored type goes last. Reorder moves one place up or down,
-then renumbers the active types 0, 1, 2…; each type that moved writes `leave_type.reordered`. Balance settings
+(no new-year rows, no carryover into a type nobody can book). A restored type goes last. The list is reordered by dragging
+(`SortableList`, below), which saves the whole order at once (`reorderLeaveTypes`): it must name every active type
+exactly once, or it is refused as `conflict` (the list changed since the page loaded) and nothing moves; the active
+types are renumbered 0, 1, 2…, and each type that moved writes `leave_type.reordered`. Balance settings
 (counting against allowance, the default, carryover) take effect for every balance computed from then on: balances
 are computed, not stored. Changing them does not take everyone's member lock: lowering a default can only make a
 remaining go negative, which the M3 rules already allow for a lowered allowance.
@@ -748,32 +966,58 @@ with the same `summarizeBalances` the dashboard uses.
 
 List by year (2000 to 2100), add (one per date), rename, delete, and add the eleven US federal holidays for a
 year on their observed dates (`usFederalHolidays`, `src/domain/holidays.ts`: Saturday → Friday, Sunday → Monday,
-so a Saturday New Year's Day belongs to Dec 31 of the year before), skipping dates that already have one. As M3
-fixed, a submitted request keeps its stored day split, so holiday changes never move a past balance; the page says
-so.
+so a Saturday New Year's Day belongs to Dec 31 of the year before), skipping dates that already have one. Adding
+or deleting holidays recounts the requests on those dates in open years
+([Recount after a calendar change](#recount-after-a-calendar-change)); the confirmation says how many were
+recounted, how many now take no days, and who is now over a balance. Renaming changes no count.
 
 ### Company
 
 Name, time zone, working days and allowance policy. Time zones are those in `Intl.supportedValuesOf("timeZone")`
 plus `UTC` (which that list omits); a stored zone outside the list (an alias saved before this check) is kept
 when unchanged but cannot be chosen anew. Working days: at least one ISO weekday. The policy must be registered
-(`ALLOWANCE_POLICY_KEYS`; only `annual_calendar_year` today). Changes affect future counting only. Since M8 the page
+(`ALLOWANCE_POLICY_KEYS`; only `annual_calendar_year` today). New working days recount open requests
+([Recount after a calendar change](#recount-after-a-calendar-change)); a new time zone only moves "today". Since M8 the page
 also holds the deletion grace option ([The grace option](#the-grace-option)); `company.updated` carries it as
 `deletionGrace`.
 
+### Appearance
+
+`/admin/appearance` (`updateCompanyAppearance`): the theme everyone in the company sees, an optional accent colour
+and a corner style, all chosen by an admin (never per person; light or dark is per person, above). Themes are a fixed list (`THEMES` in
+`src/domain/appearance.ts`); each keeps one accent colour. The root layout reads the look on every request
+(`getAppearance`, which falls back to the default on any error so a page never fails on it) and sets `data-ui`,
+`data-corners` and, for a custom accent, the accent tokens on `<html>`. `globals.css` keys each theme's tokens
+(colours, fonts, radii, shadows) on those attributes; fonts are self-hosted from `@fontsource-variable` packages,
+and a browser downloads only the ones the chosen theme uses (Admin → Appearance previews every theme, so that
+page loads them all). A pale custom accent keeps its fill and gets a darker
+`--accent-ink` for text and focus rings (`accentTokens`). Only `classic` with its own accent has a dark version
+(`followsDarkMode`): there each person's colour mode applies (`data-mode`, above); every other look is light only for
+now, whatever the person chose, and the account page says so. The same page sets how Home asks for time off
+(`requestStyle`): the labelled form, or one editable sentence (`RequestLeaveSentence`). Both post the same fields to
+the same action and share the live preview (`useLeaveDraft`, `LeavePreviewLine`), so the choice changes nothing but
+the layout. The root layout, the account page and Home read the appearance once per request
+(`requestAppearance`, `src/app/_lib/appearance.ts`). It also sets a layout trial (`layout`: `standard`, `tonal`, `grouped`, `compact` or `legible`, see `LAYOUTS`), which
+the root layout puts on `<html>` as `data-layout` (left off for `standard`). Each trial is a block of CSS rules in
+`globals.css` keyed on that attribute and on the `app-page`, `app-header` and `app-nav` hooks that `AppPage` and `AppHeader`
+carry: it changes spacing, shape, type size, surface treatment and navigation, never content or actions. Colours
+stay derived from the theme (a tinted card or ground, a darker grey for text on it), so an admin can try one on the
+whole company and switch back.
+`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle` and `layout`.
+
 ### Audit log viewer
 
-`/admin/audit` (`getAuditLog`): newest first, 50 a page, read-only. Filters: action (from the known list),
+`/admin/audit` (`getAuditLog`): a `DataTable`, one line a change (when, what, about whom, by whom), each row opening to the full time and every field changed. Newest first, or oldest (the When header), 25, 50 or 100 a page, read-only. A `TableToolbar` across its top holds the search, a Filters panel and the filters in force as removable chips; everything applies as it changes (the search after a pause in typing, an option at once, a date when its field is left). Clicking an action or a person in a row narrows the log to it. The search matches each word against action labels and people's names and emails in the app, then reads with the matching ids (`action in …` or `actor_id in …` or `subject_user_id in …`, every word), so the database never scans text. Filters: action (from the known list),
 who did it, who it is about (`subject_user_id`), and a date range in the company's time zone (converted in SQL
 with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malformed filters are ignored. Each row
 says who or what made it with `changeSourceLabel` ("Ana", "Ana, via Gusto sync", "System: year rollover"); the
 "who did it" filter matches `actor_id`, so it finds a person's changes whether direct, through a sync or with one of
 their API keys.
 
-- **Keyset pagination** on `(created_at, id)`: the cursor carries `created_at` printed in UTC to the
-  microsecond, because a JS `Date` keeps only milliseconds and would skip or repeat rows written in the same one.
+- **Keyset pagination** on `(created_at, id)`, both ways (see Long lists): the key carries `created_at` printed in
+  UTC to the microsecond, because a JS `Date` keeps only milliseconds and would skip or repeat rows written in the same one.
 - **Indexes** (migration `0007`): `audit_log_company_created_idx (company_id, created_at, id)` and one per
-  filter, `(company_id, action | actor_id | subject_user_id, created_at, id)`, so a page reads about 50 index
+  filter, `(company_id, action | actor_id | subject_user_id, created_at, id)`, so a page reads about 25 index
   entries in order instead of sorting the company's log. `audit-log.test.ts` checks the plan.
 - **Five queries a page**, whatever it holds: company (time zone), people, departments and leave types in
   parallel (for the pickers and for naming ids inside before/after snapshots), then the page, whose actor and
@@ -788,7 +1032,7 @@ Integrations, which opens Webhooks and adds a quieter second row of tabs for Web
 sits under the header, which shows **Admin** to admins only. One main action per screen (Invite someone, Save changes, Add
 …); secondary actions are quiet text buttons, and destructive ones (deactivate, delete, archive) ask first.
 Per-row edits (rename, change an allowance) open in place. Refused saves keep what was typed (forms submit
-without React's automatic reset) and show the reason with `role="alert"` in `text-red-700 dark:text-red-400`.
+without React's automatic reset) and show the reason with `role="alert"` in `errorText` (`text-danger`).
 
 ## People lifecycle and privacy (M8)
 
@@ -1046,7 +1290,7 @@ from another company, or a deleted endpoint, is `not_found`), and `audit_log` + 
   local name such as `localhost`, `*.local`, `*.internal` or a single label (`blocked_address`). Event types must
   come from `WEBHOOK_EVENT_TYPES` (every outbox type, grouped for the form; `ping` is never subscribable).
 - **The secret** is `whsec_` and 32 random bytes, generated in the service, returned once (shown with a copy
-  button by `RevealForm`, `src/app/admin/reveal-once.tsx`), and stored sealed with AES-256-GCM under
+  button by `RevealForm`, `src/components/forms/reveal-form.tsx`), and stored sealed with AES-256-GCM under
   `WEBHOOK_ENCRYPTION_KEY` (`createSecretBox`, `src/lib/integration-crypto.ts`): a fresh 12-byte IV per seal, a
   16-byte tag, and the **endpoint id as additional data**, so a sealed value copied onto another row does not
   open. `v1.<iv>.<ciphertext>.<tag>` leaves room for a key rotation scheme later. It is encrypted, not hashed,
@@ -1302,9 +1546,10 @@ instance counts separately, so they are approximate. The submit limit is counted
 ### Migrations per host
 
 `pnpm db:migrate` everywhere; compose runs it in `migrate`, embedded mode also on start. On Vercel the `vercel-build`
-script runs `scripts/migrate.mts --if-production && next build`: migrations run only when `VERCEL_ENV` is
-`production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never goes live on an old
-schema. Preview builds never migrate; keeping previews off the production database is a deployment setting
+script runs `scripts/migrate.mts --if-production && scripts/seed.mts --if-production && next build`: migrations run
+only when `VERCEL_ENV` is `production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never
+goes live on an old schema. The seed then runs only on a production build with `SEED_ADMIN_EMAIL` set and no company
+yet, so it creates the first admin once and later builds skip it (`SEED_ON_DEPLOY=force` overrides for one deploy). Preview builds never migrate or seed; keeping previews off the production database is a deployment setting
 ([deploy-vercel.md](deploy-vercel.md#2-keep-previews-away-from-the-production-database)).
 
 Every environment value is trimmed when read (`nonEmptyEnv`), so a secret stored with a trailing newline (the

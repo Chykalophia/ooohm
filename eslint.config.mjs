@@ -30,6 +30,27 @@ const layers = [
     ],
   },
   {
+    // Shared UI: building blocks that render what a page passes in. They hold no data
+    // access or session logic of their own, so any page (or a future app) can reuse them.
+    files: ["src/components/**/*.{ts,tsx}"],
+    // @/lib/auth-client stays allowed: it is the browser's own sign-in client (Sign out).
+    paths: [
+      pool,
+      { name: "@/lib/env", message: "Components take configuration as props." },
+      { name: "@/lib/worker-env", message: "Components take configuration as props." },
+      { name: "@/lib/auth", message: "Components take the person as props; the page resolves the session." },
+      { name: "@/lib/log", message: "The server logger cannot run in a browser; components report through props or state." },
+      { name: "server-only", message: "Components are shared by server and client code." },
+    ],
+    patterns: [
+      { group: ["@/db/*"], message: "Components render props; the page loads the data." },
+      drizzle,
+      relative,
+      upward("Pages import components, never the reverse."),
+      { group: ["@/server/*", "@/server/**"], message: "Components render props; the page calls services." },
+    ],
+  },
+  {
     files: ["src/server/services/**/*.ts"],
     paths: [
       ...next,
@@ -118,10 +139,30 @@ const layers = [
   rules: { "no-restricted-imports": ["error", { paths, patterns }] },
 }));
 
+/**
+ * Colours come from the theme tokens in src/app/globals.css (`bg-surface`, `text-danger`),
+ * which hold a light and a dark value each. A palette class (`text-red-700`) or a `dark:`
+ * variant in a component would be right in one theme only.
+ */
+const paletteClass =
+  "(?:^|[\\s:])(?:bg|text|border(?:-[xytrblse])?|ring(?:-offset)?|outline|fill|stroke|divide|decoration|from|via|to|shadow|caret|placeholder|accent)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d|(?:^|[\\s:])dark:";
+const paletteMessage = "Use a theme token from src/app/globals.css (bg-surface, text-muted, text-accent-ink, text-danger…), not a palette colour or dark: variant.";
+const themeTokens = {
+  files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      { selector: `Literal[value=/${paletteClass}/]`, message: paletteMessage },
+      { selector: `TemplateElement[value.raw=/${paletteClass}/]`, message: paletteMessage },
+    ],
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   ...layers,
+  themeTokens,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

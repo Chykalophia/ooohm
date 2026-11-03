@@ -3,6 +3,7 @@ import { log } from "@/lib/log";
 import { type EmailContent, type LeaveEmail, renderLeaveEmail } from "@/server/email/leave-emails";
 import type { ServiceContext } from "@/server/context";
 import { wroteOutboxEvents } from "@/server/repositories/change-log";
+import { emailAccentFor } from "./email-accent";
 
 /** A rendered leave email and the address it goes to. */
 export interface Outgoing {
@@ -92,20 +93,22 @@ export async function commitThenSend<T>(
 }
 
 /**
- * {@link commitThenSend} for the leave services: a failed send is logged as
- * `leave_email_failed` with the request id and email kind.
+ * {@link commitThenSend} for the leave services: emails carry the request's company
+ * accent, and a failed send is logged as `leave_email_failed` with the request id and
+ * email kind.
  */
-export async function commitThenNotify<T extends { id: string }>(
+export async function commitThenNotify<T extends { id: string; companyId: string }>(
   ctx: ServiceContext,
   work: (tx: Transaction) => Promise<{ result: T; outgoing: readonly Outgoing[] }>,
 ): Promise<T> {
   return commitThenSend(ctx, async (tx) => {
     const { result, outgoing } = await work(tx);
+    const accent = emailAccentFor(ctx, result.companyId);
     return {
       result,
       outgoing: outgoing.map(({ to, email }) => ({
         to,
-        build: () => renderLeaveEmail(email),
+        build: async () => renderLeaveEmail(email, await accent()),
         failureEvent: "leave_email_failed",
         logFields: { requestId: result.id, kind: email.kind },
       })),

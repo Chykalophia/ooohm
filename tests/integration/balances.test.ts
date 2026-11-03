@@ -7,6 +7,7 @@ import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
 import { getPersonDetail } from "@/server/services/admin-people";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary, previewLeaveRequest } from "@/server/services/balances";
+import { issueCalendarFeed, shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
 import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
@@ -255,6 +256,59 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
       process.stderr.write = stderr;
     }
     assert.ok(logged.some((l) => l.includes('"event":"allowance_policy_unavailable"')));
+  });
+
+  test("from November, the dashboard names the days that won't carry into next year", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin", canSelfApprove: true } });
+    const vac = await addLeaveType(t.db, co.companyId, { code: "VAC", defaultAllowanceDays: 10, sortOrder: 1 });
+    const flex = await addLeaveType(t.db, co.companyId, { code: "FLEX", defaultAllowanceDays: 5, carryoverEnabled: true, carryoverMaxDays: 3, sortOrder: 2 });
+    // The seed's untracked PTO comes first; move it back so VAC is the main type.
+    await t.db.update(schema.leaveTypes).set({ sortOrder: 20 }).where(eq(schema.leaveTypes.id, co.pto));
+    const ctxAt = (iso: string) => createTestContext(t.db, { now: new Date(iso) });
+    await submitLeaveRequest(ctxAt("2026-10-01T12:00:00Z"), co.people.boss, { leaveTypeId: vac, startDate: "2026-10-05", endDate: "2026-10-06", dayPortion: "full" });
+
+    const october = await getDashboard(ctxAt("2026-10-31T12:00:00Z"), co.people.boss);
+    assert.deepEqual(october.expiring, [], "nothing said before November");
+
+    const november = await getDashboard(ctxAt("2026-11-02T12:00:00Z"), co.people.boss);
+    assert.deepEqual(
+      november.expiring.map((e) => [e.leaveTypeId, e.days]),
+      [[vac, 8]],
+      "only the main type (first by sort order): VAC loses all 8 left",
+    );
+
+    // With carryover on the main type, only what it can't keep is named.
+    await t.db.update(schema.leaveTypes).set({ sortOrder: 0 }).where(eq(schema.leaveTypes.id, flex));
+    const flexFirst = await getDashboard(ctxAt("2026-11-02T12:00:00Z"), co.people.boss);
+    assert.deepEqual(flexFirst.expiring.map((e) => [e.leaveTypeId, e.days]), [[flex, 2]], "FLEX keeps 3 of its 5");
+    await t.db.update(schema.leaveTypes).set({ carryoverMaxDays: null }).where(eq(schema.leaveTypes.id, flex));
+    assert.deepEqual((await getDashboard(ctxAt("2026-11-02T12:00:00Z"), co.people.boss)).expiring, [], "carries everything: nothing to say");
+  });
+
+  test("the calendar suggestion follows approved time off, and stops once the person has a calendar link here", async () => {
+    const co = await seedCompany(t.db, { ana: { role: "admin", canSelfApprove: true } });
+    const ctx = createTestContext(t.db);
+    const ana = co.people.ana;
+    assert.equal(await shouldSuggestCalendarFeed(ctx, ana), false, "nothing approved yet");
+
+    // One old approved request, behind more newer ones than Home lists, still counts.
+    const request = { companyId: co.companyId, userId: ana.id, leaveTypeId: co.pto, days: 1, approverId: ana.id };
+    await t.db.insert(schema.leaveRequests).values({ ...request, startDate: "2026-01-05", endDate: "2026-01-05", status: "approved" });
+    await t.db.insert(schema.leaveRequests).values(
+      Array.from({ length: 60 }, (_, i) => {
+        const date = `2026-0${3 + Math.floor(i / 20)}-${String(1 + (i % 20)).padStart(2, "0")}`;
+        return { ...request, startDate: date, endDate: date, status: "cancelled" as const };
+      }),
+    );
+    assert.equal(await shouldSuggestCalendarFeed(ctx, ana), true);
+
+    // A live link left from another company serves nothing here.
+    const other = await seedCompany(t.db, { x: {} });
+    await t.db.insert(schema.calendarFeedTokens).values({ companyId: other.companyId, userId: ana.id, kind: "team", tokenHash: "e".repeat(64) });
+    assert.equal(await shouldSuggestCalendarFeed(ctx, ana), true, "a link from another company does not count");
+
+    await issueCalendarFeed(ctx, ana, "personal");
+    assert.equal(await shouldSuggestCalendarFeed(ctx, ana), false);
   });
 
   test("the dashboard summarises every active type for the company's current year, in a fixed number of queries", async () => {

@@ -52,7 +52,8 @@ header, and set the rest up there. Nothing needs the database.
    short code for calendars, a colour, a yearly allowance (blank means you set it per person) and optional
    carryover.
 4. **Holidays**: add your company's days off, or the US federal holidays for a year in one click. Holidays
-   never count as leave; requests already sent keep the days they were counted with.
+   never count as leave. Adding or deleting one recounts requests already sent on that date (this year and
+   later), emails the people affected, and tells you if anyone ends up over their balance.
 5. **People**: **Invite someone** with their email, name, role, department and manager. They get an email
    with a sign-in link (valid 15 minutes; after that they can ask for a new one on the sign-in page, or you
    can send one from their page). Nobody can sign up on their own.

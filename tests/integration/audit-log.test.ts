@@ -7,7 +7,8 @@ import type { Database } from "@/db/types";
 import { type Adapter, createAdapterRegistry } from "@/server/integrations/adapter";
 import { updateCompanySettings } from "@/server/services/admin-company";
 import { invitePerson, updatePerson } from "@/server/services/admin-people";
-import { AUDIT_PAGE_SIZE, decodeAuditCursor, getAuditLog } from "@/server/services/audit-log";
+import { encodePageKey, type PageCursor } from "@/domain/paging";
+import { AUDIT_PAGE_SIZE, getAuditLog } from "@/server/services/audit-log";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
@@ -75,7 +76,7 @@ describe("admin: audit log viewer", { skip }, () => {
       ],
     );
     assert.equal(log.timezone, "America/Chicago");
-    assert.equal(log.nextCursor, null);
+    assert.deepEqual([log.previous, log.next], [null, null], "one page: no pager");
     assert.ok(log.people.some((p) => p.label === "Ben"));
     assert.ok(log.actions.some((a) => a.value === "user.created"));
   });
@@ -119,43 +120,132 @@ describe("admin: audit log viewer", { skip }, () => {
     assert.deepEqual(byBoss.entries.map((e) => e.actorLabel), ["Boss", "Boss, via Fake HR sync", "Boss, via API key ‘Zapier’ (ooohm_AbCdEfGh…)"]);
   });
 
-  test("pages of 50 by (created_at, id): rows sharing an instant are neither skipped nor repeated", async () => {
+  test("pages by (created_at, id), forwards and back: rows sharing an instant are neither skipped nor repeated", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);
-    // 120 rows in the same microsecond, plus a few around them.
-    await writeAudit(t.db, Array.from({ length: 120 }, () => ({ companyId: co.companyId, at: "2026-10-01T12:00:00.123456Z" })));
+    // 60 rows in the same microsecond, plus a few around them: 62 rows, three pages of 25.
+    await writeAudit(t.db, Array.from({ length: 60 }, () => ({ companyId: co.companyId, at: "2026-10-01T12:00:00.123456Z" })));
     await writeAudit(t.db, [
       { companyId: co.companyId, at: "2026-10-01T12:00:00.123457Z" },
       { companyId: co.companyId, at: "2026-10-01T12:00:00.123455Z" },
     ]);
 
-    const seen: string[] = [];
-    let cursor: string | undefined;
-    let pages = 0;
+    const forward: string[][] = [];
+    let page: PageCursor | undefined;
+    let last: Awaited<ReturnType<typeof getAuditLog>>;
     do {
-      const page = await getAuditLog(ctx, co.people.boss, { cursor });
-      assert.ok(page.entries.length <= AUDIT_PAGE_SIZE);
-      seen.push(...page.entries.map((e) => e.id));
-      cursor = page.nextCursor ?? undefined;
-      pages++;
-    } while (cursor);
-    assert.equal(pages, 3);
-    assert.equal(seen.length, 122);
-    assert.equal(new Set(seen).size, 122, "no row twice");
+      last = await getAuditLog(ctx, co.people.boss, { page });
+      assert.equal(last.previous === null, forward.length === 0, "only the first page has no previous");
+      forward.push(last.entries.map((e) => e.id));
+      page = last.next ?? undefined;
+    } while (page);
+    assert.deepEqual(forward.map((p) => p.length), [25, 25, 12]);
+    const seen = forward.flat();
+    assert.equal(new Set(seen).size, 62, "no row twice, none skipped");
     const times = await t.db.select({ id: schema.auditLog.id, at: schema.auditLog.createdAt }).from(schema.auditLog);
     const order = new Map(times.map((r) => [r.id, r.at.getTime()]));
     for (let i = 1; i < seen.length; i++) assert.ok(order.get(seen[i - 1])! >= order.get(seen[i])!, "newest first");
-    assert.equal(decodeAuditCursor("garbage"), undefined, "a bad cursor reads as the first page");
 
-    // A forged cursor of the right shape but an impossible instant is the first page too,
-    // not a database error.
-    const id = "00000000-0000-4000-8000-000000000000";
-    for (const at of ["2026-99-99T99:99:99.000000Z", "2026-02-30T12:00:00.000000Z", "2026-10-01T24:00:00.000000Z", "2026-10-01T12:60:00.000000Z"]) {
-      assert.equal(decodeAuditCursor(`${at}_${id}`), undefined, at);
-      const page = await getAuditLog(ctx, co.people.boss, { cursor: `${at}_${id}` });
-      assert.equal(page.entries[0]?.id, seen[0], `${at} reads as the first page`);
+    // Back from the last page: the same pages, in the same order within each.
+    const backward: string[][] = [];
+    page = last.previous ?? undefined;
+    while (page) {
+      const p = await getAuditLog(ctx, co.people.boss, { page });
+      backward.unshift(p.entries.map((e) => e.id));
+      assert.ok(p.next, "a page reached going back has a next page");
+      page = p.previous ?? undefined;
     }
-    assert.deepEqual(decodeAuditCursor(`2026-10-01T12:00:00.123456Z_${id}`), { createdAt: "2026-10-01T12:00:00.123456Z", id });
+    assert.deepEqual(backward, forward.slice(0, -1));
+  });
+
+  test("oldest first walks the same rows the other way; rows a page are 25, 50 or 100, anything else 25", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" } });
+    const ctx = createTestContext(t.db);
+    await writeAudit(t.db, Array.from({ length: 60 }, (_, i) => ({ companyId: co.companyId, at: `2026-10-01T12:${String(i).padStart(2, "0")}:00Z` })));
+    const all = async (filter: { oldestFirst?: boolean; size?: number }) => {
+      const ids: string[] = [];
+      const sizes: number[] = [];
+      let page: PageCursor | undefined;
+      do {
+        const p = await getAuditLog(ctx, co.people.boss, { ...filter, page });
+        ids.push(...p.entries.map((e) => e.id));
+        sizes.push(p.size);
+        page = p.next ?? undefined;
+      } while (page);
+      return { ids, pages: sizes.length, size: sizes[0] };
+    };
+    const newest = await all({});
+    const oldest = await all({ oldestFirst: true });
+    assert.deepEqual(oldest.ids, [...newest.ids].reverse());
+    assert.equal(newest.ids.length, 60);
+    assert.deepEqual([newest.pages, newest.size], [3, 25]);
+    assert.deepEqual([(await all({ size: 50 })).pages, (await all({ size: 100 })).pages], [2, 1]);
+    for (const size of [0, 7, 1000, Number.NaN]) {
+      const r = await all({ size });
+      assert.deepEqual([r.pages, r.ids.length, r.size], [3, 60, 25], `${size} reads 25 a page`);
+    }
+  });
+
+  test("search: every word must match the change's name, who made it or who it is about; filters still apply", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {}, ben: {} });
+    const ctx = createTestContext(t.db);
+    const { boss, ana, ben } = co.people;
+    const row = (action: string, actorId: string | null, subjectUserId: string | null, minute: number) => ({
+      companyId: co.companyId,
+      action,
+      actorId,
+      subjectUserId,
+      at: `2026-10-01T12:${String(minute).padStart(2, "0")}:00Z`,
+    });
+    await writeAudit(t.db, [
+      row("leave_request.rejected", boss.id, ana.id, 1),
+      row("leave_request.rejected", boss.id, ben.id, 2),
+      row("leave_request.approved", boss.id, ana.id, 3),
+      row("leave_request.requested", ana.id, ana.id, 4),
+      row("holiday.created", boss.id, null, 5),
+    ]);
+    const found = async (filter: Parameters<typeof getAuditLog>[2]) =>
+      (await getAuditLog(ctx, boss, filter)).entries.map((e) => [e.action, e.subjectName]).sort();
+
+    assert.deepEqual(await found({ query: "DECLINED" }), [
+      ["leave_request.rejected", "Ana"],
+      ["leave_request.rejected", "Ben"],
+    ]);
+    assert.deepEqual(await found({ query: "declined ana" }), [["leave_request.rejected", "Ana"]], "both words must match");
+    assert.deepEqual(await found({ query: "  ben  " }), [["leave_request.rejected", "Ben"]]);
+    assert.equal((await found({ query: "boss" })).length, 4, "as the one who made the change");
+    assert.deepEqual(await found({ query: "ana nobody-by-this-name" }), [], "a word matching nothing finds nothing");
+    assert.deepEqual(await found({ query: "request" }), [["leave_request.requested", "Ana"]], "labels only: 'request' is in every leave_request key, not in 'Leave declined'");
+    assert.deepEqual(await found({ query: "ana", action: "leave_request.approved" }), [["leave_request.approved", "Ana"]], "with a filter");
+    const log = await getAuditLog(ctx, boss, { query: "  Declined   ana " });
+    assert.equal(log.filters.query, "Declined ana", "the search as shown back, spaces tidied");
+    assert.equal((await getAuditLog(ctx, boss, { query: "   " })).filters.query, undefined);
+  });
+
+  test("a cursor that is not one the log made reads as the first page, not an error", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" } });
+    const ctx = createTestContext(t.db);
+    await writeAudit(t.db, Array.from({ length: 30 }, (_, i) => ({ companyId: co.companyId, at: `2026-10-01T12:00:${String(i).padStart(2, "0")}Z` })));
+    const first = (await getAuditLog(ctx, co.people.boss, {})).entries[0].id;
+    const id = "00000000-0000-4000-8000-000000000000";
+    const forged = [
+      "garbage",
+      "",
+      encodePageKey(["2026-10-01T12:00:00.123456Z"]),
+      encodePageKey(["2026-10-01T12:00:00.123456Z", "not-a-uuid"]),
+      encodePageKey(["0000-01-01T00:00:00.000000Z", id]),
+      ...["2026-99-99T99:99:99.000000Z", "2026-02-30T12:00:00.000000Z", "2026-10-01T24:00:00.000000Z", "2026-10-01T12:60:00.000000Z"].map((at) =>
+        encodePageKey([at, id]),
+      ),
+    ];
+    assert.equal((await getAuditLog(ctx, co.people.boss, { actorId: "x\u0000" })).entries[0]?.id, first, "a NUL person filter is ignored");
+    for (const token of forged) {
+      for (const direction of ["after", "before"] as const) {
+        const page = await getAuditLog(ctx, co.people.boss, { page: { direction, token } });
+        assert.equal(page.entries[0]?.id, first, `${direction} ${token}`);
+        assert.equal(page.previous, null, `${direction} ${token} is the first page`);
+      }
+    }
   });
 
   test("filters by action, actor, person and days in the company's time zone", async () => {

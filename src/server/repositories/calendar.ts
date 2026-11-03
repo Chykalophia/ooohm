@@ -66,7 +66,7 @@ const entryFields = {
  * one that reaches `from` starts no earlier than {@link earliestOverlappingStart}: that
  * bound makes the index range two-sided.
  */
-function activeInRange(companyId: string, from: string, to: string): SQL | undefined {
+export function activeInRange(companyId: string, from: string, to: string): SQL | undefined {
   return and(
     eq(leaveRequests.companyId, companyId),
     inArray(leaveRequests.status, [...ACTIVE_STATUSES]),
@@ -95,18 +95,13 @@ export async function listPersonalEntries(ex: Executor, companyId: string, userI
  * @param departmentId Only people in this department; already checked to belong to
  *   the company.
  */
-export async function listTeamEntries(
-  ex: Executor,
-  companyId: string,
-  from: string,
-  to: string,
-  departmentId: string | null = null,
-) {
+export async function listTeamEntries(ex: Executor, companyId: string, from: string, to: string, departmentId: string | null = null) {
   return ex
     .select({
       ...entryFields,
       personName: user.name,
       personEmail: user.email,
+      departmentId: user.departmentId,
       departmentName: departments.name,
     })
     .from(leaveRequests)
@@ -121,5 +116,18 @@ export async function listTeamEntries(
         departmentId ? eq(user.departmentId, departmentId) : undefined,
       ),
     )
+    .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id));
+}
+
+/**
+ * One person's approved and pending leave touching `from`..`to`, earliest first, with the
+ * days it costs and both notes: the team member page decides which of those it shows.
+ */
+export async function listPersonLeave(ex: Executor, companyId: string, userId: string, from: string, to: string) {
+  return ex
+    .select({ ...entryFields, days: leaveRequests.days, note: leaveRequests.note, decisionNote: leaveRequests.decisionNote })
+    .from(leaveRequests)
+    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
+    .where(and(activeInRange(companyId, from, to), eq(leaveRequests.userId, userId)))
     .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id));
 }

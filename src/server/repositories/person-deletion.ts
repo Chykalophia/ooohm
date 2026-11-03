@@ -26,6 +26,7 @@ import {
   leaveRequestDays,
   leaveRequests,
   leaveTypes,
+  passkey,
   session,
   user,
   verification,
@@ -114,12 +115,13 @@ export async function countDeletionFacts(ex: Executor, companyId: string, userId
 
 /**
  * Removes everything that lets the person sign in or be reached: every session, every
- * linked account (Google), every unused sign-in link sent to their address, and every
- * calendar feed link, live or revoked.
+ * linked account (Google), every passkey, every unused sign-in link sent to their
+ * address, and every calendar feed link, live or revoked.
  */
 export async function deleteSignInOf(tx: Transaction, person: { id: string; email: string }) {
   const sessions = await tx.delete(session).where(eq(session.userId, person.id)).returning({ id: session.id });
   const accounts = await tx.delete(account).where(eq(account.userId, person.id)).returning({ id: account.id });
+  const passkeys = await tx.delete(passkey).where(eq(passkey.userId, person.id)).returning({ id: passkey.id });
   // A magic link stores `{"type":"magic-link","email":"<address>",...}` under a random
   // identifier; other flows key verification rows by the address itself.
   const emailField = `"email":${JSON.stringify(person.email.toLowerCase())}`;
@@ -128,7 +130,13 @@ export async function deleteSignInOf(tx: Transaction, person: { id: string; emai
     .where(or(sql`strpos(lower(${verification.value}), ${emailField}) > 0`, sql`lower(${verification.identifier}) = ${person.email.toLowerCase()}`))
     .returning({ id: verification.id });
   const feeds = await tx.delete(calendarFeedTokens).where(eq(calendarFeedTokens.userId, person.id)).returning({ id: calendarFeedTokens.id });
-  return { sessions: sessions.length, accounts: accounts.length, verifications: verifications.length, calendarFeeds: feeds.length };
+  return {
+    sessions: sessions.length,
+    accounts: accounts.length,
+    passkeys: passkeys.length,
+    verifications: verifications.length,
+    calendarFeeds: feeds.length,
+  };
 }
 
 /** Clears the manager of anyone in the company who still reports to `userId`. @returns How many. */

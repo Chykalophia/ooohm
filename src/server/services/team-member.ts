@@ -1,0 +1,95 @@
+import type { Actor } from "@/domain/actor";
+import { isEmptyBalance } from "@/domain/allowance-policy";
+import { entriesCostingDaysIn } from "@/domain/calendar";
+import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
+import { DomainError, isDomainError } from "@/domain/errors";
+import { isUuid } from "@/domain/ids";
+import { canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { teamLabel } from "@/domain/person";
+import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
+import { log } from "@/lib/log";
+import type { ServiceContext } from "@/server/context";
+import { listHolidays, listPersonLeave } from "@/server/repositories/calendar";
+import { findCompany } from "@/server/repositories/companies";
+import { findDepartment } from "@/server/repositories/departments";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { findPerson } from "@/server/repositories/users";
+import { summarizeBalances } from "./balances";
+
+/** How far back "Recently" looks, and how far ahead "Coming up" does, in days. */
+const RECENT_DAYS = 60;
+const AHEAD_DAYS = 365;
+
+/**
+ * One member of the actor's company, as their page on Team shows them, in two tiers:
+ *
+ * - Everyone in the company sees what the team calendar already shows: name,
+ *   department, manager, and their approved and pending leave from
+ *   {@link RECENT_DAYS} days ago to {@link AHEAD_DAYS} days ahead (only leave that costs
+ *   a working day, as on the calendar).
+ * - The person, admins, and their manager while the company allows it
+ *   ({@link canSeeLeaveDetails}) also get `details`: this year's balances, and each
+ *   request's days, note and approver's reason. For anyone else those are never read
+ *   past the query, so they never leave the service.
+ *
+ * Inactive and deleted people are not on Team, so they are `not_found` here too.
+ *
+ * @throws DomainError `not_found`, `no_company`.
+ */
+export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: string) {
+  if (!isUuid(userId)) throw new DomainError("not_found");
+  const [company, person] = await Promise.all([findCompany(ctx.db, actor.companyId), findPerson(ctx.db, actor.companyId, userId)]);
+  if (!company) throw new DomainError("no_company");
+  if (!person?.isActive) throw new DomainError("not_found");
+
+  const now = ctx.now();
+  const today = todayInTimeZone(company.timezone, now);
+  const from = fromEpochDay(toEpochDay(today) - RECENT_DAYS);
+  const to = fromEpochDay(toEpochDay(today) + AHEAD_DAYS);
+  const showDetails = canSeeLeaveDetails(actor, { ...person, companyId: actor.companyId }, company.managersSeeDetails);
+  const year = yearInTimeZone(company.timezone, now);
+
+  const [department, manager, holidays, leave, balances] = await Promise.all([
+    person.departmentId ? findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined,
+    person.managerId ? findPerson(ctx.db, actor.companyId, person.managerId) : undefined,
+    listHolidays(ctx.db, actor.companyId, from, to),
+    listPersonLeave(ctx.db, actor.companyId, person.id, from, to),
+    showDetails ? personBalances(ctx, actor, person, company.allowancePolicy, year) : null,
+  ]);
+
+  const shown = entriesCostingDaysIn(leave, { first: from, last: to, workingDays: company.workingDays, holidays });
+  const entries = shown.map(({ days, note, decisionNote, ...entry }) => ({
+    ...entry,
+    details: showDetails ? { days, note, decisionNote } : null,
+  }));
+  return {
+    person: {
+      id: person.id,
+      name: teamLabel(person),
+      departmentName: department?.name ?? null,
+      managerName: manager ? teamLabel(manager) : null,
+      isMe: person.id === actor.id,
+    },
+    /** Leave that ends today or later, earliest first. */
+    upcoming: entries.filter((e) => e.endDate >= today),
+    /** Leave that ended in the last {@link RECENT_DAYS} days, latest first. */
+    recent: entries.filter((e) => e.endDate < today).reverse(),
+    recentDays: RECENT_DAYS,
+    /**
+     * This year's balances, for those allowed to see them (types with nothing allotted
+     * and nothing booked left out, as on Home); `null` otherwise, or when the policy is unknown.
+     */
+    balances: showDetails && balances ? { ...balances, items: balances.items.filter((i) => !isEmptyBalance(i.balance)) } : null,
+    showDetails,
+  };
+}
+
+/** The person's balances for `year`, or `null` (logged) when the company's allowance policy is unknown. */
+async function personBalances(ctx: ServiceContext, actor: Actor, person: { id: string }, allowancePolicy: string, year: number) {
+  const types = await listLeaveTypesWithAllowance(ctx.db, actor.companyId);
+  return summarizeBalances(ctx.db, person, { allowancePolicy, types, year }).catch((err: unknown) => {
+    if (!isDomainError(err, "policy_unavailable")) throw err;
+    log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");
+    return null;
+  });
+}

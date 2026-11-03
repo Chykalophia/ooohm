@@ -92,6 +92,62 @@
       "when": 1793596704457,
       "tag": "0012_m8_people_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793640696930,
+      "tag": "0013_holiday_recount",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793667844328,
+      "tag": "0014_user_theme",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793682971354,
+      "tag": "0015_appearance",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793686649709,
+      "tag": "0016_request_style",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793687538884,
+      "tag": "0017_layout",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793691791677,
+      "tag": "0018_managers_see_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793695899467,
+      "tag": "0019_installation",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793744819798,
+      "tag": "0020_passkeys",
+      "breakpoints": true
     }
   ]
 }

@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
-import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { RevealForm } from "@/app/admin/reveal-once";
-import { card } from "@/app/styles";
+import { AdminShell } from "@/app/admin/admin-shell";
+import { requireAdminPage } from "@/app/_lib/page-context";
+import { Card } from "@/components/ui/card";
+import { RevealForm } from "@/components/forms/reveal-form";
+
 import { createEndpointAction } from "@/app/admin/webhooks/actions";
 import { EndpointFields } from "@/app/admin/webhooks/endpoint-fields";
 
 export const metadata: Metadata = { title: "Add endpoint · Webhooks · Admin · OOOhm" };
 
 export default async function NewWebhookPage() {
-  const { userName, approvals } = await requireAdminPage();
+  const { nav } = await requireAdminPage();
   return (
     <AdminShell
-      userName={userName}
-      approvals={approvals}
+      nav={nav}
       section="webhooks"
       title="Add endpoint"
       description="The endpoint gets the events you pick, from now on. You'll see its signing secret once, right after you add it."
     >
-      <section aria-label="New endpoint" className={card}>
+      <Card aria-label="New endpoint">
         <RevealForm
           action={createEndpointAction}
           submitLabel="Add endpoint"
@@ -29,7 +30,7 @@ export default async function NewWebhookPage() {
         >
           <EndpointFields />
         </RevealForm>
-      </section>
+      </Card>
     </AdminShell>
   );
 }

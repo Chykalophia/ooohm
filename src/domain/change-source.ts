@@ -28,6 +28,23 @@ export const CHANGE_PROCESSES = {
    * An admin asked for it, so its source names them as `requestedBy`.
    */
   scheduledScrub: "scheduled_scrub",
+  /**
+   * Recounting submitted requests after an admin added or deleted a company holiday.
+   * An admin starts it, so it is only ever a `via`.
+   */
+  holidayChange: "holiday_change",
+  /**
+   * Recounting submitted requests after an admin changed the company's working days.
+   * An admin starts it, so it is only ever a `via`.
+   */
+  workingDaysChange: "working_days_change",
+  /** The one-click Approve link in a request email. Only ever a `via`: the approver, through the link. */
+  emailLink: "email_link",
+  /**
+   * The web setup of a brand-new install (`/setup`). Only ever a `via`: the first admin,
+   * who created themself and the company's default leave types through it.
+   */
+  firstInstall: "first_install",
 } as const;
 
 const ADAPTER_SYNC_PREFIX = "adapter_sync:";
@@ -42,9 +59,7 @@ export function adapterSyncProcess(adapterId: string): ChangeProcess {
 
 /** The adapter id in an `adapter_sync:<id>` identifier, or `null` for any other. */
 export function adapterIdOf(process: string): string | null {
-  return process.startsWith(ADAPTER_SYNC_PREFIX) && process.length > ADAPTER_SYNC_PREFIX.length
-    ? process.slice(ADAPTER_SYNC_PREFIX.length)
-    : null;
+  return process.startsWith(ADAPTER_SYNC_PREFIX) && process.length > ADAPTER_SYNC_PREFIX.length ? process.slice(ADAPTER_SYNC_PREFIX.length) : null;
 }
 
 export const CHANGE_SOURCE_KINDS = ["user", "api_key", "system"] as const;
@@ -151,6 +166,14 @@ function processLabel(process: string, names: ChangeSourceNames, scheduled: bool
       return "time-off import";
     case CHANGE_PROCESSES.scheduledScrub:
       return "scheduled deletion";
+    case CHANGE_PROCESSES.holidayChange:
+      return "holiday change";
+    case CHANGE_PROCESSES.workingDaysChange:
+      return "working days change";
+    case CHANGE_PROCESSES.emailLink:
+      return "the email Approve link";
+    case CHANGE_PROCESSES.firstInstall:
+      return "first-time setup";
     case UNKNOWN_PROCESS:
       return "unknown process";
     default:

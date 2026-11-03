@@ -108,7 +108,7 @@ export function leaveEventPayload(request: LeaveEventSource, source: PersonChang
 }
 
 /** Audit log `action` for each leave transition, e.g. `leave_request.approved`. */
-export function leaveAuditAction(event: "requested" | "reassigned" | LeaveStatus): string {
+export function leaveAuditAction(event: "requested" | "reassigned" | "recounted" | LeaveStatus): string {
   return `leave_request.${event}`;
 }
 
@@ -196,6 +196,21 @@ export function calendarFeedAuditAction(event: keyof typeof CALENDAR_FEED_EVENT_
  * always the admin who made that change. Public contract; never rename it.
  */
 export const LEAVE_REASSIGNED_EVENT_TYPE = "leave.reassigned";
+
+/**
+ * `leave.recounted`: a pending or approved request's days changed (its total, or only how
+ * they split between years, so `days` may equal `previousDays`), because an admin added
+ * or deleted a company holiday on its dates or changed the company's working days. Only
+ * the years still open are recounted. The actor is that admin, `via` `holiday_change` or
+ * `working_days_change`. A request left with no working days is kept, at 0 days, and is
+ * never cancelled by a recount. Public contract; never rename it.
+ */
+export const LEAVE_RECOUNTED_EVENT_TYPE = "leave.recounted";
+
+/** Version 1 payload of `leave.recounted`: the leave fields (with the new `days`) plus the old count. */
+export interface LeaveRecountedPayload extends LeaveEventPayload {
+  previousDays: number;
+}
 
 /** Version 1 payload of `leave.reassigned`: the leave fields plus who it moved from and to. */
 export interface LeaveReassignedPayload extends LeaveEventPayload {
@@ -323,6 +338,18 @@ export interface CompanyEventPayload extends PersonAttribution {
   allowancePolicy: string;
   /** Added within version 1: full-scrub deletes wait 7 days, with undo. */
   deletionGrace: boolean;
+  /** Added within version 1: managers see their direct reports' balances and request notes. */
+  managersSeeDetails: boolean;
+  /** Added within version 1: the theme key everyone sees, e.g. `classic` or `cobalt`. */
+  theme: string;
+  /** Added within version 1: `#rrggbb` replacing the theme's accent, or null. */
+  accentColor: string | null;
+  /** Added within version 1: `theme`, `square`, `soft` or `round`. */
+  corners: string;
+  /** Added within version 1: how Home asks for time off, `form` or `sentence`. */
+  requestStyle: string;
+  /** Added within version 1: the layout trial, `standard`, `tonal`, `grouped`, `compact` or `legible`. */
+  layout: string;
 }
 
 /**

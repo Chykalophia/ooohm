@@ -1,79 +1,90 @@
-import { canAdminister } from "@/domain/admin-permissions";
-import { requireActor } from "@/lib/auth";
-import { formatDays, formatLeaveDates } from "@/lib/format";
-import { serviceContext } from "@/server/runtime";
-import { getApprovalNav } from "@/server/services/approvals";
+import Link from "next/link";
+import { formatExpiring } from "@/lib/format";
+import { hasPasskey } from "@/server/services/account";
+import { shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
 import { getDashboard } from "@/server/services/leave-requests";
-import { AppHeader } from "./app-header";
-import { BalanceSummary } from "./balance-summary";
-import { CancelRequestButton } from "./cancel-request-button";
-import { NoCompany } from "./no-company";
+import { AppPage } from "@/components/layout/app-page";
+import { NoCompany } from "@/components/layout/no-company";
+import { BalanceSummary } from "@/components/leave/balance-summary";
+import { Section } from "@/components/ui/section";
+import { quietLink } from "@/components/ui/styles";
+import { requestAppearance } from "./_lib/appearance";
+import { requireMemberPage } from "./_lib/page-context";
+import { HomeHint } from "./home-hint";
 import { RequestLeaveForm } from "./request-leave-form";
-import { StatusBadge } from "./status-badge";
+import { RequestLeaveSentence } from "./request-leave-sentence";
+import { RequestList } from "./requests/request-list";
 
+/** Focus lands on this heading after a cancel, when the cancel button itself disappears. */
 const REQUESTS_HEADING_ID = "mine-heading";
 
 export default async function HomePage() {
-  const { user, actor } = await requireActor();
-  const userName = user.name || user.email;
+  const page = await requireMemberPage();
+  if (!page.actor) return <NoCompany nav={page.nav} current="home" />;
 
-  if (!actor) return <NoCompany userName={userName} current="home" />;
-
-  const ctx = serviceContext();
-  const [dashboard, approvals] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor)]);
+  const { actor } = page;
+  // Once someone has approved time off, suggest putting it in their own calendar, until they have.
+  // Until someone has a passkey, suggest one: signing in is then a tap instead of an email.
+  const [dashboard, suggestFeed, appearance, passkeyAdded] = await Promise.all([
+    getDashboard(page.ctx, actor),
+    shouldSuggestCalendarFeed(page.ctx, actor),
+    requestAppearance(),
+    hasPasskey(page.ctx, actor),
+  ]);
+  // The admin's choice under Appearance; both send the same request.
+  const RequestLeave = appearance.requestStyle === "sentence" ? RequestLeaveSentence : RequestLeaveForm;
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-      <AppHeader userName={userName} approvals={approvals} current="home" admin={canAdminister(actor)} />
+    <AppPage nav={page.nav} current="home" title="Your time off" titleHidden className="space-y-10">
+      {dashboard.leaveTypes.length === 0 ? (
+        <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
+      ) : (
+        <RequestLeave leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+      )}
 
-      <main className="space-y-10">
-        <h1 className="sr-only">Your time off</h1>
-        {dashboard.leaveTypes.length === 0 ? (
-          <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
-        ) : (
-          <RequestLeaveForm leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+      {!passkeyAdded && (
+        <HomeHint storageKey={`ooohm:${actor.companyId}:${actor.id}:passkey`} link={{ href: "/account#passkeys", label: "Add a passkey" }}>
+          Sign in faster next time: with a passkey, it&apos;s your fingerprint, face or device PIN instead of an email.
+        </HomeHint>
+      )}
+
+      {dashboard.expiring.length > 0 && dashboard.balances && (
+        <HomeHint
+          storageKey={`ooohm:${actor.companyId}:${actor.id}:expiring:${dashboard.balances.year}`}
+          link={{ href: "/calendar", label: "Pick days" }}
+        >
+          {formatExpiring(dashboard.expiring, dashboard.balances.year + 1)} Book them by December 31.
+        </HomeHint>
+      )}
+
+      <BalanceSummary summary={dashboard.balances} />
+
+      {/* The latest few; every request, a page at a time, is on "Your requests". */}
+      <Section
+        title="Your latest requests"
+        headingId={REQUESTS_HEADING_ID}
+        action={
+          dashboard.requests.length > 0 && (
+            <Link href="/requests" className={quietLink}>
+              {dashboard.moreRequests ? "See all your requests →" : "Your requests →"}
+            </Link>
+          )
+        }
+      >
+        {suggestFeed && (
+          <HomeHint
+            storageKey={`ooohm:${actor.companyId}:${actor.id}:calendar-feed`}
+            link={{ href: "/calendar/subscriptions", label: "Add to my calendar" }}
+          >
+            Put your time off in Google Calendar, Apple Calendar or Outlook, and keep it up to date there.
+          </HomeHint>
         )}
-
-        <BalanceSummary summary={dashboard.balances} />
-
-        <section aria-labelledby={REQUESTS_HEADING_ID} className="space-y-4">
-          {/* Focus lands here after a cancel, when the cancel button itself disappears. */}
-          <h2 id={REQUESTS_HEADING_ID} tabIndex={-1} className="text-lg font-semibold tracking-tight outline-none">
-            Your requests
-          </h2>
-          {dashboard.requests.length === 0 ? (
-            <p className="text-muted">Nothing yet. Your requests will show up here.</p>
-          ) : (
-            <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
-              {dashboard.requests.map((r) => (
-                <li key={r.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <p className="flex items-center gap-2 font-medium">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: r.leaveTypeColor }} aria-hidden />
-                      {formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}
-                    </p>
-                    <p className="text-sm text-muted">
-                      {r.leaveTypeName} · {formatDays(r.days)}
-                      {r.status === "pending" && r.approverName && r.approverId !== actor.id && ` · with ${r.approverName}`}
-                    </p>
-                    {r.note && <p className="text-sm text-muted break-words">{r.note}</p>}
-                    {r.decisionNote && (
-                      <p className="text-sm break-words">
-                        <span className="text-muted">{r.status === "rejected" ? "Reason: " : "Note from approver: "}</span>
-                        {r.decisionNote}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                    <StatusBadge status={r.status} />
-                    {r.cancellable && <CancelRequestButton requestId={r.id} focusAfterCancel={REQUESTS_HEADING_ID} />}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </main>
-    </div>
+        {dashboard.requests.length === 0 ? (
+          <p className="text-muted">Nothing yet. Your requests will show up here.</p>
+        ) : (
+          <RequestList requests={dashboard.requests} me={actor.id} focusAfterCancel={REQUESTS_HEADING_ID} />
+        )}
+      </Section>
+    </AppPage>
   );
 }

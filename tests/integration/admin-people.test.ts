@@ -18,12 +18,12 @@ import {
   updatePerson,
 } from "@/server/services/admin-people";
 import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
-import { decideLeaveRequest, listApprovalInbox } from "@/server/services/approvals";
+import { decideLeaveRequest } from "@/server/services/approvals";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { submitLeaveRequest } from "@/server/services/leave-requests";
 import { createWebhookEndpoint, deleteWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
-import { captureStderr, companyAudit, companyEvents, type PersonSpec, seedCompany, setAllowance } from "./fixtures";
+import { captureStderr, companyAudit, companyEvents, decidable, type PersonSpec, seedCompany, setAllowance, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 async function userRow(db: Database, id: string) {
@@ -110,23 +110,26 @@ describe("admin: people", { skip }, () => {
       isActive: true,
     });
     const events = await companyEvents(t.db, co.companyId, "user.");
-    assert.deepEqual(events.map((e) => [e.type, e.payload]), [
+    assert.deepEqual(
+      events.map((e) => [e.type, e.payload]),
       [
-        "user.created",
-        {
-          userId: person.id,
-          email: row.email,
-          name: "New Person",
-          role: "manager",
-          departmentId: dept.id,
-          managerId: co.people.mgr.id,
-          canSelfApprove: true,
-          isActive: true,
-          actorId: co.people.boss.id,
-          actor: { type: "user", id: co.people.boss.id },
-        },
+        [
+          "user.created",
+          {
+            userId: person.id,
+            email: row.email,
+            name: "New Person",
+            role: "manager",
+            departmentId: dept.id,
+            managerId: co.people.mgr.id,
+            canSelfApprove: true,
+            isActive: true,
+            actorId: co.people.boss.id,
+            actor: { type: "user", id: co.people.boss.id },
+          },
+        ],
       ],
-    ]);
+    );
     assert.ok(!JSON.stringify(events).includes("token"), "no link or token in the outbox");
   });
 
@@ -196,10 +199,19 @@ describe("admin: people", { skip }, () => {
     const ctx = createTestContext(t.db);
     await resendInvite(ctx, co.people.boss, co.people.ana.id);
     await ctx.settle();
-    assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[co.people.ana.email, INVITE_SUBJECT]]);
+    assert.deepEqual(
+      ctx.sent.map((m) => [m.to, subjectOf(m)]),
+      [[co.people.ana.email, INVITE_SUBJECT]],
+    );
     const audit = await companyAudit(t.db, co.companyId);
-    assert.deepEqual(audit.map((a) => [a.action, a.subjectUserId, a.after]), [["user.invite_resent", co.people.ana.id, { email: co.people.ana.email }]]);
-    assert.deepEqual((await companyEvents(t.db, co.companyId)).map((e) => e.type), ["user.invite_resent"]);
+    assert.deepEqual(
+      audit.map((a) => [a.action, a.subjectUserId, a.after]),
+      [["user.invite_resent", co.people.ana.id, { email: co.people.ana.email }]],
+    );
+    assert.deepEqual(
+      (await companyEvents(t.db, co.companyId)).map((e) => e.type),
+      ["user.invite_resent"],
+    );
 
     await rejectsWith(resendInvite(ctx, co.people.boss, co.people.gone.id), "forbidden");
     await rejectsWith(resendInvite(ctx, co.people.ana, co.people.boss.id), "forbidden");
@@ -213,18 +225,28 @@ describe("admin: people", { skip }, () => {
     const ctx = createTestContext(t.db);
     const { ana } = co.people;
 
-    const { person: edited } = await updatePerson(ctx, co.people.boss, ana.id, editOf(ana, {
-      name: "Ana Smith",
-      departmentId: dept.id,
-      managerId: co.people.mgr.id,
-      role: "manager",
-      canSelfApprove: true,
-    }));
+    const { person: edited } = await updatePerson(
+      ctx,
+      co.people.boss,
+      ana.id,
+      editOf(ana, {
+        name: "Ana Smith",
+        departmentId: dept.id,
+        managerId: co.people.mgr.id,
+        role: "manager",
+        canSelfApprove: true,
+      }),
+    );
     assert.deepEqual(
       [edited.name, edited.departmentId, edited.managerId, edited.role, edited.canSelfApprove],
       ["Ana Smith", dept.id, co.people.mgr.id, "manager", true],
     );
-    await updatePerson(ctx, co.people.boss, ana.id, editOf(edited, { departmentId: dept.id, managerId: co.people.mgr.id, role: "manager", canSelfApprove: true }));
+    await updatePerson(
+      ctx,
+      co.people.boss,
+      ana.id,
+      editOf(edited, { departmentId: dept.id, managerId: co.people.mgr.id, role: "manager", canSelfApprove: true }),
+    );
 
     const audit = await companyAudit(t.db, co.companyId);
     assert.equal(audit.length, 1, "the second save changed nothing");
@@ -240,7 +262,12 @@ describe("admin: people", { skip }, () => {
   });
 
   test("edits refuse a non-admin, a person of another company, and a reporting loop", async () => {
-    const co = await seedCompany(t.db, { boss: { role: "admin" }, mgr: { role: "manager" }, ana: { managerKey: "mgr" }, gone: { isActive: false } });
+    const co = await seedCompany(t.db, {
+      boss: { role: "admin" },
+      mgr: { role: "manager" },
+      ana: { managerKey: "mgr" },
+      gone: { isActive: false },
+    });
     const other = await seedCompany(t.db, { x: {} });
     const ctx = createTestContext(t.db);
     const { boss, mgr, ana } = co.people;
@@ -346,12 +373,18 @@ describe("admin: people", { skip }, () => {
       ],
     );
     assert.deepEqual(
-      [(sinceDeactivation[3].after as Record<string, unknown>).sessionsRevoked, (sinceDeactivation[3].after as Record<string, unknown>).requestsReassigned],
+      [
+        (sinceDeactivation[3].after as Record<string, unknown>).sessionsRevoked,
+        (sinceDeactivation[3].after as Record<string, unknown>).requestsReassigned,
+      ],
       [2, 1],
     );
     const events = await companyEvents(t.db, co.companyId);
     const tail = events.slice(-4);
-    assert.deepEqual(tail.map((e) => e.type), ["calendar_feed.revoked", "calendar_feed.revoked", "leave.reassigned", "user.deactivated"]);
+    assert.deepEqual(
+      tail.map((e) => e.type),
+      ["calendar_feed.revoked", "calendar_feed.revoked", "leave.reassigned", "user.deactivated"],
+    );
     assert.deepEqual((tail[0].payload as { reason: string }).reason, "deactivated");
     assert.deepEqual(
       [(tail[2].payload as { previousApproverId: string }).previousApproverId, (tail[2].payload as { approverId: string }).approverId],
@@ -360,7 +393,10 @@ describe("admin: people", { skip }, () => {
 
     assert.equal(ctx.sent.length, 0, "the new approver hears after commit");
     await ctx.settle();
-    assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[co.people.boss.email, "Time off request to review"]]);
+    assert.deepEqual(
+      ctx.sent.map((m) => [m.to, subjectOf(m)]),
+      [[co.people.boss.email, "Time off request to review"]],
+    );
 
     // Again: nothing more happens or is recorded.
     const again = await deactivatePerson(ctx, boss, mgr.id);
@@ -387,7 +423,10 @@ describe("admin: people", { skip }, () => {
     const [key] = await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, kept.apiKey.id));
     assert.equal(key.revokedAt, null, "company keys are not revoked by a deactivation");
     assert.deepEqual(
-      [(await deactivatePerson(ctx, boss, leaver.id)).liveApiKeysCreated, (await deactivatePerson(ctx, boss, leaver.id)).liveWebhookEndpointsCreated],
+      [
+        (await deactivatePerson(ctx, boss, leaver.id)).liveApiKeysCreated,
+        (await deactivatePerson(ctx, boss, leaver.id)).liveWebhookEndpointsCreated,
+      ],
       [1, 1],
       "still reported when done again",
     );
@@ -417,25 +456,34 @@ describe("admin: people", { skip }, () => {
     assert.equal(requestsReassigned, 1);
     const demoted: Actor = { ...a1, role: "employee" };
     await rejectsWith(decideLeaveRequest(ctx, demoted, { requestId: empRequest.id, decision: "approve" }), "forbidden");
-    const inboxOf = async (actor: Actor) => (await listApprovalInbox(ctx, actor)).items.map((i) => i.id).sort();
+    const inboxOf = async (actor: Actor) => (await decidable(ctx, actor)).items.map((i) => i.id).sort();
     assert.deepEqual(await inboxOf(demoted), [anaRequest.id], "they still decide for the person they manage");
     assert.ok((await inboxOf(a2)).includes(empRequest.id));
     const [moved] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, empRequest.id));
     assert.deepEqual([moved.status, moved.approverId], ["pending", a2.id]);
 
     const audit = (await companyAudit(t.db, co.companyId)).slice(-2);
-    assert.deepEqual(audit.map((a) => [a.action, a.actorId, a.entityId]), [
-      ["user.updated", a2.id, a1.id],
-      ["leave_request.reassigned", a2.id, empRequest.id],
-    ]);
+    assert.deepEqual(
+      audit.map((a) => [a.action, a.actorId, a.entityId]),
+      [
+        ["user.updated", a2.id, a1.id],
+        ["leave_request.reassigned", a2.id, empRequest.id],
+      ],
+    );
     const events = (await companyEvents(t.db, co.companyId)).slice(-2);
-    assert.deepEqual(events.map((e) => e.type), ["user.updated", "leave.reassigned"]);
+    assert.deepEqual(
+      events.map((e) => e.type),
+      ["user.updated", "leave.reassigned"],
+    );
     assert.deepEqual(
       [(events[1].payload as { previousApproverId: string }).previousApproverId, (events[1].payload as { approverId: string }).approverId],
       [a1.id, a2.id],
     );
     await ctx.settle();
-    assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[a2.email, "Time off request to review"]]);
+    assert.deepEqual(
+      ctx.sent.map((m) => [m.to, subjectOf(m)]),
+      [[a2.email, "Time off request to review"]],
+    );
 
     await decideLeaveRequest(ctx, a2, { requestId: empRequest.id, decision: "approve" });
   });
@@ -459,12 +507,18 @@ describe("admin: people", { skip }, () => {
     const changed = await updatePerson(ctx, boss, ena.id, editOf(ena, { name: "Ena B", managerId: carol.id }));
     assert.equal(changed.requestsReassigned, 1);
     await rejectsWith(decideLeaveRequest(ctx, alice, { requestId: request.id, decision: "approve" }), "forbidden");
-    assert.deepEqual((await listApprovalInbox(ctx, alice)).items, [], "the old manager no longer sees it");
-    assert.deepEqual((await listApprovalInbox(ctx, carol)).items.map((i) => i.id), [request.id]);
+    assert.deepEqual((await decidable(ctx, alice)).items, [], "the old manager no longer sees it");
+    assert.deepEqual(
+      (await decidable(ctx, carol)).items.map((i) => i.id),
+      [request.id],
+    );
     const decided = await decideLeaveRequest(ctx, carol, { requestId: request.id, decision: "approve" });
     assert.equal(decided.status, "approved");
     assert.deepEqual(
-      (await companyAudit(t.db, co.companyId, "leave_request.reassigned")).map((a) => [(a.before as { approverId: string }).approverId, (a.after as { approverId: string }).approverId]),
+      (await companyAudit(t.db, co.companyId, "leave_request.reassigned")).map((a) => [
+        (a.before as { approverId: string }).approverId,
+        (a.after as { approverId: string }).approverId,
+      ]),
       [[alice.id, carol.id]],
     );
   });
@@ -492,9 +546,15 @@ describe("admin: people", { skip }, () => {
       assert.equal(await approverOf(request.id), mgr.id);
       await rejectsWith(decideLeaveRequest(ctx, boss, { requestId: request.id, decision: "approve" }), "forbidden");
       const reassigned = await companyAudit(t.db, co.companyId, "leave_request.reassigned");
-      assert.deepEqual(reassigned.map((a) => [a.actorId, a.entityId]), [[boss.id, request.id]]);
+      assert.deepEqual(
+        reassigned.map((a) => [a.actorId, a.entityId]),
+        [[boss.id, request.id]],
+      );
       await ctx.settle();
-      assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[mgr.email, "Time off request to review"]]);
+      assert.deepEqual(
+        ctx.sent.map((m) => [m.to, subjectOf(m)]),
+        [[mgr.email, "Time off request to review"]],
+      );
       assert.equal((await decideLeaveRequest(ctx, mgr, { requestId: request.id, decision: "approve" })).status, "approved");
     });
 
@@ -518,23 +578,37 @@ describe("admin: people", { skip }, () => {
       assert.equal(await approverOf(promoted.request.id), b.id);
       await rejectsWith(decideLeaveRequest(promoted.ctx, boss, { requestId: promoted.request.id, decision: "approve" }), "forbidden");
       await promoted.ctx.settle();
-      assert.deepEqual(promoted.ctx.sent.map((m) => [m.to, m.subject]), [[b.email, "Time off request to review"]]);
+      assert.deepEqual(
+        promoted.ctx.sent.map((m) => [m.to, subjectOf(m)]),
+        [[b.email, "Time off request to review"]],
+      );
 
       const invited = await selfRouted();
       const admin = await invitePerson(invited.ctx, invited.co.people.boss, invite({ role: "admin" }));
       assert.equal(await approverOf(invited.request.id), admin.id);
       const reassigned = await companyEvents(t.db, invited.co.companyId, "leave.reassigned");
-      assert.deepEqual(reassigned.map((e) => (e.payload as { approverId: string }).approverId), [admin.id]);
+      assert.deepEqual(
+        reassigned.map((e) => (e.payload as { approverId: string }).approverId),
+        [admin.id],
+      );
       await invited.ctx.settle();
-      assert.deepEqual(invited.ctx.sent.map((m) => [m.to, m.subject]).sort(), [
-        [admin.email, INVITE_SUBJECT],
-        [admin.email, "Time off request to review"],
-      ].sort());
+      assert.deepEqual(
+        invited.ctx.sent.map((m) => [m.to, subjectOf(m)]).sort(),
+        [
+          [admin.email, INVITE_SUBJECT],
+          [admin.email, "Time off request to review"],
+        ].sort(),
+      );
 
       // Its pair: inviting or promoting a non-admin moves nothing.
       const unchanged = await selfRouted({ c: {} });
       await invitePerson(unchanged.ctx, unchanged.co.people.boss, invite({ role: "manager" }));
-      const edit = await updatePerson(unchanged.ctx, unchanged.co.people.boss, unchanged.co.people.c.id, editOf(unchanged.co.people.c, { role: "manager" }));
+      const edit = await updatePerson(
+        unchanged.ctx,
+        unchanged.co.people.boss,
+        unchanged.co.people.c.id,
+        editOf(unchanged.co.people.c, { role: "manager" }),
+      );
       assert.equal(edit.requestsReassigned, 0);
       assert.equal(await approverOf(unchanged.request.id), unchanged.co.people.boss.id);
     });
@@ -568,7 +642,10 @@ describe("admin: people", { skip }, () => {
       const { requestsReassigned } = await updatePerson(ctx, admin, boss.id, editOf(boss, { role: "employee" }));
       assert.equal(requestsReassigned, 1);
       assert.equal(await approverOf(request.id), b.id);
-      await rejectsWith(decideLeaveRequest(ctx, { ...boss, role: "employee" }, { requestId: request.id, decision: "approve" }), "forbidden");
+      await rejectsWith(
+        decideLeaveRequest(ctx, { ...boss, role: "employee" }, { requestId: request.id, decision: "approve" }),
+        "forbidden",
+      );
     });
   });
 
@@ -626,14 +703,18 @@ describe("admin: people", { skip }, () => {
     assert.equal(live.length, 0);
     const actions = (await companyAudit(t.db, co.companyId, "user.")).map((a) => a.action);
     assert.deepEqual(actions, ["user.deactivated", "user.reactivated"], "the second reactivate records nothing");
-    assert.deepEqual((await companyEvents(t.db, co.companyId, "user.")).map((e) => e.type), actions);
+    assert.deepEqual(
+      (await companyEvents(t.db, co.companyId, "user.")).map((e) => e.type),
+      actions,
+    );
   });
 
   test("the list filters by text and status, scoped to the company; the detail shows the person's balances", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss" }, ben: {}, gone: { isActive: false } });
     const other = await seedCompany(t.db, { anastasia: {} });
     const ctx = createTestContext(t.db);
-    const names = async (filter: Parameters<typeof listPeople>[2]) => (await listPeople(ctx, co.people.boss, filter)).people.map((p) => p.name);
+    const names = async (filter: Parameters<typeof listPeople>[2]) =>
+      (await listPeople(ctx, co.people.boss, filter)).people.map((p) => p.name);
     assert.deepEqual(await names({ status: "active" }), ["Ana", "Ben", "Boss"]);
     assert.deepEqual(await names({ status: "inactive" }), ["Gone"]);
     assert.deepEqual(await names({ status: "all", query: "AN" }), ["Ana"]);
@@ -645,7 +726,10 @@ describe("admin: people", { skip }, () => {
     await setAllowance(t.db, { userId: co.people.ana.id, leaveTypeId: co.pto, year: 2026, days: 12, adjustmentDays: 1 });
     const detail = await getPersonDetail(ctx, co.people.boss, co.people.ana.id);
     assert.equal(detail.year, 2026);
-    assert.deepEqual(detail.balances?.items.map((i) => [i.name, i.balance.tracked && i.balance.remaining, i.row?.days]), [["PTO", 13, 12]]);
+    assert.deepEqual(
+      detail.balances?.items.map((i) => [i.name, i.balance.tracked && i.balance.remaining, i.row?.days]),
+      [["PTO", 13, 12]],
+    );
     await rejectsWith(getPersonDetail(ctx, co.people.boss, other.people.anastasia.id), "not_found");
     await rejectsWith(getPersonDetail(ctx, co.people.ana, co.people.ana.id), "forbidden");
   });

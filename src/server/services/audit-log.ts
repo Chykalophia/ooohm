@@ -8,16 +8,25 @@ import { isCalendarDate } from "@/domain/calendar-date";
 import { type ChangeSourceKind, changeSourceLabel, recordedChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
+import { type PageCursor, type PageRequest, isCursorInstant, readPage } from "@/domain/paging";
 import { personLabel } from "@/domain/person";
+import { formatInstantDateTime } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";
-import { type AuditCursor, listAuditPage } from "@/server/repositories/audit-log";
+import { listAuditPage } from "@/server/repositories/audit-log";
 import { listDepartments } from "@/server/repositories/departments";
 import { findCompany } from "@/server/repositories/companies";
 import { listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { listPeopleNames } from "@/server/repositories/users";
 
-/** Rows per page. */
-export const AUDIT_PAGE_SIZE = 50;
+/** Rows per page the viewer offers; the first is the default. */
+export const AUDIT_PAGE_SIZES = [25, 50, 100] as const;
+export type AuditPageSize = (typeof AUDIT_PAGE_SIZES)[number];
+/** Rows per page unless the viewer asks for another of {@link AUDIT_PAGE_SIZES}. */
+export const AUDIT_PAGE_SIZE: AuditPageSize = AUDIT_PAGE_SIZES[0];
+
+function pageSize(value: number | undefined): AuditPageSize {
+  return AUDIT_PAGE_SIZES.find((s) => s === value) ?? AUDIT_PAGE_SIZE;
+}
 
 /** What the viewer filters on. Anything malformed is ignored rather than refused. */
 export interface AuditLogFilter {
@@ -28,30 +37,25 @@ export interface AuditLogFilter {
   from?: string;
   /** Last day, `YYYY-MM-DD`, in the company's time zone. */
   to?: string;
-  /** Opaque cursor from a previous page's `nextCursor`. */
-  cursor?: string;
+  /**
+   * Words to look for in the change's name ("declined"), who made it or who it is about
+   * (name or email); every word must match. Matched in the app against those labels,
+   * then read with the ids, so the database never scans text.
+   */
+  query?: string;
+  /** Oldest first instead of newest first. A cursor belongs to one order: switching starts at page 1. */
+  oldestFirst?: boolean;
+  /** Rows per page, one of {@link AUDIT_PAGE_SIZES}; anything else is the default. */
+  size?: number;
+  /** The page, from a previous page's `previous` or `next`; the first page when absent. */
+  page?: PageCursor;
 }
 
-const CURSOR = /^((\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})\.\d{6}Z)_([0-9a-f-]{36})$/;
+/** An audit page's key: `[created_at, id]`. */
+const AUDIT_KEY = [isCursorInstant, isUuid] as const;
 
-function encodeCursor(c: AuditCursor): string {
-  return `${c.createdAt}_${c.id}`;
-}
-
-/**
- * The cursor in `value`, or `undefined` (first page) when it is not one this service
- * made. The timestamp must be a real instant, not just the right shape: Postgres
- * refuses `2026-99-99T99:99:99` outright, which would turn a forged link into an error page.
- */
-export function decodeAuditCursor(value: string | undefined): AuditCursor | undefined {
-  const m = value ? CURSOR.exec(value) : null;
-  if (!m || !isUuid(m[6]) || !isCalendarDate(m[2])) return undefined;
-  const [hh, mm, ss] = [Number(m[3]), Number(m[4]), Number(m[5])];
-  if (hh > 23 || mm > 59 || ss > 59) return undefined;
-  return { createdAt: m[1], id: m[6] };
-}
-
-const personId = (v: string | undefined) => (v && v.length <= 100 ? v : undefined);
+/** A person id from a link, or nothing: never longer than an id, never with NUL (Postgres refuses it in text). */
+const personId = (v: string | undefined) => (v && v.length <= 100 && !v.includes("\u0000") ? v : undefined);
 
 /** One row as the viewer shows it. */
 export interface AuditLogEntry {
@@ -63,8 +67,11 @@ export interface AuditLogEntry {
   actorLabel: string;
   /** Whether a person (directly, through something, or with an API key) or a system process did it. */
   actorKind: ChangeSourceKind;
+  /** The person who did it (directly, through something, or with their API key), for filtering by them. */
+  actorId: string | null;
   /** Who it is about, if anyone. */
   subjectName: string | null;
+  subjectUserId: string | null;
   /** What changed, one line per field. */
   changes: string[];
 }
@@ -94,6 +101,7 @@ async function loadAuditNaming(ctx: ServiceContext, companyId: string) {
     person: (id: string) => peopleById.get(id),
     department: (id: string) => departmentsById.get(id),
     leaveType: (id: string) => typesById.get(id),
+    instant: (iso: string) => formatInstantDateTime(new Date(iso), company.timezone),
   };
   return { company, people, names };
 }
@@ -114,8 +122,44 @@ function toAuditEntry(ctx: ServiceContext, r: AuditRow, names: AuditNames): Audi
       adapter: (id) => ctx.adapters.get(id)?.displayName,
     }),
     actorKind: r.actorKind === "user" || r.actorKind === "api_key" ? r.actorKind : "system",
+    actorId: r.actorId,
+    subjectUserId: r.subjectUserId,
     subjectName: r.subjectUserId ? personLabel({ name: r.subjectName ?? "", email: r.subjectEmail ?? "" }) || null : null,
     changes: describeAuditChange(r.before, r.after, names),
+  };
+}
+
+/** The longest search the viewer takes; anything longer is cut. */
+export const AUDIT_SEARCH_MAX_LENGTH = 100;
+
+/** The most words a search looks for; more are ignored. */
+const AUDIT_SEARCH_MAX_WORDS = 5;
+
+/**
+ * What a search matches, word by word: for each word, the actions whose label contains
+ * it and the people (deleted ones included, as their rows still name them) whose name or
+ * email does. A row matches when every word matches its action, who made it or who it
+ * is about, so "declined ana" finds Ana's declined requests. Case-insensitive. Only what
+ * the viewer shows is matched: an action's label, never its key ("request" is in every
+ * `leave_request.*` key but not in "Leave approved"). Like the "Done by" filter, the
+ * admin who asked for a system run is not matched as its maker.
+ * `undefined` for an empty search.
+ */
+function searchFor(raw: string | undefined, people: readonly { id: string; name: string; email: string }[]) {
+  const text = raw?.trim().replace(/\s+/g, " ").slice(0, AUDIT_SEARCH_MAX_LENGTH);
+  if (!text) return undefined;
+  const words = [...new Set(text.toLowerCase().split(" "))].slice(0, AUDIT_SEARCH_MAX_WORDS);
+  return {
+    text,
+    matches: words.map((word) => {
+      const has = (value: string) => value.toLowerCase().includes(word);
+      return {
+        actions: Object.entries(AUDIT_ACTION_LABELS)
+          .filter(([, label]) => has(label))
+          .map(([action]) => action),
+        people: people.filter((p) => has(personLabel(p)) || has(p.email)).map((p) => p.id),
+      };
+    }),
   };
 }
 
@@ -137,28 +181,36 @@ export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: Aud
   const to = filter.to && isCalendarDate(filter.to) ? filter.to : undefined;
   const { company, people, names } = await loadAuditNaming(ctx, actor.companyId);
 
-  const rows = await listAuditPage(
-    ctx.db,
-    {
-      companyId: actor.companyId,
-      action,
-      actorId: personId(filter.actorId),
-      subjectUserId: personId(filter.subjectUserId),
-      from,
-      to,
-      timezone: company.timezone,
-      after: decodeAuditCursor(filter.cursor),
-    },
-    AUDIT_PAGE_SIZE + 1,
-  );
+  const search = searchFor(filter.query, people);
+  const query = {
+    companyId: actor.companyId,
+    search: search?.matches,
+    action,
+    actorId: personId(filter.actorId),
+    subjectUserId: personId(filter.subjectUserId),
+    from,
+    to,
+    timezone: company.timezone,
+    oldestFirst: filter.oldestFirst === true,
+  };
+  const size = pageSize(filter.size);
+  const page = await readPage({
+    cursor: filter.page,
+    size,
+    checks: AUDIT_KEY,
+    read: (request, limit) => listAuditPage(ctx.db, { ...query, page: request }, limit),
+    keyOf: (r) => [r.cursor, r.id],
+  });
 
-  const page = rows.slice(0, AUDIT_PAGE_SIZE);
-  const last = page.at(-1);
   return {
     timezone: company.timezone,
-    entries: page.map((r) => toAuditEntry(ctx, r, names)),
-    nextCursor: rows.length > AUDIT_PAGE_SIZE && last ? encodeCursor({ createdAt: last.cursor, id: last.id }) : null,
+    entries: page.items.map((r) => toAuditEntry(ctx, r, names)),
+    previous: page.previous,
+    next: page.next,
+    oldestFirst: query.oldestFirst,
+    size,
     filters: {
+      query: search?.text,
       action,
       actorId: personId(filter.actorId),
       subjectUserId: personId(filter.subjectUserId),
@@ -185,14 +237,14 @@ export async function listAuditEntriesAbout(ctx: ServiceContext, actor: Actor, s
   assertCanAdminister(actor);
   const { company, names } = await loadAuditNaming(ctx, actor.companyId);
   const entries: AuditLogEntry[] = [];
-  let after: AuditCursor | undefined;
+  let page: PageRequest | undefined;
   while (entries.length < max) {
     const limit = Math.min(ABOUT_BATCH, max - entries.length);
-    const rows = await listAuditPage(ctx.db, { companyId: actor.companyId, subjectUserId, timezone: company.timezone, after }, limit);
+    const rows = await listAuditPage(ctx.db, { companyId: actor.companyId, subjectUserId, timezone: company.timezone, page }, limit);
     entries.push(...rows.map((r) => toAuditEntry(ctx, r, names)));
     const last = rows.at(-1);
     if (rows.length < limit || !last) break;
-    after = { createdAt: last.cursor, id: last.id };
+    page = { direction: "after", key: [last.cursor, last.id] };
   }
   return entries;
 }

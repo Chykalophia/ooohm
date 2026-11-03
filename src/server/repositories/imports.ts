@@ -53,6 +53,14 @@ export async function listCompanyNames(ex: Executor) {
   return ex.select({ id: companies.id, name: companies.name }).from(companies).orderBy(companies.createdAt);
 }
 
+/**
+ * Locks the companies table against inserts (and against another caller of this) until
+ * the transaction ends, so a check that no company exists still holds when one is created.
+ */
+export async function lockCompaniesTable(tx: Transaction): Promise<void> {
+  await tx.execute(sql`LOCK TABLE ${companies} IN SHARE ROW EXCLUSIVE MODE`);
+}
+
 export async function insertCompany(
   tx: Transaction,
   values: { name: string; timezone: string; workingDays: number[] },
@@ -64,6 +72,12 @@ export async function insertCompany(
     workingDays: companies.workingDays,
     allowancePolicy: companies.allowancePolicy,
     deletionGrace: companies.deletionGrace,
+    managersSeeDetails: companies.managersSeeDetails,
+    theme: companies.theme,
+    accentColor: companies.accentColor,
+    corners: companies.corners,
+    requestStyle: companies.requestStyle,
+    layout: companies.layout,
   });
   return row;
 }

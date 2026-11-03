@@ -36,6 +36,8 @@ export interface CompanySettingsInput {
   allowancePolicy: string;
   /** Wait `DELETION_GRACE_DAYS` before a full scrub, with undo. Left as it is when absent. */
   deletionGrace?: boolean;
+  /** Managers see their direct reports' balances and notes. Left as it is when absent. */
+  managersSeeDetails?: boolean;
 }
 
 export interface CompanySettings {
@@ -46,6 +48,8 @@ export interface CompanySettings {
   allowancePolicy: string;
   /** Present only when the input set it. */
   deletionGrace?: boolean;
+  /** Present only when the input set it. */
+  managersSeeDetails?: boolean;
 }
 
 /**
@@ -72,6 +76,7 @@ export function normalizeCompanySettings(input: CompanySettingsInput, currentTim
   }
   const out: CompanySettings = { name, timezone, workingDays, allowancePolicy: input.allowancePolicy };
   if (input.deletionGrace !== undefined) out.deletionGrace = input.deletionGrace === true;
+  if (input.managersSeeDetails !== undefined) out.managersSeeDetails = input.managersSeeDetails === true;
   return out;
 }
 

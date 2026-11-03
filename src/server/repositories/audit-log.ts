@@ -1,14 +1,9 @@
-import { and, count, desc, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, count, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { apiKeys, auditLog, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
-
-/** Where a page of the audit log starts: just older than this row. */
-export interface AuditCursor {
-  /** `created_at` in UTC to the microsecond, as `YYYY-MM-DDTHH:MM:SS.ffffffZ`. */
-  createdAt: string;
-  id: string;
-}
+import type { PageRequest } from "@/domain/paging";
+import { cursorInstant, keysetPage } from "./keyset";
 
 /** Which audit rows to read; every filter is optional except the company. */
 export interface AuditQuery {
@@ -21,8 +16,26 @@ export interface AuditQuery {
   /** Last day to include, in `timezone`. */
   to?: string;
   timezone: string;
-  /** Read rows older than this one (keyset pagination); newest first when absent. */
-  after?: AuditCursor;
+  /** Oldest first instead of newest first. */
+  oldestFirst?: boolean;
+  /**
+   * A search, resolved by the service into what each word matched: a row matches a word
+   * when its action is one of the word's `actions`, or it was done by or is about one of
+   * its `people`; it must match every word. A word that matched nothing means no rows.
+   */
+  search?: readonly { actions: readonly string[]; people: readonly string[] }[];
+  /** The page: after or before a `[created_at, id]` key (`created_at` as {@link cursorInstant} prints it); the first page (the newest, or the oldest with `oldestFirst`) when absent. */
+  page?: PageRequest;
+}
+
+/** A row matching one resolved search word: by its action, its actor or its subject. Each arm can use its own index. */
+function wordMatches({ actions, people }: { actions: readonly string[]; people: readonly string[] }) {
+  const arms = [
+    actions.length > 0 ? inArray(auditLog.action, [...actions]) : undefined,
+    people.length > 0 ? inArray(auditLog.actorId, [...people]) : undefined,
+    people.length > 0 ? inArray(auditLog.subjectUserId, [...people]) : undefined,
+  ].filter((arm) => arm !== undefined);
+  return arms.length > 0 ? or(...arms) : sql`false`;
 }
 
 const actor = alias(user, "actor");
@@ -30,16 +43,21 @@ const subject = alias(user, "subject");
 const requester = alias(user, "requester");
 
 /**
- * One page of the company's audit log, newest first, keyset-paginated on
+ * One page of the company's audit log, newest first (or oldest), keyset-paginated on
  * `(created_at, id)`. One query whatever the page size: the actor's, subject's and (for a
  * scheduled run) requester's names, and the API key's name and prefix, come from joins. With at most one of action, actor or person set, the scan runs on the
  * matching `audit_log_company_*_idx` index in order, so it reads about `limit` rows.
  *
  * Each row carries its own cursor, `created_at` printed in UTC to the microsecond: a JS
  * `Date` keeps only milliseconds, which would skip or repeat rows written in the same one.
+  *
+ * A search is not read in index order: its rows match one of several ids on any of three
+ * columns, so Postgres reads every match and sorts them (or walks the company index and
+ * filters). Fine at a small company's size; `tests/e2e/explain-queries.mts` shows the plan.
  */
 export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) {
   const dayStart = (date: string) => sql`(${date}::date::timestamp at time zone ${q.timezone})`;
+  const page = keysetPage(q.oldestFirst ? "asc" : "desc", [auditLog.createdAt, auditLog.id], q.page, ([at, id]) => [sql`${at}::timestamptz`, sql`${id}::uuid`]);
   return ex
     .select({
       id: auditLog.id,
@@ -49,7 +67,7 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
       before: auditLog.before,
       after: auditLog.after,
       createdAt: auditLog.createdAt,
-      cursor: sql<string>`to_char(${auditLog.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      cursor: cursorInstant(auditLog.createdAt),
       actorKind: auditLog.actorKind,
       actorId: auditLog.actorId,
       actorName: actor.name,
@@ -77,14 +95,13 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
         q.action ? eq(auditLog.action, q.action) : undefined,
         q.actorId ? eq(auditLog.actorId, q.actorId) : undefined,
         q.subjectUserId ? eq(auditLog.subjectUserId, q.subjectUserId) : undefined,
+        ...(q.search ?? []).map(wordMatches),
         q.from ? gte(auditLog.createdAt, dayStart(q.from)) : undefined,
         q.to ? lt(auditLog.createdAt, sql`(${q.to}::date + 1)::timestamp at time zone ${q.timezone}`) : undefined,
-        q.after
-          ? sql`(${auditLog.createdAt}, ${auditLog.id}) < (${q.after.createdAt}::timestamptz, ${q.after.id}::uuid)`
-          : undefined,
+        page.where,
       ),
     )
-    .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
+    .orderBy(...page.orderBy)
     .limit(limit);
 }
 

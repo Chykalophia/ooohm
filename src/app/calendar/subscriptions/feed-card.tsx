@@ -1,14 +1,19 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useId } from "react";
 import type { FeedKind } from "@/domain/calendar-feed";
-import { CopyField } from "@/app/copy-field";
-import { focusRing, subtleButton as subtle } from "@/app/styles";
+import { ErrorMessage } from "@/components/forms/form-status";
+import { KeepIt } from "@/components/forms/keep-it";
+import { useConfirm } from "@/components/forms/use-confirm";
+import { useFormAction } from "@/components/forms/use-form-action";
+import { Card } from "@/components/ui/card";
+import { CopyField } from "@/components/ui/copy-field";
+import { buttonClass, confirmButton, dangerButton, subtleButton as subtle } from "@/components/ui/styles";
 import { feedAction } from "./actions";
 import { FEED_IDLE, type FeedState } from "./feed-state";
 
 // The page holds two feeds; outlined buttons keep "Copy link" the one solid accent on screen.
-const create = `rounded-lg border border-accent px-4 py-2 font-medium text-accent hover:bg-accent/10 disabled:opacity-60 ${focusRing}`;
+const create = buttonClass("accent");
 
 /** The feed's live link, as the server reports it. Dates are already formatted. */
 export interface FeedStatus {
@@ -44,27 +49,27 @@ export function FeedCard({
   description: string;
   status: FeedStatus | null;
 }) {
-  const [confirming, setConfirming] = useState<"issue" | "revoke" | null>(null);
-  const [state, formAction, pending] = useActionState<FeedState, FormData>(async (prev, formData) => {
+  const { asking: confirming, ask, back, done, questionRef, openerRef } = useConfirm<"issue" | "revoke">();
+  const { state, dispatch, pending, onSubmit } = useFormAction<FeedState>(async (prev, formData) => {
     const next = await feedAction(prev, formData);
-    if (next.status !== "error") setConfirming(null);
+    if (next.status !== "error") done();
     return next;
   }, FEED_IDLE);
   const headingId = useId();
   const live = status !== null;
 
   const form = (intent: "issue" | "revoke", label: string, className: string) => (
-    <form action={formAction}>
+    <form action={dispatch} onSubmit={onSubmit}>
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="intent" value={intent} />
-      <button type="submit" disabled={pending} className={className}>
+      <button type="submit" aria-disabled={pending} className={className}>
         {label}
       </button>
     </form>
   );
 
   return (
-    <section aria-labelledby={headingId} className="space-y-5 rounded-2xl border border-border bg-surface p-6">
+    <Card aria-labelledby={headingId} className="space-y-5">
       <div className="space-y-1">
         <h2 id={headingId} className="text-lg font-semibold tracking-tight">
           {title}
@@ -89,37 +94,35 @@ export function FeedCard({
 
       {live && confirming === null && (
         <div className="flex flex-wrap gap-5">
-          <button type="button" onClick={() => setConfirming("issue")} className={subtle}>
+          <button ref={openerRef("issue")} type="button" onClick={() => ask("issue")} className={subtle}>
             Get a new link
           </button>
-          <button type="button" onClick={() => setConfirming("revoke")} className={subtle}>
+          <button ref={openerRef("revoke")} type="button" onClick={() => ask("revoke")} className={subtle}>
             Turn off
           </button>
         </div>
       )}
       {live && confirming !== null && (
         <div className="space-y-3">
-          <p className="text-sm">
+          <p ref={questionRef} tabIndex={-1} className="text-sm outline-none">
             {confirming === "issue"
               ? "Your current link will stop working, and calendars using it will stop updating."
               : "Calendars using this link will stop updating."}
           </p>
           <div className="flex flex-wrap items-center gap-5">
             {confirming === "issue"
-              ? form("issue", pending ? "Creating…" : "Yes, get a new link", `${subtle} font-medium text-foreground`)
-              : form("revoke", pending ? "Turning off…" : "Yes, turn it off", `${subtle} font-medium text-red-700 hover:text-red-800 dark:text-red-400`)}
-            <button type="button" onClick={() => setConfirming(null)} className={subtle}>
-              Keep it
-            </button>
+              ? form("issue", pending ? "Creating…" : "Yes, get a new link", confirmButton)
+              : form("revoke", pending ? "Turning off…" : "Yes, turn it off", dangerButton)}
+            <KeepIt pending={pending} onBack={back} className={subtle} />
           </div>
         </div>
       )}
 
       {state.status === "error" && (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <ErrorMessage as="p" className="text-sm">
           {state.message}
-        </p>
+        </ErrorMessage>
       )}
-    </section>
+    </Card>
   );
 }

@@ -1,7 +1,9 @@
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { executeRows } from "@/db/rows";
 import type { Executor, Transaction } from "@/db/types";
+import type { PageRequest } from "@/domain/paging";
+import { cursorInstant, keysetPage } from "./keyset";
 
 /** An endpoint as services use it. `secretCiphertext` never leaves the service layer. */
 export type WebhookEndpointRow = {
@@ -164,13 +166,26 @@ export type WebhookDeliveryRow = {
   createdAt: Date;
 };
 
-/** An endpoint's latest deliveries, newest first. */
-export async function listRecentDeliveries(ex: Executor, endpointId: string, limit: number): Promise<WebhookDeliveryRow[]> {
+/**
+ * A page of an endpoint's deliveries, newest first, keyed on `[created_at, id]` (`cursor`
+ * is `created_at` as {@link cursorInstant} prints it). Served in order by
+ * `webhook_deliveries_endpoint_created_idx`.
+ */
+export async function listDeliveries(
+  ex: Executor,
+  endpointId: string,
+  limit: number,
+  page?: PageRequest,
+): Promise<(WebhookDeliveryRow & { cursor: string })[]> {
+  const keyset = keysetPage("desc", [webhookDeliveries.createdAt, webhookDeliveries.id], page, ([at, id]) => [
+    sql`${at}::timestamptz`,
+    sql`${id}::uuid`,
+  ]);
   return ex
-    .select(deliveryFields)
+    .select({ ...deliveryFields, cursor: cursorInstant(webhookDeliveries.createdAt) })
     .from(webhookDeliveries)
-    .where(eq(webhookDeliveries.endpointId, endpointId))
-    .orderBy(desc(webhookDeliveries.createdAt), desc(webhookDeliveries.id))
+    .where(and(eq(webhookDeliveries.endpointId, endpointId), keyset.where))
+    .orderBy(...keyset.orderBy)
     .limit(limit);
 }
 

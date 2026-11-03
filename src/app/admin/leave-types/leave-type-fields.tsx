@@ -1,5 +1,5 @@
 import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH, MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
-import { CheckboxField, TextField } from "@/app/admin/fields";
+import { CheckboxField, TextField } from "@/components/ui/fields";
 import { ColorField } from "./color-field";
 
 /** Every leave type setting, shared by the create and edit forms. */

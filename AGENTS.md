@@ -6,7 +6,8 @@ Work one milestone at a time and keep each PR to a single milestone.
 
 ## Product rules (don't break these)
 
-- **The UI stays calm.** Use one accent color (teal), keep whitespace generous, and keep each screen to one main action. If a screen needs explaining, it's wrong.
+- **The UI stays calm.** Use one accent color (teal in the default Classic theme), keep whitespace generous, and keep each screen to one main action. If a screen needs explaining, it's wrong.
+- **Themes are company-wide; light or dark is per person.** An admin picks the theme, an optional accent color and the corner style (Admin → Appearance); people can't override it. Each person picks a colour mode (light, dark, automatic), which applies where the theme has a dark version (Classic, for now). Style screens with the theme tokens (`bg-accent`, `text-accent-ink`, `bg-surface`, `border-border`, …), never fixed brand colors, so every theme works. Use `text-accent-ink`, not `text-accent`, for accent-colored text.
 - **Access is invite-only.** Neither magic links nor Google sign-in may create users. Admins (or the seed) create them.
 - **The allowance policy is pluggable.** v1 ships only `annual_calendar_year`: a flat yearly allowance per leave type that resets Jan 1. Carryover is set per leave type and is OFF by default.
 - **Approvals:** one approver (the manager) per person. `user.can_self_approve` auto-approves that user's own requests.
@@ -41,8 +42,10 @@ docker compose up   # full stack: db, migrate+seed, app, mailpit (http://localho
 
 Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
 
-- `src/app/**`: presentation. Thin pages and server actions: zod-parse, `requireActor()`, call one service, map the result. No Drizzle here.
-- `src/app/admin/**`: the admin screens. Pages start with `requireAdminPage()` (404 for non-admins); actions go through `adminAction()`. The services check the role again (`assertCanAdminister`), so never rely on the page alone.
+- `src/app/**`: presentation. Thin pages and server actions. Signed-in pages open with `requireMemberPage()` / `requireAdminPage()` and render inside `AppPage` / `AdminShell` (sign-in and route handlers are the exceptions; the API has its own entry below); actions are a zod schema and one service call through `runFormAction` / `runStateAction`, or `runActionThenGo` to redirect after (`src/app/_lib/server-action.ts`). No Drizzle here. Route-specific components sit beside their route.
+- `src/app/_lib/**`: the presentation layer's helpers: page loaders (`page-context.ts`), the server action pipeline (`action-pipeline.ts`, wired in `server-action.ts`), shared form field schemas, `runActionWith` messages, input schemas, the app's background tick.
+- `src/components/**`: shared UI, by kind (`ui`, `forms`, `layout`, `navigation`, `leave`). Components render props; they never load data or import `src/app` or `src/server` (lint enforces it). Style controls with the recipes in `src/components/ui/styles.ts`, not new Tailwind strings. Colours are theme tokens from `src/app/globals.css` (light and dark in one `light-dark()` value); lint refuses palette classes and `dark:`. Lists that grow with use are paged with `readPage` + `Pager`, never capped. See docs/architecture.md#presentation.
+- `src/app/admin/**`: the admin screens. Pages start with `requireAdminPage()` (404 for non-admins) and render in `AdminShell`; actions go through `adminAction()`. The services check the role again (`assertCanAdminister`), so never rely on the page alone.
 - `src/server/services/**`: use cases. Own transactions, data-dependent authorization, `recordLeaveChange`/`recordChange` for every state change, and email via `commitThenNotify` / `commitThenSend` (after commit, never throws). Admin use cases are `admin-*.ts` plus `audit-log.ts`; they record changes with `recordAdminChange` and take `lockCompany` first when a rule spans several people.
 - `src/server/repositories/**`: Drizzle queries only; each takes an executor (`db` or `tx`) first.
 - `src/server/integrations/**`: the adapter seam (`Adapter`, `adapterRegistry`); `installed.ts` lists adapters (none in v1). No database access: services write what adapters return.

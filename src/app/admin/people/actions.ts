@@ -9,8 +9,9 @@ import { DELETION_MODES, type DeletionBlockers, type DeletionMode, deletionBlock
 import { setAllowanceOverride } from "@/server/services/admin-allowances";
 import { deactivatePerson, invitePerson, reactivatePerson, resendInvite, updatePerson } from "@/server/services/admin-people";
 import { cancelScheduledDeletion, deletePerson } from "@/server/services/admin-people-deletion";
-import type { FormState } from "@/app/form-state";
-import { adminAction, adminActionThenGo, formFields } from "@/app/admin/admin-action";
+import type { FormState } from "@/components/forms/form-state";
+import { adminAction, adminActionThenGo } from "@/app/admin/admin-action";
+import { formFields } from "@/app/_lib/form-fields";
 import { deactivationMessage } from "@/app/admin/people/deactivation-message";
 
 const personFields = {

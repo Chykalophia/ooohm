@@ -1,29 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { isDomainError } from "@/domain/errors";
 import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
 import { formatInstantDate } from "@/lib/format";
 import { getPersonDetail, getPersonFormOptions } from "@/server/services/admin-people";
 import { getDeletionPreview } from "@/server/services/admin-people-deletion";
-import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { AdminForm, InlineAction } from "@/app/admin/forms";
-import { card, outlineButton, subtleButton } from "@/app/styles";
+import { AdminShell } from "@/app/admin/admin-shell";
+import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
+import { ActionForm } from "@/components/forms/action-form";
+import { InlineAction } from "@/components/forms/inline-action";
+import { BackLink, Section } from "@/components/ui/section";
+import { outlineButton } from "@/components/ui/styles";
 import { cancelDeletionAction, deactivateAction, reactivateAction, resendInviteAction, updatePersonAction } from "@/app/admin/people/actions";
-import { BalanceList } from "@/app/admin/people/balance-list";
+import { BalanceList } from "@/components/leave/balance-list";
 import { Blocked, DeletePersonDialog } from "@/app/admin/people/delete-person-dialog";
 import { PersonFields } from "@/app/admin/people/person-fields";
 
 export const metadata: Metadata = { title: "Person · Admin · OOOhm" };
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
-  const { actor, ctx, userName, approvals } = await requireAdminPage();
+  const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
   const [detail, options] = await Promise.all([
-    getPersonDetail(ctx, actor, id).catch((err: unknown) => {
-      if (isDomainError(err, "not_found")) notFound();
-      throw err;
-    }),
+    orNotFound(getPersonDetail(ctx, actor, id)),
     getPersonFormOptions(ctx, actor, id),
   ]);
   const { person, year, balances, timezone } = detail;
@@ -34,8 +32,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   return (
     <AdminShell
-      userName={userName}
-      approvals={approvals}
+      nav={nav}
       section="people"
       title={person.name || person.email}
       description={
@@ -45,36 +42,29 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </>
       }
     >
-      <section aria-labelledby="details-heading" className={`${card} space-y-5`}>
-        <h2 id="details-heading" className="text-lg font-semibold tracking-tight">
-          Details
-        </h2>
-        <AdminForm action={updatePersonAction} submitLabel="Save changes" pendingLabel="Saving…">
+      <Section title="Details" surface className="space-y-5">
+        <ActionForm action={updatePersonAction} submitLabel="Save changes" pendingLabel="Saving…">
           <input type="hidden" name="userId" value={person.id} />
           <PersonFields departments={options.departments} managers={options.managers} person={person} />
-        </AdminForm>
-      </section>
+        </ActionForm>
+      </Section>
 
-      <section aria-labelledby="balance-heading" className="space-y-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 id="balance-heading" className="text-lg font-semibold tracking-tight">
-            Balance for {year}
-          </h2>
+      <Section
+        title={`Balance for ${year}`}
+        action={
           <Link href={`/admin/people/${person.id}/allowances?year=${year}`} className={outlineButton}>
             Change allowances
           </Link>
-        </div>
+        }
+      >
         {balances ? (
           <BalanceList year={year} items={balances.items} />
         ) : (
           <p className="text-muted">Balances aren&apos;t available: check the company&apos;s allowance policy.</p>
         )}
-      </section>
+      </Section>
 
-      <section aria-labelledby="access-heading" className="space-y-4">
-        <h2 id="access-heading" className="text-lg font-semibold tracking-tight">
-          Access
-        </h2>
+      <Section title="Access">
         <div className="space-y-4">
           {person.isActive && (
             <InlineAction
@@ -93,8 +83,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               fields={{ userId: person.id }}
               label={person.isActive ? "Deactivate" : "Reactivate"}
               pendingLabel={person.isActive ? "Deactivating…" : "Reactivating…"}
-              danger={person.isActive}
-              className={person.isActive ? undefined : outlineButton}
+              variant={person.isActive ? "danger" : "outline"}
               confirm={
                 person.isActive
                   ? "They'll be signed out and can't sign in again, and their calendar links stop working. Their requests stay. Requests waiting for their approval move to another approver."
@@ -132,13 +121,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             />
           )}
         </div>
-      </section>
+      </Section>
 
-      <p>
-        <Link href="/admin/people" className={subtleButton}>
-          Back to people
-        </Link>
-      </p>
+      <BackLink href="/admin/people">Back to people</BackLink>
     </AdminShell>
   );
 }

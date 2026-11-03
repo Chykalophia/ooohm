@@ -3,19 +3,27 @@ import Link from "next/link";
 import { z } from "zod";
 import { personLabel } from "@/domain/person";
 import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
-import { formatInstantDate } from "@/lib/format";
+import { formatInstantDate, ROLE_LABEL } from "@/lib/format";
 import { listPeople } from "@/server/services/admin-people";
-import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { InlineAction } from "@/app/admin/forms";
+import { AdminShell } from "@/app/admin/admin-shell";
+import { requireAdminPage } from "@/app/_lib/page-context";
+import { Item, ItemList } from "@/components/ui/card";
+import { InlineAction } from "@/components/forms/inline-action";
 import { cancelDeletionAction } from "@/app/admin/people/actions";
-import { field, focusRing, outlineButton, primaryButton } from "@/app/styles";
-import { departmentParamSchema, readParam } from "@/app/calendar-input";
+import { nativeCheck, primaryButton, textLink } from "@/components/ui/styles";
+import { SelectField, TextField } from "@/components/ui/fields";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { departmentParamSchema, readParam } from "@/app/_lib/calendar-input";
+import { pagerLinks, readPageParams } from "@/app/_lib/paging";
+import { Pager } from "@/components/navigation/pager";
 
 export const metadata: Metadata = { title: "People · Admin · OOOhm" };
 
-const ROLE_LABEL = { employee: "Employee", manager: "Manager", admin: "Admin" } as const;
-
-const querySchema = z.string().max(100).catch("");
+// NUL is refused by Postgres in text, so it is dropped rather than turned into an error page.
+const querySchema = z
+  .string()
+  .transform((s) => s.replaceAll("\u0000", "").slice(0, 100))
+  .catch("");
 const noticeSchema = z.enum(["scrubbed", "records_kept", "scheduled", "already_scheduled"]).optional().catch(undefined);
 
 /** What the page says after a delete sent the admin here. */
@@ -27,24 +35,27 @@ const NOTICES = {
 } as const;
 
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { actor, ctx, userName, approvals } = await requireAdminPage();
+  const { actor, ctx, nav } = await requireAdminPage();
   const params = await searchParams;
   // Deactivated people are hidden unless asked for; deleted people never show here.
   const showInactive = params.inactive === "1";
   const query = querySchema.parse(params.q);
   const notice = noticeSchema.parse(params.notice);
   const departmentId = readParam(departmentParamSchema, params.department) ?? "";
-  const { people, truncated, departments, timezone } = await listPeople(ctx, actor, {
-    status: showInactive ? "all" : "active",
-    query,
-    departmentId: departmentId || undefined,
-  });
+  const { cursor, number } = readPageParams(params);
+  const list = await listPeople(
+    ctx,
+    actor,
+    { status: showInactive ? "all" : "active", query, departmentId: departmentId || undefined },
+    cursor,
+  );
+  const { people, departments, timezone } = list;
+  const pager = pagerLinks("/admin/people", list, number, { keep: { q: query, department: departmentId, inactive: showInactive ? "1" : undefined } });
   const filtered = query !== "" || showInactive || departmentId !== "";
 
   return (
     <AdminShell
-      userName={userName}
-      approvals={approvals}
+      nav={nav}
       section="people"
       title="People"
       description="Everyone who can sign in. Invite someone and they get an email with a sign-in link."
@@ -55,51 +66,35 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       }
     >
       {notice && (
-        <p role="status" className="text-sm text-accent">
+        <p role="status" className="text-sm text-accent-ink">
           {NOTICES[notice]}
         </p>
       )}
-      <form method="get" role="search" aria-label="Filter people" className="flex flex-wrap items-end gap-3">
-        <label className="block min-w-48 flex-1 space-y-1.5">
-          <span className="text-sm font-medium">Name or email</span>
-          <input type="search" name="q" defaultValue={query} maxLength={100} className={field} />
-        </label>
+      <FilterBar label="Filter people" path="/admin/people" filtered={filtered} className="flex flex-wrap items-end gap-3">
+        <TextField label="Name or email" type="search" name="q" defaultValue={query} maxLength={100} className="min-w-48 flex-1" />
         {departments.length > 0 && (
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium">Department</span>
-            <select name="department" defaultValue={departmentId} className={field}>
-              <option value="">All</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label="Department"
+            name="department"
+            defaultValue={departmentId}
+            options={[{ value: "", label: "All" }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
+          />
         )}
         <label className="flex items-center gap-2 self-end py-2.5 text-sm">
-          <input type="checkbox" name="inactive" value="1" defaultChecked={showInactive} className="h-4 w-4 accent-[var(--accent)]" />
+          <input type="checkbox" name="inactive" value="1" defaultChecked={showInactive} className={nativeCheck} />
           Show inactive
         </label>
-        <button type="submit" className={outlineButton}>
-          Filter
-        </button>
-        {filtered && (
-          <Link href="/admin/people" className={`self-center text-sm text-muted hover:text-foreground ${focusRing} rounded-md`}>
-            Clear
-          </Link>
-        )}
-      </form>
+      </FilterBar>
 
       {people.length === 0 ? (
-        <p className="text-muted">{filtered ? "Nobody matches that filter." : "Nobody here yet."}</p>
+        <p className="text-muted">{list.previous ? "Nobody on this page." : filtered ? "Nobody matches that filter." : "Nobody here yet."}</p>
       ) : (
-        <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+        <ItemList>
           {people.map((p) => (
-            <li key={p.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between">
+            <Item key={p.id} className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 space-y-1">
                 <p className="font-medium break-words">
-                  <Link href={`/admin/people/${p.id}`} className={`underline-offset-4 hover:underline ${focusRing} rounded-md`}>
+                  <Link href={`/admin/people/${p.id}`} className={textLink}>
                     {p.name || p.email}
                   </Link>
                   {!p.isActive && <span className="ml-2 text-sm font-normal text-muted">Deactivated</span>}
@@ -133,11 +128,11 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                 <p>{ROLE_LABEL[p.role]}</p>
                 {p.canSelfApprove && <p className="text-muted">Approves own requests</p>}
               </div>
-            </li>
+            </Item>
           ))}
-        </ul>
+        </ItemList>
       )}
-      {truncated && <p className="text-sm text-muted">Showing the first {people.length}. Narrow the filter to find someone.</p>}
+      <Pager label="People pages" links={pager} />
     </AdminShell>
   );
 }

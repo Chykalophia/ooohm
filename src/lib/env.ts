@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { resolveDatabaseConfig } from "@/db/config";
 import { BACKGROUND_MODES, resolveBackgroundMode } from "./background-mode";
+import { MAIL_TRANSPORT_NAMES, SENDGRID_REGIONS } from "./mail/names";
+import { passkeyRelyingParty } from "./passkey-rp";
 import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, envFlag, integrationEnvShape, nonEmptyEnv } from "./integration-env";
 
 const schema = z.object({
@@ -21,19 +23,37 @@ const schema = z.object({
    * Optional: the route refuses every call while it is unset.
    */
   CRON_SECRET: z.string().min(32, "CRON_SECRET must be at least 32 characters (openssl rand -hex 32)").optional(),
+  /**
+   * Turns on the web setup (`/setup`) of a brand-new install: whoever creates the first
+   * admin there must give this. Optional: unset, setup is off. Once anything is set up,
+   * setup closes for good whatever this says, so remove it afterwards.
+   */
+  SETUP_TOKEN: z.string().min(32, "SETUP_TOKEN must be at least 32 characters (openssl rand -hex 32)").optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
+  /**
+   * The domain passkeys are bound to; the host of BETTER_AUTH_URL when unset. Set a parent
+   * domain when the app will move between its subdomains, so passkeys survive the move
+   * (src/lib/passkey-rp.ts).
+   */
+  PASSKEY_RP_ID: z.string().optional(),
 
   // Google sign-in is optional; the button only appears when both are set.
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-  // Any SMTP server works. docker-compose ships Mailpit for local development.
+  // How email goes out (src/lib/mail): `smtp` (any SMTP server; docker-compose ships
+  // Mailpit for local development) or `sendgrid` (SendGrid's HTTPS API).
+  MAIL_TRANSPORT: z.enum(MAIL_TRANSPORT_NAMES).default("smtp"),
+  /** `MAIL_TRANSPORT=sendgrid`: an API key with the "Mail Send" permission only. */
+  SENDGRID_API_KEY: z.string().optional(),
+  /** `eu` for a SendGrid account with EU data residency. */
+  SENDGRID_REGION: z.enum(SENDGRID_REGIONS).default("global"),
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
   SMTP_SECURE: envFlag,
   // Refuse to send over a plain connection when STARTTLS is missing (see
-  // src/lib/smtp-options.ts). On by default in production; Mailpit offers no TLS, so
+  // src/lib/mail/smtp-options.ts). On by default in production; Mailpit offers no TLS, so
   // the development compose and .env.example turn it off.
   SMTP_REQUIRE_TLS: z
     .enum(["true", "false"])
@@ -71,6 +91,12 @@ function load() {
   if (!isBuild && parsed.data.WEBHOOK_ENCRYPTION_KEY === BUILD_PLACEHOLDER_ENCRYPTION_KEY) {
     throw new Error("WEBHOOK_ENCRYPTION_KEY is still the build placeholder. Set a real key.");
   }
+  // Fail at start, not at the first sign-in link nobody receives.
+  if (!isBuild && parsed.data.MAIL_TRANSPORT === "sendgrid" && !parsed.data.SENDGRID_API_KEY) {
+    throw new Error("MAIL_TRANSPORT=sendgrid needs SENDGRID_API_KEY.");
+  }
+  // A passkey domain the browser would refuse fails at start, not at everyone's first passkey.
+  passkeyRelyingParty(parsed.data.BETTER_AUTH_URL, parsed.data.PASSKEY_RP_ID);
   const database = resolveDatabaseConfig(isBuild && !raw.DATABASE_URL && !raw.OOOHM_DB ? { ...raw, DATABASE_URL: buildPlaceholders.DATABASE_URL } : raw);
   const background = resolveBackgroundMode(parsed.data.OOOHM_BACKGROUND, { vercel: Boolean(raw.VERCEL), embedded: database.kind === "embedded" });
   return { ...parsed.data, database, background };

@@ -12,16 +12,24 @@ import type { Database } from "@/db/types";
 import { toActor } from "@/domain/actor";
 import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
 import { readTimeOffSqlite } from "@/server/importers/timeoff/sqlite-reader";
-import { decideLeaveRequest, listApprovalInbox } from "@/server/services/approvals";
+import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary } from "@/server/services/balances";
 import { cancelLeaveRequest, getDashboard } from "@/server/services/leave-requests";
 import { runYearRollover } from "@/server/services/rollover";
 import { importTimeOff, type TimeOffImportInput } from "@/server/services/timeoff-import";
 import { DatabaseSync } from "node:sqlite";
 import { buildTimeOffFixtureThrough } from "../support/timeoff-carry-forward";
-import { buildTimeOffFixture, FIXTURE_EXPECTED_2026, FIXTURE_QUINN_2027, type FixtureData, fixtureLeave, T, U } from "../support/timeoff-fixture";
+import {
+  buildTimeOffFixture,
+  FIXTURE_EXPECTED_2026,
+  FIXTURE_QUINN_2027,
+  type FixtureData,
+  fixtureLeave,
+  T,
+  U,
+} from "../support/timeoff-fixture";
 import { rejectsWith } from "./assertions";
-import { requestsOf } from "./fixtures";
+import { decidable, requestsOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 const TABLES = {
@@ -64,9 +72,19 @@ async function seedFreshDeploy(db: Database, adminEmail = SEED_ADMIN) {
     .returning();
   const [admin] = await db
     .insert(schema.user)
-    .values({ id: randomUUID(), email: adminEmail, name: "peter", emailVerified: true, companyId: company.id, role: "admin", canSelfApprove: true })
+    .values({
+      id: randomUUID(),
+      email: adminEmail,
+      name: "peter",
+      emailVerified: true,
+      companyId: company.id,
+      role: "admin",
+      canSelfApprove: true,
+    })
     .returning();
-  await db.insert(schema.allowances).values(types.map((t) => ({ userId: admin.id, leaveTypeId: t.id, year: 2026, days: t.defaultAllowanceDays ?? 0 })));
+  await db
+    .insert(schema.allowances)
+    .values(types.map((t) => ({ userId: admin.id, leaveTypeId: t.id, year: 2026, days: t.defaultAllowanceDays ?? 0 })));
   return { companyId: company.id, adminId: admin.id };
 }
 
@@ -92,7 +110,11 @@ describe("TimeOff import", { skip }, () => {
    * Writes a fixture file and returns an import input for it, run by the seeded admin
    * (`SEED_ADMIN`) into an existing company, or by TimeOff's admin Alice into a new one.
    */
-  function fixture(target: TimeOffImportInput["target"], mutate?: (d: FixtureData) => void, extra: Partial<TimeOffImportInput> = {}): TimeOffImportInput {
+  function fixture(
+    target: TimeOffImportInput["target"],
+    mutate?: (d: FixtureData) => void,
+    extra: Partial<TimeOffImportInput> = {},
+  ): TimeOffImportInput {
     const file = path.join(dir, `timeoff-${++fileNo}.sqlite`);
     buildTimeOffFixture(file, mutate);
     return {
@@ -143,13 +165,21 @@ describe("TimeOff import", { skip }, () => {
     const people = await db.select().from(schema.user).where(eq(schema.user.companyId, companyId));
     for (const [email, expected] of Object.entries(FIXTURE_EXPECTED_2026)) {
       const p = people.find((x) => x.email === email)!;
-      const summary = await getBalanceSummary(ctx, { id: p.id, companyId, role: p.role, canSelfApprove: p.canSelfApprove, source: byUser(p.id) }, 2026);
+      const summary = await getBalanceSummary(
+        ctx,
+        { id: p.id, companyId, role: p.role, canSelfApprove: p.canSelfApprove, source: byUser(p.id) },
+        2026,
+      );
       const pool = summary.items.find((i) => i.name === "Holiday")!;
       assert.ok(pool.balance.tracked, email);
       if (pool.balance.tracked) assert.equal(pool.balance.remaining + pool.balance.pending, expected, email);
     }
     const olivia = people.find((p) => p.email === "olivia@example.com")!;
-    const oliviaSummary = await getBalanceSummary(ctx, { id: olivia.id, companyId, role: olivia.role, canSelfApprove: false, source: byUser(olivia.id) }, 2026);
+    const oliviaSummary = await getBalanceSummary(
+      ctx,
+      { id: olivia.id, companyId, role: olivia.role, canSelfApprove: false, source: byUser(olivia.id) },
+      2026,
+    );
     const oliviaPool = oliviaSummary.items.find((i) => i.name === "Holiday")!.balance;
     assert.deepEqual(oliviaPool.tracked && [oliviaPool.remaining, oliviaPool.pending], [22, 3], "pending shows apart and is subtracted");
 
@@ -173,7 +203,9 @@ describe("TimeOff import", { skip }, () => {
 
     // Quinn starts next year: nothing to take this year, the pro-rated allowance in the start year.
     const quinn = byEmail.get("quinn@example.com")!;
-    const quinn2027 = (await getBalanceSummary(ctx, { id: quinn.id, companyId, role: quinn.role, canSelfApprove: false, source: byUser(quinn.id) }, 2027)).items.find((i) => i.name === "Holiday")!.balance;
+    const quinn2027 = (
+      await getBalanceSummary(ctx, { id: quinn.id, companyId, role: quinn.role, canSelfApprove: false, source: byUser(quinn.id) }, 2027)
+    ).items.find((i) => i.name === "Holiday")!.balance;
     assert.deepEqual(quinn2027.tracked && [quinn2027.allowance, quinn2027.remaining], [20, FIXTURE_QUINN_2027]);
     assert.deepEqual(
       report.reconciliation.rows.filter((r) => r.email === "quinn@example.com").map((r) => [r.year, r.timeoff, r.ooohm]),
@@ -192,11 +224,22 @@ describe("TimeOff import", { skip }, () => {
       .where(and(eq(schema.leaveRequests.userId, ivan.id), eq(schema.leaveRequests.status, "pending")));
     assert.equal(ivanPending.approverId, olivia.id);
     const oliviaActor = { id: olivia.id, companyId, role: olivia.role, canSelfApprove: olivia.canSelfApprove, source: byUser(olivia.id) };
-    assert.deepEqual((await listApprovalInbox(ctx, oliviaActor)).items.map((r) => r.id), [ivanPending.id], "in her inbox");
+    assert.deepEqual(
+      (await decidable(ctx, oliviaActor)).items.map((r) => r.id),
+      [ivanPending.id],
+      "in her inbox",
+    );
     const [ivanAudit] = await db.select().from(schema.auditLog).where(eq(schema.auditLog.entityId, ivanPending.id));
-    assert.equal((ivanAudit.after as { timeoffApproverId?: string }).timeoffApproverId, byEmail.get("alice@example.com")!.id, "TimeOff's approver kept for reference");
+    assert.equal(
+      (ivanAudit.after as { timeoffApproverId?: string }).timeoffApproverId,
+      byEmail.get("alice@example.com")!.id,
+      "TimeOff's approver kept for reference",
+    );
     // Decided history keeps TimeOff's decider.
-    const [aliceApproved] = await db.select().from(schema.leaveRequests).where(and(eq(schema.leaveRequests.userId, byEmail.get("carol@example.com")!.id), eq(schema.leaveRequests.startDate, "2026-04-06")));
+    const [aliceApproved] = await db
+      .select()
+      .from(schema.leaveRequests)
+      .where(and(eq(schema.leaveRequests.userId, byEmail.get("carol@example.com")!.id), eq(schema.leaveRequests.startDate, "2026-04-06")));
     assert.equal(aliceApproved.approverId, byEmail.get("alice@example.com")!.id);
 
     // Leave types: the pool, Sick untracked, Jury Duty limited; the seed's unused defaults archived.
@@ -205,12 +248,22 @@ describe("TimeOff import", { skip }, () => {
       .filter((t) => t.archivedAt === null)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((t) => [t.code, t.countsAgainstAllowance, t.defaultAllowanceDays, t.carryoverEnabled]);
-    assert.deepEqual(active, [
-      ["HOLIDAY", true, null, true],
-      ["SICK", false, null, false],
-      ["JURY_DUTY", true, 5, false],
-    ], "TimeOff's order, the pool first (the request form's default); the seeded Sick Leave matched by name");
-    assert.deepEqual(types.filter((t) => t.archivedAt !== null).map((t) => t.code).sort(), ["BONUS", "EMERGENCY", "PTO"]);
+    assert.deepEqual(
+      active,
+      [
+        ["HOLIDAY", true, null, true],
+        ["SICK", false, null, false],
+        ["JURY_DUTY", true, 5, false],
+      ],
+      "TimeOff's order, the pool first (the request form's default); the seeded Sick Leave matched by name",
+    );
+    assert.deepEqual(
+      types
+        .filter((t) => t.archivedAt !== null)
+        .map((t) => t.code)
+        .sort(),
+      ["BONUS", "EMERGENCY", "PTO"],
+    );
 
     // Requests: Dave's Monday-afternoon-to-Wednesday-morning leave is three OOOhm requests.
     const dave = byEmail.get("dave@example.com")!;
@@ -218,9 +271,15 @@ describe("TimeOff import", { skip }, () => {
       .select()
       .from(schema.leaveRequests)
       .where(and(eq(schema.leaveRequests.userId, dave.id), eq(schema.leaveRequests.startDate, "2026-03-02")));
-    assert.deepEqual(daveRequests.map((r) => [r.dayPortion, r.days]), [["pm", 0.5]]);
+    assert.deepEqual(
+      daveRequests.map((r) => [r.dayPortion, r.days]),
+      [["pm", 0.5]],
+    );
     const frank = byEmail.get("frank@example.com")!;
-    const frankStatuses = await db.select({ status: schema.leaveRequests.status }).from(schema.leaveRequests).where(eq(schema.leaveRequests.userId, frank.id));
+    const frankStatuses = await db
+      .select({ status: schema.leaveRequests.status })
+      .from(schema.leaveRequests)
+      .where(eq(schema.leaveRequests.userId, frank.id));
     assert.deepEqual(frankStatuses.map((r) => r.status).sort(), ["approved", "approved"], "pended revoke imports as approved");
 
     // Audit: one row per imported thing, all the admin's who ran it, via the import, and
@@ -265,9 +324,9 @@ describe("TimeOff import", { skip }, () => {
     assert.equal(rollover.carried, 0, "TimeOff's carried-over days are what OOOhm's rollover computes");
     for (const [email, expected] of Object.entries(FIXTURE_EXPECTED_2026)) {
       const p = people.find((x) => x.email === email)!;
-      const pool = (await getBalanceSummary(ctx, { id: p.id, companyId, role: p.role, canSelfApprove: p.canSelfApprove, source: byUser(p.id) }, 2026)).items.find(
-        (i) => i.name === "Holiday",
-      )!.balance;
+      const pool = (
+        await getBalanceSummary(ctx, { id: p.id, companyId, role: p.role, canSelfApprove: p.canSelfApprove, source: byUser(p.id) }, 2026)
+      ).items.find((i) => i.name === "Holiday")!.balance;
       assert.equal(pool.tracked && pool.remaining + pool.pending, expected, `${email} after the rollover`);
     }
 
@@ -331,7 +390,10 @@ describe("TimeOff import", { skip }, () => {
     const data = buildTimeOffFixtureThrough(file, 2028);
     assert.deepEqual(
       data.adjustments.filter((a) => a.user_id === U.quinn).map((a) => [a.year, a.carried_over_allowance]),
-      [[2027, 0], [2028, 5]],
+      [
+        [2027, 0],
+        [2028, 5],
+      ],
       "Quinn starts in 2027, so carries nothing into it and 5 of 20 out of it",
     );
 
@@ -357,7 +419,8 @@ describe("TimeOff import", { skip }, () => {
     const report = await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true }));
     assert.equal(report.outcome, "rolled_back");
     assert.ok(report.reconciliation.currentYearMismatches > 0);
-    for (const m of report.reconciliation.mismatches.filter((x) => x.year === 2027)) assert.match(m.reasons.join(" "), /Carried over into 2027/);
+    for (const m of report.reconciliation.mismatches.filter((x) => x.year === 2027))
+      assert.match(m.reasons.join(" "), /Carried over into 2027/);
   });
 
   test("a current-year mismatch rolls the whole apply back; --accept-mismatch commits it", async () => {
@@ -365,7 +428,8 @@ describe("TimeOff import", { skip }, () => {
     const { companyId } = await seedFreshDeploy(db);
     const ctx = createTestContext(db);
     // Dec 31 (afternoon) to Jan 2: TimeOff takes half a day off the 2026 part too, OOOhm does not.
-    const quirk = (d: FixtureData) => void fixtureLeave(d, { userId: U.dave, leaveTypeId: T.holiday, start: "2025-12-31", end: "2026-01-02", status: 2, dayPartStart: 3 });
+    const quirk = (d: FixtureData) =>
+      void fixtureLeave(d, { userId: U.dave, leaveTypeId: T.holiday, start: "2025-12-31", end: "2026-01-02", status: 2, dayPartStart: 3 });
     const counts = await rowCounts(db);
 
     const refused = await importTimeOff(ctx, fixture({ companyId }, quirk, { apply: true }));
@@ -380,25 +444,43 @@ describe("TimeOff import", { skip }, () => {
 
     // TimeOff also stored no carry for Alice, so OOOhm's rollover step corrects it to 5.
     const outboxBefore = await db.$count(schema.eventsOutbox);
-    const accepted = await importTimeOff(ctx, fixture({ companyId }, (d) => {
-      quirk(d);
-      d.adjustments.find((a) => a.user_id === U.alice && a.year === 2026)!.carried_over_allowance = 0;
-      d.companies[0].name = "Accepted";
-    }, { apply: true, acceptMismatch: true }));
+    const accepted = await importTimeOff(
+      ctx,
+      fixture(
+        { companyId },
+        (d) => {
+          quirk(d);
+          d.adjustments.find((a) => a.user_id === U.alice && a.year === 2026)!.carried_over_allowance = 0;
+          d.companies[0].name = "Accepted";
+        },
+        { apply: true, acceptMismatch: true },
+      ),
+    );
     assert.equal(accepted.outcome, "applied");
-    assert.deepEqual(accepted.reconciliation.mismatches.map((m) => [m.email, m.year, m.diff]), [
-      ["alice@example.com", 2026, 5],
-      ["dave@example.com", 2026, -0.5],
-    ]);
+    assert.deepEqual(
+      accepted.reconciliation.mismatches.map((m) => [m.email, m.year, m.diff]),
+      [
+        ["alice@example.com", 2026, 5],
+        ["dave@example.com", 2026, -0.5],
+      ],
+    );
     const events = await db.select().from(schema.eventsOutbox);
-    assert.deepEqual(events.map((e) => e.type), ["import.completed"], "the carry correction writes no balance.adjusted event");
+    assert.deepEqual(
+      events.map((e) => e.type),
+      ["import.completed"],
+      "the carry correction writes no balance.adjusted event",
+    );
     assert.equal(events.length - outboxBefore, 1);
     assert.equal((events[0].payload as { mismatches: number }).mismatches, 2);
     const carryAudit = await db
       .select()
       .from(schema.auditLog)
       .where(and(eq(schema.auditLog.action, "import.allowance"), sql`${schema.auditLog.after}->>'reason' = 'carryover'`));
-    assert.deepEqual(carryAudit.map((a) => (a.after as { carriedOverDays: number }).carriedOverDays), [5], "audited as an import row instead");
+    assert.deepEqual(
+      carryAudit.map((a) => (a.after as { carriedOverDays: number }).carriedOverDays),
+      [5],
+      "audited as an import row instead",
+    );
     const [peter] = await db.select({ id: schema.user.id }).from(schema.user).where(eq(schema.user.email, SEED_ADMIN));
     assert.deepEqual(
       carryAudit.map((a) => [a.actorKind, a.actorId, a.actorVia, a.actorProcess]),
@@ -416,7 +498,10 @@ describe("TimeOff import", { skip }, () => {
     const report = await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true }));
 
     assert.equal(report.outcome, "rolled_back");
-    assert.deepEqual(report.reconciliation.mismatches.map((m) => [m.email, m.year, m.timeoff, m.ooohm]), [["alice@example.com", 2026, 20, 21]]);
+    assert.deepEqual(
+      report.reconciliation.mismatches.map((m) => [m.email, m.year, m.timeoff, m.ooohm]),
+      [["alice@example.com", 2026, 20, 21]],
+    );
     assert.match(report.reconciliation.mismatches[0].reasons.join(" "), /already has a holiday/);
   });
 
@@ -427,21 +512,27 @@ describe("TimeOff import", { skip }, () => {
     await rejectsWith(importTimeOff(ctx, fixture({ createCompany: "Chykalophia" }, noAdmins, { apply: true })), "import_refused");
     assert.equal(await db.$count(schema.companies), 0, "the new company was rolled back too");
 
-    // Into a seeded company the seed admin is enough.
-    const { companyId } = await seedFreshDeploy(db);
-    const report = await importTimeOff(ctx, fixture({ companyId }, noAdmins, { apply: true }));
-    assert.equal(report.outcome, "applied");
+    // Named by someone the import brings in who is not an admin: refused, nothing written.
+    await assert.rejects(
+      importTimeOff(ctx, fixture({ createCompany: "New" }, undefined, { apply: true, actorEmail: "carol@example.com" })),
+      /not an active admin of company "New"/,
+    );
+    assert.equal(await db.$count(schema.companies), 0);
 
-    // And a new company with a TimeOff admin is created with TimeOff's settings.
-    const created = await importTimeOff(ctx, fixture({ createCompany: "Second" }, (d) => {
-      for (const u of d.users) u.email = String(u.email).replace("@", "+2@");
-    }, { apply: true, actorEmail: "alice+2@example.com" }));
+    // A new company with a TimeOff admin is created with TimeOff's settings.
+    const created = await importTimeOff(
+      ctx,
+      fixture({ createCompany: "Chykalophia" }, undefined, { apply: true, actorEmail: "alice@example.com" }),
+    );
     assert.equal(created.outcome, "applied");
-    assert.deepEqual([created.company.created, created.company.timezone, created.company.workingDays], [true, "America/Chicago", [1, 2, 3, 4, 5]]);
+    assert.deepEqual(
+      [created.company.created, created.company.timezone, created.company.workingDays],
+      [true, "America/Chicago", [1, 2, 3, 4, 5]],
+    );
 
     // Alice only exists once the import has created her, and every change is hers.
-    const [alice] = await db.select().from(schema.user).where(eq(schema.user.email, "alice+2@example.com"));
-    assert.deepEqual(created.actor, { userId: alice.id, email: "alice+2@example.com" });
+    const [alice] = await db.select().from(schema.user).where(eq(schema.user.email, "alice@example.com"));
+    assert.deepEqual(created.actor, { userId: alice.id, email: "alice@example.com" });
     const sources = await db
       .selectDistinct({ kind: schema.auditLog.actorKind, id: schema.auditLog.actorId, via: schema.auditLog.actorVia })
       .from(schema.auditLog)
@@ -451,22 +542,70 @@ describe("TimeOff import", { skip }, () => {
     assert.deepEqual((event.payload as { actor: unknown }).actor, { type: "user", id: alice.id, via: "timeoff_import" });
   });
 
+  test("into a seeded company the seed admin is enough", async () => {
+    const db = await freshDb();
+    const ctx = createTestContext(db);
+    const { companyId } = await seedFreshDeploy(db);
+    const report = await importTimeOff(
+      ctx,
+      fixture({ companyId }, (d) => d.users.forEach((u) => (u.admin = 0)), { apply: true }),
+    );
+    assert.equal(report.outcome, "applied");
+  });
+
+  test("--create-company is refused once a company exists: v1 runs one company per deployment", async () => {
+    const db = await freshDb();
+    const ctx = createTestContext(db);
+    const { companyId } = await seedFreshDeploy(db);
+    const counts = await rowCounts(db);
+    const otherEmails = (d: FixtureData) => {
+      for (const u of d.users) u.email = String(u.email).replace("@", "+2@");
+    };
+
+    for (const input of [
+      fixture({ createCompany: "Second" }, otherEmails, { apply: true, actorEmail: "alice+2@example.com" }),
+      fixture({ createCompany: "Second" }, otherEmails, { actorEmail: "alice+2@example.com" }),
+    ]) {
+      await assert.rejects(importTimeOff(ctx, input), (err: Error & { code?: string }) => {
+        assert.equal(err.code, "import_refused");
+        assert.match(err.message, /already has a company/);
+        assert.ok(err.message.includes(`--company ${companyId}`), "names the company to import into");
+        return true;
+      });
+      assert.deepEqual(await rowCounts(db), counts, "nothing written");
+    }
+    assert.equal(await db.$count(schema.companies), 1);
+  });
+
   test("--actor must be an active admin of the target company after the import; otherwise nothing is written", async () => {
     const db = await freshDb();
     const { companyId, adminId } = await seedFreshDeploy(db);
     const ctx = createTestContext(db);
     const [other] = await db.insert(schema.companies).values({ name: "Other" }).returning();
-    await db.insert(schema.user).values({ id: randomUUID(), email: "boss@other.example", name: "Boss", companyId: other.id, role: "admin" });
+    await db
+      .insert(schema.user)
+      .values({ id: randomUUID(), email: "boss@other.example", name: "Boss", companyId: other.id, role: "admin" });
     const counts = await rowCounts(db);
     const ginaAdmin = (d: FixtureData) => void (d.users.find((u) => u.email === "gina@example.com")!.admin = 1);
 
     const refusals: [string, TimeOffImportInput, RegExp][] = [
-      ["nobody has that email", fixture({ companyId }, undefined, { apply: true, actorEmail: "nobody@example.org" }), /not a member of company "My Company"/],
+      [
+        "nobody has that email",
+        fixture({ companyId }, undefined, { apply: true, actorEmail: "nobody@example.org" }),
+        /not a member of company "My Company"/,
+      ],
       ["an admin of another company", fixture({ companyId }, undefined, { apply: true, actorEmail: "boss@other.example" }), /not a member/],
-      ["someone the import brings in, not an admin", fixture({ companyId }, undefined, { apply: true, actorEmail: "carol@example.com" }), /not an active admin/],
-      ["an imported admin who has left", fixture({ companyId }, ginaAdmin, { apply: true, actorEmail: "gina@example.com" }), /not an active admin/],
+      [
+        "someone the import brings in, not an admin",
+        fixture({ companyId }, undefined, { apply: true, actorEmail: "carol@example.com" }),
+        /not an active admin/,
+      ],
+      [
+        "an imported admin who has left",
+        fixture({ companyId }, ginaAdmin, { apply: true, actorEmail: "gina@example.com" }),
+        /not an active admin/,
+      ],
       ["a dry run, too", fixture({ companyId }, undefined, { actorEmail: "carol@example.com" }), /not an active admin/],
-      ["a new company, named by a non-admin", fixture({ createCompany: "New" }, undefined, { apply: true, actorEmail: "carol@example.com" }), /not an active admin of company "New"/],
     ];
     for (const [why, input, message] of refusals) {
       await assert.rejects(importTimeOff(ctx, input), (err: Error & { code?: string }) => {
@@ -483,7 +622,10 @@ describe("TimeOff import", { skip }, () => {
     const report = await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true, actorEmail: "  Peter@Example.org " }));
     assert.equal(report.outcome, "applied");
     assert.deepEqual(report.actor, { userId: adminId, email: SEED_ADMIN });
-    const viaImport = await db.$count(schema.auditLog, and(eq(schema.auditLog.actorId, adminId), eq(schema.auditLog.actorVia, CHANGE_PROCESSES.timeoffImport)));
+    const viaImport = await db.$count(
+      schema.auditLog,
+      and(eq(schema.auditLog.actorId, adminId), eq(schema.auditLog.actorVia, CHANGE_PROCESSES.timeoffImport)),
+    );
     assert.equal(viaImport, await db.$count(schema.auditLog, eq(schema.auditLog.companyId, companyId)));
   });
 
@@ -497,9 +639,15 @@ describe("TimeOff import", { skip }, () => {
 
     await rejectsWith(importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true })), "import_refused");
 
-    const report = await importTimeOff(ctx, fixture({ companyId }, (d) => void (d.companies[0].name = "Forced"), { apply: true, force: true }));
+    const report = await importTimeOff(
+      ctx,
+      fixture({ companyId }, (d) => void (d.companies[0].name = "Forced"), { apply: true, force: true }),
+    );
     assert.equal(report.outcome, "applied");
-    assert.deepEqual(report.conflicts.filter((c) => c.code === "email_in_other_company").map((c) => c.email), ["paula@example.com"]);
+    assert.deepEqual(
+      report.conflicts.filter((c) => c.code === "email_in_other_company").map((c) => c.email),
+      ["paula@example.com"],
+    );
     const [paula] = await db.select().from(schema.user).where(eq(schema.user.email, "paula@example.com"));
     assert.equal(paula.companyId, other.id, "the other company's account is untouched");
     const [admin] = await db.select().from(schema.user).where(eq(schema.user.id, adminId));
@@ -523,8 +671,17 @@ describe("TimeOff import", { skip }, () => {
     assert.equal(report.counts.people.updated, 1);
     const [bob] = await db.select().from(schema.user).where(eq(schema.user.id, adminId));
     assert.deepEqual([bob.name, bob.role, bob.canSelfApprove], ["Bob Boss", "admin", true]);
-    const rows = await executeRows(db, sql`select year, days, carried_over_days from allowances a join leave_types t on t.id = a.leave_type_id where a.user_id = ${adminId} and t.code = 'HOLIDAY' order by year`);
-    assert.deepEqual([...rows].map((r) => [r.year, Number(r.days), Number(r.carried_over_days)]), [[2025, 25, 0], [2026, 25, 5]]);
+    const rows = await executeRows(
+      db,
+      sql`select year, days, carried_over_days from allowances a join leave_types t on t.id = a.leave_type_id where a.user_id = ${adminId} and t.code = 'HOLIDAY' order by year`,
+    );
+    assert.deepEqual(
+      [...rows].map((r) => [r.year, Number(r.days), Number(r.carried_over_days)]),
+      [
+        [2025, 25, 0],
+        [2026, 25, 5],
+      ],
+    );
   });
 
   test("an imported 2025 request shows no Cancel button and cannot be cancelled; one ending in 2026 still can", async () => {

@@ -1,20 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ErrorMessage } from "@/components/forms/form-status";
+import { TextField } from "@/components/ui/fields";
+import { buttonClass, cx, textLink } from "@/components/ui/styles";
 import { authClient } from "@/lib/auth-client";
 
 const GENERIC_ERROR = "Something went wrong. Try again.";
+const PASSKEY_FAILED = "That passkey didn't work. Try again, or email yourself a link.";
+
+/** What the browser reports when the person closes its passkey prompt: not an error. */
+const CANCELLED = new Set(["AUTH_CANCELLED", "ERROR_CEREMONY_ABORTED"]);
 
 type State = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; email: string } | { kind: "error"; message: string };
 
-export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boolean; linkFailed: boolean }) {
-  const [email, setEmail] = useState("");
+export function SignInForm({
+  googleEnabled,
+  linkFailed,
+  initialEmail = "",
+}: {
+  googleEnabled: boolean;
+  linkFailed: boolean;
+  /** Prefills the email (after first-time setup). */
+  initialEmail?: string;
+}) {
+  const [email, setEmail] = useState(initialEmail);
   const [state, setState] = useState<State>(
     linkFailed ? { kind: "error", message: "That sign-in link didn't work. Request a new one." } : { kind: "idle" },
   );
 
+  const router = useRouter();
+  // Passkeys need a browser that supports them, known only after mount (the server can't tell).
+  const [passkeys, setPasskeys] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.PublicKeyCredential) return;
+    // Rendering the button only now keeps the server's HTML and the first render the same.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPasskeys(true);
+    // Where the browser offers it, saved passkeys also show in the email field's suggestions.
+    let cancelled = false;
+    void PublicKeyCredential.isConditionalMediationAvailable?.().then(async (available) => {
+      if (!available || cancelled) return;
+      const { data } = await authClient.signIn.passkey({ autoFill: true });
+      if (data && !cancelled) router.replace("/");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  async function signInWithPasskey() {
+    if (state.kind === "sending") return;
+    setState({ kind: "idle" });
+    const { data, error } = await authClient.signIn.passkey();
+    if (data) {
+      router.replace("/");
+      return;
+    }
+    if (error && !("code" in error && CANCELLED.has(error.code))) setState({ kind: "error", message: PASSKEY_FAILED });
+  }
+
   async function sendLink(e: React.FormEvent) {
     e.preventDefault();
+    if (state.kind === "sending") return;
     // Accounts are stored lowercase; normalize so "Ana@Co.com " works too.
     const normalized = email.trim().toLowerCase();
     setState({ kind: "sending" });
@@ -46,7 +95,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
         <p className="text-sm text-muted">
           We sent a sign-in link to <span className="text-foreground">{state.email}</span>. It expires in 15 minutes.
         </p>
-        <button type="button" className="text-sm text-accent underline-offset-4 hover:underline" onClick={() => setState({ kind: "idle" })}>
+        <button type="button" className={cx(textLink, "text-sm text-accent-ink")} onClick={() => setState({ kind: "idle" })}>
           Use a different email
         </button>
       </div>
@@ -56,32 +105,32 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
   return (
     <div className="space-y-4">
       <form onSubmit={sendLink} className="space-y-3">
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Work email</span>
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-            placeholder="you@company.com"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={state.kind === "sending"}
-          className="w-full rounded-lg bg-accent px-3 py-2 font-medium text-accent-foreground disabled:opacity-60"
-        >
+        <TextField
+          label="Work email"
+          type="email"
+          required
+          // "webauthn" lets the browser offer saved passkeys here too.
+          autoComplete="email webauthn"
+          autoFocus
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@company.com"
+        />
+        <button type="submit" aria-disabled={state.kind === "sending"} className={cx(buttonClass("primary"), "w-full")}>
           {state.kind === "sending" ? "Sending…" : "Email me a sign-in link"}
         </button>
       </form>
 
       {state.kind === "error" && (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <ErrorMessage as="p" className="text-sm">
           {state.message}
-        </p>
+        </ErrorMessage>
+      )}
+
+      {passkeys && (
+        <button type="button" onClick={signInWithPasskey} className={cx(buttonClass("outline"), "w-full")}>
+          Sign in with a passkey
+        </button>
       )}
 
       {googleEnabled && (
@@ -89,11 +138,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
           <div className="flex items-center gap-3 text-xs text-muted">
             <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
           </div>
-          <button
-            type="button"
-            onClick={signInWithGoogle}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 font-medium hover:bg-background"
-          >
+          <button type="button" onClick={signInWithGoogle} className={cx(buttonClass("outline"), "w-full")}>
             Continue with Google
           </button>
         </>

@@ -52,7 +52,8 @@ function payload(row: LeaveTypeRow): Unattributed<LeaveTypeEventPayload> {
   return { leaveTypeId: row.id, ...snapshot(row) };
 }
 
-async function record(tx: Transaction, actor: Actor, type: AdminEventType, before: LeaveTypeRow | null, after: LeaveTypeRow) {
+/** Records a leave type change: its audit row and its `leave_type.*` event. */
+export async function recordLeaveTypeChange(tx: Transaction, actor: Actor, type: AdminEventType, before: LeaveTypeRow | null, after: LeaveTypeRow) {
   await recordAdminChange(tx, actor, {
     type,
     entityType: "leave_type",
@@ -108,7 +109,7 @@ export async function createLeaveType(ctx: ServiceContext, actor: Actor, input: 
       if (await leaveTypeCodeTaken(tx, actor.companyId, settings.code)) throw new DomainError("already_exists");
       const sortOrder = await nextLeaveTypeSortOrder(tx, actor.companyId);
       const row = await insertLeaveType(tx, { companyId: actor.companyId, sortOrder, ...settings });
-      await record(tx, actor, ADMIN_EVENT_TYPES.leaveTypeCreated, null, row);
+      await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeCreated, null, row);
       return row;
     }),
   );
@@ -136,7 +137,7 @@ export async function updateLeaveType(ctx: ServiceContext, actor: Actor, id: str
         throw new DomainError("already_exists");
       }
       const after = await updateLeaveTypeRow(tx, actor.companyId, id, settings);
-      await record(tx, actor, ADMIN_EVENT_TYPES.leaveTypeUpdated, before, after);
+      await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeUpdated, before, after);
       return after;
     }),
   );
@@ -161,40 +162,50 @@ export async function setLeaveTypeArchived(ctx: ServiceContext, actor: Actor, id
     if ((before.archivedAt !== null) === archived) return before;
     const after = archived
       ? await updateLeaveTypeRow(tx, actor.companyId, id, { archivedAt: ctx.now() })
-      : await updateLeaveTypeRow(tx, actor.companyId, id, { archivedAt: null, sortOrder: await nextLeaveTypeSortOrder(tx, actor.companyId) });
-    await record(tx, actor, archived ? ADMIN_EVENT_TYPES.leaveTypeArchived : ADMIN_EVENT_TYPES.leaveTypeUnarchived, before, after);
+      : await updateLeaveTypeRow(tx, actor.companyId, id, {
+          archivedAt: null,
+          sortOrder: await nextLeaveTypeSortOrder(tx, actor.companyId),
+        });
+    await recordLeaveTypeChange(tx, actor, archived ? ADMIN_EVENT_TYPES.leaveTypeArchived : ADMIN_EVENT_TYPES.leaveTypeUnarchived, before, after);
     return after;
   });
 }
 
+/** The most active leave types a reorder takes: far more than any company has. */
+const REORDER_MAX = 200;
+
 /**
- * Moves an active leave type one place up or down in the request form, then numbers the
- * active types 0, 1, 2... in their new order. Each type whose position changed writes a
- * `leave_type.reordered` audit row and event. The first type is the form's default.
+ * Puts the active leave types in the request form in `order` (their ids, first to last),
+ * as dragged on the leave types page, then numbers them 0, 1, 2... Each type whose
+ * position changed writes a `leave_type.reordered` audit row and event; a type already
+ * in its place writes nothing. The first type is the form's default.
  *
- * @returns `false` when it was already first (up) or last (down); nothing changes then.
- * @throws DomainError `forbidden`, `no_company`, `not_found` (unknown or archived type), or `invalid_input`.
+ * `order` must name every active type exactly once: when it does not, the list changed
+ * since the page loaded (a type added, archived or restored meanwhile) and nothing moves.
+ *
+ * @returns Whether anything moved.
+ * @throws DomainError `forbidden`, `no_company`, `invalid_input` (not a list of distinct
+ *   ids), or `conflict` (not exactly the active types).
  */
-export async function moveLeaveType(ctx: ServiceContext, actor: Actor, id: string, direction: "up" | "down"): Promise<boolean> {
+export async function reorderLeaveTypes(ctx: ServiceContext, actor: Actor, order: readonly string[]): Promise<boolean> {
   assertCanAdminister(actor);
-  if (!isUuid(id)) throw new DomainError("not_found");
-  if (direction !== "up" && direction !== "down") throw new DomainError("invalid_input");
+  if (order.length === 0 || order.length > REORDER_MAX || !order.every(isUuid) || new Set(order).size !== order.length) {
+    throw new DomainError("invalid_input");
+  }
   return inTransaction(ctx, async (tx) => {
     // Serialises reorders, so two at once cannot interleave their renumbering.
     if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);
-    const active = (await listAllLeaveTypes(tx, actor.companyId)).filter((t) => t.archivedAt === null);
-    const from = active.findIndex((t) => t.id === id);
-    if (from === -1) throw new DomainError("not_found");
-    const to = direction === "up" ? from - 1 : from + 1;
-    if (to < 0 || to >= active.length) return false;
-    const order = [...active];
-    [order[from], order[to]] = [order[to], order[from]];
-    for (const [position, before] of order.entries()) {
+    const active = new Map((await listAllLeaveTypes(tx, actor.companyId)).filter((t) => t.archivedAt === null).map((t) => [t.id, t]));
+    if (active.size !== order.length || !order.every((id) => active.has(id))) throw new DomainError("conflict");
+    let moved = false;
+    for (const [position, id] of order.entries()) {
+      const before = active.get(id)!;
       if (before.sortOrder === position) continue;
-      const after = await updateLeaveTypeRow(tx, actor.companyId, before.id, { sortOrder: position });
-      await record(tx, actor, ADMIN_EVENT_TYPES.leaveTypeReordered, before, after);
+      const after = await updateLeaveTypeRow(tx, actor.companyId, id, { sortOrder: position });
+      await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeReordered, before, after);
+      moved = true;
     }
-    return true;
+    return moved;
   });
 }

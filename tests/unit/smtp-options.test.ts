@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:net";
 import { after, before, describe, test } from "node:test";
 import nodemailer from "nodemailer";
-import { smtpTransportOptions } from "@/lib/smtp-options";
+import { smtpTransportOptions } from "@/lib/mail/smtp-options";
 
 /** An SMTP server that never offers STARTTLS (as if an attacker stripped it) and records every command. */
 function strippedServer(): Promise<{ server: Server; port: number; commands: string[] }> {

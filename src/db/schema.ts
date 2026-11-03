@@ -17,7 +17,9 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { DEFAULT_THEME } from "@/domain/appearance";
 import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
+import { COLOR_MODES, DEFAULT_COLOR_MODE } from "@/domain/color-mode";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -31,6 +33,9 @@ const timestamps = {
 
 export const roleEnum = pgEnum("role", ["employee", "manager", "admin"]);
 
+/** A person's colour mode. Named `theme` in the database (it was, before company themes). */
+export const colorModeEnum = pgEnum("theme", COLOR_MODES);
+
 export const requestStatusEnum = pgEnum("leave_request_status", [
   "pending",
   "approved",
@@ -42,6 +47,21 @@ export const requestStatusEnum = pgEnum("leave_request_status", [
 export const dayPortionEnum = pgEnum("day_portion", ["full", "am", "pm"]);
 
 // Tenancy
+
+/**
+ * One row once the first install has run, by the web setup (`/setup`) or `pnpm db:seed`.
+ * From then on the web setup is closed for good, whatever `SETUP_TOKEN` says.
+ */
+export const installation = pgTable(
+  "installation",
+  {
+    id: integer("id").primaryKey().default(1),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+    /** How it was done: `setup` (the web page) or `seed` (the CLI). */
+    method: text("method").notNull(),
+  },
+  (t) => [check("installation_single_row", sql`${t.id} = 1`)],
+);
 
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -57,6 +77,18 @@ export const companies = pgTable("companies", {
    * it runs; off by default. Deletes that keep records never wait.
    */
   deletionGrace: boolean("deletion_grace").notNull().default(false),
+  /** Managers see their direct reports' balances and request notes on the team member page. */
+  managersSeeDetails: boolean("managers_see_details").notNull().default(true),
+  /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
+  theme: text("theme").notNull().default(DEFAULT_THEME),
+  /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */
+  accentColor: text("accent_color"),
+  /** `theme`, `square`, `soft` or `round`: overrides the theme's corner radius. */
+  corners: text("corners").notNull().default("theme"),
+  /** `REQUEST_STYLES` in src/domain/appearance.ts: how Home asks for time off. */
+  requestStyle: text("request_style").notNull().default("form"),
+  /** `LAYOUTS` in src/domain/appearance.ts: the layout trial the whole company sees. */
+  layout: text("layout").notNull().default("standard"),
   ...timestamps,
 });
 
@@ -105,6 +137,8 @@ export const user = pgTable(
     scrubScheduledAt: timestamp("scrub_scheduled_at", { withTimezone: true }),
     /** The admin who asked for the scheduled scrub; the job's change is attributed to the system on their behalf. */
     scrubRequestedBy: text("scrub_requested_by").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
+    /** Their colour mode: light (the default), dark, or following their device (where the company theme has a dark version). */
+    colorMode: colorModeEnum("theme").notNull().default(DEFAULT_COLOR_MODE),
     ...timestamps,
   },
   (t) => [
@@ -129,6 +163,36 @@ export const user = pgTable(
         or (${t.scrubScheduledAt} is not null and ${t.deletedAt} is null and not ${t.isActive})`,
     ),
   ],
+);
+
+/**
+ * Passkeys (WebAuthn credentials) people add on their account page, for Better Auth's
+ * passkey plugin: one row per device or password manager. Signing in with one still
+ * goes through the session hook that refuses deactivated people, and a delete removes
+ * them with the rest of the person's sign-in data.
+ */
+export const passkey = pgTable(
+  "passkey",
+  {
+    id: text("id").primaryKey(),
+    /** What the person called it ("Work laptop"). */
+    name: text("name"),
+    publicKey: text("public_key").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    credentialID: text("credential_id").notNull(),
+    /** The authenticator's signature counter, checked on every sign-in. */
+    counter: integer("counter").notNull(),
+    /** `singleDevice`, or `multiDevice` for a synced passkey. */
+    deviceType: text("device_type").notNull(),
+    backedUp: boolean("backed_up").notNull(),
+    transports: text("transports"),
+    createdAt: timestamp("created_at", { withTimezone: true }),
+    /** Identifies the authenticator's make (a password manager, a security key). */
+    aaguid: text("aaguid"),
+  },
+  (t) => [index("passkey_user_idx").on(t.userId), uniqueIndex("passkey_credential_id_uq").on(t.credentialID)],
 );
 
 export const session = pgTable(
@@ -278,7 +342,11 @@ export const leaveRequests = pgTable(
     startDate: date("start_date", { mode: "string" }).notNull(),
     endDate: date("end_date", { mode: "string" }).notNull(),
     dayPortion: dayPortionEnum("day_portion").notNull().default("full"),
-    /** Working days this request consumes, computed at submit time (weekends/holidays excluded). */
+    /**
+     * Working days this request consumes (weekends and holidays excluded): counted at
+     * submit, and recounted when a holiday or the working days change in an open year.
+     * Always more than 0 at submit; 0 only when a later calendar change (a holiday, or the working days) leaves it no working days.
+     */
     days: numeric("days", { precision: 5, scale: 1, mode: "number" }).notNull(),
     note: text("note"),
     status: requestStatusEnum("status").notNull().default("pending"),
@@ -298,11 +366,11 @@ export const leaveRequests = pgTable(
     index("leave_requests_approver_status_idx").on(t.approverId, t.status),
     index("leave_requests_company_status_idx").on(t.companyId, t.status),
     check("leave_requests_dates_ordered", sql`${t.endDate} >= ${t.startDate}`),
-    check("leave_requests_days_positive", sql`${t.days} > 0`),
-    // A half day consumes exactly 0.5; a full-day request consumes whole days.
+    check("leave_requests_days_nonneg", sql`${t.days} >= 0`),
+    // A half day consumes 0.5 (or 0, after a later calendar change); a full-day request consumes whole days.
     check(
       "leave_requests_days_match_portion",
-      sql`(${t.dayPortion} = 'full' AND ${t.days} = trunc(${t.days})) OR (${t.dayPortion} <> 'full' AND ${t.days} = 0.5)`,
+      sql`(${t.dayPortion} = 'full' AND ${t.days} = trunc(${t.days})) OR (${t.dayPortion} <> 'full' AND ${t.days} IN (0, 0.5))`,
     ),
     // Half days (am/pm) only make sense on a single-day request.
     check("leave_requests_half_day_single", sql`${t.dayPortion} = 'full' OR ${t.startDate} = ${t.endDate}`),
@@ -313,10 +381,12 @@ export const leaveRequests = pgTable(
 );
 
 /**
- * What a leave request costs in each calendar year, fixed at submit time. A request
- * over New Year has one row per year; every other request has one row. Balances read
- * these rows, never recount days, so editing holidays later cannot change a past
- * balance. The rows for a request always add up to `leave_requests.days`.
+ * What a leave request costs in each calendar year, stored at submit. A request over
+ * New Year has one row per year; every other request has one row (none once a later
+ * holiday covers all of it). Balances read these rows and never count days themselves.
+ * A holiday or working-days change rewrites them for open years only, so a closed
+ * year's balance never moves. The rows for a request always add up to
+ * `leave_requests.days`.
  */
 export const leaveRequestDays = pgTable(
   "leave_request_days",

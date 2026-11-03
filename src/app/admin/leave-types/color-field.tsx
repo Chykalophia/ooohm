@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { normalizeHexColor, readableTextColor } from "@/lib/color";
+import { cx, focusRing } from "@/components/ui/styles";
 
 /**
  * The leave type colour, with a live preview of how its calendar chip will look: sample
@@ -23,7 +24,7 @@ export function ColorField({ defaultColor }: { defaultColor: string }) {
           name="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          className="h-10 w-14 cursor-pointer rounded-lg border border-border bg-surface p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className={cx("h-10 w-14 cursor-pointer rounded-lg border border-border bg-surface p-1", focusRing)}
         />
         <span
           className="rounded-md px-2 py-1 text-sm font-medium"

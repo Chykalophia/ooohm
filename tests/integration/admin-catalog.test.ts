@@ -2,14 +2,15 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { getCompanySettings, updateCompanySettings } from "@/server/services/admin-company";
+import { getCompanySettings, updateCompanyAppearance, updateCompanySettings } from "@/server/services/admin-company";
+import { getAppearance } from "@/server/services/appearance";
 import { createDepartment, deleteDepartment, listDepartmentsForAdmin, renameDepartment } from "@/server/services/admin-departments";
 import { addHoliday, addUsFederalHolidays, deleteHoliday, listHolidaysForAdmin, renameHoliday } from "@/server/services/admin-holidays";
 import {
   createLeaveType,
   getLeaveTypeForAdmin,
   listLeaveTypesForAdmin,
-  moveLeaveType,
+  reorderLeaveTypes,
   setLeaveTypeArchived,
   updateLeaveType,
 } from "@/server/services/admin-leave-types";
@@ -58,7 +59,10 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
 
     await t.db.update(schema.user).set({ departmentId: ops.id }).where(eq(schema.user.id, co.people.ana.id));
     await rejectsWith(deleteDepartment(ctx, boss, ops.id), "department_not_empty");
-    assert.deepEqual((await listDepartmentsForAdmin(ctx, boss)).map((d) => [d.name, d.members]), [["Operations", 1]]);
+    assert.deepEqual(
+      (await listDepartmentsForAdmin(ctx, boss)).map((d) => [d.name, d.members]),
+      [["Operations", 1]],
+    );
     await t.db.update(schema.user).set({ departmentId: null }).where(eq(schema.user.id, co.people.ana.id));
     await deleteDepartment(ctx, boss, ops.id);
     assert.deepEqual(await listDepartmentsForAdmin(ctx, boss), []);
@@ -101,8 +105,14 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     for (const name of ["beta", "Alpha", "Gamma"]) await createDepartment(ctx, boss, name);
     const adminOrder = (await listDepartmentsForAdmin(ctx, boss)).map((d) => d.name.toLowerCase());
     assert.deepEqual(adminOrder, ["alpha", "beta", "gamma", "sales"]);
-    assert.deepEqual((await getPersonFormOptions(ctx, boss, null)).departments.map((d) => d.name.toLowerCase()), adminOrder);
-    assert.deepEqual((await listPeople(ctx, boss, { status: "all" })).departments.map((d) => d.name.toLowerCase()), adminOrder);
+    assert.deepEqual(
+      (await getPersonFormOptions(ctx, boss, null)).departments.map((d) => d.name.toLowerCase()),
+      adminOrder,
+    );
+    assert.deepEqual(
+      (await listPeople(ctx, boss, { status: "all" })).departments.map((d) => d.name.toLowerCase()),
+      adminOrder,
+    );
   });
 
   test("departments: non-admins are refused and another company's department is not found", async () => {
@@ -174,7 +184,10 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     await setLeaveTypeArchived(ctx, boss, par.id, true);
     const dash = await getDashboard(ctx, ana);
     assert.ok(!dash.leaveTypes.some((lt) => lt.id === par.id), "archived types leave the request form");
-    assert.ok(dash.requests.some((r) => r.leaveTypeName === "Parental"), "history still names it");
+    assert.ok(
+      dash.requests.some((r) => r.leaveTypeName === "Parental"),
+      "history still names it",
+    );
 
     // Balances keep an archived type the person has days of, and drop one they never touched.
     const shown = (items: readonly { leaveTypeId: string; archived: boolean; balance: { used: number } }[] | undefined) =>
@@ -187,7 +200,10 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     const detail = await getPersonDetail(ctx, boss, ana.id);
     assert.deepEqual(shown(detail.balances?.items), dashboardBalances, "the admin person page agrees with the dashboard");
     assert.ok(detail.leaveTypes.has(par.id), "the allowance editor still knows the archived type's settings");
-    await rejectsWith(submitLeaveRequest(ctx, ana, { leaveTypeId: par.id, startDate: "2026-11-18", dayPortion: "full" }), "leave_type_unavailable");
+    await rejectsWith(
+      submitLeaveRequest(ctx, ana, { leaveTypeId: par.id, startDate: "2026-11-18", dayPortion: "full" }),
+      "leave_type_unavailable",
+    );
 
     const restored = await setLeaveTypeArchived(ctx, boss, par.id, false);
     assert.equal(restored.archivedAt, null);
@@ -195,29 +211,59 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
 
     const actions = (await companyAudit(t.db, co.companyId, "leave_type.")).map((a) => a.action);
     assert.deepEqual(actions, ["leave_type.created", "leave_type.updated", "leave_type.archived", "leave_type.unarchived"]);
-    assert.deepEqual((await companyEvents(t.db, co.companyId, "leave_type.")).map((e) => e.type), actions);
+    assert.deepEqual(
+      (await companyEvents(t.db, co.companyId, "leave_type.")).map((e) => e.type),
+      actions,
+    );
   });
 
-  test("leave types: reorder moves one place and renumbers the active types, auditing each that moved", async () => {
+  test("leave types: a dragged order is saved and renumbered, auditing each type that moved and nothing else", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);
     const { boss } = co.people;
     const a = await createLeaveType(ctx, boss, leaveType({ code: "A", name: "A" }));
     const b = await createLeaveType(ctx, boss, leaveType({ code: "B", name: "B" }));
-    const order = async () => (await listLeaveTypesForAdmin(ctx, boss)).map((lt) => `${lt.code}:${lt.sortOrder}${lt.archivedAt ? "x" : ""}`);
+    const order = async () =>
+      (await listLeaveTypesForAdmin(ctx, boss)).map((lt) => `${lt.code}:${lt.sortOrder}${lt.archivedAt ? "x" : ""}`);
     assert.deepEqual(await order(), ["PTO:0", "A:2", "B:3", "OLD:1x"]);
 
-    assert.equal(await moveLeaveType(ctx, boss, b.id, "up"), true);
-    assert.deepEqual(await order(), ["PTO:0", "B:1", "A:2", "OLD:1x"]);
-    assert.equal(await moveLeaveType(ctx, boss, co.pto, "up"), false, "already first");
-    await rejectsWith(moveLeaveType(ctx, boss, co.archived, "up"), "not_found");
+    // B dragged to the top: everyone below it moves down one.
+    assert.equal(await reorderLeaveTypes(ctx, boss, [b.id, co.pto, a.id]), true);
+    assert.deepEqual(await order(), ["B:0", "PTO:1", "A:2", "OLD:1x"], "archived types keep their number and stay last");
     const reordered = await companyAudit(t.db, co.companyId, "leave_type.reordered");
     assert.deepEqual(
-      reordered.map((r) => [r.entityId, (r.before as { sortOrder: number }).sortOrder, (r.after as { sortOrder: number }).sortOrder]),
-      [[b.id, 3, 1]],
-      "A kept position 2; only B moved",
+      reordered
+        .map((r) => [r.entityId, (r.before as { sortOrder: number }).sortOrder, (r.after as { sortOrder: number }).sortOrder])
+        .sort(),
+      [
+        [b.id, 3, 0],
+        [co.pto, 0, 1],
+      ].sort(),
+      "A kept position 2; only B and PTO moved",
     );
-    assert.equal(a.sortOrder, 2);
+    assert.equal((await companyEvents(t.db, co.companyId, "leave_type.reordered")).length, 2, "one event each");
+
+    assert.equal(await reorderLeaveTypes(ctx, boss, [b.id, co.pto, a.id]), false, "the same order again changes nothing");
+    assert.equal((await companyAudit(t.db, co.companyId, "leave_type.reordered")).length, 2);
+  });
+
+  test("leave types: a reorder must name every active type once, or nothing moves", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" } });
+    const ctx = createTestContext(t.db);
+    const { boss } = co.people;
+    const a = await createLeaveType(ctx, boss, leaveType({ code: "A", name: "A" }));
+    const order = async () => (await listLeaveTypesForAdmin(ctx, boss)).map((lt) => lt.code);
+    const before = await order();
+    // The list changed since the page loaded: one missing, an archived one, an unknown one.
+    await rejectsWith(reorderLeaveTypes(ctx, boss, [a.id]), "conflict");
+    await rejectsWith(reorderLeaveTypes(ctx, boss, [a.id, co.pto, co.archived]), "conflict");
+    await rejectsWith(reorderLeaveTypes(ctx, boss, [a.id, co.pto, "00000000-0000-4000-8000-000000000000"]), "conflict");
+    // Not a list of distinct ids.
+    await rejectsWith(reorderLeaveTypes(ctx, boss, [a.id, a.id]), "invalid_input");
+    await rejectsWith(reorderLeaveTypes(ctx, boss, [a.id, "not-an-id"]), "invalid_input");
+    await rejectsWith(reorderLeaveTypes(ctx, boss, []), "invalid_input");
+    assert.deepEqual(await order(), before);
+    assert.deepEqual(await companyAudit(t.db, co.companyId, "leave_type.reordered"), []);
   });
 
   test("leave types: non-admins are refused, other companies' types are not found", async () => {
@@ -229,26 +275,38 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     await rejectsWith(getLeaveTypeForAdmin(ctx, co.people.boss, other.pto), "not_found");
     await rejectsWith(updateLeaveType(ctx, co.people.boss, other.pto, leaveType()), "not_found");
     await rejectsWith(setLeaveTypeArchived(ctx, co.people.boss, other.pto, true), "not_found");
-    await rejectsWith(moveLeaveType(ctx, co.people.boss, other.pto, "down"), "not_found");
+    await rejectsWith(reorderLeaveTypes(ctx, co.people.emp, [co.pto]), "forbidden");
+    await rejectsWith(reorderLeaveTypes(ctx, co.people.boss, [other.pto]), "conflict");
     assert.deepEqual(await companyAudit(t.db, co.companyId), []);
   });
 
-  test("holidays: add, rename, delete, each audited; a date holds one holiday; past requests keep their days", async () => {
+  test("holidays: add, rename, delete, each audited; a date holds one holiday; requests on it are recounted", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { canSelfApprove: true } });
     const ctx = createTestContext(t.db);
     const { boss, ana } = co.people;
-    const request = await submitLeaveRequest(ctx, ana, { leaveTypeId: co.pto, startDate: "2026-12-21", endDate: "2026-12-25", dayPortion: "full" });
+    const request = await submitLeaveRequest(ctx, ana, {
+      leaveTypeId: co.pto,
+      startDate: "2026-12-21",
+      endDate: "2026-12-25",
+      dayPortion: "full",
+    });
     assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 5 }]);
 
-    const xmas = await addHoliday(ctx, boss, { date: "2026-12-25", name: " Christmas " });
+    const { holiday: xmas, recount } = await addHoliday(ctx, boss, { date: "2026-12-25", name: " Christmas " });
     assert.equal(xmas.name, "Christmas");
+    assert.deepEqual(recount, { recounted: 1, nowFree: 0, overdrawn: [] });
     await rejectsWith(addHoliday(ctx, boss, { date: "2026-12-25", name: "Again" }), "already_exists");
     await rejectsWith(addHoliday(ctx, boss, { date: "2026-02-30", name: "Nope" }), "invalid_input");
-    assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 5 }], "the stored split never moves");
+    assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 4 }], "Christmas no longer counts");
 
     await renameHoliday(ctx, boss, xmas.id, "Christmas Day");
-    await deleteHoliday(ctx, boss, xmas.id);
-    assert.deepEqual((await listHolidaysForAdmin(ctx, boss, 2026)).holidays.map((h) => h.date), ["2026-11-26"]);
+    assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 4 }], "a rename changes no count");
+    assert.deepEqual(await deleteHoliday(ctx, boss, xmas.id), { recounted: 1, nowFree: 0, overdrawn: [] });
+    assert.deepEqual(await requestDaysOf(t.db, request.id), [{ year: 2026, days: 5 }], "deleting it counts the day again");
+    assert.deepEqual(
+      (await listHolidaysForAdmin(ctx, boss, 2026)).holidays.map((h) => h.date),
+      ["2026-11-26"],
+    );
 
     const audit = await companyAudit(t.db, co.companyId, "holiday.");
     assert.deepEqual(
@@ -273,9 +331,12 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);
     // The fixture already has 2026-11-26 ("Thanksgiving").
-    const added = await addUsFederalHolidays(ctx, co.people.boss, 2026);
+    const { added } = await addUsFederalHolidays(ctx, co.people.boss, 2026);
     assert.equal(added.length, 10);
-    assert.deepEqual(await addUsFederalHolidays(ctx, co.people.boss, 2026), []);
+    assert.deepEqual(await addUsFederalHolidays(ctx, co.people.boss, 2026), {
+      added: [],
+      recount: { recounted: 0, nowFree: 0, overdrawn: [] },
+    });
     const { holidays: all, year } = await listHolidaysForAdmin(ctx, co.people.boss);
     assert.equal(year, 2026, "the current year in the company's zone");
     assert.equal(all.length, 11);
@@ -288,7 +349,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     const co = await seedCompany(t.db, { boss: { role: "admin" }, emp: {} });
     const other = await seedCompany(t.db, { theirs: { role: "admin" } });
     const ctx = createTestContext(t.db);
-    const theirs = await addHoliday(ctx, other.people.theirs, { date: "2026-12-24", name: "Eve" });
+    const { holiday: theirs } = await addHoliday(ctx, other.people.theirs, { date: "2026-12-24", name: "Eve" });
     await rejectsWith(addHoliday(ctx, co.people.emp, { date: "2026-12-24", name: "Eve" }), "forbidden");
     await rejectsWith(addUsFederalHolidays(ctx, co.people.emp, 2026), "forbidden");
     await rejectsWith(renameHoliday(ctx, co.people.boss, theirs.id, "Mine"), "not_found");
@@ -297,7 +358,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.deepEqual(await companyAudit(t.db, co.companyId), []);
   });
 
-  test("company settings: saved, audited, and used for counting from then on", async () => {
+  test("company settings: saved, audited, and new working days recount open requests", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { canSelfApprove: true } });
     const ctx = createTestContext(t.db);
     const { boss, ana } = co.people;
@@ -305,22 +366,52 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.ok(settings.timeZones.includes("America/Chicago") && settings.timeZones.includes("UTC"));
     assert.deepEqual(settings.allowancePolicies, ["annual_calendar_year"]);
 
-    const before = await submitLeaveRequest(ctx, ana, { leaveTypeId: co.pto, startDate: "2026-11-16", endDate: "2026-11-22", dayPortion: "full" });
-    const saved = await updateCompanySettings(ctx, boss, {
+    const before = await submitLeaveRequest(ctx, ana, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-16",
+      endDate: "2026-11-22",
+      dayPortion: "full",
+    });
+    const { company: saved, recount } = await updateCompanySettings(ctx, boss, {
       name: " Acme  Inc ",
       timezone: "Europe/Warsaw",
       workingDays: [6, 1, 2, 3, 4, 5],
       allowancePolicy: "annual_calendar_year",
     });
     assert.deepEqual([saved.name, saved.timezone, saved.workingDays], ["Acme Inc", "Europe/Warsaw", [1, 2, 3, 4, 5, 6]]);
-    await updateCompanySettings(ctx, boss, { name: "Acme Inc", timezone: "Europe/Warsaw", workingDays: [1, 2, 3, 4, 5, 6], allowancePolicy: "annual_calendar_year" });
+    assert.deepEqual(recount, { recounted: 1, nowFree: 0, overdrawn: [] });
+    const same = await updateCompanySettings(ctx, boss, {
+      name: "Acme Inc",
+      timezone: "Europe/Warsaw",
+      workingDays: [1, 2, 3, 4, 5, 6],
+      allowancePolicy: "annual_calendar_year",
+    });
+    assert.deepEqual(same.recount, { recounted: 0, nowFree: 0, overdrawn: [] });
 
-    const after = await submitLeaveRequest(ctx, ana, { leaveTypeId: co.pto, startDate: "2026-11-30", endDate: "2026-12-06", dayPortion: "full" });
-    assert.deepEqual([before.days, after.days], [5, 6], "Saturdays count from now on; the earlier request keeps 5");
+    const after = await submitLeaveRequest(ctx, ana, {
+      leaveTypeId: co.pto,
+      startDate: "2026-11-30",
+      endDate: "2026-12-06",
+      dayPortion: "full",
+    });
+    assert.deepEqual(await requestDaysOf(t.db, before.id), [{ year: 2026, days: 6 }], "the earlier request now counts its Saturday");
+    assert.equal(after.days, 6, "and so do new ones");
 
     const audit = await companyAudit(t.db, co.companyId, "company.");
     assert.equal(audit.length, 1, "saving the same settings records nothing");
-    assert.deepEqual(audit[0].after, { name: "Acme Inc", timezone: "Europe/Warsaw", workingDays: [1, 2, 3, 4, 5, 6], allowancePolicy: "annual_calendar_year", deletionGrace: false });
+    assert.deepEqual(audit[0].after, {
+      name: "Acme Inc",
+      timezone: "Europe/Warsaw",
+      workingDays: [1, 2, 3, 4, 5, 6],
+      allowancePolicy: "annual_calendar_year",
+      deletionGrace: false,
+      managersSeeDetails: true,
+      theme: "classic",
+      accentColor: null,
+      corners: "theme",
+      requestStyle: "form",
+      layout: "standard",
+    });
     const [event] = await companyEvents(t.db, co.companyId, "company.");
     assert.equal((event.payload as { companyId: string }).companyId, co.companyId);
   });
@@ -334,6 +425,51 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     await rejectsWith(updateCompanySettings(ctx, co.people.boss, { ...good, timezone: "Mars/Base" }), "invalid_input");
     await rejectsWith(updateCompanySettings(ctx, co.people.boss, { ...good, workingDays: [] }), "invalid_input");
     await rejectsWith(updateCompanySettings(ctx, co.people.boss, { ...good, allowancePolicy: "monthly_accrual" }), "invalid_input");
+    assert.deepEqual(await companyAudit(t.db, co.companyId), []);
+  });
+
+  test("appearance: an admin changes the look for everyone, audited and announced once", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, mgr: { role: "manager" } });
+    const ctx = createTestContext(t.db);
+    const boss = co.people.boss;
+    assert.deepEqual(await getAppearance(ctx), { theme: "classic", accentColor: null, corners: "theme", requestStyle: "form", layout: "standard" });
+
+    const saved = await updateCompanyAppearance(ctx, boss, { theme: "cobalt", accentColor: "#F2A900", corners: "square" });
+    assert.deepEqual([saved.theme, saved.accentColor, saved.corners], ["cobalt", "#f2a900", "square"]);
+    await updateCompanyAppearance(ctx, boss, { theme: "cobalt", accentColor: "#f2a900", corners: "square" });
+
+    const audit = await companyAudit(t.db, co.companyId, "company.");
+    assert.equal(audit.length, 1, "saving the same look records nothing");
+    assert.equal(audit[0].actorId, boss.id);
+    assert.deepEqual(
+      [audit[0].before, audit[0].after].map((s) => {
+        const value = s as { theme: string; accentColor: string | null; corners: string };
+        return [value.theme, value.accentColor, value.corners];
+      }),
+      [["classic", null, "theme"], ["cobalt", "#f2a900", "square"]],
+    );
+    const events = await companyEvents(t.db, co.companyId, "company.");
+    assert.equal(events.length, 1);
+    assert.equal((events[0].payload as { accentColor: string }).accentColor, "#f2a900");
+
+    const sentence = await updateCompanyAppearance(ctx, boss, { theme: "cobalt", accentColor: "#f2a900", corners: "square", requestStyle: "sentence" });
+    assert.equal(sentence.requestStyle, "sentence");
+    const compact = await updateCompanyAppearance(ctx, boss, { theme: "cobalt", accentColor: "#f2a900", corners: "square", requestStyle: "sentence", layout: "compact" });
+    assert.equal(compact.layout, "compact");
+    assert.equal(((await companyEvents(t.db, co.companyId, "company."))[1].payload as { requestStyle: string }).requestStyle, "sentence");
+
+    const plain = await updateCompanyAppearance(ctx, boss, { theme: "plum", accentColor: "", corners: "theme" });
+    assert.equal(plain.accentColor, null, "a blank accent goes back to the theme's own");
+  });
+
+  test("appearance: bad values and non-admins are refused, nothing written", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, mgr: { role: "manager" } });
+    const ctx = createTestContext(t.db);
+    await rejectsWith(updateCompanyAppearance(ctx, co.people.mgr, { theme: "cobalt", corners: "theme" }), "forbidden");
+    await rejectsWith(updateCompanyAppearance(ctx, co.people.boss, { theme: "neon", corners: "theme" }), "invalid_input");
+    await rejectsWith(updateCompanyAppearance(ctx, co.people.boss, { theme: "cobalt", corners: "theme", accentColor: "blue" }), "invalid_input");
+    await rejectsWith(updateCompanyAppearance(ctx, co.people.boss, { theme: "cobalt", corners: "theme", requestStyle: "wizard" }), "invalid_input");
+    await rejectsWith(updateCompanyAppearance(ctx, co.people.boss, { theme: "cobalt", corners: "theme", layout: "sideways" }), "invalid_input");
     assert.deepEqual(await companyAudit(t.db, co.companyId), []);
   });
 });

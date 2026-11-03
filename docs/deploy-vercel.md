@@ -110,7 +110,11 @@ its log line is `cron_tick` with counts.
 
 ## 8. Seed the first admin (10 min)
 
-Run the seed from your machine against the direct URL. Pull the production variables into a scratch file **outside
+The simplest way: add `SEED_ADMIN_EMAIL` (and optionally `SEED_COMPANY_NAME`, `SEED_ADMIN_NAME`) to Production and
+redeploy. The `vercel-build` script runs `scripts/seed.mts --if-production` after migrating, which seeds only on a
+production build with `SEED_ADMIN_EMAIL` set, and is idempotent like every other seed run. Or seed from your machine, against the direct URL.
+
+Pull the production variables into a scratch file **outside
 the repository**, and delete it afterwards:
 
 ```bash

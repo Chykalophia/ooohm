@@ -7,6 +7,10 @@
  *   SEED_COMPANY_NAME   default "My Company"
  *   SEED_ADMIN_EMAIL    required
  *   SEED_ADMIN_NAME     default: the part of the email before "@"
+ *
+ *   tsx scripts/seed.mts --if-production
+ *                       the Vercel build step: seeds only when VERCEL_ENV is "production"
+ *                       and SEED_ADMIN_EMAIL is set, and does nothing otherwise
  */
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
@@ -16,6 +20,24 @@ import { openDatabase } from "../src/db/connect";
 import * as schema from "../src/db/schema";
 import { nonEmptyEnv } from "../src/lib/integration-env";
 import { yearInTimeZone } from "../src/lib/dates";
+
+const args = process.argv.slice(2);
+const unknown = args.filter((a) => a !== "--if-production");
+if (unknown.length > 0) {
+  console.error(`Unknown argument: ${unknown.join(" ")}. Usage: seed.mts [--if-production]`);
+  process.exit(2);
+}
+if (args.includes("--if-production")) {
+  const vercelEnv = process.env.VERCEL_ENV?.trim();
+  if (vercelEnv !== "production") {
+    console.log(`Skipping seed: VERCEL_ENV is "${vercelEnv ?? "unset"}", not "production". Only production builds seed.`);
+    process.exit(0);
+  }
+  if (!process.env.SEED_ADMIN_EMAIL?.trim()) {
+    console.log("Skipping seed: SEED_ADMIN_EMAIL is not set.");
+    process.exit(0);
+  }
+}
 
 const config = resolveDatabaseConfig(nonEmptyEnv(process.env));
 const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();

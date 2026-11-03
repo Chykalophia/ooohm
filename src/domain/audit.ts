@@ -19,6 +19,7 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   "leave_request.rejected": "Leave declined",
   "leave_request.cancelled": "Leave cancelled",
   "leave_request.reassigned": "Leave reassigned",
+  "leave_request.recounted": "Leave recounted",
   [ALLOWANCE_AUDIT_ACTIONS.allowance_created]: "Allowance created",
   [ALLOWANCE_AUDIT_ACTIONS.carryover]: "Days carried over",
   [ALLOWANCE_AUDIT_ACTIONS.admin_edit]: "Allowance edited",

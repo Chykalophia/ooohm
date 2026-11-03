@@ -9,6 +9,7 @@ import {
   INTEGRATION_EVENT_TYPES,
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
+  LEAVE_RECOUNTED_EVENT_TYPE,
 } from "@/domain/events";
 import {
   assertScope,
@@ -234,6 +235,7 @@ describe("event catalogue and envelope", () => {
     const all = [
       ...Object.values(LEAVE_EVENT_TYPES),
       LEAVE_REASSIGNED_EVENT_TYPE,
+      LEAVE_RECOUNTED_EVENT_TYPE,
       ...Object.values(BALANCE_EVENT_TYPES),
       ...Object.values(ADMIN_EVENT_TYPES),
       ...Object.values(CALENDAR_FEED_EVENT_TYPES),

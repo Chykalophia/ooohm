@@ -2,22 +2,22 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ALLOWANCE_AUDIT_ACTIONS, BALANCE_EVENT_TYPES } from "@/domain/events";
 import type { Balance } from "@/domain/allowance-policy";
-import { formatBalanceTotal, formatBalanceUsage, formatRequestCost, formatShortfall } from "@/lib/format";
+import { formatBalanceTotal, formatBalanceUsage, formatRequestCost, formatShortfall, formatSubmitted } from "@/lib/format";
 
 test("the preview says what a request costs and what it leaves", () => {
   assert.equal(
     formatRequestCost({ days: 3, years: [{ year: 2026, days: 3, remainingAfter: 12 }] }),
-    "This is 3 days. You'll have 12 days left for 2026.",
+    "This request takes 3 days. Afterwards you'd have 12 days left for 2026.",
   );
   assert.equal(
     formatRequestCost({ days: 0.5, years: [{ year: 2026, days: 0.5, remainingAfter: 1 }] }),
-    "This is 0.5 days. You'll have 1 day left for 2026.",
+    "This request takes 0.5 days. Afterwards you'd have 1 day left for 2026.",
   );
-  assert.equal(formatRequestCost({ days: 1, years: [{ year: 2026, days: 1, remainingAfter: 0 }] }), "This is 1 day. You'll have 0 days left for 2026.");
+  assert.equal(formatRequestCost({ days: 1, years: [{ year: 2026, days: 1, remainingAfter: 0 }] }), "This request takes 1 day. Afterwards you'd have 0 days left for 2026.");
 });
 
 test("an untracked type gets the cost only", () => {
-  assert.equal(formatRequestCost({ days: 2, years: [{ year: 2026, days: 2, remainingAfter: null }] }), "This is 2 days.");
+  assert.equal(formatRequestCost({ days: 2, years: [{ year: 2026, days: 2, remainingAfter: null }] }), "This request takes 2 days.");
 });
 
 test("a request over New Year shows each year's share and balance", () => {
@@ -29,7 +29,7 @@ test("a request over New Year shows each year's share and balance", () => {
         { year: 2027, days: 2, remainingAfter: 13 },
       ],
     }),
-    "This is 3 days: 1 in 2026, 2 in 2027. You'll have 4 days left for 2026 and 13 days left for 2027.",
+    "This request takes 3 days: 1 in 2026, 2 in 2027. Afterwards you'd have 4 days left for 2026 and 13 days left for 2027.",
   );
 });
 
@@ -75,4 +75,14 @@ test("the usage line leaves out zeros and names days carried into next year", ()
   assert.equal(formatBalanceUsage({ ...base, used: 2, pending: 0.5 }, 2026), "2 used · 0.5 pending");
   assert.equal(formatBalanceUsage({ ...base, used: 2, carriedOut: 5 }, 2026), "2 used · 5 carried into 2027");
   assert.equal(formatBalanceUsage({ tracked: false, used: 3, pending: 0 }, 2026), "3 used");
+});
+
+test("after a submit, the confirmation names the dates and days that were sent", () => {
+  const week = { startDate: "2026-11-09", endDate: "2026-11-13", dayPortion: "full" as const, days: 5 };
+  assert.equal(formatSubmitted({ ...week, approved: false }), "Sent for approval: Mon, Nov 9 to Fri, Nov 13, 2026 (5 days).");
+  assert.equal(formatSubmitted({ ...week, approved: true }), "Approved: Mon, Nov 9 to Fri, Nov 13, 2026 (5 days). Enjoy your time off.");
+  assert.equal(
+    formatSubmitted({ startDate: "2026-11-02", endDate: "2026-11-02", dayPortion: "am", days: 0.5, approved: false }),
+    "Sent for approval: Mon, Nov 2, 2026 (morning) (0.5 days).",
+  );
 });

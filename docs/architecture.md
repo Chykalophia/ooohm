@@ -202,12 +202,13 @@ the event type, and `actorId` is the admin.
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
 | `company.updated` | | `companyId, name, timezone, workingDays, allowancePolicy, actorId` |
 
-One more event comes with M5 but is not an admin event: it is `LEAVE_REASSIGNED_EVENT_TYPE`, outside
-`ADMIN_EVENT_TYPES`, and its audit `action` follows the leave request actions instead of the event type.
+Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
+`ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
 
 | Event | When | Audit `action` | Payload (v1) |
 | --- | --- | --- | --- |
 | `leave.reassigned` | A pending request moves to another approver: its approver was deactivated or demoted from admin, the requester's manager changed, or someone was invited as admin, promoted to admin or reactivated who can now take a request an admin had routed to themself (actor = the admin) | `leave_request.reassigned` | the `leave.*` payload plus `previousApproverId, approverId` (either may be `null`) |
+| `leave.recounted` | A holiday or working-days change made a pending or approved request cost a different number of days (actor = the admin, `via` `holiday_change` or `working_days_change`) | `leave_request.recounted` | the `leave.*` payload (new `days`) plus `previousDays` |
 
 No payload ever holds a session, token, sign-in link or the admin's free-text reason. Emails are in `user.*`
 payloads because integrations sync people by address. Since M6, `user.created` and `user.updated` can also come
@@ -272,7 +273,8 @@ address, and never fail the user's action.
       allowance policy.
    2. Counts days server-side, split by calendar year: working days (company `working_days`, ISO weekdays)
       from start to end inclusive, minus company holidays; a half day is 0.5. A request worth 0 days is
-      refused.
+      refused (`zero_days`), naming the holidays it fell on ("Fri, Dec 25, 2026 is Christmas Day, a company
+      holiday, so there's nothing to request.").
    3. Refuses an overlap with the requester's own pending or approved requests. A morning and an afternoon
       half day on the same date do not overlap.
    4. Refuses (`insufficient_balance`) when a tracked leave type's balance cannot cover the request in any
@@ -331,11 +333,18 @@ else's request skip the check (no extra reads).
 
 | Transition | Recipients |
 | --- | --- |
-| Requested (routed) | Approver (not when it is the requester) |
+| Requested (routed) | Approver (not when it is the requester), with who else is off then |
 | Requested (self-approved) | Requester gets "approved"; no review email |
 | Approved | Requester, with the approver's note if they wrote one |
 | Rejected | Requester, with the reason |
 | Cancelled | Requester, plus the approver unless the approver is the person cancelling |
+| Recounted by a calendar change | Requester only, saying which holiday or the working days changed; not when only the year split moved |
+
+"Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`) lists other active people's approved and
+pending leave sharing a date with the request, at most five then "and N more": the same names and dates the
+team calendar shows every member, never a note or a balance. The Approvals page shows it under each request
+(one range query for the whole inbox). It is information only and never blocks a request; rules about how many
+people may be off at once are a separate, future feature.
 
 Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base URL.
 
@@ -390,9 +399,43 @@ also returns each person and type's latest row before the earliest year asked fo
 `splitLeaveDaysByYear` (`src/domain/leave-days.ts`) counts a request's working days per calendar year: Thu
 Dec 31 to Mon Jan 4 (Jan 1 a holiday) is 1 day in the first year and 1 in the next. Submit stores the split in
 `leave_request_days (request_id, year, days)` in the same transaction as the request; the rows always add up
-to `leave_requests.days`, which stays the total. Balances only ever read these rows, so editing holidays or
-working days later never changes a past balance. Rejected and cancelled requests drop out because balances
-sum only `pending` and `approved` requests.
+to `leave_requests.days`, which stays the total. Balances only ever read these rows. A holiday or working-days
+change rewrites them for the years still open (see [Recount after a calendar change](#recount-after-a-calendar-change)),
+never for a closed year, so a settled balance never moves. Rejected and cancelled requests drop out because
+balances sum only `pending` and `approved` requests.
+
+### Recount after a calendar change
+
+Adding or deleting a company holiday (one, or the US federal set) and changing the working days run
+`recountLeave` (`src/server/services/leave-recount.ts`) in the same transaction, under `lockCompany`:
+
+1. It locks (`FOR UPDATE`) the company's pending and approved requests that include a changed date (every open
+   one, for working days), skipping dates before Jan 1 of the current year in the company's time zone. Requests
+   between two changed dates are not touched.
+2. It counts each request with the calendar before and after the change and moves its stored split by the
+   difference, per open year (`applyCalendarChange`). Closed years keep their stored days: those balances are
+   settled and carried over, so a past year is fixed with an adjustment instead. Applying only the difference
+   leaves any earlier correction to the split alone, and the email names only this change.
+3. A request whose split changed gets new `leave_request_days` rows and a new `days` total, and writes
+   `leave_request.recounted` / `leave.recounted` (payload adds `previousDays`), naming the admin `via`
+   `holiday_change` or `working_days_change`.
+4. A request that now falls entirely on non-working days is kept at 0 days, never cancelled: nothing comes off
+   the balance, the person may cancel it, and undoing the change (deleting the holiday, ticking the day again)
+   restores its count. A mistaken change therefore never destroys anyone's leave. Submits still refuse a new
+   request worth 0 days; migration `0013` lets a recounted one hold 0 (`leave_requests_days_nonneg`, and a half
+   day may be 0).
+5. A request that now costs more is kept even if it overdraws a tracked balance, because the time was already
+   booked. The admin's confirmation names each balance now over, and the person's email says so.
+6. Each request whose total changed emails its requester after commit ("Fri, Dec 25, 2026 is now a company
+   holiday (Christmas Day), so the time off below now takes 4 days instead of 5 days."); someone with three
+   affected requests gets three. A request whose days only moved between years is audited but not emailed.
+
+The writes are sequential, a handful per changed request. That is fine for a small team; a company with
+thousands of open requests changing its working days would want them batched.
+
+Submits take the company row `FOR SHARE` (`shareLockCompany`) before anything else, so a request is never
+counted with a calendar that is being replaced: a submit waits for a running recount, and a recount for
+submits already counting. `holiday-recount.test.ts` pins this with two connections.
 
 Migration `0004` backfills existing requests: one row at the stored total for a request inside one year; for
 one over New Year, the working days counted at migration time up to Dec 31 (capped at the stored total) go to
@@ -413,8 +456,12 @@ frees days, so neither needs it.
 
 The request form asks `GET /api/leave-preview?leaveTypeId=&startDate=&endDate=&dayPortion=` 300 ms after the
 last change, and shows the answer in an `aria-live="polite"` line that the submit button also references
-(`aria-describedby`): "This is 3 days. You'll have 12 days left for 2026.", or the exact message submit would
-give ("That's 5 days, but you only have 2 days left for 2026.", "Those dates are all weekends or holidays...").
+(`aria-describedby`): "This request takes 3 days. Afterwards you'd have 12 days left for 2026.", or the exact
+message submit would give ("That's 5 days, but you only have 2 days left for 2026.", "Those dates are all
+weekends or holidays..."). After a successful submit the fields reset and the line stays empty until the draft
+changes (`showsPreview`), so it never describes the blank form as if it were the request just sent; the
+confirmation next to the button names what was sent ("Sent for approval: Mon, Nov 9 to Fri, Nov 13, 2026
+(5 days).").
 The route handler calls `previewLeaveRequest`, which runs `assessLeaveRequest` without writing; the client
 does no day counting. A newer draft aborts the previous request, so answers never arrive out of order. It is
 a route handler rather than a server action because Next.js runs a client's server actions one at a time,
@@ -756,16 +803,18 @@ with the same `summarizeBalances` the dashboard uses.
 
 List by year (2000 to 2100), add (one per date), rename, delete, and add the eleven US federal holidays for a
 year on their observed dates (`usFederalHolidays`, `src/domain/holidays.ts`: Saturday → Friday, Sunday → Monday,
-so a Saturday New Year's Day belongs to Dec 31 of the year before), skipping dates that already have one. As M3
-fixed, a submitted request keeps its stored day split, so holiday changes never move a past balance; the page says
-so.
+so a Saturday New Year's Day belongs to Dec 31 of the year before), skipping dates that already have one. Adding
+or deleting holidays recounts the requests on those dates in open years
+([Recount after a calendar change](#recount-after-a-calendar-change)); the confirmation says how many were
+recounted, how many now take no days, and who is now over a balance. Renaming changes no count.
 
 ### Company
 
 Name, time zone, working days and allowance policy. Time zones are those in `Intl.supportedValuesOf("timeZone")`
 plus `UTC` (which that list omits); a stored zone outside the list (an alias saved before this check) is kept
 when unchanged but cannot be chosen anew. Working days: at least one ISO weekday. The policy must be registered
-(`ALLOWANCE_POLICY_KEYS`; only `annual_calendar_year` today). Changes affect future counting only. Since M8 the page
+(`ALLOWANCE_POLICY_KEYS`; only `annual_calendar_year` today). New working days recount open requests
+([Recount after a calendar change](#recount-after-a-calendar-change)); a new time zone only moves "today". Since M8 the page
 also holds the deletion grace option ([The grace option](#the-grace-option)); `company.updated` carries it as
 `deletionGrace`.
 

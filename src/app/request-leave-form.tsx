@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { requestLeaveAction } from "./actions";
 import { REQUEST_FORM_ID } from "./anchors";
-import { type FormState, IDLE, nextFormKey } from "./form-state";
+import { type FormState, IDLE, nextFormKey, showsPreview } from "./form-state";
 import type { LeavePreviewResponse } from "./leave-input";
 
 type LeaveTypeOption = { id: string; name: string; color: string };
@@ -41,7 +41,7 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
         Request time off
       </h2>
       <form action={formAction} className="space-y-5">
-        <Fields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} />
+        <Fields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} />
         <div className="flex flex-wrap items-center gap-4">
           <button
             type="submit"
@@ -65,14 +65,25 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
   );
 }
 
-function Fields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; defaultDate: string }) {
+function Fields({
+  leaveTypes,
+  defaultDate,
+  justSubmitted,
+}: {
+  leaveTypes: LeaveTypeOption[];
+  defaultDate: string;
+  justSubmitted: boolean;
+}) {
   const [leaveTypeId, setLeaveTypeId] = useState(leaveTypes[0]?.id ?? "");
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
   const [dayPortion, setDayPortion] = useState<Portion>("full");
   const [note, setNote] = useState("");
   const singleDay = startDate === endDate;
-  const preview = useLeavePreview({ leaveTypeId, startDate, endDate, dayPortion });
+  const draft = { leaveTypeId, startDate, endDate, dayPortion };
+  const preview = useLeavePreview(draft);
+  const defaults = { leaveTypeId: leaveTypes[0]?.id ?? "", startDate: defaultDate, endDate: defaultDate, dayPortion: "full" };
+  const previewShown = showsPreview(justSubmitted, draft, defaults);
 
   function changeStart(value: string) {
     // The end date follows the start until someone picks a later end on purpose.
@@ -171,7 +182,7 @@ function Fields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; de
           !preview.ok ? "text-red-700 dark:text-red-400" : preview.current ? "text-foreground" : "text-muted"
         }`}
       >
-        {preview.message}
+        {previewShown && preview.message}
       </p>
     </>
   );
@@ -181,8 +192,8 @@ type Draft = { leaveTypeId: string; startDate: string; endDate: string; dayPorti
 type Preview = { query: string; ok: boolean; message: string };
 
 /**
- * Asks the server what the draft would cost and leave ("This is 3 days. You'll have 12
- * days left for 2026."), or why it can't be requested, using the same computation as
+ * Asks the server what the draft would cost and leave ("This request takes 3 days.
+ * Afterwards you'd have 12 days left for 2026."), or why it can't be requested, using the same computation as
  * submit. Debounced; a newer draft aborts the older request, so answers never arrive
  * out of order. While a newer answer is on its way, the last one stays, marked busy.
  */

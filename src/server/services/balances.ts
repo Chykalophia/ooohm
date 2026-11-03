@@ -18,7 +18,7 @@ import { assertValidRange, type DayPortion, type LeaveRange, rangesOverlap } fro
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { type AllowanceRow, listAllowances, sumBookedDays } from "@/server/repositories/balances";
-import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
+import { findCompanySettings, listHolidayDates, listHolidays } from "@/server/repositories/calendar";
 import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
 import { findActiveLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 
@@ -168,7 +168,10 @@ export async function assessLeaveRequest(ex: Executor, actor: Actor, draft: Leav
   const policy = resolveAllowancePolicy(settings.allowancePolicy);
 
   const split = policy.periodsFor(range, { workingDays: settings.workingDays, holidays });
-  if (split.length === 0) throw new DomainError("zero_days");
+  if (split.length === 0) {
+    // Only on this path: name the holidays, so the person learns they needn't ask.
+    throw new DomainError("zero_days", undefined, { holidays: await listHolidays(ex, actor.companyId, range.startDate, range.endDate) });
+  }
   if (existing.some((other) => rangesOverlap(range, other))) throw new DomainError("overlapping_request");
 
   const years = split.map((s) => s.year);

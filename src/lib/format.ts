@@ -47,17 +47,33 @@ export function formatCount(n: number, one: string, many: string): string {
 }
 
 /**
- * The live preview line for a draft request, e.g. "This is 3 days. You'll have 12 days
- * left for 2026." A request over New Year says what each year is charged and what
- * each tracked year keeps. Untracked types get only the first sentence.
+ * The live preview line for a draft request, e.g. "This request takes 3 days. Afterwards
+ * you'd have 12 days left for 2026." A request over New Year says what each year is
+ * charged and what each tracked year keeps. Untracked types get only the first sentence.
  */
 export function formatRequestCost(cost: RequestCost): string {
   const split = cost.years.length > 1 ? `: ${cost.years.map((y) => `${y.days} in ${y.year}`).join(", ")}` : "";
   const left = cost.years
     .filter((y): y is typeof y & { remainingAfter: number } => y.remainingAfter !== null)
     .map((y) => `${formatDays(y.remainingAfter)} left for ${y.year}`);
-  const after = left.length > 0 ? ` You'll have ${left.join(" and ")}.` : "";
-  return `This is ${formatDays(cost.days)}${split}.${after}`;
+  const after = left.length > 0 ? ` Afterwards you'd have ${left.join(" and ")}.` : "";
+  return `This request takes ${formatDays(cost.days)}${split}.${after}`;
+}
+
+/**
+ * What the person just asked for, confirmed after a submit, e.g. "Sent for approval:
+ * Mon, Nov 9 to Fri, Nov 13, 2026 (5 days)." or, for someone who approves their own,
+ * "Approved: Mon, Nov 9, 2026 (1 day). Enjoy your time off."
+ */
+export function formatSubmitted(request: {
+  approved: boolean;
+  startDate: string;
+  endDate: string;
+  dayPortion: "full" | "am" | "pm";
+  days: number;
+}): string {
+  const what = `${formatLeaveDates(request.startDate, request.endDate, request.dayPortion)} (${formatDays(request.days)})`;
+  return request.approved ? `Approved: ${what}. Enjoy your time off.` : `Sent for approval: ${what}.`;
 }
 
 /** Why a request was refused for lack of balance, saying exactly what is left. */

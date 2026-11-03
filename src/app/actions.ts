@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { requireActor } from "@/lib/auth";
+import { formatSubmitted } from "@/lib/format";
 import { serviceContext } from "@/server/runtime";
 import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-requests";
 import type { FormState } from "./form-state";
@@ -21,7 +22,7 @@ export async function requestLeaveAction(_prev: FormState, formData: FormData): 
     const request = await submitLeaveRequest(serviceContext(), actor, parsed.data);
     return {
       id: randomUUID(),
-      message: request.status === "approved" ? "Approved. Enjoy your time off." : "Sent for approval.",
+      message: formatSubmitted({ ...request, approved: request.status === "approved" }),
     };
   });
   if (state.status === "success") refresh();

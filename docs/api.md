@@ -135,7 +135,8 @@ Ids are strings. Every payload says who or what made the change in two fields:
   ```
 
   `user` is a person; `via` is present only when they acted through something they started (an integration's
-  sync when they pressed **Sync now**, or a one-time import they ran, `timeoff_import`). `api_key` is a change made with an API key: `id` is the person who created
+  sync when they pressed **Sync now**, a one-time import they ran, `timeoff_import`, or an approval through the
+  request email's Approve link, `email_link`). `api_key` is a change made with an API key: `id` is the person who created
   the key (the v1 API is read-only, so none are sent yet). `system` is a process with no person behind it;
   `requestedBy` (added within version 1) is present when a person asked for that run ahead of time (an admin who
   scheduled a deletion), and is not the actor.

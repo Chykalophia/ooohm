@@ -29,12 +29,7 @@ export async function countRecentRequests(ex: Executor, userId: string, minutes:
   const [row] = await ex
     .select({ n: count() })
     .from(leaveRequests)
-    .where(
-      and(
-        eq(leaveRequests.userId, userId),
-        gt(leaveRequests.createdAt, sql`now() - make_interval(mins => ${minutes})`),
-      ),
-    );
+    .where(and(eq(leaveRequests.userId, userId), gt(leaveRequests.createdAt, sql`now() - make_interval(mins => ${minutes})`)));
   return row?.n ?? 0;
 }
 
@@ -122,13 +117,7 @@ export async function listPendingSelfRouted(ex: Executor, companyId: string): Pr
   return ex
     .select()
     .from(leaveRequests)
-    .where(
-      and(
-        eq(leaveRequests.companyId, companyId),
-        eq(leaveRequests.status, "pending"),
-        eq(leaveRequests.approverId, leaveRequests.userId),
-      ),
-    )
+    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.status, "pending"), eq(leaveRequests.approverId, leaveRequests.userId)))
     .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
 }
 
@@ -272,19 +261,21 @@ export async function findRequestForReview(ex: Executor, companyId: string, id: 
 
 /**
  * Each approver's median time from request to decision, in hours, over the requests
- * they decided since `since`: only approvers with at least `minSamples` such decisions,
+ * assigned to them that were decided since `since` (by them, or by an admin stepping
+ * in: either way, it is how long a request routed to them waited): only approvers with at least `minSamples` such decisions,
  * and never a request routed to its own requester (self-approval decides instantly).
  * One grouped query.
  */
-export async function medianDecisionHours(
-  ex: Executor,
-  q: { companyId: string; approverIds: readonly string[]; since: Date; minSamples: number },
-) {
+export async function medianDecisionHours(ex: Executor, q: { companyId: string; approverIds: readonly string[]; since: Date; minSamples: number }) {
   if (q.approverIds.length === 0) return [];
   return ex
     .select({
-      approverId: leaveRequests.approverId,
-      hours: sql<number>`percentile_cont(0.5) within group (order by extract(epoch from (${leaveRequests.decidedAt} - ${leaveRequests.createdAt})) / 3600)`.mapWith(Number),
+      // Never null: the filter below keeps only the listed approvers.
+      approverId: sql<string>`${leaveRequests.approverId}`,
+      hours:
+        sql<number>`percentile_cont(0.5) within group (order by extract(epoch from (${leaveRequests.decidedAt} - ${leaveRequests.createdAt})) / 3600)`.mapWith(
+          Number,
+        ),
     })
     .from(leaveRequests)
     .where(

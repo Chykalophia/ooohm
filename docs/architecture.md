@@ -357,7 +357,7 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   (a server action) runs the same `decideLeaveRequest` as the Approvals page, as that approver with
   `via: "email_link"`, so every check still applies and the audit row says how it was decided. A decided
   request makes the link inert. Declining needs a reason, so it happens in the app. The page sends
-  `Referrer-Policy: no-referrer` and `noindex`.
+  `<meta name="referrer" content="no-referrer">` and `noindex`.
 
 ## Balances (M3)
 

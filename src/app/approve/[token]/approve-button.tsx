@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { type ApproveOutcome, approveFromEmailAction } from "./actions";
 
 const linkClass =
@@ -10,10 +10,21 @@ const linkClass =
 /** One button that approves, and the way into the app to decline; the outcome takes the button's place. */
 export function ApproveButton({ token }: { token: string }) {
   const [outcome, formAction, pending] = useActionState<ApproveOutcome, FormData>(approveFromEmailAction, { status: "idle" });
+  // The button that had focus is gone once there is an outcome; the outcome takes its focus.
+  const status = useRef<HTMLParagraphElement>(null);
+  const done = outcome.status === "done";
+  useEffect(() => {
+    if (done) status.current?.focus();
+  }, [done]);
   if (outcome.status === "done") {
     return (
       <>
-        <p role="status" className={`font-medium ${outcome.state === "approved" ? "text-accent-ink" : "text-foreground"}`}>
+        <p
+          ref={status}
+          tabIndex={-1}
+          role="status"
+          className={`font-medium outline-none ${outcome.state === "approved" ? "text-accent-ink" : "text-foreground"}`}
+        >
           {outcome.message}
         </p>
         <p>

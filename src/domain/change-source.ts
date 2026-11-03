@@ -44,9 +44,7 @@ export function adapterSyncProcess(adapterId: string): ChangeProcess {
 
 /** The adapter id in an `adapter_sync:<id>` identifier, or `null` for any other. */
 export function adapterIdOf(process: string): string | null {
-  return process.startsWith(ADAPTER_SYNC_PREFIX) && process.length > ADAPTER_SYNC_PREFIX.length
-    ? process.slice(ADAPTER_SYNC_PREFIX.length)
-    : null;
+  return process.startsWith(ADAPTER_SYNC_PREFIX) && process.length > ADAPTER_SYNC_PREFIX.length ? process.slice(ADAPTER_SYNC_PREFIX.length) : null;
 }
 
 export const CHANGE_SOURCE_KINDS = ["user", "api_key", "system"] as const;
@@ -153,6 +151,8 @@ function processLabel(process: string, names: ChangeSourceNames, scheduled: bool
       return "time-off import";
     case CHANGE_PROCESSES.scheduledScrub:
       return "scheduled deletion";
+    case CHANGE_PROCESSES.emailLink:
+      return "the email Approve link";
     case UNKNOWN_PROCESS:
       return "unknown process";
     default:

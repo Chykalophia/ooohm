@@ -13,7 +13,7 @@ const tokenSchema = z.string().min(1).max(512);
 /** The calm sentence for each way an approve can end. */
 const MESSAGES: Record<string, string> = {
   approved: "Approved. They'll get an email saying so.",
-  decided: "This request was already decided, so nothing changed.",
+  decided: "This request is no longer waiting, so nothing changed.",
   not_yours: "This request isn't yours to decide any more. Open OOOhm to see where it went.",
   expired: "This link has expired. Open OOOhm to decide.",
   invalid: "This link doesn't work. Open OOOhm to decide.",

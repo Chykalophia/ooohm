@@ -14,7 +14,7 @@ const HEADLINES: Record<Exclude<EmailApproval["state"], "ready" | "approved">, s
   invalid: "This link doesn’t work",
   expired: "This link has expired",
   not_yours: "This request isn’t yours to decide any more",
-  decided: "This request was already decided",
+  decided: "This request is no longer waiting",
 };
 
 /**
@@ -24,7 +24,8 @@ const HEADLINES: Record<Exclude<EmailApproval["state"], "ready" | "approved">, s
  */
 export default async function ApproveFromEmailPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const approval = await readEmailApproval(serviceContext(), decodeURIComponent(token));
+  // Tokens are base64url, so there is nothing to decode (and a stray `%` must not throw).
+  const approval = await readEmailApproval(serviceContext(), token);
   return (
     <main className="flex flex-1 items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border bg-surface p-8">
@@ -32,7 +33,7 @@ export default async function ApproveFromEmailPage({ params }: { params: Promise
         {approval.state === "ready" || approval.state === "decided" || approval.state === "approved" ? (
           <>
             <div className="space-y-1">
-              {approval.state === "decided" && <h1 className="mb-3 text-lg font-semibold tracking-tight">{HEADLINES.decided}</h1>}
+              <h1 className="mb-3 text-lg font-semibold tracking-tight">{approval.state === "decided" ? HEADLINES.decided : "Approve time off"}</h1>
               <p className="font-medium break-words">{approval.request.requesterName || approval.request.requesterEmail}</p>
               <p className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: approval.request.leaveTypeColor }} aria-hidden />
@@ -43,7 +44,7 @@ export default async function ApproveFromEmailPage({ params }: { params: Promise
               </p>
               {approval.request.note && <p className="text-sm break-words">{approval.request.note}</p>}
             </div>
-            {approval.state === "ready" ? <ApproveButton token={decodeURIComponent(token)} /> : <StatusBadge status={approval.request.status} />}
+            {approval.state === "ready" ? <ApproveButton token={token} /> : <StatusBadge status={approval.request.status} />}
           </>
         ) : (
           <h1 className="text-lg font-semibold tracking-tight">{HEADLINES[approval.state]}</h1>

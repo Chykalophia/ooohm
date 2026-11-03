@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { test } from "node:test";
+import { byUser, CHANGE_PROCESSES, changeSourceLabel } from "@/domain/change-source";
 import { deriveLinkKey, signApproveToken, verifyApproveToken } from "@/lib/email-link-token";
 import { formatTypicalWait } from "@/lib/format";
 
@@ -29,8 +31,13 @@ test("expired, tampered, foreign and malformed tokens are refused", () => {
   }
   // Correctly signed but not the claims shape.
   const odd = Buffer.from(JSON.stringify({ r: 1 })).toString("base64url");
-  const signed = signApproveToken(key, claims).split(".")[1];
-  assert.equal(verifyApproveToken(key, `${odd}.${signed}`, before).ok, false);
+  const signed = createHmac("sha256", key).update(odd).digest("base64url");
+  assert.deepEqual(verifyApproveToken(key, `${odd}.${signed}`, before), { ok: false, reason: "invalid" });
+});
+
+test("the audit log names the email link in words", () => {
+  const names = { person: () => "Ana", apiKey: () => undefined, adapter: () => undefined };
+  assert.equal(changeSourceLabel(byUser("ana", CHANGE_PROCESSES.emailLink), names), "Ana, via the email Approve link");
 });
 
 test("typical wait rounds up and reads naturally", () => {

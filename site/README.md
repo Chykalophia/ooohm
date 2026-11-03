@@ -46,12 +46,13 @@ The people and requests are fictional (Northwind Studio). With Postgres running 
 pnpm db:migrate && pnpm db:seed
 pnpm exec tsx --env-file=.env site/demo/demo-data.mts   # resets the demo requests; local databases only
 pnpm build && pnpm start          # in a second terminal; wait until http://localhost:3000 answers
-node site/demo/record.mjs            # every clip, then the theme stills (or name some: ask approve themes)
+node --env-file=.env site/demo/record.mjs   # every clip, then the theme stills (or name some: ask approve themes)
 node site/demo/render-film.mjs       # the tour, from the clips
 ```
 
 The scripts use the preinstalled Playwright (`NODE_PATH=$(npm root -g)` if it's installed globally),
-`ffmpeg`, and `psql` (the Postgres client, pointed at `DATABASE_URL`). Sign-in goes through the real magic-link flow, reading the token from the local database.
+`ffmpeg`, and `psql` (the Postgres client). `--env-file=.env` points the recorder's `psql` calls at
+the app's `DATABASE_URL`. Sign-in goes through the real magic-link flow, reading the token from the local database.
 Run `demo-data.mts` again before `record.mjs ask approve`, since those clips change requests as they go.
 
 ## Fonts

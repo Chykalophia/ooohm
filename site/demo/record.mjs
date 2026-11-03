@@ -245,9 +245,12 @@ async function themeStills(browser) {
       execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(TMP, "theme.png"), "-vf", "scale=1260:-2", "-q:v", "5", join(OUT, "themes", `${theme}.jpg`)]);
     }
   } finally {
-    psql(`update companies set theme = :'theme' where id = :'company';`, { theme: original, company });
+    try {
+      psql(`update companies set theme = :'theme' where id = :'company';`, { theme: original, company });
+    } finally {
+      await ctx.close();
+    }
   }
-  await ctx.close();
   console.log("themes: done");
 }
 

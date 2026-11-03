@@ -265,8 +265,7 @@
   --button-shadow: 0 6px 16px rgb(31 111 235 / 0.28);
   --surface-blur: 14px;
   background-image:
-    radial-gradient(circle at 12% 8%, #cfe0ff 0, transparent 42%),
-    radial-gradient(circle at 88% 18%, #ffdcd5 0, transparent 38%),
+    radial-gradient(circle at 12% 8%, #cfe0ff 0, transparent 42%), radial-gradient(circle at 88% 18%, #ffdcd5 0, transparent 38%),
     radial-gradient(circle at 55% 100%, #d6f2e3 0, transparent 45%);
   background-attachment: fixed;
 }
@@ -361,12 +360,30 @@ body,
  * action an accent button. Colours always come from the theme. Standard sets nothing.
  */
 
+/*
+ * A trial that tints a ground darkens grey text to match. A custom property can't refer
+ * to itself, so the darker grey is worked out on <html> as --muted-strong (from the
+ * theme's own --muted) and handed back as --muted lower down.
+ */
+[data-layout="tonal"][data-ui] {
+  --muted-strong: color-mix(in srgb, var(--muted) 78%, var(--foreground));
+}
+[data-layout="grouped"][data-ui] {
+  --muted-strong: color-mix(in srgb, var(--muted) 80%, var(--foreground));
+}
+[data-layout="legible"][data-ui] {
+  --muted-strong: color-mix(in srgb, var(--muted) 70%, var(--foreground));
+}
+:is([data-layout="grouped"], [data-layout="legible"]) > body {
+  --muted: var(--muted-strong);
+}
+
 /* Tonal (after Material 3): soft filled cards, big numbers, a large pill main action. */
 [data-layout="tonal"] .rounded-2xl.border {
   border-color: transparent;
   background-color: color-mix(in srgb, var(--accent) 7%, var(--surface));
   /* Grey text on the tint keeps 4.5:1. */
-  --muted: color-mix(in srgb, var(--muted) 78%, var(--foreground));
+  --muted: var(--muted-strong);
 }
 [data-layout="tonal"] :is(button, a).bg-accent {
   min-height: 3.25rem;
@@ -388,8 +405,6 @@ body,
 /* Grouped (after Apple's HIG): large titles, inset groups without borders on a grey ground, quiet section labels. */
 [data-layout="grouped"][data-ui] {
   --background: color-mix(in srgb, var(--foreground) 6%, var(--surface));
-  /* Grey text on the darker ground keeps 4.5:1. */
-  --muted: color-mix(in srgb, var(--muted) 80%, var(--foreground));
 }
 [data-layout="grouped"] .app-page h1 {
   font-size: 2.125rem;
@@ -456,7 +471,6 @@ body,
 /* Legible (after Inclusive Design and GOV.UK): bigger text, 48px targets, bold focus, underlined links. */
 [data-layout="legible"] {
   font-size: 112.5%;
-  --muted: color-mix(in srgb, var(--muted) 70%, var(--foreground));
 }
 [data-layout="legible"] :is(button, select, input:not([type="radio"], [type="checkbox"]), .app-nav a) {
   min-height: 3rem;
@@ -464,6 +478,11 @@ body,
 [data-layout="legible"] :is(input[type="radio"], input[type="checkbox"]) {
   width: 1.375rem;
   height: 1.375rem;
+}
+/* The label around a radio or checkbox is its target, so it gets the 48px height. */
+[data-layout="legible"] label:has(> :is(input[type="radio"], input[type="checkbox"])) {
+  min-height: 3rem;
+  align-items: center;
 }
 [data-layout="legible"] :focus-visible {
   outline: 3px solid var(--foreground) !important;

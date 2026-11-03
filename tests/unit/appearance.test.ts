@@ -57,6 +57,11 @@ test("appearance: a stored value this version does not know falls back instead o
     { theme: "classic", accentColor: "#f2a900", corners: "theme", requestStyle: "form", layout: "standard" },
     "an unknown theme or corner style keeps a valid accent",
   );
+  assert.deepEqual(
+    readAppearance({ theme: "plum", accentColor: "#2546d0", corners: "round", requestStyle: "sentence", layout: "holo" }),
+    { theme: "plum", accentColor: "#2546d0", corners: "round", requestStyle: "sentence", layout: "standard" },
+    "an unknown layout falls back on its own",
+  );
 });
 
 test("appearance: only Classic with its own accent follows dark mode", () => {

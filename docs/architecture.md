@@ -778,8 +778,9 @@ same fields to the same action and share the live preview, so the choice changes
 It also sets a layout trial (`layout`: `standard`, `tonal`, `grouped`, `compact` or `legible`, see `LAYOUTS`), which
 the root layout puts on `<html>` as `data-layout` (left off for `standard`). Each trial is a block of CSS rules in
 `globals.css` keyed on that attribute and on the `app-page`, `app-header` and `app-nav` hooks the page wrappers
-carry: it changes spacing, shape, type size and navigation only, never content, actions or theme colours, so an
-admin can try one on the whole company and switch back.
+carry: it changes spacing, shape, type size, surface treatment and navigation, never content or actions. Colours
+stay derived from the theme (a tinted card or ground, a darker grey for text on it), so an admin can try one on the
+whole company and switch back.
 `company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle` and `layout`.
 
 ### Audit log viewer

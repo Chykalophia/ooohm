@@ -158,7 +158,7 @@ function sentence() {
       const parts = [];
       if (c.skipped.weekends) parts.push("Weekends don’t count");
       const hol = [...new Set(c.skipped.holidays)];
-      const named = hol.length > 2 ? `${hol.length} company holidays` : hol.join(" and ");
+      const named = c.skipped.holidays.length > 2 ? `${c.skipped.holidays.length} company holidays` : hol.join(" and ");
       if (hol.length) parts.push(`${parts.length ? "and neither do" : "Holidays don’t count:"} ${named}`);
       reason = parts.length ? `${parts.join(", ")}.` : "";
     }

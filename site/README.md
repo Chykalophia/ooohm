@@ -16,12 +16,16 @@ python3 -m http.server 4100 -d site   # then open http://localhost:4100
 ## Deploy
 
 The site lives at **https://ooohm.team**, on its own Vercel project (`ooohm-site`). Its settings live in
-the project, not in a `vercel.json`, because the app's Vercel project reads the repository root too:
-no root directory, install and build are skipped (the build only removes `site/demo` and this README),
-and the output directory is `site`. The Ignored Build Step is
-`[ -d site ] || exit 0; git diff --quiet HEAD^ HEAD -- site`, so only commits that change the site
-deploy it, and branches without the folder are skipped instead of failing. Any other static host works
-too: serve the folder as is.
+the project, not in a `vercel.json`, because the app's `vercel.json` sits at the repository root:
+
+- Root Directory: none, so branches without `site/` can be skipped instead of failing.
+- Install Command: `true` (nothing to install).
+- Build Command: `rm -rf site/demo site/README.md`, which only leaves out the recording tooling and this file.
+- Output Directory: `site`.
+- Ignored Build Step: `[ -d site ] || exit 0; git diff --quiet "${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}" HEAD -- site`,
+  so a push deploys only when something under `site/` changed since the last deployment.
+
+Any other static host works too: serve the folder as is.
 
 `og:image`, `og:url` and the canonical link in `index.html` name the domain, since link previews ignore
 relative URLs. Change all three if the site moves.

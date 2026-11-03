@@ -1,6 +1,8 @@
 # Deploying OOOhm on Vercel with Neon
 
-The runbook for the `ooohm` instance at `https://ooohm.team`: Vercel runs the app, Neon (free plan) holds the
+A runbook for running your own OOOhm on Vercel, with Neon (free plan) holding the database. It uses `hr.example.com` for
+the address people will use and `hrtemp.example.com` for a temporary one while an old system still holds the final
+address (step 5); put your own in their place. Vercel runs the app, Neon holds the
 database. Other hosts are in [hosting.md](hosting.md); the Docker runbook is [deploy.md](deploy.md). Work through the
 steps in order. Commands run on your own machine, from a checkout of the repository, unless a step says otherwise.
 
@@ -46,7 +48,7 @@ tools reading the same variables do not. `vercel env ls` shows only "Encrypted",
 ```bash
 vercel link                                    # once, in the checkout: pick the ooohm project
 printf '%s' "$(openssl rand -base64 32)" | vercel env add BETTER_AUTH_SECRET production
-printf '%s' "https://ooohm.team"         | vercel env add BETTER_AUTH_URL production
+printf '%s' "https://hrtemp.example.com"   | vercel env add BETTER_AUTH_URL production   # hr.example.com at cutover (step 5)
 printf '%s' "$(openssl rand -base64 32)" | vercel env add WEBHOOK_ENCRYPTION_KEY production
 printf '%s' "$(openssl rand -hex 32)"    | vercel env add CRON_SECRET production
 printf '%s' "1"                          | vercel env add TRUSTED_PROXY_HOPS production
@@ -62,13 +64,14 @@ Email through SendGrid's API (step 9), the same way:
 ```bash
 printf '%s' "sendgrid"                        | vercel env add MAIL_TRANSPORT production
 printf '%s' "<API key, Mail Send only>"       | vercel env add SENDGRID_API_KEY production
-printf '%s' "OOOhm <no-reply@ooohm.team>"     | vercel env add MAIL_FROM production
+printf '%s' "OOOhm <no-reply@example.com>"    | vercel env add MAIL_FROM production   # a domain you control
 ```
 
 Another provider over SMTP instead: `MAIL_TRANSPORT=smtp` (the default) with `SMTP_HOST`, `SMTP_PORT=587`,
 `SMTP_SECURE=false`, `SMTP_REQUIRE_TLS=true`, `SMTP_USER` and `SMTP_PASSWORD`.
 
-Optional: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (redirect URI `https://ooohm.team/api/auth/callback/google`),
+Optional: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (redirect URIs `https://hrtemp.example.com/api/auth/callback/google` and
+`https://hr.example.com/api/auth/callback/google`),
 `LOG_LEVEL`. Not needed: `OOOHM_BACKGROUND` (Vercel defaults to `inline`), `DATABASE_POOLER`.
 
 ## 4. Connect the GitHub repository (5 min)
@@ -77,15 +80,41 @@ Optional: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (redirect URI `https://o
 deploy to production. Vercel detects Next.js and runs `pnpm install`, then the `vercel-build` script (migrate, seed
 when `SEED_ADMIN_EMAIL` is set, then `next build`); no build settings need changing.
 
-## 5. The domain (10 min, then DNS)
+**Only `main` deploys.** `vercel.json` turns off Git deployments for every other branch (`git.deploymentEnabled`), and
+the project's **Settings → Git → Ignored Build Step** is `[ "$VERCEL_GIT_COMMIT_REF" = "main" ] && exit 1 || exit 0` as
+a second guard (it applies to branches whose own `vercel.json` predates the first). Check **Settings → Environments →
+Production → Branch Tracking** says `main`: a push to the branch named there goes straight to production, on the
+production database.
 
-**Project → Settings → Domains → Add** `ooohm.team`, and `www.ooohm.team` set to redirect to it. Vercel shows the DNS
-records to create; add exactly those at the registrar or DNS host that serves `ooohm.team` (typically an `A` record
-for the apex and a `CNAME` for `www`; use the values Vercel shows, not ones from memory). If the domain's nameservers
-can be moved to Vercel instead, the same screen offers that. Vercel issues the certificate once the records resolve;
-the screen turns green.
+## 5. The domain, and moving off a temporary one (10 min, then DNS)
 
-`BETTER_AUTH_URL` must be exactly `https://ooohm.team`: sign-in links and the server-action origin check use it.
+If the old system (TimeOff.Management, say) still serves the address people will use, start OOOhm on a temporary one and
+move it on the day the old system goes. With the final address free already, skip the temporary one: add the final
+domain now and set `BETTER_AUTH_URL` to it.
+
+**Now:** **Project → Settings → Domains → Add** `hrtemp.example.com`, and create the record Vercel shows (a `CNAME` for a
+subdomain; use its value, not one from memory) at your DNS host. Vercel issues the certificate once it
+resolves. `BETTER_AUTH_URL` is `https://hrtemp.example.com` (step 3).
+
+**At cutover** (step 12, once the import is applied and checked):
+
+1. An hour before, lower the TTL of the final address's DNS record, so the switch spreads quickly.
+2. Stop TimeOff.Management, then **Domains → Add** `hr.example.com` and point its record at Vercel as shown.
+3. When its certificate is issued, change the address and redeploy:
+
+   ```bash
+   vercel env rm BETTER_AUTH_URL production
+   printf '%s' "https://hr.example.com" | vercel env add BETTER_AUTH_URL production
+   ```
+
+4. Edit `hrtemp.example.com` under **Domains** to **Redirect to** `hr.example.com` (308), and keep it a while.
+
+What the switch changes: everyone signs in once more (a session belongs to its host). Sign-in and Approve links already
+emailed keep working through the redirect. Calendar feed links carry the host, so hand them out only after the
+switch; anyone who subscribed on `hrtemp` copies the link again from **Calendar → Subscribe**.
+
+`BETTER_AUTH_URL` must be exactly the address people use, without a trailing slash: sign-in links, email links and the
+server-action origin check use it.
 
 ## 6. First deploy and migration (10 min)
 
@@ -93,7 +122,7 @@ Deploy `main` (push, or **Deployments → Redeploy** on the latest commit). The 
 before `next build`. A preview build would print `Skipping migrations: VERCEL_ENV is "preview"`. If the build stops
 with a database error, the deployment is not promoted and the previous one keeps serving.
 
-Check `https://ooohm.team/api/health` answers `{"status":"ok"}`.
+Check `https://hrtemp.example.com/api/health` answers `{"status":"ok"}`.
 
 Every deployment runs the migrations again before building; they are idempotent. A migration that breaks the new
 code is fixed forward (Vercel's instant rollback restores the old code, not the old schema): see
@@ -118,7 +147,7 @@ In the browser, once email works (step 9: the first admin signs in with an email
    printf '%s' "$SETUP_TOKEN" | vercel env add SETUP_TOKEN production
    ```
 
-2. Open `https://ooohm.team/setup`, give the token, the company name, its time zone, your name and
+2. Open `https://hrtemp.example.com/setup`, give the token, the company name, its time zone, your name and
    your work email. It creates the company, the default leave types (PTO first) and you as its admin, audited
    as `first_install`, then sends you to sign in with your email filled in.
 3. **Remove the token**: `vercel env rm SETUP_TOKEN production`. Setup is already closed for good (an install marker,
@@ -153,9 +182,10 @@ value, which means the variable was stored dirty: re-add it with `printf '%s'` (
 OOOhm sends through SendGrid's HTTPS API (`MAIL_TRANSPORT=sendgrid`, step 3): port 443, so Vercel's block on port 25
 never matters, and SendGrid's own error comes back in the log (`magic_link_send_failed`, `email_send_failed`).
 
-1. **Sender Authentication → Authenticate Your Domain**: `ooohm.team`, with your DNS host. Add the CNAME records
+1. **Sender Authentication → Authenticate Your Domain**: the domain of `MAIL_FROM` (the address mail comes
+   from; set `MAIL_FROM` to one on a domain you control), with its DNS host. Add the CNAME records
    SendGrid shows (DKIM and the return path), and a DMARC record if the domain has none
-   (`_dmarc.ooohm.team TXT "v=DMARC1; p=quarantine; rua=mailto:<you>"`). Wait for **Verify** to pass.
+   (`_dmarc.<your domain> TXT "v=DMARC1; p=quarantine; rua=mailto:<you>"`). Wait for **Verify** to pass.
 2. **Settings → API Keys → Create**: restricted access, **Mail Send** only. That is `SENDGRID_API_KEY`; SendGrid shows
    it once.
 3. **Settings → Tracking**: turn off click tracking and open tracking. OOOhm already turns both off on every message
@@ -222,7 +252,8 @@ To restore: create a Neon branch or a new database, `pg_restore` the dump into i
 
 The same bar as [deploy.md](deploy.md#17-cutover-checklist):
 
-- [ ] `https://ooohm.team` serves over HTTPS with a valid certificate; `/api/health` answers `{"status":"ok"}`.
+- [ ] `https://hr.example.com` serves over HTTPS with a valid certificate; `/api/health` answers `{"status":"ok"}`;
+      `BETTER_AUTH_URL` is `https://hr.example.com`, and `hrtemp.example.com` redirects to it (step 5).
 - [ ] Preview deployments are off, or Preview has no database variables (step 2).
 - [ ] `/setup` answers "could not be found", and `SETUP_TOKEN` is removed from the project (step 8).
 - [ ] Sign-in email arrives within a minute and passes SPF, DKIM and DMARC.
@@ -237,4 +268,4 @@ The same bar as [deploy.md](deploy.md#17-cutover-checklist):
 - [ ] **TimeOff.Management is shut down**: its service stopped, its DNS record removed or pointed at OOOhm, and its
       final SQLite file archived (encrypted) with the import report. `~/ooohm-prod.env` and the SQLite copy are
       deleted from your machine.
-- [ ] The ClickUp task for M7 is set to its terminal status, and `LIVE: ooohm.team` is posted in the client channel.
+- [ ] The team knows the new address, and the old system's bookmarks point at it.

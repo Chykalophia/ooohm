@@ -12,7 +12,7 @@ const input = (over: Partial<Parameters<typeof runFirstInstall>[1]> = {}) => ({
   companyName: "Chykalophia",
   timezone: "America/Chicago",
   adminName: "Peter",
-  adminEmail: "Peter@Chykalophia.com",
+  adminEmail: "Peter@Example.org",
   ...over,
 });
 
@@ -56,7 +56,7 @@ describe("first install", { skip }, () => {
   test("the right token creates the company, PTO-first leave types and the first admin, audited, then closes for good", async () => {
     await withEmptyDatabase(async (t) => {
       const ctx = createTestContext(t.db);
-      assert.deepEqual(await runFirstInstall(ctx, input(), TOKEN), { email: "peter@chykalophia.com" });
+      assert.deepEqual(await runFirstInstall(ctx, input(), TOKEN), { email: "peter@example.org" });
 
       const { companies, people, types, marker, audit } = await counts(t);
       assert.deepEqual(
@@ -65,7 +65,7 @@ describe("first install", { skip }, () => {
       );
       assert.deepEqual(
         people.map((p) => [p.email, p.name, p.role, p.canSelfApprove, p.isActive, p.companyId]),
-        [["peter@chykalophia.com", "Peter", "admin", true, true, companies[0].id]],
+        [["peter@example.org", "Peter", "admin", true, true, companies[0].id]],
       );
       assert.equal(people[0].emailVerified, false, "signing in proves the email; setup doesn't");
       assert.deepEqual(

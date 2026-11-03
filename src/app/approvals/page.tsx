@@ -5,29 +5,34 @@ import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { Card } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
+import { Pager } from "@/components/navigation/pager";
 import { requireMemberPage } from "@/app/_lib/page-context";
+import { pagerLinks, readPageParams } from "@/app/_lib/paging";
 import { DecisionForm } from "./decision-form";
 
 export const metadata: Metadata = { title: "Approvals · OOOhm" };
 
-export default async function ApprovalsPage() {
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="approvals" />;
 
   const { actor } = page;
-  const { items, total } = await listApprovalInbox(page.ctx, actor);
+  const { cursor, number } = readPageParams(await searchParams);
+  const inbox = await listApprovalInbox(page.ctx, actor, { page: cursor });
+  const { items, total } = inbox;
+  const pager = pagerLinks("/approvals", inbox, number);
 
   return (
     <AppPage nav={page.nav} current="approvals" title="Approvals">
       {items.length === 0 ? (
-        <p className="text-muted">Nothing is waiting for you.</p>
+        <>
+          {/* A later page emptied by deciding what was on it: the earlier pages still wait. */}
+          <p className="text-muted">{inbox.previous ? "Everything on this page is decided." : "Nothing is waiting for you."}</p>
+          <Pager label="Approvals pages" links={pager} />
+        </>
       ) : (
         <>
-          {total > items.length && (
-            <p className="text-sm text-muted">
-              Showing the first {items.length} of {total}, earliest dates first. Decide these to see the rest.
-            </p>
-          )}
+          {total > items.length && <p className="text-sm text-muted">{total} waiting, earliest dates first.</p>}
           <ul className="space-y-4">
             {items.map((r) => (
               <Card as="li" key={r.id} className="space-y-4">
@@ -48,6 +53,7 @@ export default async function ApprovalsPage() {
               </Card>
             ))}
           </ul>
+          <Pager label="Approvals pages" links={pager} />
         </>
       )}
     </AppPage>

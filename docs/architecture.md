@@ -87,6 +87,18 @@ paint is right with no script and automatic switches as the device does. Colours
 `src/app` and `src/components`. A new colour is a new token with a light and a dark value. The theme is a
 display preference of the person's own, so changing it writes no audit row or event.
 
+**Long lists.** Every list that grows with use is paged, never capped: the audit log (25 a page), people (50, by
+name), your requests on the dashboard (10, latest dates first), approvals (10, earliest first) and an endpoint's
+webhook deliveries (25). Short lists that stay small by nature (departments, leave types, a year's holidays, API
+keys, calendar links) are not. Pages are keyset, both ways (`src/domain/paging.ts`): a page is the `size + 1` rows
+just after (or, for Previous, just before) the sort key of the row at its edge, so each page is one indexed read
+however deep someone goes, and rows written in between are never skipped or shown twice. The key travels as an
+opaque token in `?after=` / `?before=`; each list checks every part (a uuid, a date, an instant) and reads anything
+else as page 1. Repositories build the query with `keysetPage` (`src/server/repositories/keyset.ts`), services read
+with `readPage`, and pages render `Pager` (Previous, Page N, Next) from `pagerLinks` (`src/app/_lib/paging.ts`),
+which keeps the list's filters. The page number is a label the links count, not an offset. Previous reaching the
+start with less than a page left shows the real first page.
+
 ### Composition root
 
 Services receive a `ServiceContext` (`src/server/context.ts`): the database handle, a mailer, a `defer`
@@ -871,17 +883,17 @@ also holds the deletion grace option ([The grace option](#the-grace-option)); `c
 
 ### Audit log viewer
 
-`/admin/audit` (`getAuditLog`): newest first, 50 a page, read-only. Filters: action (from the known list),
+`/admin/audit` (`getAuditLog`): newest first, 25 a page, read-only. Filters: action (from the known list),
 who did it, who it is about (`subject_user_id`), and a date range in the company's time zone (converted in SQL
 with `date::timestamp at time zone <zone>`, so day boundaries follow DST). Malformed filters are ignored. Each row
 says who or what made it with `changeSourceLabel` ("Ana", "Ana, via Gusto sync", "System: year rollover"); the
 "who did it" filter matches `actor_id`, so it finds a person's changes whether direct, through a sync or with one of
 their API keys.
 
-- **Keyset pagination** on `(created_at, id)`: the cursor carries `created_at` printed in UTC to the
-  microsecond, because a JS `Date` keeps only milliseconds and would skip or repeat rows written in the same one.
+- **Keyset pagination** on `(created_at, id)`, both ways (see Long lists): the key carries `created_at` printed in
+  UTC to the microsecond, because a JS `Date` keeps only milliseconds and would skip or repeat rows written in the same one.
 - **Indexes** (migration `0007`): `audit_log_company_created_idx (company_id, created_at, id)` and one per
-  filter, `(company_id, action | actor_id | subject_user_id, created_at, id)`, so a page reads about 50 index
+  filter, `(company_id, action | actor_id | subject_user_id, created_at, id)`, so a page reads about 25 index
   entries in order instead of sorting the company's log. `audit-log.test.ts` checks the plan.
 - **Five queries a page**, whatever it holds: company (time zone), people, departments and leave types in
   parallel (for the pickers and for naming ids inside before/after snapshots), then the page, whose actor and

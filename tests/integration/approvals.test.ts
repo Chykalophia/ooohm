@@ -265,17 +265,26 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     );
   });
 
-  test("a cut inbox reports the full count, which matches the header's", async () => {
+  test("the inbox pages, earliest first, with the full count (as the header's) once there is more than a page", async () => {
     const { co, ctx } = await pendingRequest();
     await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-16", dayPortion: "full" });
     await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-17", dayPortion: "full" });
 
-    const cut = await listApprovalInbox(ctx, co.people.manager, 2);
-    assert.deepEqual([cut.items.length, cut.total], [2, 3]);
-    assert.deepEqual(cut.items.map((r) => r.startDate), ["2026-11-09", "2026-11-16"], "earliest dates first");
-    const whole = await listApprovalInbox(ctx, co.people.manager, 3);
-    assert.deepEqual([whole.items.length, whole.total], [3, 3]);
-    assert.equal((await getApprovalNav(ctx, co.people.manager)).pending, cut.total);
+    const first = await listApprovalInbox(ctx, co.people.manager, { size: 2 });
+    assert.deepEqual([first.items.length, first.total, first.previous], [2, 3, null]);
+    assert.deepEqual(first.items.map((r) => r.startDate), ["2026-11-09", "2026-11-16"], "earliest dates first");
+    const second = await listApprovalInbox(ctx, co.people.manager, { size: 2, page: first.next! });
+    assert.deepEqual([second.items.map((r) => r.startDate), second.next, second.total], [["2026-11-17"], null, 3]);
+    assert.deepEqual((await listApprovalInbox(ctx, co.people.manager, { size: 2, page: second.previous! })).items, first.items);
+
+    // Deciding one on page 1 brings the next one up into its place.
+    await decideLeaveRequest(ctx, co.people.manager, { requestId: first.items[0].id, decision: "approve" });
+    const after = await listApprovalInbox(ctx, co.people.manager, { size: 2 });
+    assert.deepEqual([after.items.map((r) => r.startDate), after.next, after.total], [["2026-11-16", "2026-11-17"], null, 2]);
+
+    const whole = await listApprovalInbox(ctx, co.people.manager, { size: 3 });
+    assert.deepEqual([whole.items.length, whole.total, whole.next], [2, 2, null]);
+    assert.equal((await getApprovalNav(ctx, co.people.manager)).pending, first.total - 1);
   });
 
   test("the Approvals link shows for managers and admins, and for anyone with something assigned", async () => {

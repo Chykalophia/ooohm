@@ -17,6 +17,7 @@ import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type Unattributed, type UserEventPayload } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
+import { type PageCursor, readPage, textPart } from "@/domain/paging";
 import { firstEditableAllowanceYear } from "@/domain/leave-type-settings";
 import {
   assertKeepsAnActiveAdmin,
@@ -73,8 +74,14 @@ import { commitThenSend, type DeferredEmail } from "./notify";
 /** Most invites (new or resent) one admin may send per {@link INVITE_WINDOW_MINUTES}. */
 export const INVITE_LIMIT = 30;
 export const INVITE_WINDOW_MINUTES = 60;
-/** Most people the admin list shows at once. */
-export const PEOPLE_LIST_LIMIT = 500;
+/** People per page of the admin list. */
+export const PEOPLE_PAGE_SIZE = 50;
+
+/**
+ * A people page's key: `[lower(name), email]`. Generous on length: imported names are
+ * not held to the form's limit, and a key too long only reads as the first page.
+ */
+const PEOPLE_KEY = [textPart(500), textPart(320)] as const;
 
 /** What an admin sets about a person. */
 export interface PersonInput {
@@ -193,28 +200,30 @@ async function inviterName(tx: Transaction, actor: Actor): Promise<string> {
 }
 
 /**
- * The company's people for the admin list, by name, with department and manager names.
- * Deleted people (tombstones) never appear. Three queries in parallel: the people, the
- * departments (for the filter) and the company (its time zone, for dates).
+ * One page of the company's people for the admin list, by name, with department and
+ * manager names. Deleted people (tombstones) never appear. Three queries in parallel:
+ * the page, the departments (for the filter) and the company (its time zone, for dates).
  *
- * @returns At most {@link PEOPLE_LIST_LIMIT} people; `truncated` when there were more.
+ * @param page From a previous page's `previous` or `next`; the first page when absent.
+ * @returns At most {@link PEOPLE_PAGE_SIZE} people, and the cursors either side.
  * @throws DomainError `forbidden` for a non-admin, `no_company`.
  */
-export async function listPeople(ctx: ServiceContext, actor: Actor, filter: PeopleFilter) {
+export async function listPeople(ctx: ServiceContext, actor: Actor, filter: Omit<PeopleFilter, "page">, page?: PageCursor) {
   assertCanAdminister(actor);
   const departmentId = filter.departmentId && isUuid(filter.departmentId) ? filter.departmentId : undefined;
-  const [rows, departments, company] = await Promise.all([
-    listPeopleRows(ctx.db, actor.companyId, { ...filter, departmentId }, PEOPLE_LIST_LIMIT + 1),
+  const [people, departments, company] = await Promise.all([
+    readPage({
+      cursor: page,
+      size: PEOPLE_PAGE_SIZE,
+      checks: PEOPLE_KEY,
+      read: (request, limit) => listPeopleRows(ctx.db, actor.companyId, { ...filter, departmentId, page: request }, limit),
+      keyOf: (p) => [p.sortName, p.email],
+    }),
     listDepartments(ctx.db, actor.companyId),
     findCompany(ctx.db, actor.companyId),
   ]);
   if (!company) throw new DomainError("no_company");
-  return {
-    people: rows.slice(0, PEOPLE_LIST_LIMIT),
-    truncated: rows.length > PEOPLE_LIST_LIMIT,
-    departments,
-    timezone: company.timezone,
-  };
+  return { people: people.items, previous: people.previous, next: people.next, departments, timezone: company.timezone };
 }
 
 /**

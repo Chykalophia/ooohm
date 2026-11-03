@@ -8,19 +8,24 @@ import { StatusBadge } from "@/components/leave/status-badge";
 import { Item, ItemList } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { Section } from "@/components/ui/section";
+import { Pager } from "@/components/navigation/pager";
 import { requireMemberPage } from "./_lib/page-context";
+import { pagerLinks, readPageParams } from "./_lib/paging";
 import { cancelLeaveAction } from "./actions";
 import { RequestLeaveForm } from "./request-leave-form";
 
 /** Focus lands on this heading after a cancel, when the cancel button itself disappears. */
 const REQUESTS_HEADING_ID = "mine-heading";
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="home" />;
 
   const { actor } = page;
-  const dashboard = await getDashboard(page.ctx, actor);
+  const { cursor, number } = readPageParams(await searchParams);
+  const dashboard = await getDashboard(page.ctx, actor, cursor);
+  // The links land on the list, not the top of the page.
+  const pager = pagerLinks("/", dashboard.requestPages, number, { fragment: REQUESTS_HEADING_ID });
 
   return (
     <AppPage nav={page.nav} current="home" title="Your time off" titleHidden className="space-y-10">
@@ -34,7 +39,7 @@ export default async function HomePage() {
 
       <Section title="Your requests" headingId={REQUESTS_HEADING_ID}>
         {dashboard.requests.length === 0 ? (
-          <p className="text-muted">Nothing yet. Your requests will show up here.</p>
+          <p className="text-muted">{dashboard.requestPages.previous ? "No more requests." : "Nothing yet. Your requests will show up here."}</p>
         ) : (
           <ItemList>
             {dashboard.requests.map((r) => (
@@ -77,6 +82,7 @@ export default async function HomePage() {
             ))}
           </ItemList>
         )}
+        <Pager label="Your requests pages" links={pager} />
       </Section>
     </AppPage>
   );

@@ -1,10 +1,12 @@
 import type { Transaction } from "@/db/types";
 import { type Actor, isAdmin } from "@/domain/actor";
 import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
+import { isCalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { canDecide, decidesByAssignment } from "@/domain/leave-permissions";
 import { normalizeNote } from "@/domain/leave-request";
+import { isCursorInstant, type PageCursor, readPage } from "@/domain/paging";
 import { assertTransition } from "@/domain/request-status";
 import type { ServiceContext } from "@/server/context";
 import {
@@ -30,8 +32,11 @@ export interface DecideInput {
   reason?: string | null;
 }
 
-/** Most pending requests the inbox shows at once. */
-const INBOX_LIMIT = 100;
+/** Requests per page of the inbox: each comes with its own decision form. */
+export const INBOX_PAGE_SIZE = 10;
+
+/** An inbox page's key: `[start_date, created_at, id]`. */
+const INBOX_KEY = [isCalendarDate, isCursorInstant, isUuid] as const;
 
 function scopeFor(actor: Actor): InboxScope {
   return { companyId: actor.companyId, deciderId: actor.id, isAdmin: isAdmin(actor) };
@@ -97,22 +102,32 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
 }
 
 /**
- * Pending requests the actor can decide: those assigned to them and, for admins,
- * every other pending request in the company. Earliest start date first.
+ * One page of the pending requests the actor can decide: those assigned to them and, for
+ * admins, every other pending request in the company. Earliest start date first.
  *
- * @param limit Most items to return; defaults to {@link INBOX_LIMIT}.
- * @returns At most `limit` `items`, each with `alsoOff`, who else is off on its dates
- *   (`alsoOffFor`), and the `total` waiting, which is larger than `items.length` only
- *   when the list was cut. The count query runs only in that case.
+ * Deciding a request takes it off the list, so the same page shows the next ones in its
+ * place.
+ *
+ * @param page From a previous page's `previous` or `next`; the first page when absent.
+ * @returns The page's `items`, each with `alsoOff`, who else is off on its dates
+ *   (`alsoOffFor`); the cursors either side; and the `total` waiting, which is counted
+ *   only when there is more than one page.
  */
-export async function listApprovalInbox(ctx: ServiceContext, actor: Actor, limit = INBOX_LIMIT) {
+export async function listApprovalInbox(ctx: ServiceContext, actor: Actor, { page, size = INBOX_PAGE_SIZE }: { page?: PageCursor; size?: number } = {}) {
   const scope = scopeFor(actor);
-  const rows = await listInbox(ctx.db, scope, limit);
+  const inbox = await readPage({
+    cursor: page,
+    size,
+    checks: INBOX_KEY,
+    read: (request, limit) => listInbox(ctx.db, scope, limit, request),
+    keyOf: (r) => [r.startDate, r.cursor, r.id],
+  });
+  const rows = inbox.items;
   const [total, alsoOff] = await Promise.all([
-    rows.length < limit ? rows.length : countInbox(ctx.db, scope),
+    inbox.previous || inbox.next ? countInbox(ctx.db, scope) : rows.length,
     alsoOffFor(ctx.db, actor.companyId, rows.map((r) => ({ id: r.id, userId: r.requesterId, startDate: r.startDate, endDate: r.endDate }))),
   ]);
-  return { items: rows.map((r) => ({ ...r, alsoOff: alsoOff.get(r.id) ?? null })), total };
+  return { items: rows.map((r) => ({ ...r, alsoOff: alsoOff.get(r.id) ?? null })), previous: inbox.previous, next: inbox.next, total };
 }
 
 /**

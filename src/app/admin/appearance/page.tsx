@@ -22,28 +22,28 @@ const SAMPLE_LEAVE = [
  */
 function ThemePreview({ theme }: { theme: ThemeKey }) {
   return (
-    <div data-ui={theme} aria-hidden className="rounded-xl p-3">
-      <div className="space-y-2 rounded-2xl border border-border bg-surface p-3">
-        <p className="text-sm font-semibold" style={{ fontFamily: "var(--display-font)" }}>
+    <span data-ui={theme} aria-hidden className="block rounded-xl p-3">
+      <span className="block space-y-2 rounded-2xl border border-border bg-surface p-3">
+        <span className="block text-sm font-semibold" style={{ fontFamily: "var(--display-font)" }}>
           Request time off
-        </p>
-        <div className="flex flex-wrap gap-1.5">
+        </span>
+        <span className="flex flex-wrap gap-1.5">
           {SAMPLE_LEAVE.map(([name, color]) => (
             <span key={name} className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px]">
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
               {name}
             </span>
           ))}
-        </div>
-        <p className="text-[11px] text-muted">3 working days · 8.5 left after</p>
-        <div className="flex items-center gap-2">
+        </span>
+        <span className="block text-[11px] text-muted">3 working days · 8.5 left after</span>
+        <span className="flex items-center gap-2">
           <span className="rounded-(--button-radius) bg-accent px-3 py-1 text-xs font-medium text-accent-foreground shadow-(--button-shadow)">
             Send to Jonas
           </span>
           <span className="text-xs font-medium text-accent-ink">Cancel</span>
-        </div>
-      </div>
-    </div>
+        </span>
+      </span>
+    </span>
   );
 }
 
@@ -87,7 +87,7 @@ export default async function AppearancePage() {
                 </label>
               ))}
             </div>
-            <p className="text-xs text-muted">Only Classic follows people’s dark mode for now. The other themes are light only.</p>
+            <p className="text-xs text-muted">Only Classic follows people’s dark mode, and only with its own accent. The other themes are light only.</p>
           </fieldset>
 
           <fieldset className="space-y-3">
@@ -96,7 +96,7 @@ export default async function AppearancePage() {
               label="Use our own accent color instead of the theme’s"
               name="customAccent"
               defaultChecked={current.accentColor !== null}
-              hint="It colors the main button, today’s date and selected items. Pale colors keep their fill and get a darker shade for text, so everything stays readable."
+              hint="It colors the main button, today’s date and selected items. Pale colors keep their fill and get a darker shade for text, so everything stays readable. The color below applies only while this is ticked."
             />
             <div className="flex items-center gap-3">
               <label htmlFor="accent-color" className="text-sm">

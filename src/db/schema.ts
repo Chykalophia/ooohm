@@ -17,6 +17,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { DEFAULT_THEME } from "@/domain/appearance";
 import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
 
 const timestamps = {
@@ -58,7 +59,7 @@ export const companies = pgTable("companies", {
    */
   deletionGrace: boolean("deletion_grace").notNull().default(false),
   /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
-  theme: text("theme").notNull().default("classic"),
+  theme: text("theme").notNull().default(DEFAULT_THEME),
   /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */
   accentColor: text("accent_color"),
   /** `theme`, `square`, `soft` or `round`: overrides the theme's corner radius. */

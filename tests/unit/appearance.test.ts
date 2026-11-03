@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DEFAULT_APPEARANCE, THEME_KEYS, followsDarkMode, normalizeAppearance, readAppearance } from "@/domain/appearance";
 import { isDomainError } from "@/domain/errors";
-import { accentTokens, htmlAppearance } from "@/lib/appearance";
+import { DARKEST_LIGHT_GROUND, accentTokens, htmlAppearance } from "@/lib/appearance";
 import { contrastRatio } from "@/lib/color";
 
 const invalid = (fn: () => unknown) => assert.throws(fn, (err) => isDomainError(err, "invalid_input"));
@@ -34,6 +34,11 @@ test("appearance: a stored value this version does not know falls back instead o
     accentColor: null,
     corners: "round",
   });
+  assert.deepEqual(
+    readAppearance({ theme: "from-the-future", accentColor: "#F2A900", corners: "wobbly" }),
+    { theme: "classic", accentColor: "#f2a900", corners: "theme" },
+    "an unknown theme or corner style keeps a valid accent",
+  );
 });
 
 test("appearance: only Classic with its own accent follows dark mode", () => {
@@ -43,10 +48,11 @@ test("appearance: only Classic with its own accent follows dark mode", () => {
 });
 
 test("accent tokens: text on the fill and accent-coloured text both stay readable", () => {
-  for (const color of ["#f2a900", "#ffeb3b", "#2546d0", "#000000", "#ffffff", "#7f7f7f"]) {
+  for (const color of ["#f2a900", "#ffeb3b", "#2546d0", "#000000", "#ffffff", "#7f7f7f", "#838383"]) {
     const t = accentTokens(color);
     assert.ok(contrastRatio(t.accent, t.accentForeground) >= 4.5, `${color}: label on the fill`);
     assert.ok(contrastRatio(t.accentInk, "#ffffff") >= 4.5, `${color}: ink on white`);
+    assert.ok(contrastRatio(t.accentInk, DARKEST_LIGHT_GROUND) >= 4.5, `${color}: ink on the darkest theme ground`);
   }
   assert.equal(accentTokens("#2546d0").accentInk, "#2546d0", "a dark accent is its own ink");
   assert.equal(accentTokens("#f2a900").accentForeground, "#111111", "a pale accent gets dark text");
@@ -57,5 +63,6 @@ test("html appearance: attributes for the stylesheet, accent tokens only when cu
   const custom = htmlAppearance({ theme: "graphite", accentColor: "#f2a900", corners: "round" });
   assert.deepEqual(custom.attributes, { "data-ui": "graphite", "data-corners": "round" });
   assert.equal(custom.style["--accent"], "#f2a900");
+  assert.equal(custom.style["--accent-foreground"], "#111111");
   assert.ok(custom.style["--accent-ink"]);
 });

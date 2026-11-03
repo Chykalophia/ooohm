@@ -52,7 +52,7 @@ export async function requireAdminPage() {
 }
 
 /**
- * The admin sub-navigation: one calm row of seven links, wrapping on small screens. On
+ * The admin sub-navigation: one calm row of eight links, wrapping on small screens. On
  * an integration screen a second, quieter row switches between webhooks, API keys and
  * connectors.
  */

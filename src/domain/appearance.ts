@@ -80,10 +80,9 @@ export function normalizeAppearance(input: AppearanceInput): Appearance {
   if (!isCornerStyle(corners)) throw new DomainError("invalid_input", "Unknown corner style.");
   const raw = (input.accentColor ?? "").trim();
   if (raw === "") return { theme, accentColor: null, corners };
-  const m = HEX.exec(raw);
-  if (!m) throw new DomainError("invalid_input", "Accent colours are hex values like #2546d0.");
-  const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
-  return { theme, accentColor: `#${hex.toLowerCase()}`, corners };
+  const accentColor = readAccent(raw);
+  if (!accentColor) throw new DomainError("invalid_input", "Accent colours are hex values like #2546d0.");
+  return { theme, accentColor, corners };
 }
 
 /**
@@ -92,15 +91,18 @@ export function normalizeAppearance(input: AppearanceInput): Appearance {
  * instead of failing the page.
  */
 export function readAppearance(stored: { theme: string; accentColor: string | null; corners: string }): Appearance {
-  try {
-    return normalizeAppearance(stored);
-  } catch {
-    return {
-      theme: isThemeKey(stored.theme) ? stored.theme : DEFAULT_THEME,
-      accentColor: null,
-      corners: isCornerStyle(stored.corners) ? stored.corners : "theme",
-    };
-  }
+  return {
+    theme: isThemeKey(stored.theme) ? stored.theme : DEFAULT_THEME,
+    accentColor: readAccent(stored.accentColor),
+    corners: isCornerStyle(stored.corners) ? stored.corners : "theme",
+  };
+}
+
+function readAccent(stored: string | null): string | null {
+  const m = HEX.exec((stored ?? "").trim());
+  if (!m) return null;
+  const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  return `#${hex.toLowerCase()}`;
 }
 
 /**

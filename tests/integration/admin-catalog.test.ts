@@ -361,8 +361,11 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.equal(audit.length, 1, "saving the same look records nothing");
     assert.equal(audit[0].actorId, boss.id);
     assert.deepEqual(
-      [audit[0].before, audit[0].after].map((s) => [(s as { theme: string }).theme, (s as { corners: string }).corners]),
-      [["classic", "theme"], ["cobalt", "square"]],
+      [audit[0].before, audit[0].after].map((s) => {
+        const value = s as { theme: string; accentColor: string | null; corners: string };
+        return [value.theme, value.accentColor, value.corners];
+      }),
+      [["classic", null, "theme"], ["cobalt", "#f2a900", "square"]],
     );
     const events = await companyEvents(t.db, co.companyId, "company.");
     assert.equal(events.length, 1);

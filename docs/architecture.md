@@ -769,7 +769,8 @@ and a corner style, all chosen by an admin (never per person). Themes are a fixe
 (`getAppearance`, which falls back to the default on any error so a page never fails on it) and sets `data-ui`,
 `data-corners` and, for a custom accent, the accent tokens on `<html>`. `globals.css` keys each theme's tokens
 (colours, fonts, radii, shadows) on those attributes; fonts are self-hosted from `@fontsource-variable` packages,
-and a browser downloads only the ones the chosen theme uses. A pale custom accent keeps its fill and gets a darker
+and a browser downloads only the ones the chosen theme uses (Admin → Appearance previews every theme, so that
+page loads them all). A pale custom accent keeps its fill and gets a darker
 `--accent-ink` for text and focus rings (`accentTokens`). Only `classic` with its own accent follows the device's
 dark mode (`data-scheme="auto"`); every other look is light only for now. `company.updated` carries `theme`,
 `accentColor` and `corners`.

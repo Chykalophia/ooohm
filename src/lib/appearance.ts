@@ -9,6 +9,12 @@ import { contrastRatio, normalizeHexColor } from "./color";
 /** WCAG AA for normal text. */
 const TEXT_CONTRAST = 4.5;
 
+/**
+ * The darkest light ground any theme puts text on (Frost's page background in
+ * globals.css). Ink that reaches 4.5:1 here reaches it on every lighter surface too.
+ */
+export const DARKEST_LIGHT_GROUND = "#eef2f8";
+
 function mixWithBlack(hex: string, amount: number): string {
   const n = normalizeHexColor(hex).slice(1);
   const parts = [0, 2, 4].map((i) => Math.round(parseInt(n.slice(i, i + 2), 16) * (1 - amount)));
@@ -20,7 +26,7 @@ export interface AccentTokens {
   accent: string;
   /** Text on an accent fill: white or near-black, whichever reads better. */
   accentForeground: string;
-  /** The accent as text and focus rings on light surfaces: darkened until it reaches 4.5:1 on white. */
+  /** The accent as text and focus rings on light surfaces: darkened until it reaches 4.5:1 on every theme's light grounds. */
   accentInk: string;
 }
 
@@ -29,7 +35,7 @@ export function accentTokens(color: string): AccentTokens {
   const accent = normalizeHexColor(color);
   const accentForeground = contrastRatio(accent, "#ffffff") >= contrastRatio(accent, "#111111") ? "#ffffff" : "#111111";
   let accentInk = accent;
-  for (let step = 1; step <= 10 && contrastRatio(accentInk, "#ffffff") < TEXT_CONTRAST; step++) {
+  for (let step = 1; step <= 10 && contrastRatio(accentInk, DARKEST_LIGHT_GROUND) < TEXT_CONTRAST; step++) {
     accentInk = mixWithBlack(accent, step / 10);
   }
   return { accent, accentForeground, accentInk };

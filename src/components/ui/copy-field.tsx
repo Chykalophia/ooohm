@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { cx, primaryButton } from "./styles";
+import { cx, primaryButton, fieldFrame } from "./styles";
 
 /**
  * A read-only value with a copy button, for a secret shown once (an API key, a feed
@@ -49,7 +49,7 @@ export function CopyField({
           readOnly
           value={value}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          className={cx("w-full min-w-0 rounded-lg bg-background px-3 py-2 font-mono text-sm", fieldFrame)}
         />
         <button type="button" onClick={copyValue} className={cx(primaryButton, "shrink-0")}>
           {copyLabel}

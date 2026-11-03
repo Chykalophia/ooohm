@@ -39,6 +39,7 @@
  *
  * Tokens every theme sets:
  *   --background --surface --foreground --muted --border   chrome
+ *   --field-border                                          form field edges, 3:1 (derived, see below)
  *   --accent --accent-foreground                            fills and the text on them
  *   --accent-ink                                            the accent as text or a focus ring (4.5:1 on white)
  *   --app-font --display-font                               body and heading faces
@@ -328,12 +329,32 @@
   --button-radius: 9999px;
 }
 
+/*
+ * Form fields need a boundary of at least 3:1 against what is around them (WCAG 1.4.11),
+ * which the calm --border is not. Derived from each theme's own muted and surface (82%
+ * muted), so every light-only theme gets one without a value of its own.
+ *
+ * Classic writes its pair out: its muted and surface are light-dark() pairs, and a
+ * light-dark() inside color-mix() is not a colour Chrome accepts, which would leave the
+ * border at currentColor. Same mix: #908b86 (3.4:1 on white), #8f8986 (5.1:1 on #1c1917).
+ */
+:root,
+[data-ui] {
+  --field-border: color-mix(in srgb, var(--muted) 82%, var(--surface));
+}
+
+:root:not([data-ui]),
+[data-ui="classic"] {
+  --field-border: light-dark(#908b86, #8f8986);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-field: var(--field-border);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-ink: var(--accent-ink);

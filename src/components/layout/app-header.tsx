@@ -28,7 +28,7 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={cx("rounded-md hover:text-foreground", focusRing, active ? "text-foreground" : "text-muted")}
+      className={cx("inline-flex min-h-6 items-center rounded-md hover:text-foreground", focusRing, active ? "text-foreground" : "text-muted")}
     >
       <SteadyLabel bold={active}>{children}</SteadyLabel>
     </Link>

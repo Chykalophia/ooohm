@@ -89,8 +89,8 @@ function isRequestStyle(value: string): value is RequestStyle {
 /**
  * Checks and normalizes what the appearance form sent.
  *
- * @throws DomainError `invalid_input`: an unknown theme or corner style, or an accent
- *   that is not a hex colour.
+ * @throws DomainError `invalid_input`: an unknown theme, corner style or request style,
+ *   or an accent that is not a hex colour.
  */
 export function normalizeAppearance(input: AppearanceInput): Appearance {
   const theme = input.theme.trim();
@@ -110,16 +110,11 @@ export function normalizeAppearance(input: AppearanceInput): Appearance {
 }
 
 /**
- * The appearance as stored, made safe to render: a theme or corner style this version
+ * The appearance as stored, made safe to render: a theme, corner style or request style this version
  * does not know (written by a newer version, or by hand) falls back to the default
  * instead of failing the page.
  */
-export function readAppearance(stored: {
-  theme: string;
-  accentColor: string | null;
-  corners: string;
-  requestStyle: string;
-}): Appearance {
+export function readAppearance(stored: { theme: string; accentColor: string | null; corners: string; requestStyle: string }): Appearance {
   return {
     theme: isThemeKey(stored.theme) ? stored.theme : DEFAULT_THEME,
     accentColor: readAccent(stored.accentColor),

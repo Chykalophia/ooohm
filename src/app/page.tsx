@@ -2,10 +2,10 @@ import { canAdminister } from "@/domain/admin-permissions";
 import { requireActor } from "@/lib/auth";
 import { formatDays, formatLeaveDates } from "@/lib/format";
 import { serviceContext } from "@/server/runtime";
-import { getAppearance } from "@/server/services/appearance";
 import { getApprovalNav } from "@/server/services/approvals";
 import { getDashboard } from "@/server/services/leave-requests";
 import { AppHeader } from "./app-header";
+import { requestAppearance } from "./appearance";
 import { BalanceSummary } from "./balance-summary";
 import { CancelRequestButton } from "./cancel-request-button";
 import { NoCompany } from "./no-company";
@@ -22,7 +22,7 @@ export default async function HomePage() {
   if (!actor) return <NoCompany userName={userName} current="home" />;
 
   const ctx = serviceContext();
-  const [dashboard, approvals, appearance] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor), getAppearance(ctx)]);
+  const [dashboard, approvals, appearance] = await Promise.all([getDashboard(ctx, actor), getApprovalNav(ctx, actor), requestAppearance()]);
   const RequestLeave = appearance.requestStyle === "sentence" ? RequestLeaveSentence : RequestLeaveForm;
 
   return (

@@ -13,8 +13,7 @@ import "@fontsource-variable/sora";
 import "@fontsource-variable/source-sans-3";
 import "./globals.css";
 import { htmlAppearance } from "@/lib/appearance";
-import { serviceContext } from "@/server/runtime";
-import { getAppearance } from "@/server/services/appearance";
+import { requestAppearance } from "./appearance";
 
 export const metadata: Metadata = {
   title: "OOOhm",
@@ -24,7 +23,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // The company's theme is read per request, never at build time.
   await connection();
-  const { attributes, style } = htmlAppearance(await getAppearance(serviceContext()));
+  const { attributes, style } = htmlAppearance(await requestAppearance());
 
   return (
     <html lang="en" className="h-full antialiased" {...attributes} style={style as React.CSSProperties}>

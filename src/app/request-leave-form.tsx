@@ -35,7 +35,7 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
   if (key !== resetKey) setResetKey(key);
 
   return (
-    <section aria-labelledby="request-heading" className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+    <section aria-labelledby="request-heading" className="rounded-2xl border border-border bg-surface p-6">
       <h2 id="request-heading" className="mb-5 text-lg font-semibold tracking-tight">
         Request time off
       </h2>

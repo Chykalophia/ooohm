@@ -82,6 +82,9 @@ export function normalizeAppearance(input: AppearanceInput): Appearance {
   if (raw === "") return { theme, accentColor: null, corners };
   const accentColor = readAccent(raw);
   if (!accentColor) throw new DomainError("invalid_input", "Accent colours are hex values like #2546d0.");
+  // The theme's own accent picked as "custom" is no custom accent: keep the theme's, so
+  // Classic keeps following dark mode.
+  if (accentColor === THEMES[theme].accent) return { theme, accentColor: null, corners };
   return { theme, accentColor, corners };
 }
 

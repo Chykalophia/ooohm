@@ -76,7 +76,7 @@ export async function findDeploymentAppearance(
   const [row] = await ex
     .select({ theme: companies.theme, accentColor: companies.accentColor, corners: companies.corners })
     .from(companies)
-    .orderBy(asc(companies.createdAt))
+    .orderBy(asc(companies.createdAt), asc(companies.id))
     .limit(1);
   return row;
 }

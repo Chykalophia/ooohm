@@ -4,18 +4,25 @@ import { DEFAULT_APPEARANCE, THEME_KEYS, followsDarkMode, normalizeAppearance, r
 import { isDomainError } from "@/domain/errors";
 import { DARKEST_LIGHT_GROUND, accentTokens, htmlAppearance } from "@/lib/appearance";
 import { contrastRatio } from "@/lib/color";
+import type { ServiceContext } from "@/server/context";
+import { getAppearance } from "@/server/services/appearance";
 
 const invalid = (fn: () => unknown) => assert.throws(fn, (err) => isDomainError(err, "invalid_input"));
 
 test("appearance: known themes and corners pass, the accent is normalized or cleared", () => {
-  assert.deepEqual(normalizeAppearance({ theme: "cobalt", accentColor: "#2546D0", corners: "square" }), {
+  assert.deepEqual(normalizeAppearance({ theme: "cobalt", accentColor: "#C4220F", corners: "square" }), {
     theme: "cobalt",
-    accentColor: "#2546d0",
+    accentColor: "#c4220f",
     corners: "square",
   });
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: "#abc", corners: "theme" }).accentColor, "#aabbcc");
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: "  ", corners: "theme" }).accentColor, null);
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: null, corners: "theme" }).accentColor, null);
+  assert.equal(
+    normalizeAppearance({ theme: "classic", accentColor: "#0F766E", corners: "theme" }).accentColor,
+    null,
+    "the theme's own accent is no custom accent, so Classic keeps dark mode",
+  );
   assert.equal(THEME_KEYS[0], "classic");
 });
 
@@ -65,4 +72,15 @@ test("html appearance: attributes for the stylesheet, accent tokens only when cu
   assert.equal(custom.style["--accent"], "#f2a900");
   assert.equal(custom.style["--accent-foreground"], "#111111");
   assert.ok(custom.style["--accent-ink"]);
+});
+
+test("get appearance: a failed read falls back to the default look instead of failing the page", async () => {
+  const broken = {
+    db: {
+      select() {
+        throw new Error("database unreachable");
+      },
+    },
+  } as unknown as ServiceContext;
+  assert.deepEqual(await getAppearance(broken), DEFAULT_APPEARANCE);
 });

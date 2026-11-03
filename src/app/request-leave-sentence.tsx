@@ -29,7 +29,7 @@ export function RequestLeaveSentence({ leaveTypes, defaultDate }: { leaveTypes: 
 
 /** A choice set inside the sentence: tinted, underlined in the accent, keyboard focusable. */
 const token =
-  "relative inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-accent/10 px-1.5 text-accent-ink shadow-[inset_0_-2px_0_var(--accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-ink";
+  "relative inline-flex max-w-full items-center gap-1 rounded-md bg-accent/10 px-1.5 text-accent-ink shadow-[inset_0_-2px_0_var(--accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-ink";
 /** The native control fills its token and stays invisible, so the sentence reads as text. */
 const overlay = "absolute inset-0 h-full w-full cursor-pointer opacity-0";
 
@@ -98,8 +98,9 @@ function SentenceFields({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOpti
       </p>
 
       <LeavePreviewLine preview={preview} className="text-base" />
+      {!singleDay && <p className="text-xs text-muted">Half days are for a single date.</p>}
 
-      <details className="group text-sm" open={note !== "" || undefined}>
+      <details className="group text-sm">
         <summary className="w-fit cursor-pointer font-medium text-accent-ink marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink">
           Add a note for your approver
         </summary>
@@ -144,7 +145,7 @@ function DateToken({
     }
   };
   return (
-    <span className={token}>
+    <span className={`${token} whitespace-nowrap`}>
       {value ? formatShortDay(value) : "pick a date"}
       <input
         ref={input}

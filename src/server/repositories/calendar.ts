@@ -107,6 +107,7 @@ export async function listTeamEntries(
       ...entryFields,
       personName: user.name,
       personEmail: user.email,
+      departmentId: user.departmentId,
       departmentName: departments.name,
     })
     .from(leaveRequests)

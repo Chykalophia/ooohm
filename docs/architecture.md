@@ -342,13 +342,17 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 ### Screens
 
 - `/` (dashboard): the request form (the one primary action) with its live preview, the person's balance per
-  active leave type for the current year, and their own requests with a two-step cancel. A decision note shows under approved and declined requests. Defaults: first active leave type by
+  active leave type for the current year, and their own requests with a cancel that can be undone for 8 seconds before it is sent (leaving the page sends it at once). A decision note shows under approved and declined requests. Defaults: first active leave type by
   sort order, the first working day (not a holiday) from today in the company's time zone (`nextWorkingDay`),
   end = start, full day.
-- `/approvals`: pending requests the person can decide (assigned to them; admins see every pending request
-  in the company, each marked with who it is assigned to), earliest dates first, each with Approve / Decline
-  and an optional reason the requester sees either way. At most 100 show at once, with a note giving the full
-  count when there are more. The header links here for managers, admins, and anyone with something
+- `/approvals`: three tabs (`getApprovalTriage`). **Needs you** holds pending requests assigned to the person
+  (for admins, also any with no approver); **Waiting on others**, shown only when it has something, holds the
+  pending requests an admin may decide but that are assigned to someone else; **Settled** lists what the person
+  approved or declined in the last 30 days, read from the audit log, with each request's current status.
+  Pending requests are earliest dates first, each with Approve / Decline, an optional reason the requester sees
+  either way, and one line on who else is off on those dates (the requester's department, or everyone when they
+  have none; the same data the team calendar shows every member). At most 100 show at once, with a note giving
+  the full count when there are more. The header links here for managers, admins, and anyone with something
   currently assigned to them.
 
 ## Balances (M3)

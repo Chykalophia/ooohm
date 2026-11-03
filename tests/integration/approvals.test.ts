@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { isDomainError } from "@/domain/errors";
 import { updateStatusIfCurrent } from "@/server/repositories/leave-requests";
-import { decideLeaveRequest, getApprovalNav, listApprovalInbox } from "@/server/services/approvals";
+import { decideLeaveRequest, getApprovalNav, getApprovalTriage, listApprovalInbox } from "@/server/services/approvals";
 import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
 import { auditFor, eventsFor, seedCompany } from "./fixtures";
@@ -297,4 +297,79 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     assert.deepEqual(await getApprovalNav(ctx, co.people.bo), { visible: false, pending: 0 });
     assert.deepEqual(await getApprovalNav(ctx, co.people.boss), { visible: true, pending: 1 });
   });
+
+  test("triage: Needs you, Waiting on others and Settled, sorted by whose move it is", async () => {
+    const { co, ctx, req } = await pendingRequest();
+    const boReq = await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-16", dayPortion: "full" });
+    const mgrReq = await submitLeaveRequest(ctx, co.people.manager, { leaveTypeId: co.pto, startDate: "2026-11-17", dayPortion: "full" });
+    await decideLeaveRequest(ctx, co.people.manager, { requestId: req.id, decision: "reject", reason: "Launch week" });
+    // The boss overrides the manager on Bo's request; it is the boss's decision, not the manager's.
+    await decideLeaveRequest(ctx, co.people.boss, { requestId: boReq.id, decision: "approve" });
+
+    const manager = await getApprovalTriage(ctx, co.people.manager);
+    assert.deepEqual([manager.needsYou.length, manager.waiting.length], [0, 0]);
+    assert.deepEqual(
+      manager.settled.map((d) => [d.id, d.decision, d.decisionNote]),
+      [[req.id, "rejected", "Launch week"]],
+    );
+
+    const boss = await getApprovalTriage(ctx, co.people.boss);
+    assert.deepEqual(boss.needsYou.map((r) => r.id), [mgrReq.id], "routed to the boss");
+    assert.deepEqual(boss.waiting, []);
+    assert.deepEqual(boss.settled.map((d) => [d.id, d.decision, d.status]), [[boReq.id, "approved", "approved"]]);
+
+    // Pending work assigned to the manager shows the admin as waiting on someone else.
+    const later = await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: co.pto, startDate: "2026-11-23", dayPortion: "full" });
+    const again = await getApprovalTriage(ctx, co.people.boss);
+    assert.deepEqual(again.waiting.map((r) => r.id), [later.id]);
+    assert.equal(again.total, 2);
+
+    // A cancel after the decision shows on Settled as the request's current status.
+    await cancelLeaveRequest(ctx, co.people.bo, boReq.id);
+    const settled = (await getApprovalTriage(ctx, co.people.boss)).settled;
+    assert.deepEqual(settled.map((d) => [d.decision, d.status]), [["approved", "cancelled"]]);
+
+    // Self-approval is recorded as the requester's own decision, but never lists on their Settled.
+    await t.db.update(schema.user).set({ canSelfApprove: true }).where(eq(schema.user.id, co.people.boss.id));
+    await submitLeaveRequest(ctx, co.people.boss, { leaveTypeId: co.pto, startDate: "2026-11-24", dayPortion: "full" });
+    assert.equal((await getApprovalTriage(ctx, co.people.boss)).settled.length, 1);
+  });
+
+  test("triage shows who else is off: the requester's department, or everyone without one", async () => {
+    const co = await seedCompany(t.db, {
+      boss: { role: "admin" },
+      ana: { managerKey: "boss" },
+      bo: { managerKey: "boss" },
+      cy: { managerKey: "boss" },
+    });
+    const ctx = createTestContext(t.db, { now: new Date("2026-11-03T09:00:00Z") });
+    const [design] = await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Design" }).returning();
+    const [sales] = await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Sales" }).returning();
+    await t.db.update(schema.user).set({ departmentId: design.id }).where(eq(schema.user.id, co.people.ana.id));
+    await t.db.update(schema.user).set({ departmentId: design.id }).where(eq(schema.user.id, co.people.bo.id));
+    await t.db.update(schema.user).set({ departmentId: sales.id }).where(eq(schema.user.id, co.people.cy.id));
+
+    const bo = await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-10", endDate: "2026-11-12", dayPortion: "full" });
+    const cy = await submitLeaveRequest(ctx, co.people.cy, { leaveTypeId: co.pto, startDate: "2026-11-11", dayPortion: "full" });
+    const ana = await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: co.pto, startDate: "2026-11-09", endDate: "2026-11-10", dayPortion: "full" });
+    await decideLeaveRequest(ctx, co.people.boss, { requestId: bo.id, decision: "approve" });
+
+    const { needsYou } = await getApprovalTriage(ctx, co.people.boss);
+    const byId = new Map(needsYou.map((r) => [r.id, r]));
+    // Ana (Design) overlaps Bo (Design, approved); Cy is in Sales, so not counted.
+    assert.deepEqual(byId.get(ana.id)?.overlaps, [{ userId: co.people.bo.id, personName: "Bo", leaveTypeName: "PTO", pending: false }]);
+    assert.equal(byId.get(ana.id)?.requesterDepartmentName, "Design");
+    // Cy's Sales colleagues are not off; Bo and Ana are in another department.
+    assert.deepEqual(byId.get(cy.id)?.overlaps, []);
+
+    // Without a department, everyone counts, and pending leave is marked as such.
+    await t.db.update(schema.user).set({ departmentId: null }).where(eq(schema.user.id, co.people.cy.id));
+    const cyAgain = (await getApprovalTriage(ctx, co.people.boss)).needsYou.find((r) => r.id === cy.id);
+    assert.deepEqual(
+      cyAgain?.overlaps.map((o) => [o.personName, o.pending]),
+      [["Bo", false]],
+      "Ana's request ends Nov 10, before Cy's day",
+    );
+  });
 });
+

@@ -1,11 +1,18 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { cancelLeaveAction } from "./actions";
 import { type FormState, IDLE } from "./form-state";
 
+/** How long a cancel can be taken back before it is sent. */
+const UNDO_SECONDS = 8;
+
 /**
- * Two-step cancel, so approved time off is never dropped by a stray click.
+ * Cancel with undo instead of "Are you sure?": a click starts an {@link UNDO_SECONDS}
+ * second countdown with an Undo button, and the cancel is sent only when it ends.
+ * Leaving the page during the countdown sends it at once. If that last send never
+ * arrives (the tab closed mid-request), the request simply stays, which is the safe
+ * way to fail.
  *
  * @param focusAfterCancel Id of a stable element (with `tabIndex={-1}`) that receives
  *   focus after a successful cancel, since this button then disappears with the row's
@@ -17,9 +24,59 @@ export function CancelRequestButton({ requestId, focusAfterCancel }: { requestId
     if (next.status === "success") document.getElementById(focusAfterCancel)?.focus();
     return next;
   }, IDLE);
-  const [confirming, setConfirming] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const undoButton = useRef<HTMLButtonElement>(null);
+  const counting = secondsLeft !== null;
+
+  // Set once the countdown ends one way or another (sent, or undone), so it never sends twice.
+  const settled = useRef(false);
+
+  // The countdown: one tick a second, then the cancel goes out. `settled` is set before
+  // the countdown state clears, so the leave-the-page effect below doesn't send it too.
+  useEffect(() => {
+    if (secondsLeft === null) return;
+    const timer = setTimeout(() => {
+      if (secondsLeft > 1) {
+        setSecondsLeft(secondsLeft - 1);
+        return;
+      }
+      const alreadySent = settled.current;
+      settled.current = true;
+      setSecondsLeft(null);
+      if (!alreadySent) startTransition(() => formAction(cancelData(requestId)));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [secondsLeft, requestId, formAction]);
+
+  // Leaving during the countdown, for another page or by closing the tab, sends the cancel now.
+  useEffect(() => {
+    if (!counting) return;
+    settled.current = false;
+    const sendNow = () => {
+      if (settled.current) return;
+      settled.current = true;
+      void cancelLeaveAction(IDLE, cancelData(requestId));
+    };
+    window.addEventListener("pagehide", sendNow);
+    return () => {
+      window.removeEventListener("pagehide", sendNow);
+      sendNow();
+    };
+  }, [counting, requestId]);
 
   const subtle = "rounded-md text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink";
+
+  const start = () => {
+    setSecondsLeft(UNDO_SECONDS);
+    // The Cancel button is about to go; Undo takes its place and its focus.
+    requestAnimationFrame(() => undoButton.current?.focus());
+  };
+  const undo = () => {
+    settled.current = true;
+    setSecondsLeft(null);
+    requestAnimationFrame(() => cancelButton.current?.focus());
+  };
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-3">
@@ -28,21 +85,30 @@ export function CancelRequestButton({ requestId, focusAfterCancel }: { requestId
           {state.message}
         </span>
       )}
-      {confirming ? (
-        <form action={formAction} className="flex items-center gap-3">
-          <input type="hidden" name="requestId" value={requestId} />
-          <button type="submit" disabled={pending} className={`${subtle} font-medium text-red-700 dark:text-red-400 disabled:opacity-60`}>
-            {pending ? "Cancelling…" : "Yes, cancel it"}
+      {counting ? (
+        <>
+          <span role="status" className="text-sm text-muted">
+            Cancelling<span aria-hidden> in {secondsLeft}s</span>
+          </span>
+          <button ref={undoButton} type="button" onClick={undo} className={`${subtle} font-medium text-accent-ink`}>
+            Undo
           </button>
-          <button type="button" onClick={() => setConfirming(false)} className={`${subtle} text-muted hover:text-foreground`}>
-            Keep it
-          </button>
-        </form>
+        </>
+      ) : pending ? (
+        <span role="status" className="text-sm text-muted">
+          Cancelling…
+        </span>
       ) : (
-        <button type="button" onClick={() => setConfirming(true)} className={`${subtle} text-muted hover:text-foreground`}>
+        <button ref={cancelButton} type="button" onClick={start} className={`${subtle} text-muted hover:text-foreground`}>
           Cancel
         </button>
       )}
     </div>
   );
+}
+
+function cancelData(requestId: string): FormData {
+  const data = new FormData();
+  data.set("requestId", requestId);
+  return data;
 }

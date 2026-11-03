@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { leaveRequests, leaveTypes, user } from "@/db/schema";
+import { auditLog, departments, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 import type { LeaveStatus } from "@/domain/leave-request";
 
@@ -210,8 +210,9 @@ function inboxWhere(scope: InboxScope): SQL | undefined {
 }
 
 /**
- * Pending requests the inbox shows for `scope`, earliest start first, with requester, leave
- * type and assigned approver names joined in: at most `limit` rows, one query.
+ * Pending requests the inbox shows for `scope`, earliest start first, with requester (and
+ * their department), leave type and assigned approver names joined in: at most `limit`
+ * rows, one query.
  */
 export async function listInbox(ex: Executor, scope: InboxScope, limit: number) {
   return ex
@@ -228,12 +229,15 @@ export async function listInbox(ex: Executor, scope: InboxScope, limit: number) 
       requesterId: leaveRequests.userId,
       requesterName: requester.name,
       requesterEmail: requester.email,
+      requesterDepartmentId: requester.departmentId,
+      requesterDepartmentName: departments.name,
       approverId: leaveRequests.approverId,
       approverName: approver.name,
     })
     .from(leaveRequests)
     .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
     .innerJoin(requester, eq(requester.id, leaveRequests.userId))
+    .leftJoin(departments, eq(departments.id, requester.departmentId))
     .leftJoin(approver, eq(approver.id, leaveRequests.approverId))
     .where(inboxWhere(scope))
     .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.createdAt))
@@ -244,4 +248,49 @@ export async function listInbox(ex: Executor, scope: InboxScope, limit: number) 
 export async function countInbox(ex: Executor, scope: InboxScope): Promise<number> {
   const [row] = await ex.select({ n: count() }).from(leaveRequests).where(inboxWhere(scope));
   return row?.n ?? 0;
+}
+
+/** The two audit actions that record a decision on a request. */
+const DECISION_ACTIONS = ["leave_request.approved", "leave_request.rejected"] as const;
+
+/**
+ * Requests `deciderId` approved or declined since `since`, newest decision first, with
+ * the decision as audited and the request as it is now (it may have been cancelled
+ * since). Leaves out the decider's own requests, which self-approval also records as
+ * theirs. At most `limit` rows, one query on `audit_log_company_actor_idx`.
+ */
+export async function listRecentDecisions(ex: Executor, q: { companyId: string; deciderId: string; since: Date }, limit: number) {
+  return ex
+    .select({
+      id: leaveRequests.id,
+      action: auditLog.action,
+      decidedAt: auditLog.createdAt,
+      status: leaveRequests.status,
+      startDate: leaveRequests.startDate,
+      endDate: leaveRequests.endDate,
+      dayPortion: leaveRequests.dayPortion,
+      days: leaveRequests.days,
+      decisionNote: leaveRequests.decisionNote,
+      leaveTypeName: leaveTypes.name,
+      leaveTypeColor: leaveTypes.color,
+      requesterName: requester.name,
+      requesterEmail: requester.email,
+    })
+    .from(auditLog)
+    .innerJoin(leaveRequests, eq(sql`${leaveRequests.id}::text`, auditLog.entityId))
+    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
+    .innerJoin(requester, eq(requester.id, leaveRequests.userId))
+    .where(
+      and(
+        eq(auditLog.companyId, q.companyId),
+        eq(auditLog.actorId, q.deciderId),
+        gte(auditLog.createdAt, q.since),
+        inArray(auditLog.action, [...DECISION_ACTIONS]),
+        eq(auditLog.entityType, "leave_request"),
+        eq(leaveRequests.companyId, q.companyId),
+        ne(leaveRequests.userId, q.deciderId),
+      ),
+    )
+    .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
+    .limit(limit);
 }

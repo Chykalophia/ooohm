@@ -63,7 +63,7 @@ navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these 
 
 | Folder | Holds |
 | --- | --- |
-| `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField`, `SteadyLabel` (text that turns bold without changing width, so navigation never shifts), `DataTable` (a dense table for long records: sticky header, rows that open to their detail), `TableToolbar` (its search, Filters panel and filter chips), `useFilterForm` (the behaviour of every filter form) |
+| `ui/` | Primitives with no domain knowledge: class recipes (`styles.ts`), `Card`, `ItemList`/`Item`, `Section`, `PageHeader`, `BackLink`, labelled fields (`TextField`, `SelectField`, `TextAreaField`, `CheckboxField`, `Fieldset`, `ChoiceChip`), `FilterBar`, `ColorLabel`, `CopyField`, `SteadyLabel` (text that turns bold without changing width, so navigation never shifts), `DataTable` (a dense table for long records: sticky header, rows that open to their detail), `SortableList` (a list reordered by dragging a handle, with mouse, touch or keyboard, saved on drop), `TableToolbar` (its search, Filters panel and filter chips), `useFilterForm` (the behaviour of every filter form) |
 | `forms/` | Forms bound to server actions: `useFormAction` (no automatic reset, so a refused submit keeps what was typed), `useConfirm` (the "ask first" step, with focus moved to the question and back), `ActionForm`, `InlineAction` (a quiet action on a record, optionally confirmed first), `Reveal`, `RevealForm` (a secret shown once), `FormStatus` and `ErrorMessage` |
 | `layout/` | The page frame: `AppPage`, `AppHeader`, `AccountMenu`, `NoCompany`, the logo |
 | `navigation/` | `PillNav`, `MonthNav`, `YearNav`, `Pager`, `PageSizeNav` |
@@ -849,8 +849,10 @@ and reorder. Types are never deleted. Archived types leave the request form (`le
 but history and calendars keep them, and so do balances: an archived type shows (marked "archived") on the
 dashboard, the admin person page and the allowance editor for any year the person has an allowance row or
 approved or pending days of it, so its allowance can still be corrected. The year rollover skips archived types
-(no new-year rows, no carryover into a type nobody can book). A restored type goes last. Reorder moves one place up or down,
-then renumbers the active types 0, 1, 2…; each type that moved writes `leave_type.reordered`. Balance settings
+(no new-year rows, no carryover into a type nobody can book). A restored type goes last. The list is reordered by dragging
+(`SortableList`, below), which saves the whole order at once (`reorderLeaveTypes`): it must name every active type
+exactly once, or it is refused as `conflict` (the list changed since the page loaded) and nothing moves; the active
+types are renumbered 0, 1, 2…, and each type that moved writes `leave_type.reordered`. Balance settings
 (counting against allowance, the default, carryover) take effect for every balance computed from then on: balances
 are computed, not stored. Changing them does not take everyone's member lock: lowering a default can only make a
 remaining go negative, which the M3 rules already allow for a lowered allowance.

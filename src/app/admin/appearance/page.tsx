@@ -5,7 +5,7 @@ import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { ActionForm } from "@/components/forms/action-form";
 import { CheckboxField, SelectField } from "@/components/ui/fields";
-import { card } from "@/components/ui/styles";
+import { card, cx, focusRing } from "@/components/ui/styles";
 import { updateAppearanceAction } from "@/app/admin/appearance/actions";
 
 export const metadata: Metadata = { title: "Appearance · Admin · OOOhm" };
@@ -110,7 +110,7 @@ export default async function AppearancePage() {
                 type="color"
                 name="accentColor"
                 defaultValue={current.accentColor ?? THEMES[current.theme].accent}
-                className="h-9 w-14 cursor-pointer rounded-md border border-border bg-surface p-1"
+                className={cx("h-9 w-14 cursor-pointer rounded-md border border-field bg-surface p-1", focusRing)}
               />
             </div>
           </fieldset>

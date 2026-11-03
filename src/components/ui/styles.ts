@@ -24,12 +24,17 @@ const FIELD_SIZE: Record<FieldSize, string> = {
   sm: "rounded-md px-2.5 py-1.5 text-base sm:text-sm",
 };
 
+/**
+ * A field's edge and focus: a border of at least 3:1 against what surrounds it (WCAG
+ * 1.4.11; `--field-border`, derived per theme), and an accent-ink border and ring while
+ * it (or, for a date input, one of its parts) has focus. Every text field, select and
+ * text area uses it, through {@link fieldClass} or with its own size and colour around it.
+ */
+export const fieldFrame = "border border-field outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20";
+
 /** The classes of a text input or select. */
 export function fieldClass(size: FieldSize = "md"): string {
-  return cx(
-    "w-full border border-border bg-surface outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 aria-[invalid=true]:border-danger",
-    FIELD_SIZE[size],
-  );
+  return cx("w-full bg-surface aria-[invalid=true]:border-danger", fieldFrame, FIELD_SIZE[size]);
 }
 
 export const field = fieldClass("md");
@@ -74,7 +79,7 @@ export const outlineButton = buttonClass("outline", "sm");
 export const dangerOutlineButton = buttonClass("danger");
 
 /** A quiet text action. */
-export const subtleButton = `rounded-md text-sm text-muted hover:text-foreground disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
+export const subtleButton = `inline-flex min-h-6 items-center rounded-md text-sm text-muted hover:text-foreground disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
 
 /** The "Yes, …" of a question that replaces something rather than removing it. */
 export const confirmButton = `rounded-md text-sm font-medium text-foreground hover:underline underline-offset-4 disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
@@ -84,7 +89,7 @@ export const confirmButton = `rounded-md text-sm font-medium text-foreground hov
  * danger background and an underline, so it reads as something to click; the padding is
  * taken back with negative margins, so it sits where plain text would.
  */
-export const dangerButton = `-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 text-sm font-medium ${errorText} underline-offset-4 transition-colors hover:bg-danger-soft hover:text-danger-strong hover:underline disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
+export const dangerButton = `-mx-1.5 -my-0.5 inline-flex min-h-6 items-center rounded-md px-1.5 py-0.5 text-sm font-medium ${errorText} underline-offset-4 transition-colors hover:bg-danger-soft hover:text-danger-strong hover:underline disabled:opacity-60 aria-disabled:opacity-60 ${focusRing}`;
 
 /** A link inside running text. */
 export const textLink = `rounded-md underline-offset-4 hover:underline ${focusRing}`;

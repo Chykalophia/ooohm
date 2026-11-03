@@ -169,6 +169,20 @@ export async function reassignIfCurrent(
 const approver = alias(user, "approver");
 const requester = alias(user, "requester");
 
+/**
+ * Whether the person has time off approved in this company right now, however far back
+ * its dates are. A request that was approved and later cancelled doesn't count: it put
+ * nothing in a calendar.
+ */
+export async function hasApprovedRequest(ex: Executor, companyId: string, userId: string): Promise<boolean> {
+  const [row] = await ex
+    .select({ id: leaveRequests.id })
+    .from(leaveRequests)
+    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId), eq(leaveRequests.status, "approved")))
+    .limit(1);
+  return row !== undefined;
+}
+
 /** The key part values of a `[start_date, created_at, id]` page key. */
 const dateInstantId = ([date, at, id]: string[]) => [sql`${date}::date`, sql`${at}::timestamptz`, sql`${id}::uuid`];
 

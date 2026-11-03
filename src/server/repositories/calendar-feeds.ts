@@ -73,6 +73,16 @@ export async function listLiveFeeds(ex: Executor, userId: string) {
     .orderBy(asc(calendarFeedTokens.createdAt));
 }
 
+/** Whether the person has a live feed issued in this company (one a feed reader can use now). */
+export async function hasLiveFeedIn(ex: Executor, companyId: string, userId: string): Promise<boolean> {
+  const [row] = await ex
+    .select({ id: calendarFeedTokens.id })
+    .from(calendarFeedTokens)
+    .where(and(eq(calendarFeedTokens.companyId, companyId), eq(calendarFeedTokens.userId, userId), isNull(calendarFeedTokens.revokedAt)))
+    .limit(1);
+  return row !== undefined;
+}
+
 /**
  * Revokes the person's live feed of `kind`, if any, and returns it after the change.
  * Matches by person and kind only, like the live-feed unique index, so a link issued

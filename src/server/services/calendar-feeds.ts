@@ -20,12 +20,14 @@ import {
   type CalendarFeedRow,
   findLiveFeedByHash,
   insertFeed,
+  hasLiveFeedIn,
   listLiveFeeds,
   revokeAllLiveFeeds,
   revokeLiveFeed,
   touchFeed,
 } from "@/server/repositories/calendar-feeds";
 import { recordChange } from "@/server/repositories/change-log";
+import { hasApprovedRequest } from "@/server/repositories/leave-requests";
 import { lockMember } from "@/server/repositories/users";
 import { toTeamEntry } from "./calendar";
 import { inTransaction } from "./notify";
@@ -94,6 +96,17 @@ async function asMember<T>(ctx: ServiceContext, actor: Actor, work: (tx: Transac
     if (!member?.isActive) throw new DomainError("forbidden");
     return work(tx);
   });
+}
+
+/**
+ * Whether Home should suggest a calendar link: the person has approved time off in
+ * their company (any dates, not only among the requests Home lists) and has no live
+ * link issued in that company. A link left over from a company they have since left
+ * doesn't count, since it serves nothing here. Two queries.
+ */
+export async function shouldSuggestCalendarFeed(ctx: ServiceContext, actor: Actor): Promise<boolean> {
+  const [approved, linked] = await Promise.all([hasApprovedRequest(ctx.db, actor.companyId, actor.id), hasLiveFeedIn(ctx.db, actor.companyId, actor.id)]);
+  return approved && !linked;
 }
 
 /**

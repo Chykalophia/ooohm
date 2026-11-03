@@ -85,3 +85,18 @@ test("table times: the year only when it differs from now's in the company's zon
   assert.equal(formatInstantDateTime(new Date("2026-11-02T16:42:07Z"), tz), "Nov 2, 2026, 10:42 AM CST");
   assert.equal(formatInstantDate(new Date("2026-11-02T16:42:07Z"), "Asia/Tokyo"), "Nov 3, 2026", "each zone its own formatter");
 });
+
+test("the year-end note lists what won't carry over", async () => {
+  const { formatExpiring } = await import("@/lib/format");
+  assert.equal(formatExpiring([{ name: "PTO", days: 6 }], 2027), "6 days of PTO won’t carry into 2027.");
+  assert.equal(
+    formatExpiring(
+      [
+        { name: "PTO", days: 1 },
+        { name: "Sick", days: 2.5 },
+      ],
+      2027,
+    ),
+    "1 day of PTO and 2.5 days of Sick won’t carry into 2027.",
+  );
+});

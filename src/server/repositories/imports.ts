@@ -72,6 +72,7 @@ export async function insertCompany(
     workingDays: companies.workingDays,
     allowancePolicy: companies.allowancePolicy,
     deletionGrace: companies.deletionGrace,
+    managersSeeDetails: companies.managersSeeDetails,
     theme: companies.theme,
     accentColor: companies.accentColor,
     corners: companies.corners,

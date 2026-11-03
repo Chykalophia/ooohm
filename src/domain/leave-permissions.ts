@@ -49,3 +49,23 @@ export function canDecide(actor: Actor, request: RequestOwnership, currentApprov
   if (request.userId === actor.id) return holdsAssignment && isAdmin(actor);
   return holdsAssignment;
 }
+
+/** Who a team member is, as far as seeing their leave details goes. */
+export interface PersonOwnership {
+  id: string;
+  companyId: string;
+  managerId: string | null;
+}
+
+/**
+ * Whether `actor` may see `person`'s private leave details (balances, the notes on their
+ * requests and their approver's reasons) on the team member page: the person themself,
+ * an admin of their company, or their direct manager while the company allows it
+ * (`companies.managers_see_details`). Everyone else in the company sees only what the
+ * team calendar shows: who is off and when.
+ */
+export function canSeeLeaveDetails(actor: Actor, person: PersonOwnership, managersSeeDetails: boolean): boolean {
+  if (person.companyId !== actor.companyId) return false;
+  if (person.id === actor.id || isAdmin(actor)) return true;
+  return managersSeeDetails && person.managerId === actor.id;
+}

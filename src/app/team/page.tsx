@@ -9,7 +9,7 @@ import { MonthNav } from "@/components/navigation/month-nav";
 import { PillNav } from "@/components/navigation/pill-nav";
 import { Card } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
-import { quietLink } from "@/components/ui/styles";
+import { cx, quietLink, textLink } from "@/components/ui/styles";
 import { departmentParamSchema, monthParamSchema, readParam } from "@/app/_lib/calendar-input";
 import { requireMemberPage } from "@/app/_lib/page-context";
 
@@ -59,7 +59,11 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
             {people.map((person) => (
               <Card as="li" key={person.userId} className="space-y-3">
                 <div className="flex flex-wrap items-baseline gap-x-2">
-                  <h3 className="font-medium break-words">{person.personName}</h3>
+                  <h3 className="font-medium break-words">
+                    <Link href={`/team/${person.userId}`} className={cx(textLink, "hover:text-accent-ink")}>
+                      {person.personName}
+                    </Link>
+                  </h3>
                   {person.departmentName && !department && <p className="text-sm text-muted">{person.departmentName}</p>}
                 </div>
                 <ul className="space-y-2">

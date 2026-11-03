@@ -9,6 +9,7 @@ const companyFields = {
   workingDays: companies.workingDays,
   allowancePolicy: companies.allowancePolicy,
   deletionGrace: companies.deletionGrace,
+  managersSeeDetails: companies.managersSeeDetails,
   theme: companies.theme,
   accentColor: companies.accentColor,
   corners: companies.corners,
@@ -24,6 +25,8 @@ export type CompanyRow = {
   allowancePolicy: string;
   /** Full-scrub deletes wait 7 days, with undo. */
   deletionGrace: boolean;
+  /** Managers see their direct reports' balances and notes on the team member page. */
+  managersSeeDetails: boolean;
   /** Raw stored appearance; read it through `readAppearance`. */
   theme: string;
   accentColor: string | null;
@@ -72,6 +75,7 @@ export async function updateCompany(
     workingDays?: number[];
     allowancePolicy?: string;
     deletionGrace?: boolean;
+    managersSeeDetails?: boolean;
     theme?: string;
     accentColor?: string | null;
     corners?: string;

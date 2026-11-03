@@ -118,3 +118,16 @@ export async function listTeamEntries(ex: Executor, companyId: string, from: str
     )
     .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id));
 }
+
+/**
+ * One person's approved and pending leave touching `from`..`to`, earliest first, with the
+ * days it costs and both notes: the team member page decides which of those it shows.
+ */
+export async function listPersonLeave(ex: Executor, companyId: string, userId: string, from: string, to: string) {
+  return ex
+    .select({ ...entryFields, days: leaveRequests.days, note: leaveRequests.note, decisionNote: leaveRequests.decisionNote })
+    .from(leaveRequests)
+    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
+    .where(and(activeInRange(companyId, from, to), eq(leaveRequests.userId, userId)))
+    .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id));
+}

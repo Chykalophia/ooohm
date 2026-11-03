@@ -24,6 +24,7 @@ function snapshot(row: CompanyRow) {
     workingDays: row.workingDays,
     allowancePolicy: row.allowancePolicy,
     deletionGrace: row.deletionGrace,
+    managersSeeDetails: row.managersSeeDetails,
     ...readAppearance(row),
   };
 }
@@ -95,6 +96,7 @@ export async function updateCompanySettings(
   return commitThenSend(ctx, async (tx) => {
     const { before, after, changed } = await changeCompany(tx, actor, (b) => ({
       deletionGrace: b.deletionGrace,
+      managersSeeDetails: b.managersSeeDetails,
       ...normalizeCompanySettings(input, b.timezone),
     }));
     const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);

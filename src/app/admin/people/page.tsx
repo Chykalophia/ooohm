@@ -19,7 +19,11 @@ import { Pager } from "@/components/navigation/pager";
 
 export const metadata: Metadata = { title: "People · Admin · OOOhm" };
 
-const querySchema = z.string().max(100).catch("");
+// NUL is refused by Postgres in text, so it is dropped rather than turned into an error page.
+const querySchema = z
+  .string()
+  .transform((s) => s.replaceAll("\u0000", "").slice(0, 100))
+  .catch("");
 const noticeSchema = z.enum(["scrubbed", "records_kept", "scheduled", "already_scheduled"]).optional().catch(undefined);
 
 /** What the page says after a delete sent the admin here. */
@@ -83,7 +87,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       </FilterBar>
 
       {people.length === 0 ? (
-        <p className="text-muted">{filtered ? "Nobody matches that filter." : "Nobody here yet."}</p>
+        <p className="text-muted">{list.previous ? "Nobody on this page." : filtered ? "Nobody matches that filter." : "Nobody here yet."}</p>
       ) : (
         <ItemList>
           {people.map((p) => (

@@ -20,7 +20,8 @@ export type FieldSize = "md" | "sm";
 
 const FIELD_SIZE: Record<FieldSize, string> = {
   md: "rounded-lg px-3 py-2",
-  sm: "rounded-md px-2.5 py-1.5 text-sm",
+  // 16px text on phones: iOS Safari zooms the page into any field smaller than that.
+  sm: "rounded-md px-2.5 py-1.5 text-base sm:text-sm",
 };
 
 /** The classes of a text input or select. */

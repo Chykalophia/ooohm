@@ -66,7 +66,7 @@ export default async function HolidaysPage({ searchParams }: { searchParams: Pro
                   ariaLabel={`Delete ${h.name}`}
                   pendingLabel="Deleting…"
                   variant="danger"
-                  confirm={`Delete ${h.name}? Requests on that date will count it as a working day again.`}
+                  confirm={`Delete ${h.name}? Requests on that date, this year and later, may count it as a working day again.`}
                   confirmLabel="Yes, delete"
                 />
               </div>

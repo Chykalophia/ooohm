@@ -104,3 +104,18 @@ test("a stored instant reads as the reader's time when a formatter is given, and
     "From: 2026-11-02",
   ]);
 });
+
+test("only time fields print as times; a note shaped like a time, real or impossible, prints as typed and never throws", () => {
+  const names = {
+    person: () => undefined,
+    department: () => undefined,
+    leaveType: () => undefined,
+    // As the service formats: an impossible date would throw in Intl.
+    instant: (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", hour: "numeric", minute: "2-digit" }).format(new Date(iso)),
+  };
+  assert.deepEqual(
+    describeAuditChange(null, { note: "2026-13-45T99:99:99Z", decisionNote: "2026-11-03T01:43:53.883Z", revokedAt: "2026-11-03T01:43:53.883Z" }, names),
+    ["Note: 2026-13-45T99:99:99Z", "Decision note: 2026-11-03T01:43:53.883Z", "Turned off: 1:43 AM"],
+  );
+  assert.deepEqual(describeAuditChange(null, { revokedAt: "2026-13-45T99:99:99Z" }, names), ["Turned off: 2026-13-45T99:99:99Z"], "an impossible stored time prints as stored");
+});

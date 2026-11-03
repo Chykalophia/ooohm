@@ -101,8 +101,10 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     balance = (await getBalanceSummary(ctx, ana)).items.find((i) => i.leaveTypeId === vac)?.balance;
     assert.ok(balance?.tracked && balance.pending === 0.5);
 
-    // The person can still cancel a 0-day request, and the approver can still decide one.
+    // The approver can still decide a 0-day request, and the person can still cancel it.
     await addHoliday(ctx, boss, { date: "2026-12-24", name: "Christmas Eve" });
+    const decided = await decideLeaveRequest(ctx, boss, { requestId: eve.id, decision: "approve" });
+    assert.deepEqual([decided.status, decided.days], ["approved", 0]);
     await cancelLeaveRequest(ctx, ana, eve.id);
     await rejectsWith(cancelLeaveRequest(ctx, ana, eve.id), "invalid_transition");
   });
@@ -170,6 +172,27 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     assert.deepEqual(await requestDaysOf(t.db, span.id), [{ year: 2026, days: 2 }, { year: 2027, days: 2 }]);
     await ctx.settle();
     assert.equal(ctx.sent.length, 2, "one per request whose total changed; the span's total is still 3");
+  });
+
+  test("a move between years that leaves a year over its balance is emailed, saying the total is the same", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { canSelfApprove: true } });
+    const vac = await addLeaveType(t.db, co.companyId, { code: "VAC", defaultAllowanceDays: 10 });
+    const ctx = createTestContext(t.db);
+    const { boss, ana } = co.people;
+    await setAllowance(t.db, { userId: ana.id, leaveTypeId: vac, year: 2027, days: 1 });
+    // Tue Dec 29, 2026 to Sun Jan 3, 2027: 3 days in 2026, Fri Jan 1 in 2027.
+    const span = await submitLeaveRequest(ctx, ana, { leaveTypeId: vac, startDate: "2026-12-29", endDate: "2027-01-03", dayPortion: "full" });
+    await ctx.settle();
+    ctx.sent.length = 0;
+
+    // Wednesday to Saturday: Tue Dec 29 out, Sat Jan 2 in. Still 4 days, but 2027 now holds 2 of its 1.
+    const { recount } = await updateCompanySettings(ctx, boss, { name: "Acme", timezone: "UTC", allowancePolicy: "annual_calendar_year", workingDays: [3, 4, 5, 6] });
+    assert.deepEqual(await requestDaysOf(t.db, span.id), [{ year: 2026, days: 2 }, { year: 2027, days: 2 }]);
+    assert.deepEqual(recount.overdrawn.map((o) => [o.year, o.over]), [[2027, 1]]);
+    await ctx.settle();
+    assert.equal(ctx.sent.length, 1, "the person hears it, as the admin does");
+    assert.match(ctx.sent[0].text, /still takes 4 days, but some of it now counts in a different year\./);
+    assert.match(ctx.sent[0].text, /This leaves you 1 day over your .+ balance for 2027\./);
   });
 
   test("deleting a holiday counts the day again, keeps an overdrawn request, and says who is over", async () => {
@@ -285,6 +308,21 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     assert.equal(item?.alsoOff, "Victor: Mon, Dec 21 to Tue, Dec 22, 2026; Chrismer: Wed, Dec 23, 2026 (afternoon, pending)", "Later's leave in January isn't listed");
     const chrismersItem = items.find((i) => i.requesterId === chrismer.id);
     assert.equal(chrismersItem?.alsoOff, "Ana: Tue, Dec 22 to Wed, Dec 23, 2026 (pending)", "nobody is listed as off alongside themselves");
+  });
+
+  test("someone whose leave overlaps only on a weekend is not listed as also off, as on the team calendar", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, wen: { canSelfApprove: true }, zed: { managerKey: "boss" }, yan: { managerKey: "boss" } });
+    const ctx = createTestContext(t.db);
+    const { boss, wen, zed, yan } = co.people;
+    // Thu Dec 24 to Sun Dec 27: Wen's working days are Thursday and Friday.
+    await submitLeaveRequest(ctx, wen, { leaveTypeId: co.pto, startDate: "2026-12-24", endDate: "2026-12-27", dayPortion: "full" });
+    // Sat Dec 26 to Mon Dec 28 overlaps Wen's only on the weekend.
+    const weekendOnly = await submitLeaveRequest(ctx, zed, { leaveTypeId: co.pto, startDate: "2026-12-26", endDate: "2026-12-28", dayPortion: "full" });
+    // Fri Dec 25 overlaps Wen's Friday, a working day (and not Zed's leave).
+    const workingDay = await submitLeaveRequest(ctx, yan, { leaveTypeId: co.pto, startDate: "2026-12-25", dayPortion: "full" });
+    const { items } = await listApprovalInbox(ctx, boss);
+    assert.equal(items.find((i) => i.id === weekendOnly.id)?.alsoOff, null);
+    assert.match(items.find((i) => i.id === workingDay.id)?.alsoOff ?? "", /^Wen: [^;]+$/);
   });
 
   test("each balance a recount pushes over is reported once, and untracked types never are", async () => {

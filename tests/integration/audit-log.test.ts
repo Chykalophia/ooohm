@@ -180,7 +180,10 @@ describe("admin: audit log viewer", { skip }, () => {
     assert.equal(newest.ids.length, 60);
     assert.deepEqual([newest.pages, newest.size], [3, 25]);
     assert.deepEqual([(await all({ size: 50 })).pages, (await all({ size: 100 })).pages], [2, 1]);
-    for (const size of [0, 7, 1000, Number.NaN]) assert.deepEqual([(await all({ size })).size], [25], String(size));
+    for (const size of [0, 7, 1000, Number.NaN]) {
+      const r = await all({ size });
+      assert.deepEqual([r.pages, r.ids.length, r.size], [3, 60, 25], `${size} reads 25 a page`);
+    }
   });
 
   test("search: every word must match the change's name, who made it or who it is about; filters still apply", async () => {
@@ -198,7 +201,7 @@ describe("admin: audit log viewer", { skip }, () => {
       row("leave_request.rejected", boss.id, ana.id, 1),
       row("leave_request.rejected", boss.id, ben.id, 2),
       row("leave_request.approved", boss.id, ana.id, 3),
-      row("leave_request.created", ana.id, ana.id, 4),
+      row("leave_request.requested", ana.id, ana.id, 4),
       row("holiday.created", boss.id, null, 5),
     ]);
     const found = async (filter: Parameters<typeof getAuditLog>[2]) =>
@@ -212,6 +215,7 @@ describe("admin: audit log viewer", { skip }, () => {
     assert.deepEqual(await found({ query: "  ben  " }), [["leave_request.rejected", "Ben"]]);
     assert.equal((await found({ query: "boss" })).length, 4, "as the one who made the change");
     assert.deepEqual(await found({ query: "ana nobody-by-this-name" }), [], "a word matching nothing finds nothing");
+    assert.deepEqual(await found({ query: "request" }), [["leave_request.requested", "Ana"]], "labels only: 'request' is in every leave_request key, not in 'Leave declined'");
     assert.deepEqual(await found({ query: "ana", action: "leave_request.approved" }), [["leave_request.approved", "Ana"]], "with a filter");
     const log = await getAuditLog(ctx, boss, { query: "  Declined   ana " });
     assert.equal(log.filters.query, "Declined ana", "the search as shown back, spaces tidied");
@@ -229,10 +233,12 @@ describe("admin: audit log viewer", { skip }, () => {
       "",
       encodePageKey(["2026-10-01T12:00:00.123456Z"]),
       encodePageKey(["2026-10-01T12:00:00.123456Z", "not-a-uuid"]),
+      encodePageKey(["0000-01-01T00:00:00.000000Z", id]),
       ...["2026-99-99T99:99:99.000000Z", "2026-02-30T12:00:00.000000Z", "2026-10-01T24:00:00.000000Z", "2026-10-01T12:60:00.000000Z"].map((at) =>
         encodePageKey([at, id]),
       ),
     ];
+    assert.equal((await getAuditLog(ctx, co.people.boss, { actorId: "x\u0000" })).entries[0]?.id, first, "a NUL person filter is ignored");
     for (const token of forged) {
       for (const direction of ["after", "before"] as const) {
         const page = await getAuditLog(ctx, co.people.boss, { page: { direction, token } });

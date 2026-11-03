@@ -117,6 +117,8 @@ describe("readPage", () => {
       encodePageKey([]),
       encodePageKey(["a", "b"]),
       encodePageKey(["x".repeat(11)]),
+      encodePageKey(["a\u0000"]),
+      "WzFd",
       "a".repeat(4_001),
     ]) {
       for (const direction of ["after", "before"] as const) {
@@ -146,6 +148,7 @@ describe("page keys", () => {
       "2026-02-30T12:00:00.000000Z",
       "2026-10-01T24:00:00.000000Z",
       "2027-02-29T00:00:00.000000Z",
+      "0000-01-01T00:00:00.000000Z",
     ]) {
       assert.equal(isCursorInstant(bad), false, bad);
     }

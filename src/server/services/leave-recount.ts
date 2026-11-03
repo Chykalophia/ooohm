@@ -147,19 +147,23 @@ export async function recountLeave(
   const outgoing: DeferredEmail[] = [];
   for (const { before, after, grew } of changed) {
     const person = people.get(after.userId);
-    // A move between years alone (same total) changes no one's plans: audited, not emailed.
-    if (!person?.isActive || after.days === before.days) continue;
+    if (!person?.isActive) continue;
     const typeName = typeById.get(after.leaveTypeId)?.name ?? "Leave";
-    const over = overdrawn.find(
+    // Every year this request grew into that is now over: a request across New Year can
+    // overdraw both.
+    const overs = overdrawn.filter(
       (o) => o.userId === after.userId && o.leaveTypeId === after.leaveTypeId && grew.some((g) => g.year === o.year),
     );
+    // A move between years alone (same total) changes no one's plans, unless it leaves
+    // them over a balance: then they hear it, as the admin does.
+    if (after.days === before.days && overs.length === 0) continue;
     const email = {
       kind: "recounted" as const,
       recipientName: person.name,
       leave: summarize(after, person, typeName),
       previousDays: before.days,
       cause: causeFor(change, after),
-      overdrawn: over ? `${formatDays(over.over)} over your ${typeName} balance for ${over.year}` : null,
+      overdrawn: overs.length > 0 ? overs.map((o) => `${formatDays(o.over)} over your ${typeName} balance for ${o.year}`).join(" and ") : null,
       link: `${ctx.appUrl}/`,
     };
     outgoing.push({

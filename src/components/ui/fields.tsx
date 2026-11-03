@@ -28,15 +28,19 @@ function Hint({ id, children }: { id: string; children?: React.ReactNode }) {
   );
 }
 
-/** The label above a control and the hint below it; `control` receives the ids to use. */
+/**
+ * The label above a control and the hint below it; `control` receives the ids to use.
+ * `describedBy` (the caller's own `aria-describedby`) is kept beside the hint's id.
+ */
 function FieldShell({
   label,
   hint,
   optional,
   className,
   size = "md",
+  describedBy: own,
   control,
-}: FieldProps & { control: (ids: { id: string; describedBy: string | undefined }) => React.ReactNode }) {
+}: FieldProps & { describedBy?: string; control: (ids: { id: string; describedBy: string | undefined }) => React.ReactNode }) {
   const id = useId();
   return (
     <div className={cx(size === "sm" ? "space-y-1" : "space-y-1.5", className)}>
@@ -44,7 +48,7 @@ function FieldShell({
         {label}
         {optional && <span className="font-normal text-muted"> (optional)</span>}
       </label>
-      {control({ id, describedBy: hint ? `${id}-hint` : undefined })}
+      {control({ id, describedBy: [hint ? `${id}-hint` : undefined, own].filter(Boolean).join(" ") || undefined })}
       <Hint id={`${id}-hint`}>{hint}</Hint>
     </div>
   );
@@ -60,6 +64,7 @@ export function TextField({ label, hint, optional, className, size, ...input }: 
       optional={optional}
       className={className}
       size={size}
+      describedBy={input["aria-describedby"]}
       control={({ id, describedBy }) => <input {...input} id={id} aria-describedby={describedBy} className={fieldClass(size)} />}
     />
   );
@@ -71,13 +76,14 @@ export function TextAreaField({
   optional,
   className,
   ...textarea
-}: Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "id" | "className"> & FieldProps) {
+}: Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "id" | "className"> & Omit<FieldProps, "size">) {
   return (
     <FieldShell
       label={label}
       hint={hint}
       optional={optional}
       className={className}
+      describedBy={textarea["aria-describedby"]}
       control={({ id, describedBy }) => <textarea {...textarea} id={id} aria-describedby={describedBy} className={cx(field, "resize-y")} />}
     />
   );
@@ -104,6 +110,7 @@ export function SelectField({
       optional={optional}
       className={className}
       size={size}
+      describedBy={select["aria-describedby"]}
       control={({ id, describedBy }) => (
         <select {...select} id={id} aria-describedby={describedBy} className={fieldClass(size)}>
           {options.map((o) => (
@@ -122,7 +129,13 @@ export function CheckboxField({ label, hint, ...input }: Omit<InputProps, "type"
   const id = useId();
   return (
     <div className="flex items-start gap-3">
-      <input {...input} id={id} type="checkbox" aria-describedby={hint ? `${id}-hint` : undefined} className={cx("mt-1", nativeCheck)} />
+      <input
+        {...input}
+        id={id}
+        type="checkbox"
+        aria-describedby={[hint ? `${id}-hint` : undefined, input["aria-describedby"]].filter(Boolean).join(" ") || undefined}
+        className={cx("mt-1", nativeCheck)}
+      />
       <div className="space-y-0.5">
         <label htmlFor={id} className="block cursor-pointer text-sm font-medium">
           {label}

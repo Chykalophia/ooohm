@@ -25,6 +25,21 @@ export async function findLeaveRequest(ex: Executor, companyId: string, id: stri
 }
 
 /**
+ * {@link findLeaveRequest}, holding the row `FOR UPDATE` until commit: for a change whose
+ * audit row records the request before it. A recount that holds the row is waited for,
+ * so "before" shows its days rather than the ones it replaced (the change's own update
+ * would wait on the same lock anyway; this takes it before the read instead of after).
+ */
+export async function lockLeaveRequest(tx: Transaction, companyId: string, id: string) {
+  const [row] = await tx
+    .select()
+    .from(leaveRequests)
+    .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId)))
+    .for("update");
+  return row;
+}
+
+/**
  * How many requests, in any status, the person created in the last `minutes`,
  * measured on the database clock that also stamps `created_at`.
  */
@@ -295,5 +310,7 @@ export async function updateRequestDays(tx: Transaction, companyId: string, id: 
     .set({ days })
     .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId)))
     .returning();
+  // The caller locked the row earlier in this transaction, so it is there; fail loudly if not.
+  if (!row) throw new Error(`leave request ${id} missing while its days were updated`);
   return row;
 }

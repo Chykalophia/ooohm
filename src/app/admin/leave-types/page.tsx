@@ -71,6 +71,7 @@ export default async function LeaveTypesPage() {
                     action={moveLeaveTypeAction}
                     fields={{ id: t.id, direction: "up" }}
                     label="↑ Up"
+                    variant="compact"
                     ariaLabel={`Move ${t.name} up`}
                     pendingLabel="Moving…"
                     showSuccess={false}
@@ -81,6 +82,7 @@ export default async function LeaveTypesPage() {
                     action={moveLeaveTypeAction}
                     fields={{ id: t.id, direction: "down" }}
                     label="↓ Down"
+                    variant="compact"
                     ariaLabel={`Move ${t.name} down`}
                     pendingLabel="Moving…"
                     showSuccess={false}

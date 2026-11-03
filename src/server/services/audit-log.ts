@@ -54,7 +54,8 @@ export interface AuditLogFilter {
 /** An audit page's key: `[created_at, id]`. */
 const AUDIT_KEY = [isCursorInstant, isUuid] as const;
 
-const personId = (v: string | undefined) => (v && v.length <= 100 ? v : undefined);
+/** A person id from a link, or nothing: never longer than an id, never with NUL (Postgres refuses it in text). */
+const personId = (v: string | undefined) => (v && v.length <= 100 && !v.includes("\u0000") ? v : undefined);
 
 /** One row as the viewer shows it. */
 export interface AuditLogEntry {
@@ -138,7 +139,10 @@ const AUDIT_SEARCH_MAX_WORDS = 5;
  * What a search matches, word by word: for each word, the actions whose label contains
  * it and the people (deleted ones included, as their rows still name them) whose name or
  * email does. A row matches when every word matches its action, who made it or who it
- * is about, so "declined ana" finds Ana's declined requests. Case-insensitive.
+ * is about, so "declined ana" finds Ana's declined requests. Case-insensitive. Only what
+ * the viewer shows is matched: an action's label, never its key ("request" is in every
+ * `leave_request.*` key but not in "Leave approved"). Like the "Done by" filter, the
+ * admin who asked for a system run is not matched as its maker.
  * `undefined` for an empty search.
  */
 function searchFor(raw: string | undefined, people: readonly { id: string; name: string; email: string }[]) {
@@ -151,7 +155,7 @@ function searchFor(raw: string | undefined, people: readonly { id: string; name:
       const has = (value: string) => value.toLowerCase().includes(word);
       return {
         actions: Object.entries(AUDIT_ACTION_LABELS)
-          .filter(([action, label]) => has(label) || has(action))
+          .filter(([, label]) => has(label))
           .map(([action]) => action),
         people: people.filter((p) => has(personLabel(p)) || has(p.email)).map((p) => p.id),
       };

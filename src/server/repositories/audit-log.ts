@@ -24,7 +24,7 @@ export interface AuditQuery {
    * its `people`; it must match every word. A word that matched nothing means no rows.
    */
   search?: readonly { actions: readonly string[]; people: readonly string[] }[];
-  /** The page: after or before a `[created_at, id]` key (`created_at` as {@link cursorInstant} prints it); the newest when absent. */
+  /** The page: after or before a `[created_at, id]` key (`created_at` as {@link cursorInstant} prints it); the first page (the newest, or the oldest with `oldestFirst`) when absent. */
   page?: PageRequest;
 }
 
@@ -50,6 +50,10 @@ const requester = alias(user, "requester");
  *
  * Each row carries its own cursor, `created_at` printed in UTC to the microsecond: a JS
  * `Date` keeps only milliseconds, which would skip or repeat rows written in the same one.
+  *
+ * A search is not read in index order: its rows match one of several ids on any of three
+ * columns, so Postgres reads every match and sorts them (or walks the company index and
+ * filters). Fine at a small company's size; `tests/e2e/explain-queries.mts` shows the plan.
  */
 export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) {
   const dayStart = (date: string) => sql`(${date}::date::timestamp at time zone ${q.timezone})`;

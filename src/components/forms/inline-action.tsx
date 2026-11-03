@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { dangerButton, outlineButton, primaryButton, subtleButton } from "@/components/ui/styles";
+import { cx, dangerButton, outlineButton, primaryButton, subtleButton } from "@/components/ui/styles";
 import type { FormAction } from "./action-form";
 import { IDLE } from "./form-state";
+import { KeepIt } from "./keep-it";
 import { FormStatus } from "./form-status";
 import { useConfirm } from "./use-confirm";
 import { useFormAction } from "./use-form-action";
@@ -11,6 +12,8 @@ import { useFormAction } from "./use-form-action";
 const VARIANT = {
   /** A quiet text action (the default). */
   subtle: subtleButton,
+  /** A quiet action set close to others (↑ Up ↓ Down), padded to a comfortable target. */
+  compact: cx(subtleButton, "px-2 py-1"),
   /** A quiet text action that removes or switches something off. */
   danger: dangerButton,
   outline: outlineButton,
@@ -118,11 +121,7 @@ export function InlineAction({
             >
               {pending ? pendingLabel : confirm ? (confirmLabel ?? "Yes") : label}
             </button>
-            {confirm && (
-              <button type="button" onClick={back} className={subtleButton}>
-                Keep it
-              </button>
-            )}
+            {confirm && <KeepIt pending={pending} onBack={back} />}
           </div>
         </form>
       )}

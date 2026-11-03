@@ -27,7 +27,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       {items.length === 0 ? (
         <>
           {/* A later page emptied by deciding what was on it: the earlier pages still wait. */}
-          <p className="text-muted">{inbox.previous ? "Everything on this page is decided." : "Nothing is waiting for you."}</p>
+          <p className="text-muted">{inbox.previous ? "Nothing on this page is waiting for you now." : "Nothing is waiting for you."}</p>
           <Pager label="Approvals pages" links={pager} />
         </>
       ) : (
@@ -47,7 +47,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                     {r.approverId !== actor.id && ` · Assigned to ${r.approverName || "someone else"}`}
                   </p>
                   {r.note && <p className="text-sm break-words">{r.note}</p>}
-                  {r.alsoOff && <p className="text-sm text-muted">Also off then: {r.alsoOff}</p>}
+                  {r.alsoOff && <p className="text-sm text-muted break-words">Also off then: {r.alsoOff}</p>}
                 </div>
                 <DecisionForm requestId={r.id} />
               </Card>

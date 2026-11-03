@@ -217,6 +217,20 @@ export interface AuditNames {
 /** An instant as snapshots store it: `Date#toISOString()`. */
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
+/**
+ * Whether a snapshot field holds an instant (`revokedAt`, `scheduledFor`). Only those are
+ * printed as times: free text (a note, a name) prints as typed, even when someone types
+ * something shaped like a time.
+ */
+function isInstantField(field: string): boolean {
+  return /[a-z]At$/.test(field) || field === "scheduledFor";
+}
+
+/** A stored instant that is a real moment (`2026-13-45T…` matches the shape but is not). */
+function isInstant(value: string): boolean {
+  return ISO_INSTANT.test(value) && !Number.isNaN(Date.parse(value));
+}
+
 const PERSON_FIELDS = new Set(["managerId", "approverId", "userId", "actorId", "previousApproverId", "timeoffApproverId"]);
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -235,7 +249,7 @@ export function formatAuditValue(field: string, value: unknown, names: AuditName
     if (PERSON_FIELDS.has(field)) return names.person(value) ?? "someone else";
     if (field === "departmentId") return names.department(value) ?? "a deleted department";
     if (field === "leaveTypeId") return names.leaveType(value) ?? "another leave type";
-    if (names.instant && ISO_INSTANT.test(value)) return names.instant(value);
+    if (names.instant && isInstantField(field) && isInstant(value)) return names.instant(value);
     return value;
   }
   if (field === "workingDays" && Array.isArray(value)) {

@@ -3,7 +3,14 @@ import { test } from "node:test";
 import { byUser } from "@/domain/change-source";
 import { LEAVE_EVENT_TYPES, leaveAuditAction, leaveEventPayload } from "@/domain/events";
 import { todayInTimeZone } from "@/lib/dates";
-import { formatDays, formatLeaveDates } from "@/lib/format";
+import {
+  formatDays,
+  formatInstantDate,
+  formatInstantDateTime,
+  formatInstantFull,
+  formatInstantShort,
+  formatLeaveDates,
+} from "@/lib/format";
 
 test("formats single days, ranges, cross-year ranges and half days", () => {
   assert.equal(formatLeaveDates("2026-11-02", "2026-11-02"), "Mon, Nov 2, 2026");
@@ -65,4 +72,16 @@ test("event names and payload shape are the public contract", () => {
     actorId: "u1",
     actor: { type: "user", id: "u1" },
   });
+});
+
+test("table times: the year only when it differs from now's in the company's zone, and the full record to the second", () => {
+  const tz = "America/Chicago";
+  const now = new Date("2026-11-02T18:00:00Z");
+  assert.equal(formatInstantShort(new Date("2026-11-02T16:42:00Z"), tz, now), "Nov 2, 10:42 AM");
+  assert.equal(formatInstantShort(new Date("2025-12-30T22:05:00Z"), tz, now), "Dec 30, 2025, 4:05 PM");
+  // 03:00 UTC on New Year's Day is still Dec 31, 2025 in Chicago; now is already 2026 there.
+  assert.equal(formatInstantShort(new Date("2026-01-01T03:00:00Z"), tz, new Date("2026-01-01T12:00:00Z")), "Dec 31, 2025, 9:00 PM");
+  assert.equal(formatInstantFull(new Date("2026-11-02T16:42:07Z"), tz), "Nov 2, 2026, 10:42:07 AM CST");
+  assert.equal(formatInstantDateTime(new Date("2026-11-02T16:42:07Z"), tz), "Nov 2, 2026, 10:42 AM CST");
+  assert.equal(formatInstantDate(new Date("2026-11-02T16:42:07Z"), "Asia/Tokyo"), "Nov 3, 2026", "each zone its own formatter");
 });

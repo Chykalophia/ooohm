@@ -23,8 +23,8 @@ export function useFormAction<S>(action: StateAction<S>, initial: Awaited<S>) {
     // Buttons say they are busy with aria-disabled rather than disabled: a disabled button
     // drops keyboard focus to the page body. So a second submit is refused here instead.
     if (pending) return;
-    const submitter = (e.nativeEvent as SubmitEvent).submitter;
-    const data = new FormData(e.currentTarget, submitter instanceof HTMLButtonElement ? submitter : null);
+    // The submit control that was used (a button or an input), so its name and value go along.
+    const data = new FormData(e.currentTarget, (e.nativeEvent as SubmitEvent).submitter ?? null);
     startTransition(() => dispatch(data));
   };
   return { state, dispatch, pending, onSubmit };

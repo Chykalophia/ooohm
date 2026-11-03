@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { formatExpiring } from "@/lib/format";
+import { shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
 import { getDashboard } from "@/server/services/leave-requests";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
@@ -6,6 +8,7 @@ import { BalanceSummary } from "@/components/leave/balance-summary";
 import { Section } from "@/components/ui/section";
 import { quietLink } from "@/components/ui/styles";
 import { requireMemberPage } from "./_lib/page-context";
+import { HomeHint } from "./home-hint";
 import { RequestLeaveForm } from "./request-leave-form";
 import { RequestList } from "./requests/request-list";
 
@@ -17,7 +20,8 @@ export default async function HomePage() {
   if (!page.actor) return <NoCompany nav={page.nav} current="home" />;
 
   const { actor } = page;
-  const dashboard = await getDashboard(page.ctx, actor);
+  // Once someone has approved time off, suggest putting it in their own calendar, until they have.
+  const [dashboard, suggestFeed] = await Promise.all([getDashboard(page.ctx, actor), shouldSuggestCalendarFeed(page.ctx, actor)]);
 
   return (
     <AppPage nav={page.nav} current="home" title="Your time off" titleHidden className="space-y-10">
@@ -25,6 +29,15 @@ export default async function HomePage() {
         <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
       ) : (
         <RequestLeaveForm leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+      )}
+
+      {dashboard.expiring.length > 0 && dashboard.balances && (
+        <HomeHint
+          storageKey={`ooohm:${actor.companyId}:${actor.id}:expiring:${dashboard.balances.year}`}
+          link={{ href: "/calendar", label: "Pick days" }}
+        >
+          {formatExpiring(dashboard.expiring, dashboard.balances.year + 1)} Book them by December 31.
+        </HomeHint>
       )}
 
       <BalanceSummary summary={dashboard.balances} />
@@ -41,6 +54,14 @@ export default async function HomePage() {
           )
         }
       >
+        {suggestFeed && (
+          <HomeHint
+            storageKey={`ooohm:${actor.companyId}:${actor.id}:calendar-feed`}
+            link={{ href: "/calendar/subscriptions", label: "Add to my calendar" }}
+          >
+            Put your time off in Google Calendar, Apple Calendar or Outlook, and keep it up to date there.
+          </HomeHint>
+        )}
         {dashboard.requests.length === 0 ? (
           <p className="text-muted">Nothing yet. Your requests will show up here.</p>
         ) : (

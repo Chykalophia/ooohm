@@ -428,6 +428,18 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   active leave type for the current year, and their latest five requests (with a link to all of them). Defaults: first active leave type by
   sort order, the first working day (not a holiday) from today in the company's time zone (`nextWorkingDay`),
   end = start, full day.
+  From November 1 (company time zone) a quiet note names the days of the main leave type (the first active one,
+  the form's default) that will not carry into next year (what is left minus what carryover keeps), once per
+  year per browser. Only that type, so nobody is told to use up sick days. After
+  the person's first approved request, a note suggests adding their time off to their own calendar until they
+  have a live calendar link in this company (`shouldSuggestCalendarFeed`). Both are dismissed with "Got it",
+  kept in `localStorage` under a key that names the person and company. (The expiry reminder is
+  on Home rather than by email: the worker that runs daily jobs holds no SMTP settings.)
+- Shortcuts: ⌘K (Ctrl+K) on any page for members of a company opens a "Go to" list of the screens the person
+  can reach (`JumpMenu`, from the header). On Approvals, J and K move between requests, A approves the focused one, and D
+  moves to its reason so Enter declines (`approvals/approval-keys.tsx`); with no request in focus yet, the first of these
+  keys focuses the first request. None of them shows until a key is pressed, and they are ignored while typing
+  and with Shift, Alt, Ctrl or ⌘ held (⌘K/Ctrl+K aside).
 - `/requests` ("Your requests", in the account menu): every request the person has sent, latest dates first, ten a
   page. Each is a card (`RequestCard`, shared with the dashboard) that opens `/requests/[id]`; the whole card is the
   link (its dates, stretched over it) and lifts on hover. While a request can be cancelled (pending or approved,

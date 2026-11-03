@@ -264,3 +264,13 @@ export function formatRecountOutcome(outcome: {
   }
   return parts.join(" ");
 }
+
+/**
+ * The year-end note: "6 days of PTO won’t carry into 2027." or "6 days of PTO and 2
+ * days of Sick won’t carry into 2027."
+ */
+export function formatExpiring(items: readonly { name: string; days: number }[], nextYear: number): string {
+  const parts = items.map((i) => `${formatDays(i.days)} of ${i.name}`);
+  const list = parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+  return `${list} won’t carry into ${nextYear}.`;
+}

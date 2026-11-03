@@ -11,6 +11,7 @@ import { ColorLabel } from "@/components/ui/color-label";
 import { cx, surface } from "@/components/ui/styles";
 import { requireMemberPage } from "@/app/_lib/page-context";
 import { listHref, pagerLinks, readPageParams } from "@/app/_lib/paging";
+import { ApprovalKeys } from "./approval-keys";
 import { DecisionForm } from "./decision-form";
 
 export const metadata: Metadata = { title: "Approvals · OOOhm" };
@@ -72,8 +73,17 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
             </p>
           ) : (
             <ul className="space-y-4">
+              {/* J and K move between these, A approves, D starts a decline. */}
+              <ApprovalKeys />
               {triage.items.map((r) => (
-                <Card as="li" key={r.id} className="space-y-4">
+                <Card
+                  as="li"
+                  key={r.id}
+                  data-approval
+                  tabIndex={-1}
+                  aria-label={`Request from ${r.requesterName || r.requesterEmail}, ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
+                  className="space-y-4 outline-none focus:ring-2 focus:ring-accent-ink/40"
+                >
                   <div className="space-y-1">
                     <p className="font-medium break-words">
                       {r.requesterName || r.requesterEmail}

@@ -15,7 +15,9 @@ test("appearance: known themes and corners pass, the accent is normalized or cle
     accentColor: "#c4220f",
     corners: "square",
     requestStyle: "form",
+    layout: "standard",
   });
+  assert.equal(normalizeAppearance({ theme: "plum", corners: "theme", layout: "compact" }).layout, "compact");
   assert.equal(normalizeAppearance({ theme: "plum", corners: "theme", requestStyle: "sentence" }).requestStyle, "sentence");
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: "#abc", corners: "theme" }).accentColor, "#aabbcc");
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: "  ", corners: "theme" }).accentColor, null);
@@ -35,19 +37,24 @@ test("appearance: unknown themes, corners and colours are refused", () => {
   invalid(() => normalizeAppearance({ theme: "classic", corners: "theme", accentColor: "teal" }));
   invalid(() => normalizeAppearance({ theme: "classic", corners: "theme", accentColor: "#12345" }));
   invalid(() => normalizeAppearance({ theme: "classic", corners: "theme", requestStyle: "wizard" }));
+  invalid(() => normalizeAppearance({ theme: "classic", corners: "theme", layout: "toString" }));
 });
 
 test("appearance: a stored value this version does not know falls back instead of failing", () => {
-  assert.deepEqual(readAppearance({ theme: "from-the-future", accentColor: "nope", corners: "theme", requestStyle: "voice" }), DEFAULT_APPEARANCE);
-  assert.deepEqual(readAppearance({ theme: "forest", accentColor: "#zzz", corners: "round", requestStyle: "sentence" }), {
+  assert.deepEqual(
+    readAppearance({ theme: "from-the-future", accentColor: "nope", corners: "theme", requestStyle: "voice", layout: "holo" }),
+    DEFAULT_APPEARANCE,
+  );
+  assert.deepEqual(readAppearance({ theme: "forest", accentColor: "#zzz", corners: "round", requestStyle: "sentence", layout: "legible" }), {
     theme: "forest",
     accentColor: null,
     corners: "round",
     requestStyle: "sentence",
+    layout: "legible",
   });
   assert.deepEqual(
-    readAppearance({ theme: "from-the-future", accentColor: "#F2A900", corners: "wobbly", requestStyle: "form" }),
-    { theme: "classic", accentColor: "#f2a900", corners: "theme", requestStyle: "form" },
+    readAppearance({ theme: "from-the-future", accentColor: "#F2A900", corners: "wobbly", requestStyle: "form", layout: "standard" }),
+    { theme: "classic", accentColor: "#f2a900", corners: "theme", requestStyle: "form", layout: "standard" },
     "an unknown theme or corner style keeps a valid accent",
   );
 });
@@ -71,6 +78,8 @@ test("accent tokens: text on the fill and accent-coloured text both stay readabl
 
 test("html appearance: attributes for the stylesheet, accent tokens only when customised", () => {
   assert.deepEqual(htmlAppearance(DEFAULT_APPEARANCE), { attributes: { "data-ui": "classic", "data-scheme": "auto" }, style: {} });
+  assert.equal(htmlAppearance({ ...DEFAULT_APPEARANCE, layout: "compact" }).attributes["data-layout"], "compact");
+  assert.equal(htmlAppearance(DEFAULT_APPEARANCE).attributes["data-layout"], undefined);
   const custom = htmlAppearance({ theme: "graphite", accentColor: "#f2a900", corners: "round" });
   assert.deepEqual(custom.attributes, { "data-ui": "graphite", "data-corners": "round" });
   assert.equal(custom.style["--accent"], "#f2a900");

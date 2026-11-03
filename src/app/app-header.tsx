@@ -38,11 +38,11 @@ export function AppHeader({
   admin?: boolean;
 }) {
   return (
-    <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
+    <header className="app-header mb-10 flex flex-wrap items-center justify-between gap-4">
       <Link href="/" className={`rounded-md ${focusRing}`}>
         <Logo />
       </Link>
-      <nav aria-label="Main" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+      <nav aria-label="Main" className="app-nav flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         {member && (
           <>
             <NavLink href="/calendar" active={current === "calendar"}>

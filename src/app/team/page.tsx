@@ -42,7 +42,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   const departmentId = department?.id ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
+    <div className="app-page mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       <AppHeader userName={userName} approvals={approvals} current="team" admin={canAdminister(actor)} />
 
       <main className="space-y-6">

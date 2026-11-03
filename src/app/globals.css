@@ -353,3 +353,124 @@ body,
   border-radius: var(--button-radius);
   box-shadow: var(--button-shadow);
 }
+
+/*
+ * Layout trials (Admin → Appearance → Layout), set as `data-layout` on <html>. They
+ * reshape the same markup by role, like the theme rules above: `.app-page` is a screen's
+ * column, `.app-header` / `.app-nav` the top bar, cards the `rounded-2xl` panels, the main
+ * action an accent button. Colours always come from the theme. Standard sets nothing.
+ */
+
+/* Tonal (after Material 3): soft filled cards, big numbers, a large pill main action. */
+[data-layout="tonal"] .rounded-2xl.border {
+  border-color: transparent;
+  background-color: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  /* Grey text on the tint keeps 4.5:1. */
+  --muted: color-mix(in srgb, var(--muted) 78%, var(--foreground));
+}
+[data-layout="tonal"] :is(button, a).bg-accent {
+  min-height: 3.25rem;
+  padding-inline: 1.75rem;
+  border-radius: 9999px;
+  font-size: 1rem;
+}
+[data-layout="tonal"] .text-2xl.tabular-nums {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+[data-layout="tonal"] .app-page h1 {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+/* Grouped (after Apple's HIG): large titles, inset groups without borders on a grey ground, quiet section labels. */
+[data-layout="grouped"][data-ui] {
+  --background: color-mix(in srgb, var(--foreground) 6%, var(--surface));
+  /* Grey text on the darker ground keeps 4.5:1. */
+  --muted: color-mix(in srgb, var(--muted) 80%, var(--foreground));
+}
+[data-layout="grouped"] .app-page h1 {
+  font-size: 2.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+[data-layout="grouped"] .rounded-2xl.border {
+  border-color: transparent;
+  border-radius: var(--radius-xl);
+}
+[data-layout="grouped"] .app-page section > h2.text-sm {
+  padding-inline: 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+[data-layout="grouped"] .app-header {
+  margin-bottom: 1.5rem;
+}
+
+/* Compact (after Primer and Linear): a side menu on wide screens, tighter spacing, wider tables. */
+[data-layout="compact"] .app-page {
+  max-width: 72rem;
+  font-size: 0.9375rem;
+}
+[data-layout="compact"] .app-page :is(.p-5, .p-6, .sm\:p-6) {
+  padding: 1rem;
+}
+[data-layout="compact"] .app-page :is(.space-y-6, .space-y-8) > :not(:last-child) {
+  margin-bottom: 1.25rem;
+}
+[data-layout="compact"] .app-page h1 {
+  font-size: 1.375rem;
+}
+[data-layout="compact"] .tabular-nums {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (min-width: 48rem) {
+  [data-layout="compact"] .app-page {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    column-gap: 2.5rem;
+    align-items: start;
+  }
+  [data-layout="compact"] .app-page > :not(.app-header) {
+    grid-column: 2;
+  }
+  [data-layout="compact"] .app-header {
+    grid-column: 1;
+    grid-row: 1 / span 9;
+    position: sticky;
+    top: 2rem;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 0;
+  }
+  [data-layout="compact"] .app-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+/* Legible (after Inclusive Design and GOV.UK): bigger text, 48px targets, bold focus, underlined links. */
+[data-layout="legible"] {
+  font-size: 112.5%;
+  --muted: color-mix(in srgb, var(--muted) 70%, var(--foreground));
+}
+[data-layout="legible"] :is(button, select, input:not([type="radio"], [type="checkbox"]), .app-nav a) {
+  min-height: 3rem;
+}
+[data-layout="legible"] :is(input[type="radio"], input[type="checkbox"]) {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+[data-layout="legible"] :focus-visible {
+  outline: 3px solid var(--foreground) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+[data-layout="legible"] main a:not(.bg-accent, [aria-current]) {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

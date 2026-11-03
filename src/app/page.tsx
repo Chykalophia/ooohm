@@ -26,7 +26,7 @@ export default async function HomePage() {
   const RequestLeave = appearance.requestStyle === "sentence" ? RequestLeaveSentence : RequestLeaveForm;
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
+    <div className="app-page mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       <AppHeader userName={userName} approvals={approvals} current="home" admin={canAdminister(actor)} />
 
       <main className="space-y-10">

@@ -118,7 +118,7 @@ export function AdminShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
+    <div className="app-page mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       <AppHeader userName={userName} approvals={approvals} current="admin" admin />
       <div className="mb-8">
         <AdminNav section={section} />

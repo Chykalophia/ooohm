@@ -25,7 +25,7 @@ export default async function SubscriptionsPage() {
     };
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
+    <div className="app-page mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       <AppHeader userName={userName} approvals={approvals} current="calendar" admin={canAdminister(actor)} />
 
       <main className="space-y-6">

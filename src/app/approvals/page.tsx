@@ -19,7 +19,7 @@ export default async function ApprovalsPage() {
   const { items, total } = await listApprovalInbox(serviceContext(), actor);
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
+    <div className="app-page mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       {/* Keep the link visible while here, even when the last request was just decided. */}
       <AppHeader userName={userName} approvals={{ visible: true, pending: total }} current="approvals" admin={canAdminister(actor)} />
 

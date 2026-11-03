@@ -215,7 +215,7 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 | `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
-| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, requestStyle, actorId, actor`. `deletionGrace`, `theme`, `accentColor`, `corners` and `requestStyle` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, `accentColor` is `#rrggbb` or null, and `requestStyle` is `form` or `sentence`. New theme, corner and request-style keys may appear. |
+| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, requestStyle, layout, actorId, actor`. `deletionGrace`, `theme`, `accentColor`, `corners`, `requestStyle` and `layout` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, `accentColor` is `#rrggbb` or null, `requestStyle` is `form` or `sentence`, and `layout` is `standard`, `tonal`, `grouped`, `compact` or `legible`. New theme, corner, request-style and layout keys may appear. |
 
 **Calendar links**
 

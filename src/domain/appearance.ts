@@ -48,6 +48,22 @@ export const CORNER_LABELS: Readonly<Record<CornerStyle, string>> = {
 export const REQUEST_STYLES = ["form", "sentence"] as const;
 export type RequestStyle = (typeof REQUEST_STYLES)[number];
 
+/**
+ * Layout trials: the same screens arranged after different design methods, for an admin
+ * to try on the whole company and compare. `standard` is the default. Each changes
+ * spacing, shape and navigation only; the content, actions and theme colours stay.
+ */
+export const LAYOUTS = ["standard", "tonal", "grouped", "compact", "legible"] as const;
+export type Layout = (typeof LAYOUTS)[number];
+
+export const LAYOUT_LABELS: Readonly<Record<Layout, { label: string; description: string }>> = {
+  standard: { label: "Standard", description: "Today's layout: bordered cards and a top bar." },
+  tonal: { label: "Tonal", description: "Soft filled cards, big balance numbers and a large request button." },
+  grouped: { label: "Grouped", description: "Large titles and inset lists, like a phone's settings app." },
+  compact: { label: "Compact", description: "A side menu, tighter spacing and wider tables, for people who live in it." },
+  legible: { label: "Legible", description: "Larger text, 48px targets, bold focus rings and underlined links." },
+};
+
 export const REQUEST_STYLE_LABELS: Readonly<Record<RequestStyle, { label: string; description: string }>> = {
   form: { label: "Form", description: "Labelled fields for type, dates and part of the day." },
   sentence: { label: "Sentence", description: "One short sentence with the choices inside it, like a note to your manager." },
@@ -59,9 +75,10 @@ export interface Appearance {
   accentColor: string | null;
   corners: CornerStyle;
   requestStyle: RequestStyle;
+  layout: Layout;
 }
 
-export const DEFAULT_APPEARANCE: Appearance = { theme: DEFAULT_THEME, accentColor: null, corners: "theme", requestStyle: "form" };
+export const DEFAULT_APPEARANCE: Appearance = { theme: DEFAULT_THEME, accentColor: null, corners: "theme", requestStyle: "form", layout: "standard" };
 
 export interface AppearanceInput {
   theme: string;
@@ -70,6 +87,8 @@ export interface AppearanceInput {
   corners: string;
   /** Absent keeps the default, `form`. */
   requestStyle?: string;
+  /** Absent keeps the default, `standard`. */
+  layout?: string;
 }
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -82,6 +101,10 @@ function isCornerStyle(value: string): value is CornerStyle {
   return (CORNER_STYLES as readonly string[]).includes(value);
 }
 
+function isLayout(value: string): value is Layout {
+  return (LAYOUTS as readonly string[]).includes(value);
+}
+
 function isRequestStyle(value: string): value is RequestStyle {
   return (REQUEST_STYLES as readonly string[]).includes(value);
 }
@@ -89,7 +112,7 @@ function isRequestStyle(value: string): value is RequestStyle {
 /**
  * Checks and normalizes what the appearance form sent.
  *
- * @throws DomainError `invalid_input`: an unknown theme, corner style or request style,
+ * @throws DomainError `invalid_input`: an unknown theme, corner style, request style or layout,
  *   or an accent that is not a hex colour.
  */
 export function normalizeAppearance(input: AppearanceInput): Appearance {
@@ -99,27 +122,36 @@ export function normalizeAppearance(input: AppearanceInput): Appearance {
   if (!isCornerStyle(corners)) throw new DomainError("invalid_input", "Unknown corner style.");
   const requestStyle = (input.requestStyle ?? "form").trim();
   if (!isRequestStyle(requestStyle)) throw new DomainError("invalid_input", "Unknown request style.");
+  const layout = (input.layout ?? "standard").trim();
+  if (!isLayout(layout)) throw new DomainError("invalid_input", "Unknown layout.");
   const raw = (input.accentColor ?? "").trim();
-  if (raw === "") return { theme, accentColor: null, corners, requestStyle };
+  if (raw === "") return { theme, accentColor: null, corners, requestStyle, layout };
   const accentColor = readAccent(raw);
   if (!accentColor) throw new DomainError("invalid_input", "Accent colours are hex values like #2546d0.");
   // The theme's own accent picked as "custom" is no custom accent: keep the theme's, so
   // Classic keeps following dark mode.
-  if (accentColor === THEMES[theme].accent) return { theme, accentColor: null, corners, requestStyle };
-  return { theme, accentColor, corners, requestStyle };
+  if (accentColor === THEMES[theme].accent) return { theme, accentColor: null, corners, requestStyle, layout };
+  return { theme, accentColor, corners, requestStyle, layout };
 }
 
 /**
- * The appearance as stored, made safe to render: a theme, corner style or request style this version
+ * The appearance as stored, made safe to render: a theme, corner style, request style or layout this version
  * does not know (written by a newer version, or by hand) falls back to the default
  * instead of failing the page.
  */
-export function readAppearance(stored: { theme: string; accentColor: string | null; corners: string; requestStyle: string }): Appearance {
+export function readAppearance(stored: {
+  theme: string;
+  accentColor: string | null;
+  corners: string;
+  requestStyle: string;
+  layout: string;
+}): Appearance {
   return {
     theme: isThemeKey(stored.theme) ? stored.theme : DEFAULT_THEME,
     accentColor: readAccent(stored.accentColor),
     corners: isCornerStyle(stored.corners) ? stored.corners : "theme",
     requestStyle: isRequestStyle(stored.requestStyle) ? stored.requestStyle : "form",
+    layout: isLayout(stored.layout) ? stored.layout : "standard",
   };
 }
 

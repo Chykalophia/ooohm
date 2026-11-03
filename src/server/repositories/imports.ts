@@ -68,6 +68,7 @@ export async function insertCompany(
     accentColor: companies.accentColor,
     corners: companies.corners,
     requestStyle: companies.requestStyle,
+    layout: companies.layout,
   });
   return row;
 }

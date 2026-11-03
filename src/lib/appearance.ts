@@ -55,8 +55,9 @@ export interface HtmlAppearance {
   style: Record<string, string>;
 }
 
-export function htmlAppearance(appearance: Pick<Appearance, "theme" | "accentColor" | "corners">): HtmlAppearance {
+export function htmlAppearance(appearance: Pick<Appearance, "theme" | "accentColor" | "corners"> & { layout?: Appearance["layout"] }): HtmlAppearance {
   const attributes: Record<string, string> = { "data-ui": appearance.theme };
+  if (appearance.layout && appearance.layout !== "standard") attributes["data-layout"] = appearance.layout;
   if (appearance.corners !== "theme") attributes["data-corners"] = appearance.corners;
   if (followsDarkMode(appearance)) attributes["data-scheme"] = "auto";
   const style: Record<string, string> = {};

@@ -13,6 +13,7 @@ const companyFields = {
   accentColor: companies.accentColor,
   corners: companies.corners,
   requestStyle: companies.requestStyle,
+  layout: companies.layout,
 };
 
 export type CompanyRow = {
@@ -28,6 +29,7 @@ export type CompanyRow = {
   accentColor: string | null;
   corners: string;
   requestStyle: string;
+  layout: string;
 };
 
 export async function findCompany(ex: Executor, companyId: string): Promise<CompanyRow | undefined> {
@@ -62,6 +64,7 @@ export async function updateCompany(
     accentColor?: string | null;
     corners?: string;
     requestStyle?: string;
+    layout?: string;
   },
 ): Promise<CompanyRow> {
   const [row] = await tx.update(companies).set(set).where(eq(companies.id, companyId)).returning(companyFields);
@@ -75,13 +78,14 @@ export async function updateCompany(
  */
 export async function findDeploymentAppearance(
   ex: Executor,
-): Promise<{ theme: string; accentColor: string | null; corners: string; requestStyle: string } | undefined> {
+): Promise<{ theme: string; accentColor: string | null; corners: string; requestStyle: string; layout: string } | undefined> {
   const [row] = await ex
     .select({
       theme: companies.theme,
       accentColor: companies.accentColor,
       corners: companies.corners,
       requestStyle: companies.requestStyle,
+      layout: companies.layout,
     })
     .from(companies)
     .orderBy(asc(companies.createdAt), asc(companies.id))

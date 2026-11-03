@@ -200,7 +200,7 @@ the event type, and `actorId` is the admin.
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, requestStyle, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, theme, accentColor, corners, requestStyle, layout, actorId` |
 
 One more event comes with M5 but is not an admin event: it is `LEAVE_REASSIGNED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`, and its audit `action` follows the leave request actions instead of the event type.
@@ -775,7 +775,12 @@ page loads them all). A pale custom accent keeps its fill and gets a darker
 dark mode (`data-scheme="auto"`); every other look is light only for now. The same page sets how Home asks for
 time off (`requestStyle`): the labelled form, or one editable sentence (`RequestLeaveSentence`). Both post the
 same fields to the same action and share the live preview, so the choice changes nothing but the layout.
-`company.updated` carries `theme`, `accentColor`, `corners` and `requestStyle`.
+It also sets a layout trial (`layout`: `standard`, `tonal`, `grouped`, `compact` or `legible`, see `LAYOUTS`), which
+the root layout puts on `<html>` as `data-layout` (left off for `standard`). Each trial is a block of CSS rules in
+`globals.css` keyed on that attribute and on the `app-page`, `app-header` and `app-nav` hooks the page wrappers
+carry: it changes spacing, shape, type size and navigation only, never content, actions or theme colours, so an
+admin can try one on the whole company and switch back.
+`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle` and `layout`.
 
 ### Audit log viewer
 

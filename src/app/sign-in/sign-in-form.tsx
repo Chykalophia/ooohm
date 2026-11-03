@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { ErrorMessage } from "@/components/forms/form-status";
+import { TextField } from "@/components/ui/fields";
+import { buttonClass, cx, textLink } from "@/components/ui/styles";
 import { authClient } from "@/lib/auth-client";
 
 const GENERIC_ERROR = "Something went wrong. Try again.";
@@ -15,6 +18,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
 
   async function sendLink(e: React.FormEvent) {
     e.preventDefault();
+    if (state.kind === "sending") return;
     // Accounts are stored lowercase; normalize so "Ana@Co.com " works too.
     const normalized = email.trim().toLowerCase();
     setState({ kind: "sending" });
@@ -46,7 +50,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
         <p className="text-sm text-muted">
           We sent a sign-in link to <span className="text-foreground">{state.email}</span>. It expires in 15 minutes.
         </p>
-        <button type="button" className="text-sm text-accent underline-offset-4 hover:underline" onClick={() => setState({ kind: "idle" })}>
+        <button type="button" className={cx(textLink, "text-sm text-accent")} onClick={() => setState({ kind: "idle" })}>
           Use a different email
         </button>
       </div>
@@ -56,32 +60,25 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
   return (
     <div className="space-y-4">
       <form onSubmit={sendLink} className="space-y-3">
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Work email</span>
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-            placeholder="you@company.com"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={state.kind === "sending"}
-          className="w-full rounded-lg bg-accent px-3 py-2 font-medium text-accent-foreground disabled:opacity-60"
-        >
+        <TextField
+          label="Work email"
+          type="email"
+          required
+          autoComplete="email"
+          autoFocus
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@company.com"
+        />
+        <button type="submit" aria-disabled={state.kind === "sending"} className={cx(buttonClass("primary"), "w-full")}>
           {state.kind === "sending" ? "Sending…" : "Email me a sign-in link"}
         </button>
       </form>
 
       {state.kind === "error" && (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <ErrorMessage as="p" className="text-sm">
           {state.message}
-        </p>
+        </ErrorMessage>
       )}
 
       {googleEnabled && (
@@ -89,11 +86,7 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
           <div className="flex items-center gap-3 text-xs text-muted">
             <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
           </div>
-          <button
-            type="button"
-            onClick={signInWithGoogle}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 font-medium hover:bg-background"
-          >
+          <button type="button" onClick={signInWithGoogle} className={cx(buttonClass("outline"), "w-full")}>
             Continue with Google
           </button>
         </>

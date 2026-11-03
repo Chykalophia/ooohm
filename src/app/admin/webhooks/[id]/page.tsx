@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { isDomainError } from "@/domain/errors";
 import { MAX_DELIVERY_ATTEMPTS } from "@/domain/integrations";
-import { formatInstantDateTime } from "@/lib/format";
+import { formatCount, formatInstantDateTime } from "@/lib/format";
 import { getWebhookEndpoint } from "@/server/services/webhooks";
-import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { AdminForm, InlineAction, Reveal } from "@/app/admin/forms";
-import { RevealForm } from "@/app/admin/reveal-once";
-import { card, outlineButton, primaryButton, textLink } from "@/app/styles";
+import { AdminShell } from "@/app/admin/admin-shell";
+import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
+import { Section } from "@/components/ui/section";
+import { Item, ItemList } from "@/components/ui/card";
+import { ActionForm } from "@/components/forms/action-form";
+import { InlineAction } from "@/components/forms/inline-action";
+import { Reveal } from "@/components/forms/reveal";
+import { RevealForm } from "@/components/forms/reveal-form";
+import { outlineButton, textLink } from "@/components/ui/styles";
 import {
   deleteEndpointAction,
   redeliverAction,
@@ -23,18 +26,14 @@ import { EndpointFields } from "@/app/admin/webhooks/endpoint-fields";
 export const metadata: Metadata = { title: "Endpoint · Webhooks · Admin · OOOhm" };
 
 export default async function WebhookEndpointPage({ params }: { params: Promise<{ id: string }> }) {
-  const { actor, ctx, userName, approvals } = await requireAdminPage();
+  const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
-  const { endpoint, deliveries, timezone } = await getWebhookEndpoint(ctx, actor, id).catch((err: unknown) => {
-    if (isDomainError(err, "not_found")) notFound();
-    throw err;
-  });
+  const { endpoint, deliveries, timezone } = await orNotFound(getWebhookEndpoint(ctx, actor, id));
   const at = (d: Date) => formatInstantDateTime(d, timezone);
 
   return (
     <AdminShell
-      userName={userName}
-      approvals={approvals}
+      nav={nav}
       section="webhooks"
       title={new URL(endpoint.url).host}
       description={
@@ -45,7 +44,7 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
       }
       action={
         endpoint.enabled ? (
-          <InlineAction key="ping" action={sendPingAction} fields={{ id: endpoint.id }} label="Send test event" pendingLabel="Queuing…" className={primaryButton} />
+          <InlineAction key="ping" action={sendPingAction} fields={{ id: endpoint.id }} label="Send test event" pendingLabel="Queuing…" variant="primary" />
         ) : undefined
       }
     >
@@ -55,13 +54,10 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
         </Link>
       </p>
 
-      <section aria-labelledby="status-heading" className={`${card} space-y-4`}>
-        <h2 id="status-heading" className="text-lg font-semibold tracking-tight">
-          {endpoint.enabled ? "On" : "Off"}
-        </h2>
+      <Section title={endpoint.enabled ? "On" : "Off"} surface>
         <p className="text-sm text-muted">
           {endpoint.enabled
-            ? `Sends ${endpoint.eventTypes.length === 1 ? "1 kind of event" : `${endpoint.eventTypes.length} kinds of events`}. Added ${at(endpoint.createdAt)}.`
+            ? `Sends ${formatCount(endpoint.eventTypes.length, "kind of event", "kinds of events")}. Added ${at(endpoint.createdAt)}.`
             : "Nothing new is queued for it, and queued deliveries wait until you turn it back on."}
         </p>
         <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
@@ -71,22 +67,19 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
             fields={{ id: endpoint.id, enabled: String(!endpoint.enabled) }}
             label={endpoint.enabled ? "Turn off" : "Turn on"}
             pendingLabel="Saving…"
-            className={outlineButton}
+            variant="outline"
             focusResult
           />
           <Reveal label="Edit" ariaLabel="Edit the endpoint">
-            <AdminForm action={updateEndpointAction} submitLabel="Save changes" pendingLabel="Saving…" buttonClassName={outlineButton}>
+            <ActionForm action={updateEndpointAction} submitLabel="Save changes" pendingLabel="Saving…" buttonClassName={outlineButton}>
               <input type="hidden" name="id" value={endpoint.id} />
               <EndpointFields endpoint={endpoint} />
-            </AdminForm>
+            </ActionForm>
           </Reveal>
         </div>
-      </section>
+      </Section>
 
-      <section aria-labelledby="secret-heading" className={`${card} space-y-3`}>
-        <h2 id="secret-heading" className="text-lg font-semibold tracking-tight">
-          Signing secret
-        </h2>
+      <Section title="Signing secret" surface className="space-y-3">
         <p className="text-sm text-muted">
           OOOhm keeps it encrypted and never shows it again. If it was lost or leaked, get a new one: deliveries from then on,
           retries included, are signed with the new secret only.
@@ -104,16 +97,13 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
         >
           <input type="hidden" name="id" value={endpoint.id} />
         </RevealForm>
-      </section>
+      </Section>
 
-      <section aria-labelledby="deliveries-heading" className="space-y-3">
-        <h2 id="deliveries-heading" className="text-lg font-semibold tracking-tight">
-          Recent deliveries
-        </h2>
+      <Section title="Recent deliveries" className="space-y-3">
         {deliveries.length === 0 ? (
           <p className="text-muted">Nothing sent yet. Send a test event to try it.</p>
         ) : (
-          <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+          <ItemList>
             {deliveries.map((d) => {
               const retrying = d.status === "pending" && d.attempts > 0 && d.lastError !== null;
               const result =
@@ -121,14 +111,14 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
                   ? `HTTP ${d.lastStatusCode}${d.lastLatencyMs !== null ? ` in ${d.lastLatencyMs} ms` : ""}`
                   : d.lastError;
               return (
-                <li key={d.id} className="space-y-1.5 p-4 text-sm">
+                <Item key={d.id} className="space-y-1.5 text-sm">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <code className="font-mono">{d.eventType}</code>
                     <DeliveryStatusText status={d.status} retrying={retrying} />
                   </div>
                   <p className="text-muted">
                     {at(d.createdAt)}
-                    {d.attempts > 0 && ` · ${d.attempts === 1 ? "1 attempt" : `${d.attempts} attempts`} of ${MAX_DELIVERY_ATTEMPTS}`}
+                    {d.attempts > 0 && ` · ${formatCount(d.attempts, "attempt", "attempts")} of ${MAX_DELIVERY_ATTEMPTS}`}
                     {result && ` · ${result}`}
                     {d.status === "pending" && d.attempts > 0 && d.lastError !== null && ` · next try ${at(d.nextAttemptAt)}`}
                   </p>
@@ -141,28 +131,25 @@ export default async function WebhookEndpointPage({ params }: { params: Promise<
                       pendingLabel="Queuing…"
                     />
                   )}
-                </li>
+                </Item>
               );
             })}
-          </ul>
+          </ItemList>
         )}
-      </section>
+      </Section>
 
-      <section aria-labelledby="delete-heading" className="space-y-2">
-        <h2 id="delete-heading" className="text-sm font-medium">
-          Delete this endpoint
-        </h2>
+      <Section title="Delete this endpoint" size="sm" className="space-y-2">
         <p className="text-sm text-muted">It gets nothing more, and anything still queued for it is cancelled.</p>
         <InlineAction
           action={deleteEndpointAction}
           fields={{ id: endpoint.id }}
           label="Delete"
           pendingLabel="Deleting…"
-          danger
+          variant="danger"
           confirm={`Delete the endpoint at ${new URL(endpoint.url).host}?`}
           confirmLabel="Yes, delete"
         />
-      </section>
+      </Section>
     </AdminShell>
   );
 }

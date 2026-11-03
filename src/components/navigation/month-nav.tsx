@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { formatMonth } from "@/lib/format";
+import { focusRing } from "@/components/ui/styles";
 
-const linkClass =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-3 text-sm text-muted hover:bg-surface hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const linkClass = `inline-flex h-9 min-w-9 items-center justify-center rounded-full px-3 text-sm text-muted hover:bg-surface hover:text-foreground ${focusRing}`;
 
 /**
  * The month's name as the page's subheading, with previous, today and next links.

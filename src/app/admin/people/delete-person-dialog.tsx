@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { confirmationMatches, type DeletionBlockers, type DeletionMode } from "@/domain/person-deletion";
-import { IDLE } from "@/app/form-state";
+import { IDLE } from "@/components/forms/form-state";
+import { ErrorMessage } from "@/components/forms/form-status";
+import { useFormAction } from "@/components/forms/use-form-action";
 import { type DeleteState, deletePersonAction } from "@/app/admin/people/actions";
-import { dangerButton, dangerOutlineButton, field, outlineButton, subtleButton, textLink } from "@/app/styles";
+import { cx, dangerButton, dangerOutlineButton, field, nativeCheck, outlineButton, subtleButton, textLink } from "@/components/ui/styles";
 
 export interface DeletePersonDialogProps {
   personId: string;
@@ -70,8 +72,7 @@ export function Blocked({ blockers }: { blockers: DeletionBlockers }) {
 export function DeletePersonDialog(props: DeletePersonDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const [state, dispatch, pending] = useActionState<DeleteState, FormData>(deletePersonAction, IDLE);
-  const [, startTransition] = useTransition();
+  const { state, pending, onSubmit } = useFormAction<DeleteState>(deletePersonAction, IDLE);
   // With the grace option on, a scheduled scrub only waits: asking again would change
   // nothing, so the one thing left to choose is keeping records (which runs at once).
   const scrubScheduled = props.deletionGrace && props.scrubScheduledFor !== null;
@@ -83,12 +84,6 @@ export function DeletePersonDialog(props: DeletePersonDialogProps) {
   useEffect(() => {
     if (state.status === "error") dialog.current?.querySelector<HTMLElement>("[role=alert]")?.focus();
   }, [state]);
-
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const data = new FormData(e.currentTarget);
-    startTransition(() => dispatch(data));
-  };
 
   const { removes, keeps } = props.describe[mode];
   // Something can start blocking after the page loaded (a request routed to them); the
@@ -130,7 +125,7 @@ export function DeletePersonDialog(props: DeletePersonDialogProps) {
                     checked={mode === "scrubbed"}
                     onChange={() => setMode("scrubbed")}
                     disabled={scrubScheduled}
-                    className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                    className={cx("mt-1", nativeCheck)}
                   />
                   <span className="space-y-1">
                     <span className="block font-medium">Remove everything</span>
@@ -149,7 +144,7 @@ export function DeletePersonDialog(props: DeletePersonDialogProps) {
                     value="records_kept"
                     checked={mode === "records_kept"}
                     onChange={() => setMode("records_kept")}
-                    className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                    className={cx("mt-1", nativeCheck)}
                   />
                   <span className="space-y-1">
                     <span className="block font-medium">Remove their account, keep their records</span>
@@ -210,9 +205,9 @@ export function DeletePersonDialog(props: DeletePersonDialogProps) {
               </p>
 
               {state.status === "error" && (
-                <p role="alert" tabIndex={-1} className="text-sm text-red-700 outline-none dark:text-red-400">
+                <ErrorMessage as="p" focusable className="text-sm">
                   {state.message}
-                </p>
+                </ErrorMessage>
               )}
 
               <div className="flex flex-wrap items-center gap-4">

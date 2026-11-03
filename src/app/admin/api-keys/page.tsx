@@ -4,23 +4,24 @@ import { personLabel } from "@/domain/person";
 import { formatInstantDateTime } from "@/lib/format";
 import { listApiKeys } from "@/server/services/api-keys";
 import { revokeApiKeyAction, createApiKeyAction } from "@/app/admin/api-keys/actions";
-import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { TextField } from "@/app/admin/fields";
-import { InlineAction } from "@/app/admin/forms";
-import { RevealForm } from "@/app/admin/reveal-once";
-import { card, textLink } from "@/app/styles";
+import { AdminShell } from "@/app/admin/admin-shell";
+import { requireAdminPage } from "@/app/_lib/page-context";
+import { Card, Item, ItemList } from "@/components/ui/card";
+import { TextField } from "@/components/ui/fields";
+import { InlineAction } from "@/components/forms/inline-action";
+import { RevealForm } from "@/components/forms/reveal-form";
+import { textLink } from "@/components/ui/styles";
 
 export const metadata: Metadata = { title: "API keys · Admin · OOOhm" };
 
 export default async function ApiKeysPage() {
-  const { actor, ctx, userName, approvals } = await requireAdminPage();
+  const { actor, ctx, nav } = await requireAdminPage();
   const { keys, timezone } = await listApiKeys(ctx, actor);
   const at = (d: Date) => formatInstantDateTime(d, timezone);
 
   return (
     <AdminShell
-      userName={userName}
-      approvals={approvals}
+      nav={nav}
       section="api-keys"
       title="API keys"
       description={
@@ -33,7 +34,7 @@ export default async function ApiKeysPage() {
         </>
       }
     >
-      <section aria-label="Create a key" className={card}>
+      <Card aria-label="Create a key">
         <RevealForm
           action={createApiKeyAction}
           submitLabel="Create key"
@@ -44,14 +45,14 @@ export default async function ApiKeysPage() {
         >
           <TextField label="Name" name="name" required maxLength={API_KEY_NAME_MAX_LENGTH} hint="Which app uses it, e.g. Payroll export." autoComplete="off" />
         </RevealForm>
-      </section>
+      </Card>
 
       {keys.length === 0 ? (
         <p className="text-muted">No keys yet.</p>
       ) : (
-        <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+        <ItemList>
           {keys.map((k) => (
-            <li key={k.id} className="space-y-1.5 p-4 text-sm">
+            <Item key={k.id} className="space-y-1.5 text-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-medium break-words">{k.name}</p>
                 <span className={k.revokedAt ? "text-muted" : "text-accent"}>{k.revokedAt ? "Revoked" : "Active"}</span>
@@ -70,14 +71,14 @@ export default async function ApiKeysPage() {
                   label="Revoke"
                   ariaLabel={`Revoke ${k.name}`}
                   pendingLabel="Revoking…"
-                  danger
+                  variant="danger"
                   confirm={`Revoke ${k.name}? Apps using it stop working at once.`}
                   confirmLabel="Yes, revoke"
                 />
               )}
-            </li>
+            </Item>
           ))}
-        </ul>
+        </ItemList>
       )}
     </AdminShell>
   );

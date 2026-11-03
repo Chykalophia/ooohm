@@ -1,5 +1,6 @@
 import { connection } from "next/server";
-import { Logo } from "@/components/logo";
+import { Logo } from "@/components/layout/logo";
+import { Card } from "@/components/ui/card";
 import { googleEnabled } from "@/lib/env";
 import { SignInForm } from "./sign-in-form";
 
@@ -11,13 +12,13 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
 
   return (
     <main className="flex flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-sm space-y-8 rounded-2xl border border-border bg-surface p-8 shadow-sm">
+      <Card as="div" padding="lg" className="w-full max-w-sm space-y-8 shadow-sm">
         <div className="space-y-1 text-center">
           <Logo className="text-3xl" />
           <p className="text-sm text-muted">Zero resistance time off.</p>
         </div>
         <SignInForm googleEnabled={googleEnabled} linkFailed={Boolean(error)} />
-      </div>
+      </Card>
     </main>
   );
 }

@@ -1,31 +1,20 @@
-import { canAdminister } from "@/domain/admin-permissions";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { AgendaItem, CalendarDay } from "@/domain/calendar";
-import { requireActor } from "@/lib/auth";
-import { formatLeaveDates, formatLongDate, formatMonth } from "@/lib/format";
-import { normalizeHexColor } from "@/lib/color";
-import { serviceContext } from "@/server/runtime";
-import { getApprovalNav } from "@/server/services/approvals";
+import { formatLeaveDates, formatLongDate, formatMonth, WEEKDAY_NAMES } from "@/lib/format";
 import { getMonthCalendar } from "@/server/services/calendar";
-import { AppHeader } from "@/app/app-header";
-import { monthParamSchema, readParam } from "@/app/calendar-input";
-import { LeaveChip } from "@/app/leave-chip";
-import { MonthNav } from "@/app/month-nav";
-import { NoCompany } from "@/app/no-company";
-import { StatusBadge } from "@/app/status-badge";
+import { AppPage } from "@/components/layout/app-page";
+import { NoCompany } from "@/components/layout/no-company";
+import { LeaveChip } from "@/components/leave/leave-chip";
+import { StatusBadge } from "@/components/leave/status-badge";
+import { MonthNav } from "@/components/navigation/month-nav";
+import { Item, ItemList } from "@/components/ui/card";
+import { ColorLabel } from "@/components/ui/color-label";
+import { quietLink } from "@/components/ui/styles";
+import { monthParamSchema, readParam } from "@/app/_lib/calendar-input";
+import { requireMemberPage } from "@/app/_lib/page-context";
 
 export const metadata: Metadata = { title: "Calendar · OOOhm" };
-
-const WEEKDAYS = [
-  ["Mon", "Monday"],
-  ["Tue", "Tuesday"],
-  ["Wed", "Wednesday"],
-  ["Thu", "Thursday"],
-  ["Fri", "Friday"],
-  ["Sat", "Saturday"],
-  ["Sun", "Sunday"],
-] as const;
 
 const HEADING_ID = "month-heading";
 
@@ -84,96 +73,80 @@ function DayCell({ day }: { day: CalendarDay }) {
 function AgendaRow({ item }: { item: AgendaItem }) {
   if (item.kind === "holiday") {
     return (
-      <li className="flex flex-col gap-1 p-4 text-muted">
+      <Item className="flex flex-col gap-1 text-muted">
         <span>{formatLeaveDates(item.date, item.date)}</span>
         <span className="text-sm">{item.name} · Company holiday</span>
-      </li>
+      </Item>
     );
   }
   const { entry } = item;
   return (
-    <li className="flex items-start justify-between gap-3 p-4">
+    <Item className="flex items-start justify-between gap-3">
       <div className="min-w-0 space-y-1">
-        <p className="flex items-center gap-2 font-medium">
-          <span
-            className="h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: normalizeHexColor(entry.leaveTypeColor) }}
-            aria-hidden
-          />
+        <ColorLabel color={entry.leaveTypeColor} className="font-medium">
           {formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}
-        </p>
+        </ColorLabel>
         <p className="text-sm text-muted">{entry.leaveTypeName}</p>
       </div>
       {entry.status === "pending" && <StatusBadge status="pending" />}
-    </li>
+    </Item>
   );
 }
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { user, actor } = await requireActor();
-  const userName = user.name || user.email;
-  if (!actor) return <NoCompany userName={userName} current="calendar" />;
+  const page = await requireMemberPage();
+  if (!page.actor) return <NoCompany nav={page.nav} current="calendar" />;
 
   const month = readParam(monthParamSchema, (await searchParams).month);
-  const ctx = serviceContext();
-  const [calendar, approvals] = await Promise.all([getMonthCalendar(ctx, actor, month), getApprovalNav(ctx, actor)]);
-  const { nav, weeks, agenda } = calendar;
+  const { nav, weeks, agenda } = await getMonthCalendar(page.ctx, page.actor, month);
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-      <AppHeader userName={userName} approvals={approvals} current="calendar" admin={canAdminister(actor)} />
+    <AppPage nav={page.nav} current="calendar" title="Your calendar">
+      <section aria-labelledby={HEADING_ID} className="space-y-4">
+        <MonthNav nav={nav} href={(m) => `/calendar?month=${m}`} headingId={HEADING_ID} />
 
-      <main className="space-y-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Your calendar</h1>
-        <section aria-labelledby={HEADING_ID} className="space-y-4">
-          <MonthNav nav={nav} href={(m) => `/calendar?month=${m}`} headingId={HEADING_ID} />
-
-          <table className="hidden w-full table-fixed border-collapse md:table">
-            <caption className="sr-only">Your time off and company holidays in {formatMonth(nav.month)}</caption>
-            <thead>
-              <tr>
-                {WEEKDAYS.map(([short, long]) => (
-                  <th key={short} scope="col" className="pb-2 text-left text-xs font-medium text-muted">
-                    <abbr title={long} className="no-underline">
-                      {short}
-                    </abbr>
-                  </th>
+        <table className="hidden w-full table-fixed border-collapse md:table">
+          <caption className="sr-only">Your time off and company holidays in {formatMonth(nav.month)}</caption>
+          <thead>
+            <tr>
+              {WEEKDAY_NAMES.map((name) => (
+                <th key={name} scope="col" className="pb-2 text-left text-xs font-medium text-muted">
+                  <abbr title={name} className="no-underline">
+                    {name.slice(0, 3)}
+                  </abbr>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {weeks.map((week) => (
+              <tr key={week[0].date}>
+                {week.map((day) => (
+                  <DayCell key={day.date} day={day} />
                 ))}
               </tr>
-            </thead>
-            <tbody>
-              {weeks.map((week) => (
-                <tr key={week[0].date}>
-                  {week.map((day) => (
-                    <DayCell key={day.date} day={day} />
-                  ))}
-                </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="md:hidden">
+          {agenda.length === 0 ? (
+            <p className="text-muted">Nothing planned in {formatMonth(nav.month)}.</p>
+          ) : (
+            <ItemList ordered>
+              {agenda.map((item) => (
+                <AgendaRow key={item.kind === "leave" ? item.entry.id : `holiday-${item.date}`} item={item} />
               ))}
-            </tbody>
-          </table>
+            </ItemList>
+          )}
+        </div>
+      </section>
 
-          <div className="md:hidden">
-            {agenda.length === 0 ? (
-              <p className="text-muted">Nothing planned in {formatMonth(nav.month)}.</p>
-            ) : (
-              <ol className="divide-y divide-border rounded-2xl border border-border bg-surface">
-                {agenda.map((item) => (
-                  <AgendaRow key={item.kind === "leave" ? item.entry.id : `holiday-${item.date}`} item={item} />
-                ))}
-              </ol>
-            )}
-          </div>
-        </section>
-
-        <p className="text-sm text-muted">
-          <Link
-            href="/calendar/subscriptions"
-            className="rounded-md underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            Add your time off to Google Calendar, Apple Calendar or Outlook
-          </Link>
-        </p>
-      </main>
-    </div>
+      <p className="text-sm">
+        <Link href="/calendar/subscriptions" className={quietLink}>
+          Add your time off to Google Calendar, Apple Calendar or Outlook
+        </Link>
+      </p>
+    </AppPage>
   );
 }

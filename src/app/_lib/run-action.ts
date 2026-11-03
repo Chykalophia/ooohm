@@ -2,7 +2,6 @@ import "server-only";
 import { type DomainError, type DomainErrorCode, isDomainError } from "@/domain/errors";
 import { formatNoWorkingDays, formatShortfall } from "@/lib/format";
 import { log } from "@/lib/log";
-import type { FormState } from "./form-state";
 
 /** What people see for each expected failure. Calm, specific, and never technical. */
 const MESSAGES: Record<DomainErrorCode, string> = {
@@ -85,20 +84,4 @@ export async function runActionWith<S>(
     log.error({ err }, `${event}_failed`);
     return { status: "error", message: GENERIC_FAILURE };
   }
-}
-
-/** {@link runActionWith} for forms whose success is a message and a fresh form key. */
-export async function runAction(
-  event: string,
-  work: () => Promise<{ message: string; id: string }>,
-  messages: Partial<Record<DomainErrorCode, string>> = {},
-): Promise<FormState> {
-  return runActionWith(
-    event,
-    async () => {
-      const { message, id } = await work();
-      return { status: "success", message, id } as const;
-    },
-    messages,
-  );
 }

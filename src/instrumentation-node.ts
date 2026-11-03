@@ -1,4 +1,4 @@
-import { startIntervalRunner, requestTick } from "@/app/background";
+import { startIntervalRunner, requestTick } from "@/app/_lib/background";
 import { databaseKind, openAppDatabase } from "@/db";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";

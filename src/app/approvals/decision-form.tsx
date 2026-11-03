@@ -1,16 +1,21 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
-import { type FormState, IDLE } from "@/app/form-state";
+import { IDLE } from "@/components/forms/form-state";
+import { ErrorMessage } from "@/components/forms/form-status";
+import { useFormAction } from "@/components/forms/use-form-action";
+import { TextField } from "@/components/ui/fields";
+import { buttonClass } from "@/components/ui/styles";
 import { decideLeaveAction } from "./actions";
 
 /**
  * Approve or decline one request. The optional reason is sent with either button and
- * the requester sees it, in their email and on their dashboard.
+ * the requester sees it, in their email and on their dashboard. A refused decision keeps
+ * the reason as typed.
  */
 export function DecisionForm({ requestId }: { requestId: string }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(decideLeaveAction, IDLE);
+  const { state, dispatch, pending, onSubmit } = useFormAction(decideLeaveAction, IDLE);
   const outcome = useRef<HTMLParagraphElement>(null);
 
   // The outcome replaces the form, including the button that had focus.
@@ -26,38 +31,22 @@ export function DecisionForm({ requestId }: { requestId: string }) {
     );
   }
 
-  const button = "rounded-lg px-3 py-1.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
-
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={dispatch} onSubmit={onSubmit} className="space-y-3">
+      {/* Enter in the reason field submits with the form's first submit button. This one is
+          disabled, so Enter does nothing rather than approving a request someone was
+          writing a decline reason for. */}
+      <button type="submit" disabled hidden aria-hidden tabIndex={-1} />
       <input type="hidden" name="requestId" value={requestId} />
-      <label className="block space-y-1.5">
-        <span className="text-sm text-muted">Reason (optional)</span>
-        <input
-          type="text"
-          name="reason"
-          maxLength={NOTE_MAX_LENGTH}
-          className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-        />
-      </label>
+      <TextField label="Reason" optional name="reason" maxLength={NOTE_MAX_LENGTH} />
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" name="decision" value="approve" disabled={pending} className={`${button} bg-accent text-accent-foreground`}>
+        <button type="submit" name="decision" value="approve" aria-disabled={pending} className={buttonClass("primary", "sm")}>
           Approve
         </button>
-        <button
-          type="submit"
-          name="decision"
-          value="reject"
-          disabled={pending}
-          className={`${button} border border-border text-foreground hover:bg-background`}
-        >
+        <button type="submit" name="decision" value="reject" aria-disabled={pending} className={buttonClass("outline", "sm")}>
           Decline
         </button>
-        {state.status === "error" && (
-          <span role="alert" className="text-sm text-red-700 dark:text-red-400">
-            {state.message}
-          </span>
-        )}
+        {state.status === "error" && <ErrorMessage className="text-sm">{state.message}</ErrorMessage>}
       </div>
     </form>
   );

@@ -3,9 +3,12 @@ import Link from "next/link";
 import { normalizeHexColor, readableTextColor } from "@/lib/color";
 import { formatDays } from "@/lib/format";
 import { type LeaveTypeRow, listLeaveTypesForAdmin } from "@/server/services/admin-leave-types";
-import { AdminShell, requireAdminPage } from "@/app/admin/admin-shell";
-import { InlineAction } from "@/app/admin/forms";
-import { focusRing, outlineButton, primaryButton } from "@/app/styles";
+import { AdminShell } from "@/app/admin/admin-shell";
+import { requireAdminPage } from "@/app/_lib/page-context";
+import { Item, ItemList } from "@/components/ui/card";
+import { InlineAction } from "@/components/forms/inline-action";
+import { cx, primaryButton, textLink } from "@/components/ui/styles";
+import { Section } from "@/components/ui/section";
 import { archiveLeaveTypeAction, moveLeaveTypeAction } from "@/app/admin/leave-types/actions";
 
 export const metadata: Metadata = { title: "Leave types · Admin · OOOhm" };
@@ -30,16 +33,14 @@ function Chip({ t }: { t: LeaveTypeRow }) {
 }
 
 export default async function LeaveTypesPage() {
-  const { actor, ctx, userName, approvals } = await requireAdminPage();
+  const { actor, ctx, nav } = await requireAdminPage();
   const types = await listLeaveTypesForAdmin(ctx, actor);
   const active = types.filter((t) => t.archivedAt === null);
   const archived = types.filter((t) => t.archivedAt !== null);
-  const move = "rounded-md px-2 py-1 text-sm text-muted hover:text-foreground disabled:opacity-60 " + focusRing;
 
   return (
     <AdminShell
-      userName={userName}
-      approvals={approvals}
+      nav={nav}
       section="leave-types"
       title="Leave types"
       description="What people can ask for. The first one is the request form's default. Archived types leave the form but stay on past requests and balances."
@@ -52,13 +53,13 @@ export default async function LeaveTypesPage() {
       {active.length === 0 ? (
         <p className="text-muted">No active leave types: nobody can request time off until you add one.</p>
       ) : (
-        <ol className="divide-y divide-border rounded-2xl border border-border bg-surface">
+        <ItemList ordered>
           {active.map((t, i) => (
-            <li key={t.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <Item key={t.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 space-y-1">
                 <p className="flex flex-wrap items-center gap-2 font-medium">
                   <Chip t={t} />
-                  <Link href={`/admin/leave-types/${t.id}`} className={`break-words underline-offset-4 hover:underline ${focusRing} rounded-md`}>
+                  <Link href={`/admin/leave-types/${t.id}`} className={cx(textLink, "break-words")}>
                     {t.name}
                   </Link>
                 </p>
@@ -72,7 +73,6 @@ export default async function LeaveTypesPage() {
                     label="↑ Up"
                     ariaLabel={`Move ${t.name} up`}
                     pendingLabel="Moving…"
-                    className={move}
                     showSuccess={false}
                   />
                 )}
@@ -83,7 +83,6 @@ export default async function LeaveTypesPage() {
                     label="↓ Down"
                     ariaLabel={`Move ${t.name} down`}
                     pendingLabel="Moving…"
-                    className={move}
                     showSuccess={false}
                   />
                 )}
@@ -93,24 +92,21 @@ export default async function LeaveTypesPage() {
                   label="Archive"
                   ariaLabel={`Archive ${t.name}`}
                   pendingLabel="Archiving…"
-                  danger
+                  variant="danger"
                   confirm={`Archive ${t.name}? Nobody can request it any more; past requests and balances keep it.`}
                   confirmLabel="Yes, archive"
                 />
               </div>
-            </li>
+            </Item>
           ))}
-        </ol>
+        </ItemList>
       )}
 
       {archived.length > 0 && (
-        <section aria-labelledby="archived-heading" className="space-y-3">
-          <h2 id="archived-heading" className="text-lg font-semibold tracking-tight">
-            Archived
-          </h2>
-          <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+        <Section title="Archived" className="space-y-3">
+          <ItemList>
             {archived.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <Item key={t.id} className="flex flex-wrap items-center justify-between gap-3">
                 <p className="flex flex-wrap items-center gap-2 text-muted">
                   <Chip t={t} />
                   {t.name}
@@ -121,12 +117,12 @@ export default async function LeaveTypesPage() {
                   label="Restore"
                   ariaLabel={`Restore ${t.name}`}
                   pendingLabel="Restoring…"
-                  className={outlineButton}
+                  variant="outline"
                 />
-              </li>
+              </Item>
             ))}
-          </ul>
-        </section>
+          </ItemList>
+        </Section>
       )}
     </AdminShell>
   );

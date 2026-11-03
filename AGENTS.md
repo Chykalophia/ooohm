@@ -41,8 +41,10 @@ docker compose up   # full stack: db, migrate+seed, app, mailpit (http://localho
 
 Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
 
-- `src/app/**`: presentation. Thin pages and server actions: zod-parse, `requireActor()`, call one service, map the result. No Drizzle here.
-- `src/app/admin/**`: the admin screens. Pages start with `requireAdminPage()` (404 for non-admins); actions go through `adminAction()`. The services check the role again (`assertCanAdminister`), so never rely on the page alone.
+- `src/app/**`: presentation. Thin pages and server actions. Pages open with `requireMemberPage()` / `requireAdminPage()` and render inside `AppPage` / `AdminShell`; actions are a zod schema and one service call through `runFormAction` / `runStateAction` (`src/app/_lib/server-action.ts`). No Drizzle here. Route-specific components sit beside their route.
+- `src/app/_lib/**`: the presentation layer's helpers: page loaders (`page-context.ts`), the server action pipeline (`action-pipeline.ts`, wired in `server-action.ts`), shared form field schemas, `runActionWith` messages, input schemas, the app's background tick.
+- `src/components/**`: shared UI, by kind (`ui`, `forms`, `layout`, `navigation`, `leave`). Components render props; they never load data or import `src/app` or `src/server` (lint enforces it). Style controls with the recipes in `src/components/ui/styles.ts`, not new Tailwind strings. See docs/architecture.md#presentation.
+- `src/app/admin/**`: the admin screens. Pages start with `requireAdminPage()` (404 for non-admins) and render in `AdminShell`; actions go through `adminAction()`. The services check the role again (`assertCanAdminister`), so never rely on the page alone.
 - `src/server/services/**`: use cases. Own transactions, data-dependent authorization, `recordLeaveChange`/`recordChange` for every state change, and email via `commitThenNotify` / `commitThenSend` (after commit, never throws). Admin use cases are `admin-*.ts` plus `audit-log.ts`; they record changes with `recordAdminChange` and take `lockCompany` first when a rule spans several people.
 - `src/server/repositories/**`: Drizzle queries only; each takes an executor (`db` or `tx`) first.
 - `src/server/integrations/**`: the adapter seam (`Adapter`, `adapterRegistry`); `installed.ts` lists adapters (none in v1). No database access: services write what adapters return.

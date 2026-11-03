@@ -1,12 +1,9 @@
 import type { Role } from "@/domain/actor";
 import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
-import { CheckboxField, SelectField, TextField } from "@/app/admin/fields";
+import { ROLE_LABEL } from "@/lib/format";
+import { CheckboxField, SelectField, TextField } from "@/components/ui/fields";
 
-const ROLE_OPTIONS = [
-  { value: "employee", label: "Employee" },
-  { value: "manager", label: "Manager" },
-  { value: "admin", label: "Admin" },
-];
+const ROLE_OPTIONS = Object.entries(ROLE_LABEL).map(([value, label]) => ({ value, label }));
 
 /** The fields an admin sets about a person, shared by the invite and edit forms. */
 export function PersonFields({

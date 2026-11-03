@@ -19,9 +19,7 @@ export function LeaveChip({ entry }: { entry: CalendarEntry }) {
       style={pending ? { borderColor: color } : { backgroundColor: color, color: readableTextColor(color) }}
     >
       {label}
-      <span className="sr-only">
-        {`, ${entry.leaveTypeName}, ${pending ? "waiting for approval" : "approved"}`}
-      </span>
+      <span className="sr-only">{`, ${entry.leaveTypeName}, ${pending ? "waiting for approval" : "approved"}`}</span>
     </span>
   );
 }

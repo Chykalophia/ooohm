@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type FormState, IDLE, nextFormKey, showsPreview } from "@/app/form-state";
+import { showsPreview } from "@/app/request-preview";
+import { type FormState, IDLE, nextFormKey } from "@/components/forms/form-state";
 
 const success = (id: string): FormState => ({ status: "success", message: "Sent", id });
 const failure: FormState = { status: "error", message: "You already have time off on some of those dates." };

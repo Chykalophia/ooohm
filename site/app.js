@@ -316,9 +316,19 @@ function triage() {
     fresh.style.opacity = "";
     countEl.textContent = "3";
   }
+  // `busy` covers a step still animating when the list leaves and re-enters view: that step
+  // schedules the next one itself, so re-entering mustn't start a second.
   let visible = false;
-  const loop = () => { timer = setTimeout(() => step().then(() => visible && loop()), 1200); };
-  whileVisible(rows, () => { clearTimeout(timer); visible = true; loop(); }, () => { visible = false; clearTimeout(timer); });
+  let busy = false;
+  const loop = () => {
+    timer = setTimeout(async () => {
+      busy = true;
+      await step();
+      busy = false;
+      if (visible) loop();
+    }, 1200);
+  };
+  whileVisible(rows, () => { visible = true; if (!busy) { clearTimeout(timer); loop(); } }, () => { visible = false; clearTimeout(timer); });
 }
 const POOL = [
   ["Lena Park", "Dec 21 – Dec 23", "3 days", "var(--pto)"],
@@ -445,7 +455,16 @@ function themes() {
 function clips() {
   for (const v of $$("video[data-autoplay]")) {
     if (reduceMotion) { v.controls = true; continue; }
-    whileVisible(v, () => { v.preload = "auto"; v.play().catch(() => (v.controls = true)); }, () => v.pause(), 0.35);
+    // A pause button in the window bar; once someone pauses, scrolling back doesn't restart it.
+    let held = false;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "clip-toggle";
+    const label = () => { btn.textContent = held ? "Play" : "Pause"; btn.setAttribute("aria-label", `${held ? "Play" : "Pause"} the clip`); };
+    label();
+    btn.addEventListener("click", () => { held = !held; label(); held ? v.pause() : v.play().catch(() => {}); });
+    (v.closest(".browser")?.querySelector(".browser-bar") ?? v.parentElement).append(btn);
+    whileVisible(v, () => { v.preload = "auto"; if (!held) v.play().catch(() => (v.controls = true)); }, () => v.pause(), 0.35);
   }
   const dialog = $("[data-film]");
   const film = $("[data-film-video]");

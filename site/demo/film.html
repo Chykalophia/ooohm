@@ -156,7 +156,7 @@
     const frame = Math.min(n, Math.max(1, Math.round((c.from + local * c.rate) * FPS) + 1));
     const src = `.frames/film/${c.clip}/${String(frame).padStart(5, "0")}.jpg`;
     const img = $("clip");
-    if (!img.src.endsWith(src)) { img.src = src; await img.decode().catch(() => {}); }
+    if (!img.src.endsWith(src)) { img.src = src; await img.decode(); }
     const pv = ramp(t, 8.8, 9.4);
     $("progress").style.opacity = pv;
     $("plabels").style.opacity = pv;

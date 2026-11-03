@@ -230,15 +230,23 @@ async function themeStills(browser) {
   mkdirSync(join(OUT, "themes"), { recursive: true });
   const ctx = await signedInContext(browser, "maya@example.com", { viewport: { width: 840, height: 560 }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
-  for (const theme of themes) {
-    // A psql variable, quoted by psql, rather than text pasted into the SQL.
-    execFileSync("psql", [DB, "-q", "-v", `theme=${theme}`], { input: "update companies set theme = :'theme';" });
-    await page.goto(`${BASE}/`);
-    await page.waitForLoadState("networkidle");
-    await page.screenshot({ path: join(TMP, "theme.png") });
-    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(TMP, "theme.png"), "-vf", "scale=1260:-2", "-q:v", "5", join(OUT, "themes", `${theme}.jpg`)]);
+  // Only the demo company (the one Maya belongs to) changes, and it gets its own theme back after.
+  const psql = (sql, vars = {}) =>
+    execFileSync("psql", [DB, "-qAt", "-v", "ON_ERROR_STOP=1", ...Object.entries(vars).flatMap(([k, v]) => ["-v", `${k}=${v}`])], { input: sql }).toString().trim();
+  const company = psql(`select company_id from "user" where email = :'email';`, { email: "maya@example.com" });
+  if (!company) throw new Error("maya@example.com has no company; run demo-data.mts first");
+  const original = psql(`select theme from companies where id = :'company';`, { company });
+  try {
+    for (const theme of themes) {
+      psql(`update companies set theme = :'theme' where id = :'company';`, { theme, company });
+      await page.goto(`${BASE}/`);
+      await page.waitForLoadState("networkidle");
+      await page.screenshot({ path: join(TMP, "theme.png") });
+      execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(TMP, "theme.png"), "-vf", "scale=1260:-2", "-q:v", "5", join(OUT, "themes", `${theme}.jpg`)]);
+    }
+  } finally {
+    psql(`update companies set theme = :'theme' where id = :'company';`, { theme: original, company });
   }
-  execFileSync("psql", [DB, "-qc", "update companies set theme = 'classic'"]);
   await ctx.close();
   console.log("themes: done");
 }

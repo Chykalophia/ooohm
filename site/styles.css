@@ -182,9 +182,12 @@ h3 { font-size: clamp(26px, 2.6vw, 34px); line-height: 1.12; letter-spacing: -0.
 .facts li { padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 15px; color: var(--body); }
 .chapter-media { margin: 0; }
 .browser { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(28, 25, 23, .04), 0 24px 48px -24px rgba(28, 25, 23, .14); }
-.browser-bar { display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-bottom: 1px solid var(--border); background: #fbfbfa; }
+.browser-bar { position: relative; display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-bottom: 1px solid var(--border); background: #fbfbfa; }
 .browser-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); }
 .browser-bar span { margin: 0 auto; transform: translateX(-24px); font-size: 12px; color: var(--muted); }
+.clip-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); height: 24px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); font: 500 12px/1 var(--font); cursor: pointer; }
+.clip-toggle:hover { color: var(--ink); border-color: var(--border-strong); }
+.clip-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .browser video { width: 100%; background: var(--bg); }
 
 /* Year of balances */
@@ -234,7 +237,7 @@ h3 { font-size: clamp(26px, 2.6vw, 34px); line-height: 1.12; letter-spacing: -0.
 .trow .dot { flex: none; }
 .trow .act { font-size: 13px; color: var(--muted); }
 .trow .act b { color: #fff; background: var(--accent); padding: 4px 10px; border-radius: 7px; font-weight: 500; transition: background-color .2s; }
-.trow.go { opacity: 0; transform: translateX(40px); }
+.trow.go { opacity: 0; transform: translateX(40px) !important; } /* beats the inline translateY */
 .trow .badge { font-size: 12px; border: 1px solid var(--accent-line); color: var(--accent); border-radius: 999px; padding: 2px 9px; }
 
 /* Rules and themes */

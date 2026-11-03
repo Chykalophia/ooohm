@@ -23,7 +23,7 @@ folder as is. `site/demo/` holds the tooling that made the media and doesn't nee
 ## What's on the page
 
 - **The request sentence** (hero): a working copy of the app's sentence form. It counts working days
-  with the same rules as the app (Mon–Fri, minus company holidays) and draws the balance squares.
+  on the demo company's calendar (Monday to Friday, minus its 2026–27 US holidays) and draws the balance squares.
   It plays a few examples until someone touches it.
 - **The tour** (`media/tour.mp4`): a 46-second film, rendered from `demo/film.html`, built around the
   recordings below.
@@ -50,8 +50,8 @@ node site/demo/record.mjs            # every clip, then the theme stills (or nam
 node site/demo/render-film.mjs       # the tour, from the clips
 ```
 
-The scripts use the preinstalled Playwright (`NODE_PATH=$(npm root -g)` if it's installed globally) and
-`ffmpeg`. Sign-in goes through the real magic-link flow, reading the token from the local database.
+The scripts use the preinstalled Playwright (`NODE_PATH=$(npm root -g)` if it's installed globally),
+`ffmpeg`, and `psql` (the Postgres client, pointed at `DATABASE_URL`). Sign-in goes through the real magic-link flow, reading the token from the local database.
 Run `demo-data.mts` again before `record.mjs ask approve`, since those clips change requests as they go.
 
 ## Fonts

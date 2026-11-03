@@ -28,7 +28,10 @@ export async function signedInContext(browser, email, options = {}) {
   const id = execFileSync("psql", [DB, "-At", "-v", `email=${email}`], {
     input: "select identifier from verification where value::jsonb ->> 'email' = :'email' order by created_at desc limit 1;",
   }).toString().trim();
-  await ctx.request.get(`${BASE}/api/auth/magic-link/verify?token=${id.replace(/^magic-link:/, "")}&callbackURL=/`, { maxRedirects: 0 });
+  if (!id) throw new Error(`no magic-link token for ${email}; is ${email} a member, and is DATABASE_URL the app's database?`);
+  await ctx.request.get(`${BASE}/api/auth/magic-link/verify?token=${encodeURIComponent(id.replace(/^magic-link:/, ""))}&callbackURL=/`, { maxRedirects: 0 });
+  const check = await ctx.request.get(`${BASE}/api/auth/get-session`);
+  if (!check.ok() || !(await check.json())?.user) throw new Error(`signing in as ${email} failed (get-session ${check.status()})`);
   mkdirSync(AUTH, { recursive: true });
   await ctx.storageState({ path: state });
   return ctx;

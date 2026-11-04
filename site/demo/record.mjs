@@ -208,11 +208,19 @@ function director(page, start) {
   };
 }
 
+// Home's carryover reminder sits between the request card and the balance. A short clip or a
+// still would cut it in half, so the ones of Home leave it out and end on the balance instead.
+const CALM = `addEventListener("DOMContentLoaded", () => {
+  const st = document.createElement("style");
+  st.textContent = "main > aside { display: none !important; }";
+  document.head.append(st);
+});`;
+
 /** The clips. `as` is who is signed in; `size` is the CSS viewport. */
 const CLIPS = {
   // Lena asks for three days in one sentence and sees what she'll have left.
   ask: {
-    as: "lena@example.com", size: { width: 860, height: 640 }, path: "/",
+    as: "lena@example.com", size: { width: 860, height: 640 }, path: "/", calm: true,
     async run(page, d) {
       await d.wait(700);
       const type = page.locator('select[aria-label="Type of leave"]');
@@ -293,6 +301,7 @@ async function record(name, clip, browser) {
   const ctx = await signedInContext(browser, clip.as, { viewport: clip.size, deviceScaleFactor: 2 });
   await ctx.addInitScript(CURSOR);
   await ctx.addInitScript(PICKERS);
+  if (clip.calm) await ctx.addInitScript(CALM);
   const page = await ctx.newPage();
   await page.goto(BASE + clip.path);
   await page.waitForLoadState("networkidle");
@@ -341,6 +350,7 @@ async function themeStills(browser) {
   const themes = ["classic", "cobalt", "marigold", "saffron", "graphite", "plum", "signal", "forest", "frost"];
   mkdirSync(join(OUT, "themes"), { recursive: true });
   const ctx = await signedInContext(browser, "maya@example.com", { viewport: { width: 840, height: 560 }, deviceScaleFactor: 2 });
+  await ctx.addInitScript(CALM);
   const page = await ctx.newPage();
   // Only the demo company (the one Maya belongs to) changes, and it gets its own theme back after.
   const psql = (sql, vars = {}) =>

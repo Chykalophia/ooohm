@@ -27,9 +27,12 @@ export function RequestLeaveSentence({ leaveTypes, defaultDate }: { leaveTypes: 
   );
 }
 
-/** A choice set inside the sentence: tinted, underlined in the accent, keyboard focusable. */
+/**
+ * A choice set inside the sentence: tinted, underlined in the accent, keyboard focusable. Its own
+ * line height stays snug, so wrapped lines of the sentence keep a clear gap between tokens.
+ */
 const token =
-  "relative inline-flex max-w-full items-center gap-1 rounded-md bg-accent/10 px-1.5 text-accent-ink shadow-[inset_0_-2px_0_var(--accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-ink";
+  "relative inline-flex max-w-full items-center gap-1 rounded-lg bg-accent/10 px-2 py-0.5 leading-snug text-accent-ink shadow-[inset_0_-2px_0_var(--accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-ink";
 /** The native control fills its token and stays invisible, so the sentence reads as text. */
 const overlay = "absolute inset-0 h-full w-full cursor-pointer opacity-0";
 

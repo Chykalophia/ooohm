@@ -131,6 +131,8 @@ function sentence() {
   const why = $("[data-why]", form);
   const squares = $("[data-squares]", form);
   const sent = $("[data-sent]", form);
+  // Counts submits and edits, so a late confirmation can tell it is out of date.
+  let sendSeq = 0;
   const note = $("[data-demo-note]");
   let last = {};
 
@@ -200,7 +202,7 @@ function sentence() {
     preview.innerHTML = line;
     why.textContent = reason;
     drawSquares(squares, t.allowance, t.used, request, 0, 20);
-    if (last.type !== undefined) sent.textContent = "";
+    if (last.type !== undefined) { sendSeq++; sent.textContent = ""; }
     last = s;
   }
 
@@ -223,8 +225,10 @@ function sentence() {
         ? `Sent for approval: ${days(c.total)}. (Only in this demo, so nobody got an email.)`
         : "Those days are all weekends or holidays, so there's nothing to send.";
     // Emptied first, so sending the same request twice is announced twice.
+    // An edit in the meantime (render) cancels it, so an old confirmation never comes back.
+    const seq = ++sendSeq;
     sent.textContent = "";
-    requestAnimationFrame(() => { sent.textContent = text; });
+    requestAnimationFrame(() => { if (seq === sendSeq) sent.textContent = text; });
   });
 
   // The demo plays scenes until someone touches the sentence.

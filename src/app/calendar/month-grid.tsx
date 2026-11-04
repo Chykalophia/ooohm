@@ -229,7 +229,9 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                         </span>
                       )}
                       {day.entries.length > 0 && (
-                        <ul className="space-y-1">
+                        // Arrow keys on a chip move between days too, so they keep working
+                        // in the grid wherever Tab has put focus.
+                        <ul className="space-y-1" onKeyDown={(e) => onKeyDown(e, day.date)}>
                           {day.entries.map((entry) => (
                             <li key={entry.id} className="pointer-events-auto">
                               <LeaveChip entry={entry} href={`/requests/${entry.id}`} />

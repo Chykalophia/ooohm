@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { TextField } from "@/components/ui/fields";
 import { buttonClass, cx, focusRing, textLink } from "@/components/ui/styles";
@@ -34,11 +34,20 @@ export function SignInForm({
   // "Check your email": when the focused form goes in the same instant, a screen reader
   // (Orca) moves its own focus there silently and the result is never read.
   const [formGone, setFormGone] = useState(false);
+  const dropTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const formRef = useRef<HTMLFormElement>(null);
   const focusThenDropForm = useCallback((el: HTMLElement | null) => {
     if (!el) return;
     el.focus();
-    setTimeout(() => setFormGone(true), 200);
+    dropTimer.current = setTimeout(() => setFormGone(true), 200);
   }, []);
+  const useDifferentEmail = () => {
+    clearTimeout(dropTimer.current);
+    setFormGone(false);
+    setState({ kind: "idle" });
+    // Back to the email field, whether the form was still there (a quick click) or comes back.
+    requestAnimationFrame(() => formRef.current?.querySelector<HTMLInputElement>("input[type=email]")?.focus());
+  };
 
   const router = useRouter();
   // Passkeys need a browser that supports them, known only after mount (the server can't tell).
@@ -111,10 +120,7 @@ export function SignInForm({
       <button
         type="button"
         className={cx(textLink, "text-sm text-accent-ink")}
-        onClick={() => {
-          setFormGone(false);
-          setState({ kind: "idle" });
-        }}
+        onClick={useDifferentEmail}
       >
         Use a different email
       </button>
@@ -126,8 +132,8 @@ export function SignInForm({
       {sent}
       {/* One tree for both states, so the heading isn't remounted when the form goes. */}
       {!formGone && (
-        <div className={cx("space-y-4", sent && "pointer-events-none opacity-0")}>
-          <form onSubmit={sendLink} className="space-y-3">
+        <div inert={!!sent} className={cx("space-y-4", sent && "pointer-events-none opacity-0")}>
+          <form ref={formRef} onSubmit={sendLink} className="space-y-3">
             <TextField
               label="Work email"
               type="email"

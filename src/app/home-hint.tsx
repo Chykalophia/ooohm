@@ -31,6 +31,7 @@ export function HomeHint({ storageKey, children, link }: { storageKey: string; c
     // Reading the browser's storage can only happen after mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisible(!dismissed);
+    setLeaving(false);
   }, [storageKey]);
 
   if (!visible) return null;

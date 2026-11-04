@@ -7,6 +7,7 @@ const LOCAL = new Set(["localhost", "127.0.0.1", "::1"]);
 function isLocalHost(value) {
   const host = value.trim();
   if (host === "" || host.startsWith("/")) return true; // default or a Unix socket
+  if (LOCAL.has(host.toLowerCase())) return true; // before port stripping, which would eat ::1's last part
   const name = host.startsWith("[") ? host.slice(1, host.indexOf("]")) : host.replace(/:\d*$/, "");
   return LOCAL.has(name.toLowerCase());
 }

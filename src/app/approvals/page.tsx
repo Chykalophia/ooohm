@@ -89,7 +89,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                     <div className="space-y-1">
                       <p className="font-medium break-words">
                         {r.requesterName || r.requesterEmail}
-                        {r.requesterName && <span className="ml-2 text-sm font-normal text-muted">{r.requesterEmail}</span>}
+                        {/* A real space, so a screen reader doesn't run the name into the email. */}
+                        {r.requesterName && " "}
+                        {r.requesterName && <span className="ml-1 text-sm font-normal text-muted">{r.requesterEmail}</span>}
                       </p>
                       <ColorLabel color={r.leaveTypeColor}>{formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}</ColorLabel>
                       <p className="text-sm text-muted">

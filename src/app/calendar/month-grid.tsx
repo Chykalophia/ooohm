@@ -140,7 +140,9 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
 
   return (
     <div className="space-y-4">
-      <table className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-2xl border border-border">
+      {/* A grid, not a plain table: screen readers then pass the arrow keys to it (focus
+          mode) instead of reading the page with them, so moving between days works. */}
+      <table role="grid" className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-2xl border border-border">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>

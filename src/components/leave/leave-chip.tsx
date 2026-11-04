@@ -24,20 +24,18 @@ export function LeaveChip({ entry, href }: { entry: CalendarEntry; href?: string
     href && focusRing,
   );
   const style = pending ? { borderColor: color } : { backgroundColor: color, color: readableTextColor(color) };
-  const content = (
-    <>
-      {label}
-      <span className="sr-only">{`, ${entry.leaveTypeName}, ${pending ? "waiting for approval" : "approved"}`}</span>
-    </>
-  );
+  const spoken = `${label}, ${entry.leaveTypeName}, ${pending ? "waiting for approval" : "approved"}`;
   const title = `${entry.leaveTypeName}${pending ? ", waiting for approval" : ""}`;
+  // A link takes its whole name from aria-label: hidden text inside it is read as a line
+  // of its own, starting with a comma.
   return href ? (
-    <Link href={href} title={`${title}: open the request`} className={className} style={style}>
-      {content}
+    <Link href={href} title={`${title}: open the request`} aria-label={spoken} className={className} style={style}>
+      {label}
     </Link>
   ) : (
     <span title={title} className={className} style={style}>
-      {content}
+      {label}
+      <span className="sr-only">{spoken.slice(label.length)}</span>
     </span>
   );
 }

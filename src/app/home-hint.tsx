@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cx, focusRing, textLink } from "@/components/ui/styles";
 
 /**
@@ -12,9 +12,14 @@ import { cx, focusRing, textLink } from "@/components/ui/styles";
  *
  * Hidden until mounted, because the dismissal lives in the browser: rendering it on
  * the server would flash it for people who dismissed it.
+ *
+ * "Got it" takes focus with it when the note goes, so focus moves on to whatever comes
+ * next on the page (or the main content) rather than falling back to the top.
  */
 export function HomeHint({ storageKey, children, link }: { storageKey: string; children: React.ReactNode; link: { href: string; label: string } }) {
   const [visible, setVisible] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let dismissed = false;
@@ -30,7 +35,12 @@ export function HomeHint({ storageKey, children, link }: { storageKey: string; c
 
   if (!visible) return null;
   const dismiss = () => {
-    setVisible(false);
+    // Focus moves first, and the note fades out and goes a moment later: when the note
+    // that held focus goes in the same instant, a screen reader (Orca) moves its own focus
+    // silently and nothing is read.
+    (focusableAfter(root.current) ?? document.getElementById("main"))?.focus();
+    setLeaving(true);
+    setTimeout(() => setVisible(false), LEAVE_MS);
     try {
       window.localStorage.setItem(storageKey, "dismissed");
     } catch {
@@ -39,7 +49,14 @@ export function HomeHint({ storageKey, children, link }: { storageKey: string; c
   };
 
   return (
-    <div role="note" className="flex flex-col gap-3 rounded-2xl border border-accent/30 bg-accent/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      ref={root}
+      role="note"
+      className={cx(
+        "flex flex-col gap-3 rounded-2xl border border-accent/30 bg-accent/5 p-4 sm:flex-row sm:items-center sm:justify-between",
+        leaving && "pointer-events-none opacity-0 motion-safe:transition-opacity",
+      )}
+    >
       <p className="text-sm">{children}</p>
       <div className="flex shrink-0 items-center gap-4 text-sm">
         <Link href={link.href} className={cx(textLink, "font-medium text-accent-ink")}>
@@ -52,4 +69,19 @@ export function HomeHint({ storageKey, children, link }: { storageKey: string; c
       </div>
     </div>
   );
+}
+
+/** How long a dismissed note lingers, faded out, before it leaves the page. */
+const LEAVE_MS = 200;
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** The first element after `el` (and outside it) that Tab would reach. */
+function focusableAfter(el: HTMLElement | null): HTMLElement | null {
+  if (!el) return null;
+  for (const candidate of document.querySelectorAll<HTMLElement>(FOCUSABLE)) {
+    if (el.contains(candidate) || !(el.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+    if (candidate.offsetParent !== null || candidate.getClientRects().length > 0) return candidate;
+  }
+  return null;
 }

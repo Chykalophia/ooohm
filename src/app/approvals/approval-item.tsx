@@ -120,6 +120,7 @@ export function ApprovalItem({
               <div className="min-w-0 space-y-0.5">
                 <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                   <StatusBadge status={approved ? "approved" : "rejected"} />
+                  {/* A real space, so "Approved" isn't read run into the sentence. */}{" "}
                   <span className={approved ? "text-accent-ink" : "text-foreground"}>
                     {approved ? `${who} is off ${dates}.` : `${who}’s request for ${dates} is declined.`}
                   </span>

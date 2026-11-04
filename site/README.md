@@ -72,6 +72,21 @@ The scripts use the preinstalled Playwright (`NODE_PATH=$(npm root -g)` if it's 
 the app's `DATABASE_URL`. Sign-in goes through the real magic-link flow, reading the token from the local database.
 Run `demo-data.mts` again before `record.mjs ask approve`, since those clips change requests as they go.
 
+## The launch film
+
+`demo/launch.html` is a one-minute launch film for social posts, built from the same recordings, with
+captions drawn into the picture. It isn't on the page. Render it after `record.mjs`:
+
+```bash
+NODE_PATH=$(npm root -g) node site/demo/render-launch.mjs --music Wallpaper.mp3 --out launch.mp4   # --url changes the address on the end card
+```
+
+It also writes `launch.srt` and `launch.vtt` with the same captions, and a `launch.jpg` still. The music isn't in the repository:
+the film is cut to the first minute of "Wallpaper" by Kevin MacLeod, from incompetech.com, under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Wherever the video is posted, credit it as:
+
+> Music: "Wallpaper" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+
 ## Fonts
 
 Instrument Sans and JetBrains Mono, both under the SIL Open Font License 1.1, are served from `fonts/`

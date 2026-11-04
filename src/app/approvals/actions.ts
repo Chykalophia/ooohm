@@ -23,8 +23,8 @@ export async function decideLeaveAction(_prev: FormState, formData: FormData): P
       const request = await decideLeaveRequest(ctx, actor, input);
       return request.status === "approved" ? "Approved." : "Declined.";
     },
-    // No refresh: the decided item stays on screen showing its outcome until the
-    // next visit, rather than vanishing mid-click.
+    // No refresh here: the decided card shows its outcome for a moment first, then
+    // refreshes the page itself (ApprovalItem), so it never vanishes mid-click.
     { refresh: false },
   );
 }

@@ -578,6 +578,19 @@ body,
     animation-duration: 0s;
   }
 }
+/* A decided approval: its mark pops in and the card's wash fades in (Approvals). */
+@media (prefers-reduced-motion: no-preference) {
+  .ooo-pop {
+    animation: ooo-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .ooo-fade {
+    animation: ooo-fade-in 300ms ease-out both;
+  }
+}
+@keyframes ooo-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
 @keyframes ooo-breathe {
   0%, 100% { opacity: 0.35; }
   40% { opacity: 1; }

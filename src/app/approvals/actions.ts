@@ -6,6 +6,7 @@ import { decideLeaveRequest } from "@/server/services/approvals";
 import type { FormState } from "@/components/forms/form-state";
 import { formFields } from "@/app/_lib/form-fields";
 import { runFormAction } from "@/app/_lib/server-action";
+import { DECIDED_MESSAGE } from "./decision-outcome";
 
 const decideSchema = z.object({
   requestId: formFields.id,
@@ -21,7 +22,7 @@ export async function decideLeaveAction(_prev: FormState, formData: FormData): P
     decideSchema,
     async (ctx, actor, input) => {
       const request = await decideLeaveRequest(ctx, actor, input);
-      return request.status === "approved" ? "Approved." : "Declined.";
+      return request.status === "approved" ? DECIDED_MESSAGE.approve : DECIDED_MESSAGE.reject;
     },
     // No refresh here: the decided card shows its outcome for a moment first, then
     // refreshes the page itself (ApprovalItem), so it never vanishes mid-click.

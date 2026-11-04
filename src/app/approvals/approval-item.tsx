@@ -80,6 +80,7 @@ export function ApprovalItem({
         <Card
           as="div"
           data-approval={decided ? undefined : ""}
+          role="group"
           tabIndex={-1}
           aria-label={label}
           className={cx(

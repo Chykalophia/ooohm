@@ -24,12 +24,13 @@ const OFF_DAY = "bg-background bg-[repeating-linear-gradient(135deg,var(--color-
 
 /**
  * This month's working days are plain, its weekends and holidays are hatched, and the
- * neighbouring months' days have no fill and a faded number, so the three never look
- * alike. A selected day takes a light accent tint over any of them.
+ * neighbouring months' days have no fill and a grey number (never faded below text
+ * contrast), so the three never look alike. A selected day takes a light accent tint over any of them,
+ * and in forced colours (which drop the tint) an outline in the system highlight.
  */
 function dayStyle(day: CalendarDay, selected: boolean): { cell: string; number: string } {
-  const number = !day.inMonth ? "text-muted opacity-60" : !day.isWorkingDay || day.holiday !== null ? "text-muted" : "text-foreground";
-  if (selected) return { cell: "bg-accent/15", number };
+  const number = !day.inMonth ? "text-muted" : !day.isWorkingDay || day.holiday !== null ? "text-muted" : "text-foreground";
+  if (selected) return { cell: "bg-accent/15 forced-colors:outline-2 forced-colors:-outline-offset-2 forced-colors:outline-[Highlight]", number };
   if (!day.inMonth) return { cell: "bg-transparent", number };
   if (!day.isWorkingDay || day.holiday !== null) return { cell: OFF_DAY, number };
   return { cell: "bg-surface", number };
@@ -53,9 +54,10 @@ function ordered(a: string, b: string): Range {
 
 /**
  * The month grid, which doubles as a way to ask for time off: drag across days (or
- * click one, then shift-click another) and a short form appears under the month with
+ * click one, then another) and a short form appears under the month with
  * the dates, the live day count and a Request button. With a keyboard, arrow keys move
- * between days, Enter or Space picks one, and Shift with an arrow stretches the pick.
+ * between days, Enter or Space picks one (and then a second), and Shift with an arrow
+ * stretches the pick.
  * Phones get the agenda instead; the form on Home works everywhere.
  */
 export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[][]; caption: string; leaveTypes: LeaveTypeOption[] }) {
@@ -70,6 +72,8 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
   const cells = useRef(new Map<string, HTMLButtonElement>());
   // How the last press started: a touch only picks on its click, so scrolling past a day never picks it.
   const pointerType = useRef("mouse");
+  // A press that stretched a single pick: if it turns into a drag, the drag starts afresh here.
+  const pressedAt = useRef<string | null>(null);
   const range = anchor && end ? ordered(anchor, end) : null;
   const rangeKey = range ? `${range.start}/${range.end}` : null;
   const canRequest = leaveTypes.length > 0;
@@ -96,12 +100,18 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
     };
   }, [dragging]);
 
-  function pick(date: string, extend: boolean) {
-    if (extend && anchor) setEnd(date);
-    else {
-      setAnchor(date);
+  // With one day picked, picking another stretches to it, so a range needs neither a drag
+  // nor Shift (WCAG 2.5.7). A pick after a range starts again. Returns whether it stretched
+  // a single pick (rather than Shift extending, or starting afresh).
+  function pick(date: string, extend: boolean): boolean {
+    const single = anchor !== null && anchor === end && date !== anchor;
+    if ((extend || single) && anchor) {
       setEnd(date);
+      return single && !extend;
     }
+    setAnchor(date);
+    setEnd(date);
+    return false;
   }
 
   function moveFocus(date: string) {
@@ -159,7 +169,13 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                     key={day.date}
                     // On the cell, not the button: dragging across a day's leave chips still stretches the pick.
                     onPointerEnter={() => {
-                      if (dragging) setEnd(day.date);
+                      if (!dragging) return;
+                      // Dragging on from a press that stretched a single pick: the drag is a new range.
+                      if (pressedAt.current && pressedAt.current !== day.date) {
+                        setAnchor(pressedAt.current);
+                        pressedAt.current = null;
+                      }
+                      setEnd(day.date);
                     }}
                     className={cx("relative h-24 border-border p-0 align-top", edges, style.cell)}
                   >
@@ -178,7 +194,7 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                         pointerType.current = e.pointerType;
                         if (!canRequest || e.button !== 0 || e.pointerType === "touch") return;
                         setFocusDate(day.date);
-                        pick(day.date, e.shiftKey);
+                        pressedAt.current = pick(day.date, e.shiftKey) ? day.date : null;
                         setDragging(true);
                         // Let the pointer move over other cells without the browser capturing it here.
                         (e.target as Element).releasePointerCapture?.(e.pointerId);
@@ -233,7 +249,7 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
           {state.status === "success" ? (
             <span className="text-accent-ink">{state.message}</span>
           ) : (
-            <span className="text-muted">Drag across days, or pick one and Shift-click another, to ask for time off.</span>
+            <span className="text-muted">Drag across days, or pick a first and a last day, to ask for time off. With a keyboard, use the arrow keys and Enter, or Shift with an arrow to stretch.</span>
           )}
         </p>
       )}

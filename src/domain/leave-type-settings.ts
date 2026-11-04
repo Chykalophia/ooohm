@@ -31,7 +31,7 @@ const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 export function normalizeLeaveTypeCode(raw: string): string {
   const code = raw.trim().toUpperCase();
   if (!CODE.test(code)) {
-    throw new DomainError("invalid_input", `Codes are 1 to ${LEAVE_TYPE_CODE_MAX_LENGTH} letters, digits, - or _.`);
+    throw new DomainError("invalid_input", `Codes are 1 to ${LEAVE_TYPE_CODE_MAX_LENGTH} letters, digits, - or _.`, { field: "code" });
   }
   return code;
 }
@@ -45,7 +45,7 @@ export function normalizeLeaveTypeCode(raw: string): string {
  */
 export function normalizeLeaveTypeColor(raw: string): string {
   const m = HEX.exec(raw.trim());
-  if (!m) throw new DomainError("invalid_input", "Colours are hex values like #0f766e.");
+  if (!m) throw new DomainError("invalid_input", "Colours are hex values like #0f766e.", { field: "color" });
   const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
   return `#${hex.toLowerCase()}`;
 }

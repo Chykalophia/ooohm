@@ -12,9 +12,9 @@ import { Card } from "@/components/ui/card";
 import { SelectField, TextField } from "@/components/ui/fields";
 import { runSetupAction } from "./actions";
 
-// Nobody should find this page through a search engine or a Referer header. The title is
-// generic because it also heads the not-found page served once setup is closed.
-export const metadata: Metadata = { title: "OOOhm", robots: { index: false, follow: false }, referrer: "no-referrer" };
+// Nobody should find this page through a search engine or a Referer header. Once setup
+// is closed this route serves the not-found page, which has its own title.
+export const metadata: Metadata = { title: "Set up OOOhm", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 /** The company's starting zone, as on a new company row; the admin can change it later. */
 const DEFAULT_TIME_ZONE = "America/Chicago";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isYearMonth } from "@/domain/calendar";
+import { isYearMonth, MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
 import { isUuid } from "@/domain/ids";
 
 /** `?month=YYYY-MM`. */
@@ -15,5 +15,8 @@ export function readParam(schema: z.ZodType<string>, value: string | string[] | 
   const parsed = schema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
 }
-/** `?year=YYYY`. */
-export const yearParamSchema = z.string().regex(/^\d{4}$/);
+/** `?year=YYYY`, within the years the calendar shows. */
+export const yearParamSchema = z
+  .string()
+  .regex(/^\d{4}$/)
+  .refine((y) => Number(y) >= MIN_CALENDAR_YEAR && Number(y) <= MAX_CALENDAR_YEAR);

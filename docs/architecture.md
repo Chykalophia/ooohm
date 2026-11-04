@@ -469,12 +469,13 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 - Shortcuts: ⌘K (Ctrl+K) on any page for members of a company opens a "Go to" list of the screens the person
   can reach (`JumpMenu`, from the header). On Approvals, J and K move between requests, A approves the focused one, and D
   moves to its reason so Enter declines (`approvals/approval-keys.tsx`); with no request in focus yet, the first of these
-  keys focuses the first request. None of them shows until a key is pressed, and they are ignored while typing
-  and with Shift, Alt, Ctrl or ⌘ held (⌘K/Ctrl+K aside).
+  keys focuses the first request. The Approvals shortcuts are off until the person ticks "Keyboard shortcuts"
+  above the list (kept per person in this browser's `localStorage`, or in memory where storage is blocked), so single-letter keys never act unasked (WCAG 2.1.4).
+  They are ignored while typing and with Shift, Alt, Ctrl or ⌘ held (⌘K/Ctrl+K aside).
 - `/requests` ("Your requests", in the account menu): every request the person has sent, latest dates first, ten a
   page. Each is a card (`RequestCard`, shared with the dashboard) that opens `/requests/[id]`; the whole card is the
   link (its dates, stretched over it) and lifts on hover. While a request can be cancelled (pending or approved,
-  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`): one click starts an 8-second
+  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`): one click starts a 20-second
   countdown with Undo, and the cancel is sent when it ends (leaving the page sends it at once).
 - `/requests/[id]`: one of the person's own requests in full (type, days, who it waits for or who decided it,
   when it was sent and decided, both notes) with Cancel request. Someone else's request is a 404, as an unknown one
@@ -681,10 +682,10 @@ CRON_TZ=America/Chicago
   inside its range. The agenda follows the same rule: it lists a request only if it costs at least one day of
   the month. Previous, Today and Next are plain links. The month is parsed with zod; anything malformed
   or outside 1900 to 2999 falls back to the current month in the company's time zone.
-  The grid is also a way to ask for time off (`month-grid.tsx`): drag across days, or click one and
-  Shift-click another, and a short form under the month shows the dates, the same live preview as Home
+  The grid is also a way to ask for time off (`month-grid.tsx`): drag across days, or click one and then
+  another (Shift-click works too), and a short form under the month shows the dates, the same live preview as Home
   and a leave type picker, then posts to the same `requestLeaveAction` (full days). With a keyboard, the
-  days are one tab stop: arrow keys move, Enter or Space picks a day, Shift with an arrow stretches the pick,
+  days are one tab stop: arrow keys move, Enter or Space picks a day (a second one stretches the pick to it), Shift with an arrow stretches it,
   and Escape clears it. Each day is a button filling its cell behind the content; its leave chips sit above
   it and stay links to their requests, so a click on a chip opens the request and a drag across chips still
   stretches the pick. Phones keep the agenda; Home's form works everywhere.

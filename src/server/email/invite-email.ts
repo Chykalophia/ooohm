@@ -1,5 +1,5 @@
 import { displayName } from "@/domain/person";
-import { buttons, DEFAULT_EMAIL_ACCENT, type EmailAccent, emailDocument, escapeHtml, link, paragraph } from "@/lib/email-layout";
+import { buttons, DEFAULT_EMAIL_ACCENT, type EmailAccent, emailDocument, escapeHtml, heading, link, paragraph } from "@/lib/email-layout";
 import type { EmailContent } from "./leave-emails";
 
 /**
@@ -34,8 +34,8 @@ export function renderInviteEmail(input: InviteEmail, accent: EmailAccent = DEFA
   const text = [greeting, "", intro, "", `Sign in: ${input.link}`, "", expiry, input.signInUrl, ""].join("\n");
   const body =
     paragraph(escapeHtml(greeting)) +
-    paragraph(escapeHtml(intro)) +
+    heading(escapeHtml(intro)) +
     buttons([{ label: "Sign in to OOOhm", href: input.link, variant: "primary" }], accent);
   const footer = `${escapeHtml(expiry)} ${link(input.signInUrl, input.signInUrl, accent)}`;
-  return { subject: INVITE_SUBJECT, text, html: emailDocument(body, accent, footer) };
+  return { subject: INVITE_SUBJECT, text, html: emailDocument(body, accent, footer, INVITE_SUBJECT) };
 }

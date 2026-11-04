@@ -39,8 +39,11 @@ export function fieldClass(size: FieldSize = "md"): string {
 
 export const field = fieldClass("md");
 
-/** A checkbox or radio drawn by the browser, in the accent colour. */
-export const nativeCheck = "h-4 w-4 shrink-0 accent-[var(--accent)]";
+/**
+ * A checkbox or radio drawn by the browser, in the accent ink: the fill accent of the
+ * light themes (Marigold, Saffron) is about 2:1 on white, under the 3:1 a checked state needs.
+ */
+export const nativeCheck = "h-4 w-4 shrink-0 accent-[var(--accent-ink)]";
 
 /**
  * - `primary`: the screen's one main action (filled).

@@ -62,6 +62,11 @@ export function ChipSelect({
     if (open) list.current?.focus();
   }, [open]);
 
+  // Focus stays on the list, so the browser won't scroll to the active option itself.
+  useEffect(() => {
+    if (open) document.getElementById(`${id}-${active}`)?.scrollIntoView({ block: "nearest" });
+  }, [open, active, id]);
+
   function show() {
     const selected = options.findIndex((o) => o.value === value);
     setActive(selected >= 0 ? selected : firstEnabled(options, 0, 1));
@@ -146,11 +151,13 @@ export function ChipSelect({
                 className={cx(
                   "flex items-center gap-2.5 rounded-lg py-2 pr-4 pl-2.5",
                   o.disabled ? "cursor-default text-muted opacity-60" : "cursor-pointer",
-                  i === active && !o.disabled && "bg-accent/10",
+                  // The active option is outlined as well as tinted: the tint alone is too faint to
+                  // see (WCAG 2.4.7, 1.4.11), and the outline also shows in forced colours.
+                  i === active && !o.disabled && "bg-accent/10 outline-2 -outline-offset-2 outline-accent-ink",
                 )}
               >
                 <Check visible={selected} />
-                {o.color && <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: o.color }} />}
+                {o.color && <span data-swatch aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: o.color }} />}
                 <span className={cx(selected && "font-medium text-accent-ink")}>{o.label}</span>
               </span>
             );

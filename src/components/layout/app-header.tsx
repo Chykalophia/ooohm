@@ -61,7 +61,8 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
   return (
     <Link
       href={href}
-      aria-current={active ? "page" : undefined}
+      // "true", not "page": the section is current, and a tab inside it marks the exact page.
+      aria-current={active ? "true" : undefined}
       className={cx("inline-flex min-h-6 items-center rounded-md hover:text-foreground", focusRing, active ? "text-foreground" : "text-muted")}
     >
       <SteadyLabel bold={active}>{children}</SteadyLabel>

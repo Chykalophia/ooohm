@@ -93,6 +93,22 @@ test("input the schema refuses gets the action's own message when it has one", a
   assert.equal(own.status === "error" && own.message, "Names are 1 to 100 characters.");
 });
 
+test("a refusal names the fields it is about, so the form can mark them", async () => {
+  const bySchema = await harness().runFormAction("t", form({ name: "" }), schema, async () => "never");
+  assert.deepEqual(bySchema.status === "error" && bySchema.fields, ["name"]);
+
+  // A refusal of the input as a whole names no field.
+  const whole = z.object({ name: z.string() }).refine((v) => v.name !== "x");
+  const byRoot = await harness().runFormAction("t", form({ name: "x" }), whole, async () => "never");
+  assert.equal(byRoot.status, "error");
+  assert.equal("fields" in byRoot, false);
+
+  const byDomain = await harness().runFormAction("t", form({ name: "a" }), schema, async () => {
+    throw new DomainError("invalid_input", "That email is not valid.", { field: "email" });
+  });
+  assert.deepEqual(byDomain.status === "error" && byDomain.fields, ["email"]);
+});
+
 test("a state action refreshes after any state but an error", async () => {
   const h = harness();
   await h.runStateAction("t", { name: "Ana" }, schema, async () => ({ status: "off" as const }));

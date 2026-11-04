@@ -6,13 +6,12 @@ import { NoCompany } from "@/components/layout/no-company";
 import { StatusBadge } from "@/components/leave/status-badge";
 import { Pager } from "@/components/navigation/pager";
 import { TabNav } from "@/components/navigation/tab-nav";
-import { Card } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { cx, surface } from "@/components/ui/styles";
 import { requireMemberPage } from "@/app/_lib/page-context";
 import { listHref, pagerLinks, readPageParams } from "@/app/_lib/paging";
+import { ApprovalItem } from "./approval-item";
 import { ApprovalKeys } from "./approval-keys";
-import { DecisionForm } from "./decision-form";
 
 export const metadata: Metadata = { title: "Approvals · OOOhm" };
 
@@ -80,13 +79,12 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
               <ApprovalKeys userId={actor.id} />
               <ul className="space-y-4">
                 {triage.items.map((r) => (
-                  <Card
-                    as="li"
+                  <ApprovalItem
                     key={r.id}
-                    data-approval
-                    tabIndex={-1}
-                    aria-label={`Request from ${r.requesterName || r.requesterEmail}, ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
-                    className="space-y-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
+                    requestId={r.id}
+                    label={`Request from ${r.requesterName || r.requesterEmail}, ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
+                    who={r.requesterName || r.requesterEmail}
+                    dates={formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}
                   >
                     <div className="space-y-1">
                       <p className="font-medium break-words">
@@ -103,8 +101,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                         <p className={cx("text-sm break-words", r.alsoOff.others > 0 ? "font-medium" : "text-muted")}>{r.alsoOff.line}</p>
                       )}
                     </div>
-                    <DecisionForm requestId={r.id} />
-                  </Card>
+                  </ApprovalItem>
                 ))}
               </ul>
             </>

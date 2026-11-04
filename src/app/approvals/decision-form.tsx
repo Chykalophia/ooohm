@@ -9,25 +9,30 @@ import { TextField } from "@/components/ui/fields";
 import { buttonClass } from "@/components/ui/styles";
 import { decideLeaveAction } from "./actions";
 import { DECLINE_EVENT } from "./approval-keys";
+import { DECIDED_MESSAGE } from "./decision-outcome";
+
+/** Which way a request was decided. */
+export type Decision = "approve" | "reject";
 
 /**
  * Approve or decline one request. The optional reason is sent with either button and
  * the requester sees it, in their email and on their dashboard. A refused decision keeps
  * the reason as typed. The D shortcut ({@link DECLINE_EVENT}) moves focus to the reason
  * and makes Enter there decline; Escape takes that back.
+ *
+ * @param onDecided Called once the decision is saved, with the outcome the server reported;
+ *   the card around the form shows it from then on.
  */
-export function DecisionForm({ requestId }: { requestId: string }) {
+export function DecisionForm({ requestId, onDecided }: { requestId: string; onDecided: (decision: Decision) => void }) {
   const { state, dispatch, pending, onSubmit } = useFormAction(decideLeaveAction, IDLE);
-  const outcome = useRef<HTMLParagraphElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const declineButton = useRef<HTMLButtonElement>(null);
   // Set by the D shortcut: Enter in the reason field then declines.
   const [declining, setDeclining] = useState(false);
 
-  // The outcome replaces the form, including the button that had focus.
   useEffect(() => {
-    if (state.status === "success") outcome.current?.focus();
-  }, [state]);
+    if (state.status === "success") onDecided(state.message === DECIDED_MESSAGE.reject ? "reject" : "approve");
+  }, [state, onDecided]);
 
   useEffect(() => {
     const el = form.current;
@@ -40,16 +45,18 @@ export function DecisionForm({ requestId }: { requestId: string }) {
     return () => el.removeEventListener(DECLINE_EVENT, start);
   }, [state]);
 
+  // Before hydration (or if the card above does not take over) the saved outcome still shows.
   if (state.status === "success") {
-    return (
-      <p ref={outcome} tabIndex={-1} role="status" className="text-sm font-medium text-accent-ink outline-none">
-        {state.message}
-      </p>
-    );
+    return <p className="text-sm font-medium text-accent-ink">{state.message}</p>;
   }
 
   return (
-    <form ref={form} action={dispatch} onSubmit={onSubmit} className="space-y-3">
+    <form
+      ref={form}
+      action={dispatch}
+      onSubmit={onSubmit}
+      className="space-y-3"
+    >
       {/* Enter in the reason field submits with the form's first submit button. This one is
           disabled, so Enter does nothing rather than approving a request someone was
           writing a decline reason for (unless D asked for a decline). */}

@@ -8,8 +8,7 @@ import { requireAdminPage } from "@/app/_lib/page-context";
 import { Item, ItemList } from "@/components/ui/card";
 import { SortableList } from "@/components/ui/sortable-list";
 import { InlineAction } from "@/components/forms/inline-action";
-import { cx, primaryButton, textLink } from "@/components/ui/styles";
-import { Section } from "@/components/ui/section";
+import { cx, primaryButton, subtleButton, textLink } from "@/components/ui/styles";
 import { archiveLeaveTypeAction, reorderLeaveTypesAction } from "@/app/admin/leave-types/actions";
 
 export const metadata: Metadata = { title: "Leave types · Admin · OOOhm" };
@@ -90,8 +89,15 @@ export default async function LeaveTypesPage() {
       )}
 
       {archived.length > 0 && (
-        <Section title="Archived" className="space-y-3">
-          <ItemList>
+        // Closed by default: archived types are rarely needed, so they stay out of sight until asked for.
+        <details className="group">
+          <summary className={cx(subtleButton, "w-fit cursor-pointer gap-1.5 list-none [&::-webkit-details-marker]:hidden")}>
+            <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90">
+              <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Archived ({archived.length})
+          </summary>
+          <ItemList className="mt-3">
             {archived.map((t) => (
               <Item key={t.id} className="flex flex-wrap items-center justify-between gap-3">
                 <p className="flex flex-wrap items-center gap-2 text-muted">
@@ -109,7 +115,7 @@ export default async function LeaveTypesPage() {
               </Item>
             ))}
           </ItemList>
-        </Section>
+        </details>
       )}
     </AdminShell>
   );

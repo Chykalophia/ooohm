@@ -57,7 +57,8 @@ export function ApprovalItem({
           // This card has already left the shortcut list, so these are the requests still open.
           const open = [...document.querySelectorAll<HTMLElement>("[data-approval]")];
           const after = open.find((c) => el.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING);
-          (after ?? open.at(-1))?.focus();
+          // With none left, the page itself keeps focus rather than losing it to the body.
+          (after ?? open.at(-1) ?? document.getElementById("main"))?.focus();
         }
         router.refresh();
       },

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OOOhm tour (composition)</title>
+<!--
+  The tour film, as a page that draws any moment on request: render-film.mjs calls
+  seek(t) for every frame and screenshots it. The recordings come from record.mjs; their
+  frames are extracted to .frames/film/<clip>/ before rendering.
+-->
+<style>
+  @font-face { font-family: "Instrument Sans"; src: url("../fonts/instrument-sans.woff2") format("woff2"); font-weight: 400 700; }
+  :root { --bg: #fafaf9; --ink: #1c1917; --body: #44403c; --muted: #78716c; --border: #e7e5e4; --accent: #0f766e; --soft: #e5f1ef; --line: #b7d9d4; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); font-family: "Instrument Sans", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; opacity: 0; }
+  .center { display: grid; place-items: center; text-align: center; }
+
+  .logo { display: flex; align-items: center; gap: 26px; font-size: 128px; font-weight: 600; letter-spacing: -0.04em; }
+  .logo svg { width: 132px; height: 132px; }
+  .logo .o { color: var(--accent); display: inline-block; }
+  .logo .hm { color: var(--muted); font-weight: 400; display: inline-block; }
+  .tag { margin-top: 40px; font-size: 54px; letter-spacing: -0.025em; font-weight: 500; }
+
+  .bubbles { position: absolute; left: 50%; top: 210px; width: 1100px; translate: -50% 0; display: grid; gap: 22px; }
+  .bubble { justify-self: start; font-size: 40px; color: var(--body); background: #efedea; border-radius: 30px 30px 30px 8px; padding: 22px 34px; }
+  .bubble.r { justify-self: end; border-radius: 30px 30px 8px 30px; background: #e7e5e4; }
+  .sentence-wrap { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 1560px; text-align: left; }
+  .sentence { font-size: 60px; line-height: 1.75; letter-spacing: -0.02em; }
+  .chip { display: inline-block; line-height: 1.25; padding: 2px 16px; border-radius: 14px; background: var(--soft); color: var(--accent); box-shadow: inset 0 -4px 0 var(--line); }
+  .result { font-size: 40px; color: var(--body); margin-top: 26px; }
+  .result b { color: var(--ink); font-weight: 600; }
+
+  .chapter { position: absolute; inset: 0; }
+  .cap { position: absolute; left: 120px; top: calc(50% - 30px); width: 560px; translate: 0 -50%; }
+  .num { font-size: 28px; color: var(--accent); font-weight: 500; letter-spacing: .02em; }
+  .cap h2 { margin-top: 22px; font-size: 72px; line-height: 1.04; letter-spacing: -0.035em; font-weight: 600; }
+  .cap p { margin-top: 26px; font-size: 32px; line-height: 1.4; color: var(--body); }
+  .frame { position: absolute; right: 120px; top: calc(50% - 30px); width: 1000px; translate: 0 -50%; background: #fff; border: 1.5px solid var(--border); border-radius: 22px; overflow: hidden; box-shadow: 0 2px 4px rgba(28,25,23,.04), 0 40px 80px -40px rgba(28,25,23,.25); }
+  .bar { height: 48px; display: flex; align-items: center; gap: 9px; padding: 0 20px; border-bottom: 1.5px solid var(--border); background: #fbfbfa; }
+  .bar i { width: 13px; height: 13px; border-radius: 50%; background: #d6d3d1; }
+  .frame img { display: block; width: 100%; }
+
+  .progress { position: absolute; left: 120px; right: 100px; bottom: 64px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; opacity: 0; }
+  .progress div { height: 5px; border-radius: 3px; background: #e7e5e4; overflow: hidden; }
+  .progress span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .progress-labels { position: absolute; left: 120px; right: 100px; bottom: 82px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; font-size: 22px; color: var(--muted); opacity: 0; }
+  .progress-labels .on { color: var(--ink); }
+
+  .end .logo { font-size: 96px; gap: 20px; }
+  .end .logo svg { width: 100px; height: 100px; }
+  .end .tag { font-size: 46px; margin-top: 30px; }
+  .end .small { margin-top: 26px; font-size: 28px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><symbol id="mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f766e"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5" fill="none" stroke="#fff" stroke-width="3.1" stroke-linejoin="round"/></g></symbol></svg>
+
+  <section class="scene center" id="title">
+    <div>
+      <div class="logo"><svg id="t-mark"><use href="#mark"/></svg><span><span class="o" id="t-o1">O</span><span class="o" id="t-o2">O</span><span class="o" id="t-o3">O</span><span class="hm" id="t-hm">hm</span></span></div>
+      <p class="tag" id="t-tag">Time off, without the back-and-forth.</p>
+    </div>
+  </section>
+
+  <section class="scene" id="chat">
+    <div class="bubbles">
+      <p class="bubble" id="b1">hey, can I take the 21st to the 23rd?</p>
+      <p class="bubble r" id="b2">who’s covering for you?</p>
+      <p class="bubble" id="b3">and how many days do you have left?</p>
+    </div>
+    <div class="sentence-wrap" id="sw">
+      <p class="sentence">I’m taking <span class="chip" id="c1">PTO</span> from <span class="chip" id="c2">Mon, Dec 21</span> to <span class="chip" id="c3">Wed, Dec 23</span>.</p>
+      <p class="result" id="res">This request takes <b>3 days</b>. Afterwards you’d have 6 days left for 2026.</p>
+    </div>
+  </section>
+
+  <section class="scene" id="chapters">
+    <div class="chapter">
+      <div class="cap" id="cap"><p class="num" id="cap-num"></p><h2 id="cap-title"></h2><p id="cap-text"></p></div>
+      <div class="frame" id="frame"><div class="bar"><i></i><i></i><i></i></div><img id="clip" alt=""></div>
+    </div>
+    <div class="progress-labels" id="plabels"><span>Ask</span><span>Approve</span><span>Plan</span><span>See who’s out</span></div>
+    <div class="progress" id="progress"><div><span></span></div><div><span></span></div><div><span></span></div><div><span></span></div></div>
+  </section>
+
+  <section class="scene center end" id="end">
+    <div>
+      <div class="logo"><svg><use href="#mark"/></svg><span><span class="o">OOO</span><span class="hm">hm</span></span></div>
+      <p class="tag">Time off for small teams.</p>
+      <p class="small">Self-hosted · Source-available · Made by Chykalophia</p>
+    </div>
+  </section>
+
+<script>
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  const out = (x) => 1 - Math.pow(1 - x, 3);
+  /** 0 before a, 1 after b, eased between. */
+  const ramp = (t, a, b, f = ease) => f(clamp((t - a) / (b - a)));
+  const $ = (id) => document.getElementById(id);
+  const set = (el, o, y = 0, s = 1) => { el.style.opacity = o; el.style.transform = `translateY(${y}px) scale(${s})`; };
+
+  const FPS = 30;
+  const CHAPTERS = [
+    { at: 8.5, end: 17.5, clip: "ask", from: 1.5, rate: 1.9, num: "01", title: "Ask in one sentence.", text: "OOOhm counts the working days as you choose them, and shows what you’ll have left." },
+    { at: 17.5, end: 25.0, clip: "approve", from: 0.6, rate: 1.25, num: "02", title: "Approve with the whole picture.", text: "See who else is off on those days, then approve in one click." },
+    { at: 25.0, end: 33.0, clip: "calendar", from: 0.5, rate: 1.8, num: "03", title: "Or drag across the days.", text: "Weekends and company holidays never count. Thanksgiving week is three days." },
+    { at: 33.0, end: 41.0, clip: "team", from: 0.5, rate: 2.2, num: "04", title: "See who’s out, and when.", text: "The team’s month, filtered by department, and your year on one page." },
+  ];
+  window.DURATION = 46;
+  window.CLIP_COUNTS = {};
+
+  window.seek = async function seek(t) {
+    // Title: the mark, then O, O, O, then hm, then the line.
+    const title = $("title");
+    title.style.opacity = 1 - ramp(t, 3.5, 4.0);
+    set($("t-mark"), ramp(t, 0, 0.6, out), 0, 0.6 + 0.4 * ramp(t, 0, 0.6, out));
+    ["t-o1", "t-o2", "t-o3"].forEach((id, i) => set($(id), ramp(t, 0.35 + i * 0.18, 0.75 + i * 0.18, out), 30 * (1 - ramp(t, 0.35 + i * 0.18, 0.75 + i * 0.18, out))));
+    set($("t-hm"), ramp(t, 1.0, 1.5));
+    set($("t-tag"), ramp(t, 1.7, 2.3), 18 * (1 - ramp(t, 1.7, 2.3)));
+
+    // Chat to sentence.
+    const chat = $("chat");
+    chat.style.opacity = ramp(t, 3.9, 4.2) * (1 - ramp(t, 8.1, 8.5));
+    ["b1", "b2", "b3"].forEach((id, i) => {
+      const a = 4.2 + i * 0.6;
+      const k = ramp(t, a, a + 0.35, out) * (1 - ramp(t, 6.2, 6.6));
+      set($(id), k, 16 * (1 - ramp(t, a, a + 0.35, out)) - 40 * ramp(t, 6.2, 6.6), 0.96 + 0.04 * k);
+    });
+    set($("sw"), ramp(t, 6.5, 7.0), 0);
+    $("sw").style.transform = `translate(-50%, calc(-50% + ${20 * (1 - ramp(t, 6.5, 7.0))}px))`;
+    $("sw").style.translate = "0 0";
+    ["c1", "c2", "c3"].forEach((id, i) => { $(id).style.background = ramp(t, 6.9 + i * 0.2, 7.1 + i * 0.2) > 0.5 && t < 7.6 + i * 0.2 ? "#d3e9e5" : ""; });
+    set($("res"), ramp(t, 7.4, 7.8), 10 * (1 - ramp(t, 7.4, 7.8)));
+
+    // Chapters with recordings.
+    const ch = $("chapters");
+    ch.style.opacity = ramp(t, 8.4, 8.8) * (1 - ramp(t, 40.7, 41.1));
+    const i = Math.max(0, CHAPTERS.findLastIndex((c) => t >= c.at));
+    const c = CHAPTERS[i];
+    const local = t - c.at;
+    const capIn = ramp(local, 0.15, 0.65);
+    const capOut = i < CHAPTERS.length - 1 ? ramp(t, c.end - 0.4, c.end) : 0;
+    set($("cap"), capIn * (1 - capOut), 24 * (1 - capIn) - 16 * capOut);
+    $("cap").style.translate = "0 -50%";
+    $("cap-num").textContent = c.num;
+    $("cap-title").textContent = c.title;
+    $("cap-text").textContent = c.text;
+    const fIn = ramp(local, 0, 0.5);
+    const fOut = i < CHAPTERS.length - 1 ? ramp(t, c.end - 0.35, c.end) : 0;
+    $("frame").style.opacity = i === 0 ? 1 : 0.35 + 0.65 * fIn;
+    $("frame").style.transform = `translateY(${30 * (1 - fIn) * (i === 0 ? 0 : 1) - 20 * fOut}px)`;
+    $("frame").style.opacity *= 1 - fOut * 0.65;
+    const n = window.CLIP_COUNTS[c.clip] ?? 1;
+    const frame = Math.min(n, Math.max(1, Math.round((c.from + local * c.rate) * FPS) + 1));
+    const src = `.frames/film/${c.clip}/${String(frame).padStart(5, "0")}.jpg`;
+    const img = $("clip");
+    if (!img.src.endsWith(src)) { img.src = src; await img.decode(); }
+    const pv = ramp(t, 8.8, 9.4);
+    $("progress").style.opacity = pv;
+    $("plabels").style.opacity = pv;
+    [...$("progress").children].forEach((d, j) => {
+      const cc = CHAPTERS[j];
+      d.firstElementChild.style.width = `${100 * clamp((t - cc.at) / (cc.end - cc.at))}%`;
+    });
+    [...$("plabels").children].forEach((l, j) => l.classList.toggle("on", j === i));
+
+    // End card.
+    const end = $("end");
+    end.style.opacity = ramp(t, 41.1, 41.7);
+    end.firstElementChild.style.transform = `translateY(${16 * (1 - ramp(t, 41.1, 41.8))}px)`;
+  };
+</script>
+</body>
+</html>

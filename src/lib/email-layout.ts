@@ -32,6 +32,14 @@ const BORDER_STRONG = "#d6d3d1";
 const GROUND = "#fafaf9";
 const FONT = "'Instrument Sans',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
+/**
+ * The message's main line, as its one heading, styled like a paragraph: screen reader
+ * users can jump to it, and it reads no louder than before.
+ */
+export function heading(html: string): string {
+  return `<h1 style="margin:0 0 12px;font-size:16px;line-height:1.5;font-weight:400">${html}</h1>`;
+}
+
 /** One paragraph of already-escaped HTML. */
 export function paragraph(html: string, style = ""): string {
   return `<p style="margin:0 0 12px;${style}">${html}</p>`;
@@ -84,12 +92,13 @@ export function link(href: string, label: string, accent: EmailAccent): string {
  * The whole HTML document: the OOOhm wordmark, then `body` in a card, then an optional
  * quiet `footer` line under it. Both are HTML and go in as given: build them from
  * {@link escapeHtml}, {@link paragraph}, {@link link} and {@link buttons}, never from raw
- * text.
+ * text. `title` (plain text, the subject) names the document for screen readers and
+ * browser-based mail clients.
  */
-export function emailDocument(bodyHtml: string, accent: EmailAccent, footerHtml?: string): string {
+export function emailDocument(bodyHtml: string, accent: EmailAccent, footerHtml: string | undefined, title: string): string {
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
-    `<meta name="color-scheme" content="light"></head>` +
+    `<meta name="color-scheme" content="light"><title>${escapeHtml(title)}</title></head>` +
     `<body style="margin:0;padding:0;background:${GROUND}">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${GROUND}">` +
     `<tr><td align="center" style="padding:32px 16px">` +

@@ -18,7 +18,7 @@ export function LeaveChip({ entry, href }: { entry: CalendarEntry; href?: string
   const label = feedEventSummary(entry);
   const pending = entry.status === "pending";
   const className = cx(
-    "block rounded-md px-1.5 py-0.5 text-xs leading-snug font-medium break-words",
+    "block min-h-6 rounded-md px-1.5 py-1 text-xs leading-snug font-medium break-words",
     pending && "border border-dashed text-foreground",
     href && "transition hover:shadow-md hover:ring-2 hover:ring-foreground/20 motion-safe:hover:-translate-y-px",
     href && focusRing,

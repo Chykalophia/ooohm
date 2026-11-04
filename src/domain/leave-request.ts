@@ -62,7 +62,7 @@ export function assertValidRange(range: LeaveRange): void {
 export function normalizeNote(note: string | null | undefined): string | null {
   const trimmed = note?.trim() ?? "";
   if (trimmed.length > NOTE_MAX_LENGTH) {
-    throw new DomainError("invalid_input", `Notes are limited to ${NOTE_MAX_LENGTH} characters.`);
+    throw new DomainError("invalid_input", `Notes are limited to ${NOTE_MAX_LENGTH} characters.`, { field: "note" });
   }
   return trimmed === "" ? null : trimmed;
 }

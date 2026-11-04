@@ -64,7 +64,7 @@ export interface CompanySettings {
 export function normalizeCompanySettings(input: CompanySettingsInput, currentTimezone?: string): CompanySettings {
   const name = oneLine(input.name);
   if (name.length === 0 || name.length > COMPANY_NAME_MAX_LENGTH) {
-    throw new DomainError("invalid_input", `Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`);
+    throw new DomainError("invalid_input", `Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`, { field: "name" });
   }
   const timezone = input.timezone.trim();
   if (timezone !== currentTimezone && !isSupportedTimeZone(timezone)) {

@@ -12,7 +12,17 @@ import { BackLink, Section } from "@/components/ui/section";
 import { textLink } from "@/components/ui/styles";
 import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
 
-export const metadata: Metadata = { title: "Team · OOOhm" };
+/** The tab names the teammate (WCAG 2.4.2); if they can't be loaded, the page itself answers. */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  try {
+    const page = await requireMemberPage();
+    if (!page.actor) return { title: "Team · OOOhm" };
+    const member = await getTeamMember(page.ctx, page.actor, (await params).id);
+    return { title: `${member.person.name} · Team · OOOhm` };
+  } catch {
+    return { title: "Team · OOOhm" };
+  }
+}
 
 type Member = Awaited<ReturnType<typeof getTeamMember>>;
 type Entry = Member["upcoming"][number];

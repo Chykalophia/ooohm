@@ -109,8 +109,16 @@ export interface NoWorkingDaysDetails {
   readonly holidays: readonly { readonly date: string; readonly name: string }[];
 }
 
+/**
+ * Which input an `invalid_input` error is about, by the name forms give that field, so
+ * the form can mark it and move focus there (WCAG 3.3.1).
+ */
+export interface InvalidFieldDetails {
+  readonly field: string;
+}
+
 /** Structured facts attached to some codes; see each code's documentation. */
-export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers | NoWorkingDaysDetails;
+export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers | NoWorkingDaysDetails | InvalidFieldDetails;
 
 /**
  * An expected, user-correctable failure. Anything that is not a `DomainError` is a

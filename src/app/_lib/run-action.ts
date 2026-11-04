@@ -59,8 +59,11 @@ export function messageForError(err: DomainError, event: string): string {
   return messageFor(err.code);
 }
 
-/** What a failed server action returns: a calm message, never internals. */
-export type ActionError = { status: "error"; message: string };
+/**
+ * What a failed server action returns: a calm message, never internals. `fields` names
+ * the submitted fields the action's schema refused, so the form can mark them invalid.
+ */
+export type ActionError = { status: "error"; message: string; fields?: string[] };
 
 const GENERIC_FAILURE = "Something went wrong. Try again in a moment.";
 
@@ -80,7 +83,11 @@ export async function runActionWith<S>(
   try {
     return await work();
   } catch (err) {
-    if (isDomainError(err)) return { status: "error", message: messages[err.code] ?? messageForError(err, event) };
+    if (isDomainError(err)) {
+      const message = messages[err.code] ?? messageForError(err, event);
+      const field = err.code === "invalid_input" && err.details && "field" in err.details ? err.details.field : undefined;
+      return { status: "error", message, ...(field ? { fields: [field] } : {}) };
+    }
     log.error({ err }, `${event}_failed`);
     return { status: "error", message: GENERIC_FAILURE };
   }

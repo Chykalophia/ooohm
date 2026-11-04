@@ -24,11 +24,11 @@ const OFF_DAY = "bg-background bg-[repeating-linear-gradient(135deg,var(--color-
 
 /**
  * This month's working days are plain, its weekends and holidays are hatched, and the
- * neighbouring months' days have no fill and a faded number, so the three never look
- * alike. A selected day takes a light accent tint over any of them.
+ * neighbouring months' days have no fill and a grey number (never faded below text
+ * contrast), so the three never look alike. A selected day takes a light accent tint over any of them.
  */
 function dayStyle(day: CalendarDay, selected: boolean): { cell: string; number: string } {
-  const number = !day.inMonth ? "text-muted opacity-60" : !day.isWorkingDay || day.holiday !== null ? "text-muted" : "text-foreground";
+  const number = !day.inMonth ? "text-muted" : !day.isWorkingDay || day.holiday !== null ? "text-muted" : "text-foreground";
   if (selected) return { cell: "bg-accent/15", number };
   if (!day.inMonth) return { cell: "bg-transparent", number };
   if (!day.isWorkingDay || day.holiday !== null) return { cell: OFF_DAY, number };
@@ -53,9 +53,10 @@ function ordered(a: string, b: string): Range {
 
 /**
  * The month grid, which doubles as a way to ask for time off: drag across days (or
- * click one, then shift-click another) and a short form appears under the month with
+ * click one, then another) and a short form appears under the month with
  * the dates, the live day count and a Request button. With a keyboard, arrow keys move
- * between days, Enter or Space picks one, and Shift with an arrow stretches the pick.
+ * between days, Enter or Space picks one (and then a second), and Shift with an arrow
+ * stretches the pick.
  * Phones get the agenda instead; the form on Home works everywhere.
  */
 export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[][]; caption: string; leaveTypes: LeaveTypeOption[] }) {
@@ -96,8 +97,11 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
     };
   }, [dragging]);
 
+  // With one day picked, picking another stretches to it, so a range needs neither a drag
+  // nor Shift (WCAG 2.5.7). A pick after a range starts again.
   function pick(date: string, extend: boolean) {
-    if (extend && anchor) setEnd(date);
+    const single = anchor !== null && anchor === end && date !== anchor;
+    if ((extend || single) && anchor) setEnd(date);
     else {
       setAnchor(date);
       setEnd(date);
@@ -233,7 +237,7 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
           {state.status === "success" ? (
             <span className="text-accent-ink">{state.message}</span>
           ) : (
-            <span className="text-muted">Drag across days, or pick one and Shift-click another, to ask for time off.</span>
+            <span className="text-muted">Drag across days, or pick a first and a last day, to ask for time off. With a keyboard, use the arrow keys and Enter, or Shift with an arrow to stretch.</span>
           )}
         </p>
       )}

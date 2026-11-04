@@ -63,7 +63,7 @@ export function AccountMenu({ userName, member, active }: { userName: string; me
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1 rounded-md hover:text-foreground ${focusRing} ${active || open ? "text-foreground" : "text-muted"}`}
+        className={`flex min-h-6 items-center gap-1 rounded-md hover:text-foreground ${focusRing} ${active || open ? "text-foreground" : "text-muted"}`}
       >
         {/* Bold only on the account page (the current page, like the other links), never just for being open. */}
         <span className="flex min-w-0 max-w-[12rem]">

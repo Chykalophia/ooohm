@@ -271,11 +271,12 @@
   --background: #eef2f8;
   --surface: rgb(255 255 255 / 0.66);
   --foreground: #1c2433;
-  --muted: #5d6779;
+  /* Over the darkest blue of the wash, not just white: 4.5:1 there too. */
+  --muted: #525c6e;
   --border: rgb(28 36 51 / 0.1);
   --accent: #1f6feb;
   --accent-foreground: #ffffff;
-  --accent-ink: #1a5fd0;
+  --accent-ink: #1858c2;
   --app-font: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --display-font: var(--app-font);
   --radius-sm: 0.375rem;
@@ -423,7 +424,8 @@ body,
 }
 [data-layout="legible"][data-ui],
 [data-layout="legible"] [data-ui] {
-  --muted-strong: color-mix(in srgb, var(--muted) 70%, var(--foreground));
+  /* 60% keeps grey text at 7:1 or more in every theme (WCAG 1.4.6, AAA). */
+  --muted-strong: color-mix(in srgb, var(--muted) 60%, var(--foreground));
 }
 :is([data-layout="grouped"], [data-layout="legible"]) > body {
   --muted: var(--muted-strong);
@@ -543,6 +545,30 @@ body,
 [data-layout="legible"] main a:not(.bg-accent, [aria-current]) {
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+
+/*
+ * Forced colours (Windows High Contrast and similar): the browser replaces our colours
+ * and drops box-shadows, so anything drawn with a fill, a border colour change or a
+ * Tailwind ring alone disappears. Give focus a real outline in the system highlight,
+ * keep filled buttons outlined, and let colour dots that stand for a leave type keep
+ * their colour.
+ */
+@media (forced-colors: active) {
+  :focus-visible,
+  [class*="focus-within:border-accent-ink"]:focus-within,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px;
+  }
+  :is(button, a).bg-accent {
+    border: 1px solid ButtonText;
+  }
+  [data-swatch] {
+    forced-color-adjust: none;
+  }
 }
 
 /*

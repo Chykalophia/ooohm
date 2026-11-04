@@ -144,7 +144,9 @@ export function normalizeWebhookDescription(raw: string): string {
 /** A key name on one line, 1 to {@link API_KEY_NAME_MAX_LENGTH} characters. */
 export function normalizeApiKeyName(raw: string): string {
   const value = oneLine(raw);
-  if (value.length === 0 || value.length > API_KEY_NAME_MAX_LENGTH) throw new DomainError("invalid_input");
+  if (value.length === 0 || value.length > API_KEY_NAME_MAX_LENGTH) {
+    throw new DomainError("invalid_input", `API key names are 1 to ${API_KEY_NAME_MAX_LENGTH} characters.`, { field: "name" });
+  }
   return value;
 }
 

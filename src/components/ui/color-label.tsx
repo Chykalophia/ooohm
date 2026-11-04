@@ -3,7 +3,7 @@ import { cx } from "./styles";
 
 /** A small dot in a leave type's colour. Decorative: the text beside it carries the meaning. */
 export function ColorDot({ color }: { color: string }) {
-  return <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: normalizeHexColor(color) }} aria-hidden />;
+  return <span data-swatch className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: normalizeHexColor(color) }} aria-hidden />;
 }
 
 /** Text led by a {@link ColorDot}: a leave type's name, or the dates of leave of that type. */

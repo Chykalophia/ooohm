@@ -15,7 +15,18 @@ import { requireMemberPage } from "@/app/_lib/page-context";
 import { MonthGrid } from "./month-grid";
 import { YearGrid } from "./year-grid";
 
-export const metadata: Metadata = { title: "Calendar · OOOhm" };
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+/** The tab names the month or year on show, so two calendar tabs can be told apart (WCAG 2.4.2). */
+export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
+  const params = await searchParams;
+  if (params.view === "year") {
+    const year = readParam(yearParamSchema, params.year);
+    return { title: year ? `Calendar, ${year} · OOOhm` : "Calendar, year view · OOOhm" };
+  }
+  const month = readParam(monthParamSchema, params.month);
+  return { title: month ? `Calendar, ${formatMonth(month)} · OOOhm` : "Calendar · OOOhm" };
+}
 
 const HEADING_ID = "month-heading";
 
@@ -73,7 +84,7 @@ function ViewSwitch({ view, month, year }: { view: "month" | "year"; month: stri
  * The person's own calendar, as a month (whose grid also asks for time off: drag across
  * days) or as the whole year. Phones get the month as an agenda.
  */
-export default async function CalendarPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function CalendarPage({ searchParams }: { searchParams: SearchParams }) {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="calendar" />;
   const params = await searchParams;

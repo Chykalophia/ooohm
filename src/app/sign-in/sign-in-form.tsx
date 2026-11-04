@@ -90,8 +90,12 @@ export function SignInForm({
 
   if (state.kind === "sent") {
     return (
-      <div role="status" className="space-y-2 text-center">
-        <p className="font-medium">Check your email</p>
+      // The form this replaces held focus, so focus moves to the heading: the person hears
+      // the result and stays in place (a status region added with its text is often not read).
+      <div className="space-y-2 text-center">
+        <h2 ref={(el) => el?.focus()} tabIndex={-1} className="font-medium outline-none">
+          Check your email
+        </h2>
         <p className="text-sm text-muted">
           We sent a sign-in link to <span className="text-foreground">{state.email}</span>. It expires in 15 minutes.
         </p>

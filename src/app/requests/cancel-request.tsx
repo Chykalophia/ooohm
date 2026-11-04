@@ -7,8 +7,11 @@ import { type FormState, IDLE } from "@/components/forms/form-state";
 import { cx, dangerButton, focusRing } from "@/components/ui/styles";
 import { cancelLeaveAction } from "@/app/actions";
 
-/** How long a cancel can be taken back before it is sent. */
-const UNDO_SECONDS = 8;
+/**
+ * How long a cancel can be taken back before it is sent: 20 seconds, so someone using a
+ * screen reader, a switch or voice control has time to hear it and reach Undo (WCAG 2.2.1).
+ */
+const UNDO_SECONDS = 20;
 
 const undoButton = cx(
   "inline-flex min-h-6 items-center rounded-md text-sm font-medium text-accent-ink underline-offset-4 hover:underline",
@@ -101,28 +104,30 @@ export function CancelRequest({
   return (
     <div className="flex flex-wrap items-center gap-3 sm:justify-end">
       {state.status === "error" && <ErrorMessage className="text-sm">{state.message}</ErrorMessage>}
-      {counting ? (
-        <>
-          <span role="status" className="text-sm text-muted">
+      {/* One status region, always rendered, so screen readers announce what goes into it
+          (a region created together with its text is often skipped). */}
+      <span role="status" className="text-sm text-muted empty:sr-only">
+        {counting ? (
+          <>
             Cancelling<span aria-hidden> in {secondsLeft}s</span>
             {/* Announced once, not every second. */}
             <span className="sr-only"> in {UNDO_SECONDS} seconds. Undo keeps it.</span>
-          </span>
-          <button ref={undoRef} type="button" onClick={undo} className={undoButton}>
-            Undo
-          </button>
-        </>
-      ) : pending ? (
-        <span role="status" className="text-sm text-muted">
-          Cancelling…
-        </span>
-      ) : (
+          </>
+        ) : pending ? (
+          "Cancelling…"
+        ) : null}
+      </span>
+      {counting ? (
+        <button ref={undoRef} type="button" onClick={undo} className={undoButton}>
+          Undo
+        </button>
+      ) : pending ? null : (
         <button
           ref={cancelRef}
           type="button"
           onClick={start}
           className={dangerButton}
-          aria-label={`Cancel the request for ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
+          aria-label={`Cancel request for ${formatLeaveDates(r.startDate, r.endDate, r.dayPortion)}`}
         >
           Cancel request
         </button>

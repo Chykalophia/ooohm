@@ -39,7 +39,7 @@ function Squares({ balance, color: stored }: { balance: Extract<Balance, { track
   if (count <= 0 || count > MAX_SQUARES) return null;
   const segment = (from: number, i: number) => Math.min(Math.max(from - i, 0), 1);
   return (
-    <div aria-hidden className="flex flex-wrap gap-1 pt-1">
+    <div aria-hidden data-swatch className="flex flex-wrap gap-1 pt-1">
       {Array.from({ length: count }, (_, i) => {
         const used = segment(balance.used, i);
         const pending = segment(balance.used + balance.pending, i) - used;

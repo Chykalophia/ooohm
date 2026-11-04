@@ -25,8 +25,9 @@ function miniDay(day: CalendarDay): { className: string; style?: React.CSSProper
   }
   if (day.isToday) return { className: `${base} bg-foreground font-semibold text-background` };
   if (day.holiday) return { className: `${base} text-foreground ring-1 ring-foreground/60 ring-inset` };
-  if (!day.isWorkingDay) return { className: `${base} text-muted opacity-50` };
-  return { className: `${base} text-muted` };
+  // Working days in ink, days off in grey: both keep text contrast (no opacity).
+  if (!day.isWorkingDay) return { className: `${base} text-muted` };
+  return { className: `${base} text-foreground` };
 }
 
 function AgendaText({ item }: { item: AgendaItem }) {
@@ -62,7 +63,7 @@ export function YearGrid({ months }: { months: { month: YearMonth; weeks: Calend
               {weeks.flat().map((day) => {
                 const { className, style } = miniDay(day);
                 return (
-                  <span key={day.date} className={className} style={style}>
+                  <span key={day.date} className={className} style={style} data-swatch={style ? "" : undefined}>
                     {Number(day.date.slice(8))}
                   </span>
                 );

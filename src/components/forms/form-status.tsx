@@ -42,7 +42,9 @@ export function FormStatus({
   return (
     <p ref={ref} tabIndex={ref ? -1 : undefined} aria-live="polite" className="min-h-5 text-sm outline-none">
       {state.status === "success" && success && <span className="text-accent-ink">{state.message}</span>}
-      {state.status === "error" && state.message && <ErrorMessage>{state.message}</ErrorMessage>}
+      {/* Plain text, not another role="alert": the line is already live, and a live region
+          inside a live region is announced twice by some screen readers. */}
+      {state.status === "error" && state.message && <span className={errorText}>{state.message}</span>}
     </p>
   );
 }

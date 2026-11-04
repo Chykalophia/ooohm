@@ -84,11 +84,11 @@ export default async function AccountPage() {
       </Section>
 
       <Section title="Details" surface className="space-y-3">
-        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[8rem_1fr]">
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[8rem_minmax(0,1fr)]">
           {details.map(([label, value]) => (
             <div key={label} className="contents">
               <dt className="text-muted">{label}</dt>
-              <dd className="break-words">{value}</dd>
+              <dd className="min-w-0 [overflow-wrap:anywhere]">{value}</dd>
             </div>
           ))}
         </dl>

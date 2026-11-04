@@ -10,22 +10,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * One switch in the header pauses everything that moves on its own (WCAG 2.2.2): the
  * sentence demo, the year, the Needs you list, the webhook stream, the terminal, the
  * themes and the clips. Kept for the visit; with reduced motion nothing moves anyway.
+ * It also sets `motion-paused` on the page, which holds CSS animations and transitions.
  */
 const motion = (() => {
   const KEY = "ooohm:paused";
   let paused = false;
   try { paused = sessionStorage.getItem(KEY) === "1"; } catch {}
+  const mark = () => document.documentElement.classList.toggle("motion-paused", paused);
+  mark();
   const subs = new Set();
   return {
     get paused() { return paused; },
     set(p) {
       paused = p;
       try { sessionStorage.setItem(KEY, p ? "1" : "0"); } catch {}
+      mark();
       for (const f of subs) f(p);
     },
     on(f) { subs.add(f); },
   };
 })();
+/** `sleep`, then waits out any pause, so a step already under way holds where it is. */
+async function beat(ms) {
+  await sleep(ms);
+  while (motion.paused) await sleep(200);
+}
 /** True when nothing should move on its own. */
 const still = () => reduceMotion || motion.paused;
 
@@ -214,21 +223,28 @@ function sentence() {
   // The demo plays scenes until someone touches the sentence.
   const NOTE_TURN = "Your turn. This demo counts Monday to Friday with US holidays; in the app, each company sets its own working days and holidays.";
   reserve(note, [NOTE_TURN]);
-  let playing = !still();
+  // Playing unless motion is reduced; while the header switch is on it waits instead.
+  let playing = !reduceMotion;
   let timer = 0;
   let visible = false;
   let scene = 0;
   // The preview line is announced only once the person is driving it, never while the
   // demo plays (WCAG 4.1.3: it would talk over someone reading the page).
   const listen = () => preview.setAttribute("aria-live", "polite");
+  // Someone touching the sentence ends the demo for good; the header switch only holds it.
+  let touched = false;
   const stopDemo = () => {
+    touched = true;
     listen();
     if (!playing) return;
     playing = false;
     clearTimeout(timer);
     note.textContent = NOTE_TURN;
   };
-  motion.on((p) => p && stopDemo());
+  motion.on((p) => {
+    if (p) { clearTimeout(timer); return; }
+    if (playing && visible && !reduceMotion) { clearTimeout(timer); timer = setTimeout(tick, 2800); }
+  });
   for (const ev of ["pointerdown", "keydown", "focusin"]) form.addEventListener(ev, stopDemo, { once: true });
 
   // The two dates change together, so no half-changed range flashes up in between.
@@ -238,21 +254,21 @@ function sentence() {
       if (keys.every((k) => f[k].value === s[k])) continue;
       for (const k of keys) f[k].value = s[k];
       render();
-      await sleep(420);
+      await beat(420);
     }
   }
   function tick() {
-    if (!playing) return;
+    if (!playing || motion.paused) return;
     scene = (scene + 1) % SCENES.length;
     play(SCENES[scene]).then(() => {
-      if (!playing || !visible) return;
+      if (!playing || !visible || motion.paused) return;
       clearTimeout(timer);
       timer = setTimeout(tick, 3400);
     });
   }
   render();
   if (playing) {
-    whileVisible(form, () => { visible = true; clearTimeout(timer); if (playing) timer = setTimeout(tick, 2800); }, () => { visible = false; clearTimeout(timer); });
+    whileVisible(form, () => { visible = true; clearTimeout(timer); if (playing && !motion.paused) timer = setTimeout(tick, 2800); }, () => { visible = false; clearTimeout(timer); });
   } else {
     listen();
     note.textContent = "Change any part of the sentence. This demo counts Monday to Friday with US holidays; in the app, each company sets its own.";
@@ -328,10 +344,10 @@ function year() {
       line.textContent = LAST[carry];
     }
   }
-  // While the year plays the line isn't announced; a choice the person makes is.
-  function run(from = 0) {
+  // While the year plays by itself the line isn't announced; a replay or choice the person makes is.
+  function run(from = 0, announce = false) {
     clearTimeout(timer);
-    line.setAttribute("aria-live", "off");
+    line.setAttribute("aria-live", announce ? "polite" : "off");
     if (still()) return show(items.length - 1);
     const next = (i) => {
       show(i);
@@ -350,7 +366,7 @@ function year() {
       show(items.length - 1);
     }),
   );
-  $("[data-year-replay]", card).addEventListener("click", () => run(0));
+  $("[data-year-replay]", card).addEventListener("click", () => run(0, true));
   if (still()) return show(items.length - 1);
   show(0);
   whileVisible(card, () => { if (!started) { started = true; run(0); } }, () => {}, 0.5);
@@ -405,18 +421,18 @@ function triage() {
     const first = rows.querySelector(".trow:not(.go)");
     if (!first) return;
     first.querySelector(".act b").style.background = "var(--accent-strong)";
-    await sleep(350);
+    await beat(350);
     first.querySelector(".act").innerHTML = '<span class="badge">Approved</span>';
-    await sleep(700);
+    await beat(700);
     first.classList.add("go");
     countEl.textContent = "2";
-    await sleep(450);
+    await beat(450);
     first.remove();
     const fresh = row();
     fresh.style.opacity = "0";
     rows.append(fresh);
     layout();
-    await sleep(500);
+    await beat(500);
     fresh.style.opacity = "";
     countEl.textContent = "3";
   }
@@ -476,9 +492,11 @@ function consoleStream() {
     const li = document.createElement("li");
     const ms = 40 + Math.round(Math.random() * 120);
     li.innerHTML = `<div class="ev-head"><span class="ev-type">${type}</span><span class="ev-ok"><b>200</b> · ${ms} ms</span></div><div class="ev-json">${json(data)}</div>`;
+    // Follow new deliveries only if the reader is at the bottom already.
+    const atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 8;
     log.append(li);
     while (log.children.length > 7) log.firstElementChild.remove();
-    log.scrollTop = log.scrollHeight;
+    if (atEnd) log.scrollTop = log.scrollHeight;
   }
   for (let k = 0; k < 6; k++) push();
   if (reduceMotion) return;
@@ -564,12 +582,15 @@ function themes() {
     if (!preload.has(next)) { preload.add(next); new Image().src = `media/themes/${next}.jpg`; }
     img.classList.add("swap");
     // Only the latest pick lands, even if an automatic one was already on its way.
-    swap = setTimeout(() => {
+    land = () => {
+      land = null;
       img.src = src;
       img.alt = `The OOOhm home screen in the ${b.textContent} theme`;
       img.decode().catch(() => {}).finally(() => { if (current === i) img.classList.remove("swap"); });
-    }, user ? 120 : 250);
+    };
+    swap = setTimeout(() => land?.(), user ? 120 : 250);
   }
+  let land = null;
   buttons.forEach((b, i) => b.addEventListener("click", () => { auto = false; clearInterval(timer); pick(i, true); }));
   // It shows each theme once, back to Classic, then rests.
   let visible = false;
@@ -582,7 +603,13 @@ function themes() {
     }, 2600);
   };
   whileVisible(root, () => { visible = true; start(); }, () => { visible = false; clearInterval(timer); });
-  motion.on((p) => (p ? clearInterval(timer) : start()));
+  // Paused mid-swap, the picked theme lands at once rather than fading in.
+  motion.on((p) => {
+    if (!p) return start();
+    clearInterval(timer);
+    clearTimeout(swap);
+    if (land) { img.classList.remove("swap"); land(); }
+  });
 }
 
 /* ------------------------------------------------------------------------ */

@@ -177,11 +177,12 @@ span.stack { display: inline-grid; }
 .transcript summary { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); font-weight: 500; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .transcript ol { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 8px; max-width: 760px; }
 .transcript li b { display: inline-block; min-width: 44px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-dialog.film .transcript { color: #e7e5e4; margin-top: 12px; max-height: 40vh; overflow-y: auto; }
+dialog.film .transcript { color: #e7e5e4; margin-top: 12px; }
 dialog.film .transcript summary { color: #fff; }
 dialog.film .transcript li b { color: #fff; }
 
-dialog.film { width: min(1280px, 100% - 32px); padding: 0; border: 0; background: transparent; overflow: visible; }
+/* The dialog scrolls itself once the transcript is open, so Close and the text stay reachable. */
+dialog.film { width: min(1280px, 100% - 32px); max-height: calc(100dvh - 32px); padding: 0; border: 0; background: transparent; overflow-y: auto; overscroll-behavior: contain; }
 dialog.film::backdrop { background: rgba(28, 25, 23, .82); }
 dialog.film video { width: 100%; border-radius: 14px; background: #000; }
 .film-close-row { display: flex; justify-content: flex-end; margin-bottom: 10px; }
@@ -212,7 +213,7 @@ h3 { font-size: clamp(26px, 2.6vw, 34px); line-height: 1.12; letter-spacing: -0.
 .browser-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); }
 .browser-bar span { margin: 0 auto; transform: translateX(-24px); font-size: 12px; color: var(--muted); }
 .clip-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); height: 24px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); font: 500 12px/1 var(--font); cursor: pointer; }
-.clip-toggle::before { content: ""; position: absolute; inset: -10px -4px; } /* a 44px target */
+.clip-toggle::before { content: ""; position: absolute; inset: -6px -4px; } /* a larger target, to the bar's edges (24px or more meets 2.5.8) */
 .clip-toggle:hover { color: var(--ink); border-color: var(--border-strong); }
 .clip-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .browser video { width: 100%; background: var(--bg); }
@@ -384,6 +385,10 @@ h3 { font-size: clamp(26px, 2.6vw, 34px); line-height: 1.12; letter-spacing: -0.
   .browser-bar { height: 28px; }
   .browser-bar span { display: none; }
 }
+
+/* Pause animations: CSS motion holds too, and anything still to fade in shows at once. */
+.motion-paused *, .motion-paused *::before, .motion-paused *::after { animation-play-state: paused !important; transition-duration: .01ms !important; }
+.motion-paused .reveal { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

@@ -16,17 +16,20 @@ function isTyping(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-/** The choice when storage is blocked, so the checkbox still works until the page reloads. */
+/**
+ * A choice storage refused to keep (blocked, or full), so the checkbox still works until
+ * the page reloads. It wins over what storage holds, which may be an older choice.
+ */
 const unstored = new Map<string, boolean>();
 
 function readEnabled(key: string): boolean {
+  const kept = unstored.get(key);
+  if (kept !== undefined) return kept;
   try {
-    const stored = window.localStorage.getItem(key);
-    if (stored !== null) return stored === "on";
+    return window.localStorage.getItem(key) === "on";
   } catch {
-    // Storage blocked: fall back to this page's memory.
+    return false;
   }
-  return unstored.get(key) ?? false;
 }
 
 function subscribe(onChange: () => void): () => void {
@@ -39,11 +42,13 @@ function subscribe(onChange: () => void): () => void {
 }
 
 function setEnabled(key: string, on: boolean) {
-  unstored.set(key, on);
   try {
     window.localStorage.setItem(key, on ? "on" : "off");
+    // Stored, so other tabs' changes (the storage event) are read from storage again.
+    unstored.delete(key);
   } catch {
-    // Storage blocked: the choice lasts until the page reloads.
+    // Storage refused it: the choice lasts until the page reloads.
+    unstored.set(key, on);
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }

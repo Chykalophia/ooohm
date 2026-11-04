@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useTransition } from "react";
+import { useActionState, useEffect, useId, useRef, useTransition } from "react";
 
 /** A server action as forms call it: the previous state and the submitted fields in, the next state out. */
 export type StateAction<S> = (prev: Awaited<S>, formData: FormData) => Promise<S>;
@@ -17,7 +17,9 @@ type MaybeFieldErrors = { status?: unknown; fields?: unknown };
  *
  * When a refusal names `fields`, those controls get `aria-invalid` (drawn in the danger
  * colour by `fieldClass`) and focus moves to the first, so a keyboard or screen reader
- * user lands on what to fix (WCAG 3.3.1). The marks clear on the next submit.
+ * user lands on what to fix (WCAG 3.3.1). The form's error message (its `role="alert"`)
+ * is added to their `aria-describedby`, so the field itself says what is wrong. The
+ * marks clear on the next submit.
  *
  * Spread `onSubmit` onto the `<form>` and also pass `dispatch` as its `action`, which
  * keeps the form working before hydration.
@@ -27,6 +29,9 @@ export function useFormAction<S>(action: StateAction<S>, initial: Awaited<S>) {
   const [, startTransition] = useTransition();
   const form = useRef<HTMLFormElement | null>(null);
   const marked = useRef<Element[]>([]);
+  const errorId = useId();
+  // The error id added to the marked fields' descriptions, to take off again.
+  const described = useRef<string | null>(null);
 
   useEffect(() => {
     const s = state as MaybeFieldErrors;
@@ -37,10 +42,19 @@ export function useFormAction<S>(action: StateAction<S>, initial: Awaited<S>) {
       .map((n) => el.elements.namedItem(n))
       .map((c) => (c instanceof RadioNodeList ? (c[0] as Element | undefined) : c))
       .filter((c): c is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement => c instanceof HTMLElement && "type" in c && c.type !== "hidden");
-    for (const c of controls) c.setAttribute("aria-invalid", "true");
+    const error = el.querySelector<HTMLElement>('[role="alert"]');
+    if (error && !error.id) error.id = errorId;
+    for (const c of controls) {
+      c.setAttribute("aria-invalid", "true");
+      if (error) {
+        const ids = (c.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean);
+        if (!ids.includes(error.id)) c.setAttribute("aria-describedby", [...ids, error.id].join(" "));
+      }
+    }
     marked.current = controls;
+    described.current = error?.id ?? null;
     controls[0]?.focus();
-  }, [state]);
+  }, [state, errorId]);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,7 +62,12 @@ export function useFormAction<S>(action: StateAction<S>, initial: Awaited<S>) {
     // drops keyboard focus to the page body. So a second submit is refused here instead.
     if (pending) return;
     form.current = e.currentTarget;
-    for (const c of marked.current) c.removeAttribute("aria-invalid");
+    for (const c of marked.current) {
+      c.removeAttribute("aria-invalid");
+      const ids = (c.getAttribute("aria-describedby") ?? "").split(" ").filter((id) => id && id !== described.current);
+      if (ids.length) c.setAttribute("aria-describedby", ids.join(" "));
+      else c.removeAttribute("aria-describedby");
+    }
     marked.current = [];
     // The submit control that was used (a button or an input), so its name and value go along.
     const data = new FormData(e.currentTarget, (e.nativeEvent as SubmitEvent).submitter ?? null);

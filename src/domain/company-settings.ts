@@ -87,10 +87,10 @@ export function normalizeCompanySettings(input: CompanySettingsInput, currentTim
  */
 export function normalizeWorkingDays(days: readonly number[]): number[] {
   if (days.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) {
-    throw new DomainError("invalid_input", "Working days are weekdays 1 (Monday) to 7 (Sunday).");
+    throw new DomainError("invalid_input", "Working days are weekdays 1 (Monday) to 7 (Sunday).", { field: "workingDays" });
   }
   const out = [...new Set(days)].sort((a, b) => a - b);
-  if (out.length === 0) throw new DomainError("invalid_input", "Pick at least one working day.");
+  if (out.length === 0) throw new DomainError("invalid_input", "Pick at least one working day.", { field: "workingDays" });
   return out;
 }
 

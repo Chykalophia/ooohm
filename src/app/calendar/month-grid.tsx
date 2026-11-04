@@ -25,11 +25,12 @@ const OFF_DAY = "bg-background bg-[repeating-linear-gradient(135deg,var(--color-
 /**
  * This month's working days are plain, its weekends and holidays are hatched, and the
  * neighbouring months' days have no fill and a grey number (never faded below text
- * contrast), so the three never look alike. A selected day takes a light accent tint over any of them.
+ * contrast), so the three never look alike. A selected day takes a light accent tint over any of them,
+ * and in forced colours (which drop the tint) an outline in the system highlight.
  */
 function dayStyle(day: CalendarDay, selected: boolean): { cell: string; number: string } {
   const number = !day.inMonth ? "text-muted" : !day.isWorkingDay || day.holiday !== null ? "text-muted" : "text-foreground";
-  if (selected) return { cell: "bg-accent/15", number };
+  if (selected) return { cell: "bg-accent/15 forced-colors:outline-2 forced-colors:-outline-offset-2 forced-colors:outline-[Highlight]", number };
   if (!day.inMonth) return { cell: "bg-transparent", number };
   if (!day.isWorkingDay || day.holiday !== null) return { cell: OFF_DAY, number };
   return { cell: "bg-surface", number };

@@ -95,7 +95,8 @@ export default async function LeaveTypesPage() {
             <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90">
               <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Archived ({archived.length})
+            {/* A heading inside the summary keeps the section in screen readers' heading list. */}
+            <h2>Archived ({archived.length})</h2>
           </summary>
           <ItemList className="mt-3">
             {archived.map((t) => (

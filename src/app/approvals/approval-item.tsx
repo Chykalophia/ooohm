@@ -44,8 +44,10 @@ export function ApprovalItem({
 
   useEffect(() => {
     if (!decided) return;
-    // The outcome replaces the form, including the button that had focus.
-    outcome.current?.focus();
+    // The outcome replaces the form, including the button that had focus. Take focus only
+    // if it was here (or was lost with the form), not if the person has moved on.
+    const active = document.activeElement;
+    if (!active || active === document.body || item.current?.contains(active)) outcome.current?.focus();
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const fold = window.setTimeout(() => setLeaving(true), HOLD_MS);
     const done = window.setTimeout(

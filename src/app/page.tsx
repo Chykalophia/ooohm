@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { formatExpiring } from "@/lib/format";
 import { hasPasskey } from "@/server/services/account";
@@ -14,6 +15,8 @@ import { HomeHint } from "./home-hint";
 import { RequestLeaveForm } from "./request-leave-form";
 import { RequestLeaveSentence } from "./request-leave-sentence";
 import { RequestList } from "./requests/request-list";
+
+export const metadata: Metadata = { title: "Your time off · OOOhm" };
 
 /** Focus lands on this heading after a cancel, when the cancel button itself disappears. */
 const REQUESTS_HEADING_ID = "mine-heading";

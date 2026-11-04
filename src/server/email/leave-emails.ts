@@ -10,6 +10,7 @@ import {
   type EmailButton,
   emailDocument,
   escapeHtml,
+  heading,
   MUTED,
   paragraph,
 } from "@/lib/email-layout";
@@ -205,7 +206,7 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
 
   const lead = p.lead.map((s) => (s.bold ? `<b style="font-weight:600">${escapeHtml(s.text)}</b>` : escapeHtml(s.text))).join("");
   const body =
-    paragraph(lead) +
+    heading(lead) +
     (p.quote ? paragraph(escapeHtml(quoted(p.quote)), `color:${BODY};white-space:pre-wrap`) : "") +
     (p.overlap ? paragraph(dot(accent) + escapeHtml(p.overlap), `color:${BODY};font-size:15px`) : "") +
     (p.extra
@@ -217,5 +218,5 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
       : "") +
     buttons(actions, accent);
 
-  return { subject: p.subject, text, html: emailDocument(body, accent, approveNote ? escapeHtml(approveNote) : undefined) };
+  return { subject: p.subject, text, html: emailDocument(body, accent, approveNote ? escapeHtml(approveNote) : undefined, p.subject) };
 }

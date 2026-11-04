@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Logo } from "@/components/layout/logo";
 import { Card } from "@/components/ui/card";
@@ -7,6 +8,8 @@ import { serviceContext } from "@/server/runtime";
 import { installStatus } from "@/server/services/install";
 import { textLink } from "@/components/ui/styles";
 import { SignInForm } from "./sign-in-form";
+
+export const metadata: Metadata = { title: "Sign in · OOOhm" };
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string; setup?: string; email?: string }> }) {
   // Read runtime config (Google on/off) per request, not at build time.

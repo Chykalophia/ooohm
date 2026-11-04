@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { cx, subtleButton, textLink } from "@/components/ui/styles";
+import { cx, focusRing, textLink } from "@/components/ui/styles";
 
 /**
  * A quiet, dismissible note on Home (days about to expire, or a nudge to subscribe to
@@ -39,16 +39,17 @@ export function HomeHint({ storageKey, children, link }: { storageKey: string; c
   };
 
   return (
-    <aside className="flex flex-col gap-3 rounded-2xl border border-accent/30 bg-accent/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div role="note" className="flex flex-col gap-3 rounded-2xl border border-accent/30 bg-accent/5 p-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm">{children}</p>
       <div className="flex shrink-0 items-center gap-4 text-sm">
         <Link href={link.href} className={cx(textLink, "font-medium text-accent-ink")}>
           {link.label}
         </Link>
-        <button type="button" onClick={dismiss} className={subtleButton}>
+        {/* Foreground, not muted: grey on the accent tint falls under 4.5:1 in some themes. */}
+        <button type="button" onClick={dismiss} className={`inline-flex min-h-6 items-center rounded-md text-sm text-foreground underline-offset-4 hover:underline ${focusRing}`}>
           Got it
         </button>
       </div>
-    </aside>
+    </div>
   );
 }

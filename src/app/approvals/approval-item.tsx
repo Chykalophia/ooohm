@@ -86,7 +86,7 @@ export function ApprovalItem({
           tabIndex={-1}
           aria-label={label}
           className={cx(
-            "relative isolate space-y-4 outline-none focus:ring-2 focus:ring-accent-ink/40",
+            "relative isolate space-y-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink",
             "motion-safe:transition-[box-shadow,opacity] motion-safe:duration-300",
             decided && (approved ? "ring-2 ring-accent" : "opacity-80 ring-1 ring-border"),
           )}

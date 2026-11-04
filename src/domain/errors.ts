@@ -7,7 +7,10 @@ import type { DeletionBlockers } from "./person-deletion";
  * to a calm, user-facing message (or an HTTP status). Add codes; never repurpose one.
  */
 export type DomainErrorCode =
-  /** Input failed validation (bad format, too long, missing field). */
+  /**
+   * Input failed validation (bad format, too long, missing field). When one field is to
+   * blame, `details` is {@link InvalidFieldDetails} naming it, so the form can mark it.
+   */
   | "invalid_input"
   /** The signed-in user does not belong to a company yet. */
   | "no_company"
@@ -109,8 +112,16 @@ export interface NoWorkingDaysDetails {
   readonly holidays: readonly { readonly date: string; readonly name: string }[];
 }
 
+/**
+ * Which input an `invalid_input` error is about, by the name forms give that field, so
+ * the form can mark it and move focus there (WCAG 3.3.1).
+ */
+export interface InvalidFieldDetails {
+  readonly field: string;
+}
+
 /** Structured facts attached to some codes; see each code's documentation. */
-export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers | NoWorkingDaysDetails;
+export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers | NoWorkingDaysDetails | InvalidFieldDetails;
 
 /**
  * An expected, user-correctable failure. Anything that is not a `DomainError` is a

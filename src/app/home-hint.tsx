@@ -53,6 +53,7 @@ export function HomeHint({ storageKey, children, link }: { storageKey: string; c
     <div
       ref={root}
       role="note"
+      inert={leaving}
       className={cx(
         "flex flex-col gap-3 rounded-2xl border border-accent/30 bg-accent/5 p-4 sm:flex-row sm:items-center sm:justify-between",
         leaving && "pointer-events-none opacity-0 motion-safe:transition-opacity",

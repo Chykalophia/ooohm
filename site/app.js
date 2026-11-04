@@ -203,6 +203,8 @@ function sentence() {
     why.textContent = reason;
     drawSquares(squares, t.allowance, t.used, request, 0, 20);
     if (last.type !== undefined) { sendSeq++; sent.textContent = ""; }
+    f.to.removeAttribute("aria-invalid");
+    f.to.removeAttribute("aria-describedby");
     last = s;
   }
 
@@ -226,6 +228,11 @@ function sentence() {
         : "Those days are all weekends or holidays, so there's nothing to send.";
     // Emptied first, so sending the same request twice is announced twice.
     // An edit in the meantime (render) cancels it, so an old confirmation never comes back.
+    // A bad range marks the last day invalid and points it at the message, so the field says why.
+    if (!ok) {
+      f.to.setAttribute("aria-invalid", "true");
+      f.to.setAttribute("aria-describedby", "sent-note");
+    }
     const seq = ++sendSeq;
     sent.textContent = "";
     requestAnimationFrame(() => { if (seq === sendSeq) sent.textContent = text; });

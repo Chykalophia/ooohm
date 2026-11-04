@@ -47,7 +47,11 @@ relative URLs. Change all three if the site moves.
 - **Theme stills** (`media/themes/*.jpg`): the home screen in each of the nine company themes.
 
 Everything respects `prefers-reduced-motion`: animations settle on their last state and the videos
-show controls instead of playing on their own.
+show controls instead of playing on their own. For everyone else, **Pause animations** in the header
+holds every loop, clip and CSS animation for the visit (WCAG 2.2.2); turning it off again picks
+them up where they were. The year, Needs you, webhook, theme and terminal demos also rest after one
+round; the sentence demo plays until someone touches it, and the clips loop while on screen.
+The tour has a text version under its poster and in its dialog; keep it in step with `demo/film.html`.
 
 ## Re-recording the media
 

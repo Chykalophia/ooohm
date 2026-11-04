@@ -14,14 +14,14 @@ export const HOLIDAY_NAME_MAX_LENGTH = 100;
 export function normalizeHolidayName(raw: string): string {
   const name = oneLine(raw);
   if (name.length === 0 || name.length > HOLIDAY_NAME_MAX_LENGTH) {
-    throw new DomainError("invalid_input", `Holiday names are 1 to ${HOLIDAY_NAME_MAX_LENGTH} characters.`);
+    throw new DomainError("invalid_input", `Holiday names are 1 to ${HOLIDAY_NAME_MAX_LENGTH} characters.`, { field: "name" });
   }
   return name;
 }
 
 /** @throws DomainError `invalid_input` for anything but a real `YYYY-MM-DD` date. */
 export function assertHolidayDate(date: string): asserts date is CalendarDate {
-  if (!isCalendarDate(date)) throw new DomainError("invalid_input", "Holiday dates are real calendar dates.");
+  if (!isCalendarDate(date)) throw new DomainError("invalid_input", "Holiday dates are real calendar dates.", { field: "date" });
 }
 
 /** Years the holiday list can be browsed and filled for. */

@@ -271,11 +271,12 @@
   --background: #eef2f8;
   --surface: rgb(255 255 255 / 0.66);
   --foreground: #1c2433;
-  --muted: #5d6779;
+  /* Over the darkest blue of the wash, not just white: 4.5:1 there too. */
+  --muted: #525c6e;
   --border: rgb(28 36 51 / 0.1);
   --accent: #1f6feb;
   --accent-foreground: #ffffff;
-  --accent-ink: #1a5fd0;
+  --accent-ink: #1858c2;
   --app-font: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --display-font: var(--app-font);
   --radius-sm: 0.375rem;
@@ -423,7 +424,8 @@ body,
 }
 [data-layout="legible"][data-ui],
 [data-layout="legible"] [data-ui] {
-  --muted-strong: color-mix(in srgb, var(--muted) 70%, var(--foreground));
+  /* 60% keeps grey text at 7:1 or more in every theme (WCAG 1.4.6, AAA). */
+  --muted-strong: color-mix(in srgb, var(--muted) 60%, var(--foreground));
 }
 :is([data-layout="grouped"], [data-layout="legible"]) > body {
   --muted: var(--muted-strong);
@@ -546,6 +548,30 @@ body,
 }
 
 /*
+ * Forced colours (Windows High Contrast and similar): the browser replaces our colours
+ * and drops box-shadows, so anything drawn with a fill, a border colour change or a
+ * Tailwind ring alone disappears. Give focus a real outline in the system highlight,
+ * keep filled buttons outlined, and let colour dots that stand for a leave type keep
+ * their colour.
+ */
+@media (forced-colors: active) {
+  :focus-visible,
+  [class*="focus-within:border-accent-ink"]:focus-within,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px;
+  }
+  :is(button, a).bg-accent {
+    border: 1px solid ButtonText;
+  }
+  [data-swatch] {
+    forced-color-adjust: none;
+  }
+}
+
+/*
  * The waiting dots (components/ui/ooo-dots.tsx): the first two O's breathe, the third
  * steps out, emptying to a ring and coming back. Still, with the last O hollow, for
  * anyone who asked for less motion.
@@ -577,6 +603,19 @@ body,
   .ooo-loading {
     animation-duration: 0s;
   }
+}
+/* A decided approval: its mark pops in and the card's wash fades in (Approvals). */
+@media (prefers-reduced-motion: no-preference) {
+  .ooo-pop {
+    animation: ooo-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .ooo-fade {
+    animation: ooo-fade-in 300ms ease-out both;
+  }
+}
+@keyframes ooo-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
 }
 @keyframes ooo-breathe {
   0%, 100% { opacity: 0.35; }

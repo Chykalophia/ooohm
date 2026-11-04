@@ -83,7 +83,7 @@ async function currentApprover(tx: Transaction, companyId: string, requesterId: 
  *   own request), `invalid_transition` (no longer pending), or `conflict`.
  */
 export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, input: DecideInput): Promise<LeaveRequestRow> {
-  const reason = normalizeNote(input.reason);
+  const reason = normalizeNote(input.reason, "reason");
   if (!isUuid(input.requestId)) throw new DomainError("not_found");
   if (input.decision !== "approve" && input.decision !== "reject") throw new DomainError("invalid_input");
   const to = input.decision === "approve" ? "approved" : "rejected";

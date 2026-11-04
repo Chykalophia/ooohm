@@ -1,20 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { TextField } from "@/components/ui/fields";
-import { buttonClass, cx, textLink } from "@/components/ui/styles";
+import { buttonClass, cx, focusRing, textLink } from "@/components/ui/styles";
 import { authClient } from "@/lib/auth-client";
 
 const GENERIC_ERROR = "Something went wrong. Try again.";
+const PASSKEY_FAILED = "That passkey didn't work. Try again, or email yourself a link.";
+
+/** What the browser reports when the person closes its passkey prompt: not an error. */
+const CANCELLED = new Set(["AUTH_CANCELLED", "ERROR_CEREMONY_ABORTED"]);
 
 type State = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; email: string } | { kind: "error"; message: string };
 
-export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boolean; linkFailed: boolean }) {
-  const [email, setEmail] = useState("");
+/** Moves focus to the element once, when it mounts (a stable ref callback, so a re-render never re-focuses). */
+const focusOnMount = (el: HTMLElement | null) => el?.focus();
+
+export function SignInForm({
+  googleEnabled,
+  linkFailed,
+  initialEmail = "",
+}: {
+  googleEnabled: boolean;
+  linkFailed: boolean;
+  /** Prefills the email (after first-time setup). */
+  initialEmail?: string;
+}) {
+  const [email, setEmail] = useState(initialEmail);
   const [state, setState] = useState<State>(
     linkFailed ? { kind: "error", message: "That sign-in link didn't work. Request a new one." } : { kind: "idle" },
   );
+
+  const router = useRouter();
+  // Passkeys need a browser that supports them, known only after mount (the server can't tell).
+  const [passkeys, setPasskeys] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.PublicKeyCredential) return;
+    // Rendering the button only now keeps the server's HTML and the first render the same.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPasskeys(true);
+    // Where the browser offers it, saved passkeys also show in the email field's suggestions.
+    let cancelled = false;
+    void PublicKeyCredential.isConditionalMediationAvailable?.().then(async (available) => {
+      if (!available || cancelled) return;
+      const { data } = await authClient.signIn.passkey({ autoFill: true });
+      if (data && !cancelled) router.replace("/");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  async function signInWithPasskey() {
+    if (state.kind === "sending") return;
+    setState({ kind: "idle" });
+    const { data, error } = await authClient.signIn.passkey();
+    if (data) {
+      router.replace("/");
+      return;
+    }
+    if (error && !("code" in error && CANCELLED.has(error.code))) setState({ kind: "error", message: PASSKEY_FAILED });
+  }
 
   async function sendLink(e: React.FormEvent) {
     e.preventDefault();
@@ -45,9 +93,13 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
 
   if (state.kind === "sent") {
     return (
-      <div role="status" className="space-y-2 text-center">
-        <p className="font-medium">Check your email</p>
-        <p className="text-sm text-muted">
+      // The form this replaces held focus, so focus moves to the heading: the person hears
+      // the result and stays in place (a status region added with its text is often not read).
+      <div className="space-y-2 text-center">
+        <h2 ref={focusOnMount} tabIndex={-1} aria-describedby="sign-in-sent" className={cx("rounded-sm font-medium", focusRing)}>
+          Check your email
+        </h2>
+        <p id="sign-in-sent" className="text-sm text-muted">
           We sent a sign-in link to <span className="text-foreground">{state.email}</span>. It expires in 15 minutes.
         </p>
         <button type="button" className={cx(textLink, "text-sm text-accent-ink")} onClick={() => setState({ kind: "idle" })}>
@@ -64,7 +116,8 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
           label="Work email"
           type="email"
           required
-          autoComplete="email"
+          // "webauthn" lets the browser offer saved passkeys here too.
+          autoComplete="email webauthn"
           autoFocus
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -79,6 +132,12 @@ export function SignInForm({ googleEnabled, linkFailed }: { googleEnabled: boole
         <ErrorMessage as="p" className="text-sm">
           {state.message}
         </ErrorMessage>
+      )}
+
+      {passkeys && (
+        <button type="button" onClick={signInWithPasskey} className={cx(buttonClass("outline"), "w-full")}>
+          Sign in with a passkey
+        </button>
       )}
 
       {googleEnabled && (

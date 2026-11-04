@@ -5,6 +5,7 @@ import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { formatShortDay } from "@/lib/format";
 import { REQUEST_FORM_ID } from "@/components/layout/anchors";
 import { Section } from "@/components/ui/section";
+import { ChipSelect } from "@/components/ui/chip-select";
 import { cx, fieldClass, focusRing } from "@/components/ui/styles";
 import { type LeaveTypeOption, LeavePreviewLine, type Portion, SubmitRow, useLeaveDraft, useRequestAction } from "./request-leave-form";
 
@@ -28,11 +29,16 @@ export function RequestLeaveSentence({ leaveTypes, defaultDate }: { leaveTypes: 
 }
 
 /**
- * A choice set inside the sentence: tinted, underlined in the accent, keyboard focusable. Its own
- * line height stays snug, so wrapped lines of the sentence keep a clear gap between tokens.
+ * A choice set inside the sentence: a compact chip, tinted, softly underlined in the
+ * accent (firmer on hover and focus), keyboard focusable. Its own tight line height
+ * keeps it a chip in the sentence's loose lines instead of a tall box crowding them.
  */
-const token =
-  "relative inline-flex max-w-full items-center gap-1 rounded-lg bg-accent/10 px-2 py-0.5 leading-snug text-accent-ink shadow-[inset_0_-2px_0_var(--accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-ink";
+const token = cx(
+  "relative mx-0.5 inline-block max-w-full rounded-lg bg-accent/10 px-2 py-0.5 leading-[1.3] whitespace-nowrap text-accent-ink",
+  "shadow-[inset_0_-2px_0_color-mix(in_srgb,var(--accent)_40%,transparent)] transition-shadow",
+  "hover:shadow-[inset_0_-2px_0_var(--accent)] has-[:focus-visible]:shadow-[inset_0_-2px_0_var(--accent)]",
+  "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-ink",
+);
 /** The native control fills its token and stays invisible, so the sentence reads as text. */
 const overlay = "absolute inset-0 h-full w-full cursor-pointer opacity-0";
 
@@ -71,52 +77,41 @@ function SentenceFields({
   return (
     <>
       <p
-        className="text-xl leading-loose font-medium tracking-tight text-balance sm:text-2xl sm:leading-loose"
+        className="text-xl leading-[2.05] tracking-[-0.01em] text-balance sm:text-[25px] sm:leading-[1.95]"
         style={{ fontFamily: "var(--display-font)" }}
       >
         I’m taking{" "}
-        <span className={token}>
+        <ChipSelect
+          name="leaveTypeId"
+          label="Type of leave"
+          value={leaveTypeId}
+          onChange={setLeaveTypeId}
+          options={leaveTypes.map((t) => ({ value: t.id, label: t.name, color: t.color }))}
+          className={token}
+        >
           {typeName}
           <Caret />
-          <select
-            name="leaveTypeId"
-            required
-            aria-label="Type of leave"
-            value={leaveTypeId}
-            onChange={(e) => setLeaveTypeId(e.target.value)}
-            className={overlay}
-          >
-            {leaveTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </span>{" "}
+        </ChipSelect>{" "}
         from <DateToken name="startDate" label="First day" value={startDate} onChange={changeStart} /> to{" "}
         <span className="whitespace-nowrap">
           <DateToken name="endDate" label="Last day" value={endDate} min={startDate} onChange={changeEnd} />,
         </span>{" "}
         <span className="whitespace-nowrap">
-          <span className={token}>
+          <ChipSelect
+            name="dayPortion"
+            label="How much of the day"
+            value={dayPortion}
+            onChange={(v) => setDayPortion(v as Portion)}
+            options={[
+              { value: "full", label: singleDay ? "all day" : "full days" },
+              { value: "am", label: "the morning only", disabled: !singleDay },
+              { value: "pm", label: "the afternoon only", disabled: !singleDay },
+            ]}
+            className={token}
+          >
             {singleDay ? PORTION_WORDS[dayPortion] : "full days"}
             <Caret />
-            <select
-              name="dayPortion"
-              aria-label="How much of the day"
-              value={dayPortion}
-              onChange={(e) => setDayPortion(e.target.value as Portion)}
-              className={overlay}
-            >
-              <option value="full">{singleDay ? "all day" : "full days"}</option>
-              <option value="am" disabled={!singleDay}>
-                the morning only
-              </option>
-              <option value="pm" disabled={!singleDay}>
-                the afternoon only
-              </option>
-            </select>
-          </span>
+          </ChipSelect>
           .
         </span>
       </p>
@@ -169,7 +164,7 @@ function DateToken({
     }
   };
   return (
-    <span className={cx(token, "whitespace-nowrap")}>
+    <span className={token}>
       {value ? formatShortDay(value) : "pick a date"}
       <input
         ref={input}
@@ -195,7 +190,7 @@ function DateToken({
 
 function Caret() {
   return (
-    <svg aria-hidden viewBox="0 0 12 12" className="h-3 w-3 shrink-0 opacity-70">
+    <svg aria-hidden viewBox="0 0 12 12" className="ml-1 inline-block h-3 w-3 align-middle opacity-70">
       <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );

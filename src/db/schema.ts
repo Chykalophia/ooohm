@@ -48,6 +48,21 @@ export const dayPortionEnum = pgEnum("day_portion", ["full", "am", "pm"]);
 
 // Tenancy
 
+/**
+ * One row once the first install has run, by the web setup (`/setup`) or `pnpm db:seed`.
+ * From then on the web setup is closed for good, whatever `SETUP_TOKEN` says.
+ */
+export const installation = pgTable(
+  "installation",
+  {
+    id: integer("id").primaryKey().default(1),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+    /** How it was done: `setup` (the web page) or `seed` (the CLI). */
+    method: text("method").notNull(),
+  },
+  (t) => [check("installation_single_row", sql`${t.id} = 1`)],
+);
+
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -148,6 +163,36 @@ export const user = pgTable(
         or (${t.scrubScheduledAt} is not null and ${t.deletedAt} is null and not ${t.isActive})`,
     ),
   ],
+);
+
+/**
+ * Passkeys (WebAuthn credentials) people add on their account page, for Better Auth's
+ * passkey plugin: one row per device or password manager. Signing in with one still
+ * goes through the session hook that refuses deactivated people, and a delete removes
+ * them with the rest of the person's sign-in data.
+ */
+export const passkey = pgTable(
+  "passkey",
+  {
+    id: text("id").primaryKey(),
+    /** What the person called it ("Work laptop"). */
+    name: text("name"),
+    publicKey: text("public_key").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    credentialID: text("credential_id").notNull(),
+    /** The authenticator's signature counter, checked on every sign-in. */
+    counter: integer("counter").notNull(),
+    /** `singleDevice`, or `multiDevice` for a synced passkey. */
+    deviceType: text("device_type").notNull(),
+    backedUp: boolean("backed_up").notNull(),
+    transports: text("transports"),
+    createdAt: timestamp("created_at", { withTimezone: true }),
+    /** Identifies the authenticator's make (a password manager, a security key). */
+    aaguid: text("aaguid"),
+  },
+  (t) => [index("passkey_user_idx").on(t.userId), uniqueIndex("passkey_credential_id_uq").on(t.credentialID)],
 );
 
 export const session = pgTable(

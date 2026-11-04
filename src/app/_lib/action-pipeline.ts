@@ -60,7 +60,11 @@ export function createActionPipeline(deps: PipelineDeps) {
     if (options.who === "admin" && !canAdminister(actor)) return { status: "error", message: "Only admins can do that." };
 
     const parsed = schema.safeParse(input instanceof FormData ? Object.fromEntries(input) : input);
-    if (!parsed.success) return { status: "error", message: options.invalidInput ?? messageFor("invalid_input") };
+    if (!parsed.success) {
+      // The top-level field each refusal is about, so the form can mark those fields.
+      const fields = [...new Set(parsed.error.issues.map((i) => i.path[0]).filter((p): p is string => typeof p === "string"))];
+      return { status: "error", message: options.invalidInput ?? messageFor("invalid_input"), ...(fields.length ? { fields } : {}) };
+    }
     return { actor, data: parsed.data };
   }
 

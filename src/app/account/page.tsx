@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
 import { followsDarkMode, THEMES } from "@/domain/appearance";
 import { COLOR_MODES, type ColorMode } from "@/domain/color-mode";
-import { ROLE_LABEL } from "@/lib/format";
+import { formatInstantDate, ROLE_LABEL } from "@/lib/format";
 import { getAccount } from "@/server/services/account";
 import { ActionForm } from "@/components/forms/action-form";
 import { AppPage } from "@/components/layout/app-page";
@@ -14,6 +14,7 @@ import { textLink } from "@/components/ui/styles";
 import { requestAppearance } from "@/app/_lib/appearance";
 import { requireMemberPage } from "@/app/_lib/page-context";
 import { renameSelfAction, setColorModeAction } from "./actions";
+import { Passkeys } from "./passkeys";
 
 export const metadata: Metadata = { title: "Your account · OOOhm" };
 
@@ -71,12 +72,23 @@ export default async function AccountPage() {
         </ActionForm>
       </Section>
 
+      <Section id="passkeys" title="Passkeys" surface className="scroll-mt-6 space-y-4">
+        <Passkeys
+          passkeys={account.passkeys.map((p) => ({
+            id: p.id,
+            name: p.name,
+            synced: p.synced,
+            added: p.createdAt ? formatInstantDate(p.createdAt, account.timezone) : null,
+          }))}
+        />
+      </Section>
+
       <Section title="Details" surface className="space-y-3">
-        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[8rem_1fr]">
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[8rem_minmax(0,1fr)]">
           {details.map(([label, value]) => (
             <div key={label} className="contents">
               <dt className="text-muted">{label}</dt>
-              <dd className="break-words">{value}</dd>
+              <dd className="min-w-0 [overflow-wrap:anywhere]">{value}</dd>
             </div>
           ))}
         </dl>

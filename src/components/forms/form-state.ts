@@ -2,7 +2,10 @@
  * Result of a form's server action, as rendered by `useActionState`. `id` changes on
  * every success so a form can remount (clear) itself by using it as a React key.
  */
-export type FormState = { status: "idle" } | { status: "success"; message: string; id: string } | { status: "error"; message: string };
+export type FormState =
+  | { status: "idle" }
+  | { status: "success"; message: string; id: string }
+  | { status: "error"; message: string; /** Names of the fields to mark invalid. */ fields?: string[] };
 
 export const IDLE: FormState = { status: "idle" };
 

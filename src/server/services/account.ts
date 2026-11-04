@@ -1,6 +1,7 @@
 /**
  * The signed-in person's own account: what they see on their settings page, and what
- * they may change themselves: their display name and their colour mode. Email, role,
+ * they may change themselves: their display name, their colour mode and their passkeys
+ * (added and removed in the browser, through Better Auth's passkey plugin). Email, role,
  * department and manager stay with admins (invite-only access; the email is the
  * sign-in identity).
  */
@@ -10,7 +11,9 @@ import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { normalizePersonName } from "@/domain/people";
 import type { ColorMode } from "@/domain/color-mode";
 import type { ServiceContext } from "@/server/context";
+import { findCompanySettings } from "@/server/repositories/calendar";
 import { findDepartment } from "@/server/repositories/departments";
+import { hasPasskeyOf, listPasskeysOf } from "@/server/repositories/passkeys";
 import { findPerson, lockMember, updateColorMode, updatePerson } from "@/server/repositories/users";
 import { recordAdminChange } from "./admin-access";
 import { personPayload, personSnapshot } from "./admin-people";
@@ -24,20 +27,26 @@ export interface Account {
   department: string | null;
   /** The manager's display label (name, else email), or `null` when they have none. */
   manager: string | null;
+  /** Their passkeys, oldest first: a name and when it was added, never the key. */
+  passkeys: { id: string; name: string | null; createdAt: Date | null; synced: boolean }[];
+  /** The company's time zone, to show when each passkey was added. */
+  timezone: string;
 }
 
 /**
- * The actor's own account details. Three reads at most: the person, then their
- * department and manager in parallel.
+ * The actor's own account details. Five reads at most: the person, then their
+ * department, manager, passkeys and the company's time zone in parallel.
  *
  * @throws DomainError `not_found` when the person no longer exists.
  */
 export async function getAccount(ctx: ServiceContext, actor: Actor): Promise<Account> {
   const me = await findPerson(ctx.db, actor.companyId, actor.id);
   if (!me) throw new DomainError("not_found");
-  const [department, manager] = await Promise.all([
+  const [department, manager, passkeys, settings] = await Promise.all([
     me.departmentId ? findDepartment(ctx.db, actor.companyId, me.departmentId) : undefined,
     me.managerId ? findPerson(ctx.db, actor.companyId, me.managerId) : undefined,
+    listPasskeysOf(ctx.db, me.id),
+    findCompanySettings(ctx.db, actor.companyId),
   ]);
   return {
     name: me.name,
@@ -45,7 +54,14 @@ export async function getAccount(ctx: ServiceContext, actor: Actor): Promise<Acc
     role: me.role,
     department: department?.name ?? null,
     manager: manager ? manager.name || manager.email : null,
+    passkeys: passkeys.map((p) => ({ id: p.id, name: p.name, createdAt: p.createdAt, synced: p.deviceType === "multiDevice" })),
+    timezone: settings?.timezone ?? "UTC",
   };
+}
+
+/** Whether the actor has added a passkey yet; Home suggests one until they have. One read. */
+export async function hasPasskey(ctx: ServiceContext, actor: Actor): Promise<boolean> {
+  return hasPasskeyOf(ctx.db, actor.id);
 }
 
 /**

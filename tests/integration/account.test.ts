@@ -28,6 +28,8 @@ describe("your account", { skip }, () => {
       role: "employee",
       department: "Ops",
       manager: "Boss",
+      passkeys: [],
+      timezone: "America/Chicago",
     });
     const boss = await getAccount(ctx, co.people.boss);
     assert.deepEqual([boss.role, boss.department, boss.manager], ["admin", null, null]);
@@ -54,6 +56,8 @@ describe("your account", { skip }, () => {
       role: "employee",
       department: null,
       manager: "Boss",
+      passkeys: [],
+      timezone: "America/Chicago",
     });
     const [event] = await companyEvents(t.db, co.companyId, "user.updated");
     assert.deepEqual((event.payload as { actor: unknown }).actor, { type: "user", id: ana.id });

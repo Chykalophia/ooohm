@@ -6,6 +6,9 @@ x-app-env: &app-env
   DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+  PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
+  # Opens /setup on an empty install (see .env.example); empty = off.
+  SETUP_TOKEN: ${SETUP_TOKEN:-}
   SMTP_HOST: ${SMTP_HOST:-mailpit}
   SMTP_PORT: ${SMTP_PORT:-1025}
   SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -14,6 +17,10 @@ x-app-env: &app-env
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   MAIL_FROM: ${MAIL_FROM:-OOOhm <no-reply@ooohm.team>}
+  # smtp (above) or sendgrid; see .env.example.
+  MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+  SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+  SENDGRID_REGION: ${SENDGRID_REGION:-global}
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
   TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}

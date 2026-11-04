@@ -64,7 +64,7 @@ export interface CompanySettings {
 export function normalizeCompanySettings(input: CompanySettingsInput, currentTimezone?: string): CompanySettings {
   const name = oneLine(input.name);
   if (name.length === 0 || name.length > COMPANY_NAME_MAX_LENGTH) {
-    throw new DomainError("invalid_input", `Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`);
+    throw new DomainError("invalid_input", `Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`, { field: "name" });
   }
   const timezone = input.timezone.trim();
   if (timezone !== currentTimezone && !isSupportedTimeZone(timezone)) {
@@ -87,10 +87,10 @@ export function normalizeCompanySettings(input: CompanySettingsInput, currentTim
  */
 export function normalizeWorkingDays(days: readonly number[]): number[] {
   if (days.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) {
-    throw new DomainError("invalid_input", "Working days are weekdays 1 (Monday) to 7 (Sunday).");
+    throw new DomainError("invalid_input", "Working days are weekdays 1 (Monday) to 7 (Sunday).", { field: "workingDays" });
   }
   const out = [...new Set(days)].sort((a, b) => a - b);
-  if (out.length === 0) throw new DomainError("invalid_input", "Pick at least one working day.");
+  if (out.length === 0) throw new DomainError("invalid_input", "Pick at least one working day.", { field: "workingDays" });
   return out;
 }
 

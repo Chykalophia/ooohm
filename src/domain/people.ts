@@ -28,7 +28,7 @@ const EMAIL = /^(?:[A-Za-z0-9_'+\-]+\.)*[A-Za-z0-9_'+\-]*[A-Za-z0-9_+-]@(?:[A-Za
 export function normalizeEmail(raw: string): string {
   const email = raw.trim().toLowerCase();
   if (email.length > EMAIL_MAX_LENGTH || !EMAIL.test(email)) {
-    throw new DomainError("invalid_input", "That isn't an email address.");
+    throw new DomainError("invalid_input", "That isn't an email address.", { field: "email" });
   }
   return email;
 }
@@ -42,7 +42,7 @@ export function normalizeEmail(raw: string): string {
 export function normalizePersonName(raw: string): string {
   const name = oneLine(raw);
   if (name.length === 0 || name.length > PERSON_NAME_MAX_LENGTH) {
-    throw new DomainError("invalid_input", `Names are 1 to ${PERSON_NAME_MAX_LENGTH} characters.`);
+    throw new DomainError("invalid_input", `Names are 1 to ${PERSON_NAME_MAX_LENGTH} characters.`, { field: "name" });
   }
   return name;
 }
@@ -57,7 +57,7 @@ export const DEPARTMENT_NAME_MAX_LENGTH = 60;
 export function normalizeDepartmentName(raw: string): string {
   const name = oneLine(raw);
   if (name.length === 0 || name.length > DEPARTMENT_NAME_MAX_LENGTH) {
-    throw new DomainError("invalid_input", `Department names are 1 to ${DEPARTMENT_NAME_MAX_LENGTH} characters.`);
+    throw new DomainError("invalid_input", `Department names are 1 to ${DEPARTMENT_NAME_MAX_LENGTH} characters.`, { field: "name" });
   }
   return name;
 }

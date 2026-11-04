@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { formatExpiring } from "@/lib/format";
+import { hasPasskey } from "@/server/services/account";
 import { shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
 import { getDashboard } from "@/server/services/leave-requests";
 import { AppPage } from "@/components/layout/app-page";
@@ -14,6 +16,8 @@ import { RequestLeaveForm } from "./request-leave-form";
 import { RequestLeaveSentence } from "./request-leave-sentence";
 import { RequestList } from "./requests/request-list";
 
+export const metadata: Metadata = { title: "Your time off · OOOhm" };
+
 /** Focus lands on this heading after a cancel, when the cancel button itself disappears. */
 const REQUESTS_HEADING_ID = "mine-heading";
 
@@ -23,10 +27,12 @@ export default async function HomePage() {
 
   const { actor } = page;
   // Once someone has approved time off, suggest putting it in their own calendar, until they have.
-  const [dashboard, suggestFeed, appearance] = await Promise.all([
+  // Until someone has a passkey, suggest one: signing in is then a tap instead of an email.
+  const [dashboard, suggestFeed, appearance, passkeyAdded] = await Promise.all([
     getDashboard(page.ctx, actor),
     shouldSuggestCalendarFeed(page.ctx, actor),
     requestAppearance(),
+    hasPasskey(page.ctx, actor),
   ]);
   // The admin's choice under Appearance; both send the same request.
   const RequestLeave = appearance.requestStyle === "sentence" ? RequestLeaveSentence : RequestLeaveForm;
@@ -37,6 +43,12 @@ export default async function HomePage() {
         <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
       ) : (
         <RequestLeave leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+      )}
+
+      {!passkeyAdded && (
+        <HomeHint storageKey={`ooohm:${actor.companyId}:${actor.id}:passkey`} link={{ href: "/account#passkeys", label: "Add a passkey" }}>
+          Sign in faster next time: with a passkey, it&apos;s your fingerprint, face or device PIN instead of an email.
+        </HomeHint>
       )}
 
       {dashboard.expiring.length > 0 && dashboard.balances && (

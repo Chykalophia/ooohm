@@ -119,6 +119,20 @@ builds its own with `scriptContext` (`scripts/script-context.mts`). Tests build 
 
 ## Cross-cutting conventions
 
+### Signing in
+
+Invite-only: an admin (or the first install) creates every account, and no sign-in method creates one. People sign in
+with an emailed magic link, Google when it is configured, or a **passkey** (Better Auth's passkey plugin,
+`@better-auth/passkey`; credentials in the `passkey` table). A passkey is added on the account page, so only by
+someone already signed in (`registration.requireSession`), and removed there too; Home suggests one until the person
+has any. The sign-in page offers "Sign in with a passkey", and the email field lets the browser suggest saved passkeys
+(`autocomplete="email webauthn"`, conditional mediation). Every method ends in the same session hook, which refuses a
+deactivated person; a delete removes their passkeys with the rest of their sign-in data (`deleteSignInOf`).
+
+A passkey is bound to a domain (the relying party ID): the host of `BETTER_AUTH_URL`, or `PASSKEY_RP_ID` when set to a
+parent domain of it (`passkeyRelyingParty`, `src/lib/passkey-rp.ts`, checked at start). Set the parent domain before
+anyone adds a passkey if the app will move between its subdomains: a passkey made for one host does not work on another.
+
 ### Actor and authorization
 
 `requireActor()` (`src/lib/auth.ts`) returns the session user and an `Actor` (`id`, `companyId`, `role`,
@@ -403,6 +417,14 @@ else's request skip the check (no extra reads).
 
 ### Emails
 
+How mail leaves: services only ever call `ctx.mailer` (`Mailer`, `src/server/context.ts`), which the composition root
+wires to `sendMail` in `src/lib/mail`. That sends through the `MailTransport` that `MAIL_TRANSPORT` names, built on
+first use from `registry.ts`: `smtp` (nodemailer; `smtp-options.ts` decides TLS) or `sendgrid` (one HTTPS request to
+SendGrid's Mail Send API, with click and open tracking off so token links reach people unchanged). A transport
+resolves once its provider accepts the message and throws `MailSendError` (the provider and its answer, never a
+credential) otherwise. Adding a provider is one file implementing `MailTransport` and one registry entry.
+
+
 | Transition | Recipients |
 | --- | --- |
 | Requested (routed) | Approver (not when it is the requester), with who else is off then |
@@ -424,6 +446,13 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 
 ### Screens
 
+- `/setup` (`runFirstInstall`, `src/server/services/install.ts`): the first install of an empty OOOhm, from the
+  browser. Open only while `SETUP_TOKEN` is set and nothing is installed (no `installation` row, company or person);
+  otherwise a 404. With the token it creates the company, the default leave types (PTO first) and the first admin
+  (`can_self_approve`), audited as that admin `via: "first_install"`, writes the `installation` marker, and sends them
+  to sign in (it never signs anyone in: the emailed link proves the address). It runs under the companies table lock
+  `pnpm db:seed` and the TimeOff import take, so two racing setups cannot both win. `pnpm db:seed` writes the same
+  marker, so either path closes setup for good. Sign-in on an empty install says how to set it up.
 - `/` (dashboard): the request form (the one primary action) with its live preview, the person's balance per
   active leave type for the current year, and their latest five requests (with a link to all of them). A pending
   request with someone else says who has it and, once they have decided three requests in the last 180 days, how
@@ -440,12 +469,13 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 - Shortcuts: ⌘K (Ctrl+K) on any page for members of a company opens a "Go to" list of the screens the person
   can reach (`JumpMenu`, from the header). On Approvals, J and K move between requests, A approves the focused one, and D
   moves to its reason so Enter declines (`approvals/approval-keys.tsx`); with no request in focus yet, the first of these
-  keys focuses the first request. None of them shows until a key is pressed, and they are ignored while typing
-  and with Shift, Alt, Ctrl or ⌘ held (⌘K/Ctrl+K aside).
+  keys focuses the first request. The Approvals shortcuts are off until the person ticks "Keyboard shortcuts"
+  above the list (kept per person in this browser's `localStorage`, or in memory where storage is blocked), so single-letter keys never act unasked (WCAG 2.1.4).
+  They are ignored while typing and with Shift, Alt, Ctrl or ⌘ held (⌘K/Ctrl+K aside).
 - `/requests` ("Your requests", in the account menu): every request the person has sent, latest dates first, ten a
   page. Each is a card (`RequestCard`, shared with the dashboard) that opens `/requests/[id]`; the whole card is the
   link (its dates, stretched over it) and lifts on hover. While a request can be cancelled (pending or approved,
-  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`): one click starts an 8-second
+  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`): one click starts a 20-second
   countdown with Undo, and the cancel is sent when it ends (leaving the page sends it at once).
 - `/requests/[id]`: one of the person's own requests in full (type, days, who it waits for or who decided it,
   when it was sent and decided, both notes) with Cancel request. Someone else's request is a 404, as an unknown one
@@ -652,10 +682,10 @@ CRON_TZ=America/Chicago
   inside its range. The agenda follows the same rule: it lists a request only if it costs at least one day of
   the month. Previous, Today and Next are plain links. The month is parsed with zod; anything malformed
   or outside 1900 to 2999 falls back to the current month in the company's time zone.
-  The grid is also a way to ask for time off (`month-grid.tsx`): drag across days, or click one and
-  Shift-click another, and a short form under the month shows the dates, the same live preview as Home
+  The grid is also a way to ask for time off (`month-grid.tsx`): drag across days, or click one and then
+  another (Shift-click works too), and a short form under the month shows the dates, the same live preview as Home
   and a leave type picker, then posts to the same `requestLeaveAction` (full days). With a keyboard, the
-  days are one tab stop: arrow keys move, Enter or Space picks a day, Shift with an arrow stretches the pick,
+  days are one tab stop: arrow keys move, Enter or Space picks a day (a second one stretches the pick to it), Shift with an arrow stretches it,
   and Escape clears it. Each day is a button filling its cell behind the content; its leave chips sit above
   it and stay links to their requests, so a click on a chip opens the request and a drag across chips still
   stretches the pick. Phones keep the agenda; Home's form works everywhere.
@@ -1517,9 +1547,10 @@ instance counts separately, so they are approximate. The submit limit is counted
 ### Migrations per host
 
 `pnpm db:migrate` everywhere; compose runs it in `migrate`, embedded mode also on start. On Vercel the `vercel-build`
-script runs `scripts/migrate.mts --if-production && next build`: migrations run only when `VERCEL_ENV` is
-`production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never goes live on an old
-schema. Preview builds never migrate; keeping previews off the production database is a deployment setting
+script runs `scripts/migrate.mts --if-production && scripts/seed.mts --if-production && next build`: migrations run
+only when `VERCEL_ENV` is `production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never
+goes live on an old schema. The seed then runs only on a production build with `SEED_ADMIN_EMAIL` set and no company
+yet, so it creates the first admin once and later builds skip it (`SEED_ON_DEPLOY=force` overrides for one deploy). Preview builds never migrate or seed; keeping previews off the production database is a deployment setting
 ([deploy-vercel.md](deploy-vercel.md#2-keep-previews-away-from-the-production-database)).
 
 Every environment value is trimmed when read (`nonEmptyEnv`), so a secret stored with a trailing newline (the

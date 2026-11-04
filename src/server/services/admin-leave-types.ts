@@ -52,7 +52,8 @@ function payload(row: LeaveTypeRow): Unattributed<LeaveTypeEventPayload> {
   return { leaveTypeId: row.id, ...snapshot(row) };
 }
 
-async function record(tx: Transaction, actor: Actor, type: AdminEventType, before: LeaveTypeRow | null, after: LeaveTypeRow) {
+/** Records a leave type change: its audit row and its `leave_type.*` event. */
+export async function recordLeaveTypeChange(tx: Transaction, actor: Actor, type: AdminEventType, before: LeaveTypeRow | null, after: LeaveTypeRow) {
   await recordAdminChange(tx, actor, {
     type,
     entityType: "leave_type",
@@ -108,7 +109,7 @@ export async function createLeaveType(ctx: ServiceContext, actor: Actor, input: 
       if (await leaveTypeCodeTaken(tx, actor.companyId, settings.code)) throw new DomainError("already_exists");
       const sortOrder = await nextLeaveTypeSortOrder(tx, actor.companyId);
       const row = await insertLeaveType(tx, { companyId: actor.companyId, sortOrder, ...settings });
-      await record(tx, actor, ADMIN_EVENT_TYPES.leaveTypeCreated, null, row);
+      await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeCreated, null, row);
       return row;
     }),
   );
@@ -136,7 +137,7 @@ export async function updateLeaveType(ctx: ServiceContext, actor: Actor, id: str
         throw new DomainError("already_exists");
       }
       const after = await updateLeaveTypeRow(tx, actor.companyId, id, settings);
-      await record(tx, actor, ADMIN_EVENT_TYPES.leaveTypeUpdated, before, after);
+      await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeUpdated, before, after);
       return after;
     }),
   );
@@ -165,7 +166,7 @@ export async function setLeaveTypeArchived(ctx: ServiceContext, actor: Actor, id
           archivedAt: null,
           sortOrder: await nextLeaveTypeSortOrder(tx, actor.companyId),
         });
-    await record(tx, actor, archived ? ADMIN_EVENT_TYPES.leaveTypeArchived : ADMIN_EVENT_TYPES.leaveTypeUnarchived, before, after);
+    await recordLeaveTypeChange(tx, actor, archived ? ADMIN_EVENT_TYPES.leaveTypeArchived : ADMIN_EVENT_TYPES.leaveTypeUnarchived, before, after);
     return after;
   });
 }
@@ -202,7 +203,7 @@ export async function reorderLeaveTypes(ctx: ServiceContext, actor: Actor, order
       const before = active.get(id)!;
       if (before.sortOrder === position) continue;
       const after = await updateLeaveTypeRow(tx, actor.companyId, id, { sortOrder: position });
-      await record(tx, actor, ADMIN_EVENT_TYPES.leaveTypeReordered, before, after);
+      await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeReordered, before, after);
       moved = true;
     }
     return moved;

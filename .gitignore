@@ -48,3 +48,6 @@ next-env.d.ts
 !.env.production.example
 site/demo/.auth/
 site/demo/.frames/
+
+# Claude Code's local state: agent worktrees are full copies of the repo
+.claude/

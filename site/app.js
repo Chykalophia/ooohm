@@ -592,22 +592,30 @@ function clips() {
   for (const v of $$("video[data-autoplay]")) {
     if (reduceMotion) { v.controls = true; continue; }
     // A pause button in the window bar; once someone pauses, scrolling back doesn't restart it.
+    // `held` is this clip's own Pause; `played` is a Play pressed on it while every
+    // animation is paused. The header switch never undoes a clip's own Pause.
     let held = false;
+    let played = false;
+    const stopped = () => held || (motion.paused && !played);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "clip-toggle";
-    const label = () => { btn.textContent = held ? "Play" : "Pause"; btn.setAttribute("aria-label", `${held ? "Play" : "Pause"} the clip`); };
+    const label = () => { const word = stopped() ? "Play" : "Pause"; btn.textContent = word; btn.setAttribute("aria-label", `${word} the clip`); };
     label();
     let visible = false;
-    const play = () => { if (visible && !held && !motion.paused) v.play().catch(() => (v.controls = true)); };
-    btn.addEventListener("click", () => { held = !held; label(); if (held) v.pause(); else v.play().catch(() => (v.controls = true)); });
+    const play = () => { if (visible && !stopped()) v.play().catch(() => (v.controls = true)); };
+    btn.addEventListener("click", () => {
+      if (stopped()) { held = false; played = motion.paused; play(); }
+      else { held = true; v.pause(); }
+      label();
+    });
     (v.closest(".browser")?.querySelector(".browser-bar") ?? v.parentElement).append(btn);
     whileVisible(v, () => { visible = true; v.preload = "auto"; play(); }, () => { visible = false; v.pause(); }, 0.35);
     motion.on((p) => {
-      held = p;
-      label();
+      played = false;
       if (p) v.pause();
       else play();
+      label();
     });
   }
   // The tour as text goes in the film's dialog too, under the video.

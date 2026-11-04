@@ -223,8 +223,10 @@ function sentence() {
     e.preventDefault();
     const ok = f.from.value && f.from.checkValidity() && f.to.checkValidity() && f.to.value >= f.from.value;
     const c = ok ? count(f.from.value, f.to.value, f.portion.value) : null;
+    // The form is novalidate, so out-of-range days reach this handler and get our message.
+    const outOfRange = (f.from.value && !f.from.checkValidity()) || !f.to.checkValidity();
     const text = !ok
-      ? "Pick a first day, and a last day on or after it."
+      ? outOfRange ? "Pick days in 2026 or 2027." : "Pick a first day, and a last day on or after it."
       : c.total
         ? `Sent for approval: ${days(c.total)}. (Only in this demo, so nobody got an email.)`
         : "Those days are all weekends or holidays, so there's nothing to send.";

@@ -5,13 +5,14 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isLocalDatabase } from "./local-db.mjs";
 
 export const BASE = process.env.DEMO_URL ?? "http://localhost:3000";
 const DB = process.env.DATABASE_URL ?? "postgres://ooohm:ooohm@127.0.0.1:5432/ooohm";
 const EMBEDDED = DB.startsWith("pglite:") || process.env.OOOHM_DB === "embedded";
 // The token is read straight from the database, so only ever point this at a local one.
 const url = EMBEDDED ? null : new URL(DB);
-if (url && !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) throw new Error("The demo recorder only runs against a local database.");
+if (!isLocalDatabase(DB)) throw new Error("The demo recorder only runs against a local database.");
 // psql gets the password through its environment, so it never shows up in the process list.
 const PGPASSWORD = url ? decodeURIComponent(url.password) : "";
 if (url) url.password = "";

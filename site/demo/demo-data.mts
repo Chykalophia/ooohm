@@ -12,17 +12,9 @@ import { resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as s from "../../src/db/schema";
 import { nonEmptyEnv } from "../../src/lib/integration-env";
+import { isLocalDatabase } from "./local-db.mjs";
 
-// Embedded PGlite, or Postgres on this machine; never anything else.
-function isLocal(url: string | undefined): boolean {
-  if (!url || url.startsWith("pglite:") || process.env.OOOHM_DB === "embedded") return true;
-  try {
-    return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname);
-  } catch {
-    return false;
-  }
-}
-if (!isLocal(process.env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");
+if (!isLocalDatabase(process.env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");
 
 const handle = await openDatabase(resolveDatabaseConfig(nonEmptyEnv(process.env)), { purpose: "demo data", max: 1 });
 const { db } = handle;

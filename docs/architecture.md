@@ -470,7 +470,7 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
   can reach (`JumpMenu`, from the header). On Approvals, J and K move between requests, A approves the focused one, and D
   moves to its reason so Enter declines (`approvals/approval-keys.tsx`); with no request in focus yet, the first of these
   keys focuses the first request. The Approvals shortcuts are off until the person ticks "Keyboard shortcuts"
-  above the list (kept per browser in `localStorage`), so single-letter keys never act unasked (WCAG 2.1.4).
+  above the list (kept per person in this browser's `localStorage`, or in memory where storage is blocked), so single-letter keys never act unasked (WCAG 2.1.4).
   They are ignored while typing and with Shift, Alt, Ctrl or ⌘ held (⌘K/Ctrl+K aside).
 - `/requests` ("Your requests", in the account menu): every request the person has sent, latest dates first, ten a
   page. Each is a card (`RequestCard`, shared with the dashboard) that opens `/requests/[id]`; the whole card is the

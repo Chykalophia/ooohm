@@ -11,11 +11,10 @@ const INITIALS = ["M", "T", "W", "T", "F", "S", "S"];
  * leave outlined in it, company holidays outlined in ink, today filled in ink, and
  * days that never cost leave faded. Leave wins over a holiday; today on leave keeps
  * the leave's look with an ink ring around it. Neighbouring months' days are left blank.
- */
-/**
- * One day's square. An approved day keeps its leave colour in forced colours (`swatch`:
- * the colour is the point); a waiting one takes the system colours, with a dashed border
- * there in place of its coloured ring, which forced colours drop.
+ *
+ * In forced colours an approved day keeps its leave colour (`swatch`: the colour is the
+ * point); a waiting one takes the system colours, with a dashed border in place of its
+ * coloured ring, which forced colours drop.
  */
 function miniDay(day: CalendarDay): { className: string; style?: React.CSSProperties; swatch?: boolean } {
   const base = "flex aspect-square items-center justify-center rounded-[4px] text-[11px] tabular-nums";

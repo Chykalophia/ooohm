@@ -2,6 +2,7 @@
 # .gitignore, so without this file it sends local env files and tool folders along with
 # the source, and the build picks up a local .env (dev-only switches such as
 # WEBHOOK_ALLOW_PRIVATE=true). Production settings live in Vercel's environment variables.
+# Keep this a superset of .gitignore: anything git won't take, Vercel shouldn't either.
 
 # Local env files (the committed examples stay).
 .env
@@ -9,12 +10,30 @@
 !.env.example
 !.env.production.example
 
-# Local tools and state.
+# Keys and certificates.
+*.pem
+
+# Dependencies and build output (Vercel installs and builds itself).
+node_modules
+.pnp
+.pnp.*
+.yarn
+.next
+out
+build
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# Local tools, data and logs.
 .claude
 .audit-baseline.json
 audit.config.yaml
 data
 coverage
 *.sqlite
-*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 .DS_Store

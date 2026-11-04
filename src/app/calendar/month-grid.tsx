@@ -71,6 +71,8 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
   const cells = useRef(new Map<string, HTMLButtonElement>());
   // How the last press started: a touch only picks on its click, so scrolling past a day never picks it.
   const pointerType = useRef("mouse");
+  // A press that stretched a single pick: if it turns into a drag, the drag starts afresh here.
+  const pressedAt = useRef<string | null>(null);
   const range = anchor && end ? ordered(anchor, end) : null;
   const rangeKey = range ? `${range.start}/${range.end}` : null;
   const canRequest = leaveTypes.length > 0;
@@ -98,14 +100,17 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
   }, [dragging]);
 
   // With one day picked, picking another stretches to it, so a range needs neither a drag
-  // nor Shift (WCAG 2.5.7). A pick after a range starts again.
-  function pick(date: string, extend: boolean) {
+  // nor Shift (WCAG 2.5.7). A pick after a range starts again. Returns whether it stretched
+  // a single pick (rather than Shift extending, or starting afresh).
+  function pick(date: string, extend: boolean): boolean {
     const single = anchor !== null && anchor === end && date !== anchor;
-    if ((extend || single) && anchor) setEnd(date);
-    else {
-      setAnchor(date);
+    if ((extend || single) && anchor) {
       setEnd(date);
+      return single && !extend;
     }
+    setAnchor(date);
+    setEnd(date);
+    return false;
   }
 
   function moveFocus(date: string) {
@@ -163,7 +168,13 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                     key={day.date}
                     // On the cell, not the button: dragging across a day's leave chips still stretches the pick.
                     onPointerEnter={() => {
-                      if (dragging) setEnd(day.date);
+                      if (!dragging) return;
+                      // Dragging on from a press that stretched a single pick: the drag is a new range.
+                      if (pressedAt.current && pressedAt.current !== day.date) {
+                        setAnchor(pressedAt.current);
+                        pressedAt.current = null;
+                      }
+                      setEnd(day.date);
                     }}
                     className={cx("relative h-24 border-border p-0 align-top", edges, style.cell)}
                   >
@@ -182,7 +193,7 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                         pointerType.current = e.pointerType;
                         if (!canRequest || e.button !== 0 || e.pointerType === "touch") return;
                         setFocusDate(day.date);
-                        pick(day.date, e.shiftKey);
+                        pressedAt.current = pick(day.date, e.shiftKey) ? day.date : null;
                         setDragging(true);
                         // Let the pointer move over other cells without the browser capturing it here.
                         (e.target as Element).releasePointerCapture?.(e.pointerId);

@@ -475,7 +475,7 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 - `/requests` ("Your requests", in the account menu): every request the person has sent, latest dates first, ten a
   page. Each is a card (`RequestCard`, shared with the dashboard) that opens `/requests/[id]`; the whole card is the
   link (its dates, stretched over it) and lifts on hover. While a request can be cancelled (pending or approved,
-  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`): one click starts an 8-second
+  not approved leave of a closed year) it offers "Cancel request" (`CancelRequest`): one click starts a 20-second
   countdown with Undo, and the cancel is sent when it ends (leaving the page sends it at once).
 - `/requests/[id]`: one of the person's own requests in full (type, days, who it waits for or who decided it,
   when it was sent and decided, both notes) with Cancel request. Someone else's request is a 404, as an unknown one

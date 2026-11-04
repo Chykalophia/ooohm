@@ -25,7 +25,7 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
     return { title: year ? `Calendar, ${year} · OOOhm` : "Calendar, year view · OOOhm" };
   }
   const month = readParam(monthParamSchema, params.month);
-  return { title: month ? `Calendar, ${formatMonth(month)} · OOOhm` : "Calendar · OOOhm" };
+  return { title: month ? `Calendar, ${formatMonth(month)} · OOOhm` : "Calendar, month view · OOOhm" };
 }
 
 const HEADING_ID = "month-heading";

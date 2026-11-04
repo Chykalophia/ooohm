@@ -77,7 +77,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           ) : (
             <>
               {/* J and K move between these, A approves, D starts a decline, once turned on. */}
-              <ApprovalKeys />
+              <ApprovalKeys userId={actor.id} />
               <ul className="space-y-4">
                 {triage.items.map((r) => (
                   <Card

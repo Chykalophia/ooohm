@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import { formatDays, formatLeaveDates } from "@/lib/format";
 import { getTeamMember } from "@/server/services/team-member";
 import { AppPage } from "@/components/layout/app-page";
@@ -12,13 +13,17 @@ import { BackLink, Section } from "@/components/ui/section";
 import { textLink } from "@/components/ui/styles";
 import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
 
+/** The teammate, loaded once per request for both the tab title and the page. */
+const loadMember = cache(async (id: string) => {
+  const page = await requireMemberPage();
+  return { page, member: page.actor ? await getTeamMember(page.ctx, page.actor, id) : null };
+});
+
 /** The tab names the teammate (WCAG 2.4.2); if they can't be loaded, the page itself answers. */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   try {
-    const page = await requireMemberPage();
-    if (!page.actor) return { title: "Team · OOOhm" };
-    const member = await getTeamMember(page.ctx, page.actor, (await params).id);
-    return { title: `${member.person.name} · Team · OOOhm` };
+    const { member } = await loadMember((await params).id);
+    return { title: member ? `${member.person.name} · Team · OOOhm` : "Team · OOOhm" };
   } catch {
     return { title: "Team · OOOhm" };
   }
@@ -33,11 +38,9 @@ type Entry = Member["upcoming"][number];
  * their manager also see their balances and the notes on their requests.
  */
 export default async function TeamMemberPage({ params }: { params: Promise<{ id: string }> }) {
-  const page = await requireMemberPage();
-  if (!page.actor) return <NoCompany nav={page.nav} current="team" />;
-
   const { id } = await params;
-  const member = await orNotFound(getTeamMember(page.ctx, page.actor, id));
+  const { page, member } = await orNotFound(loadMember(id));
+  if (!member) return <NoCompany nav={page.nav} current="team" />;
   const { person } = member;
   const about = [person.departmentName, person.managerName && `Reports to ${person.managerName}`].filter(Boolean).join(" · ");
 

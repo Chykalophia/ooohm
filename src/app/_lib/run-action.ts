@@ -61,7 +61,8 @@ export function messageForError(err: DomainError, event: string): string {
 
 /**
  * What a failed server action returns: a calm message, never internals. `fields` names
- * the submitted fields the action's schema refused, so the form can mark them invalid.
+ * the submitted fields the action refused, by its schema or by a domain check (an
+ * `invalid_input` error's `field`), so the form can mark them invalid.
  */
 export type ActionError = { status: "error"; message: string; fields?: string[] };
 

@@ -6,8 +6,8 @@ import { nativeCheck } from "@/components/ui/styles";
 /** The event a decision form listens for to start a decline with a reason. */
 export const DECLINE_EVENT = "approval:decline";
 
-/** Where the person's choice is kept, per browser. */
-const STORAGE_KEY = "ooohm:approval-keys";
+/** Where the person's choice is kept: per person, in this browser. */
+const storageKey = (userId: string) => `ooohm:approval-keys:${userId}`;
 /** Fired in this tab when the choice changes (`storage` only fires in other tabs). */
 const CHANGE_EVENT = "ooohm:approval-keys";
 
@@ -16,12 +16,17 @@ function isTyping(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-function readEnabled(): boolean {
+/** The choice when storage is blocked, so the checkbox still works until the page reloads. */
+const unstored = new Map<string, boolean>();
+
+function readEnabled(key: string): boolean {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === "on";
+    const stored = window.localStorage.getItem(key);
+    if (stored !== null) return stored === "on";
   } catch {
-    return false;
+    // Storage blocked: fall back to this page's memory.
   }
+  return unstored.get(key) ?? false;
 }
 
 function subscribe(onChange: () => void): () => void {
@@ -33,9 +38,10 @@ function subscribe(onChange: () => void): () => void {
   };
 }
 
-function setEnabled(on: boolean) {
+function setEnabled(key: string, on: boolean) {
+  unstored.set(key, on);
   try {
-    window.localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
+    window.localStorage.setItem(key, on ? "on" : "off");
   } catch {
     // Storage blocked: the choice lasts until the page reloads.
   }
@@ -50,10 +56,11 @@ function setEnabled(on: boolean) {
  *
  * Off until the person turns them on with the checkbox this renders (WCAG 2.1.4):
  * single-letter shortcuts that are always live can be set off by speech input or a
- * stray key, and A approves at once. The choice is kept in this browser.
+ * stray key, and A approves at once. The choice is kept in this browser, per person.
  */
-export function ApprovalKeys() {
-  const enabled = useSyncExternalStore(subscribe, readEnabled, () => false);
+export function ApprovalKeys({ userId }: { userId: string }) {
+  const key = storageKey(userId);
+  const enabled = useSyncExternalStore(subscribe, () => readEnabled(key), () => false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -80,7 +87,7 @@ export function ApprovalKeys() {
 
   return (
     <label className="flex min-h-6 items-center gap-2 text-sm text-muted">
-      <input type="checkbox" className={nativeCheck} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+      <input type="checkbox" className={nativeCheck} checked={enabled} onChange={(e) => setEnabled(key, e.target.checked)} />
       Keyboard shortcuts: J and K move, A approves, D declines with a reason
     </label>
   );

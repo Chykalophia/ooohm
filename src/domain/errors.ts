@@ -7,7 +7,10 @@ import type { DeletionBlockers } from "./person-deletion";
  * to a calm, user-facing message (or an HTTP status). Add codes; never repurpose one.
  */
 export type DomainErrorCode =
-  /** Input failed validation (bad format, too long, missing field). */
+  /**
+   * Input failed validation (bad format, too long, missing field). When one field is to
+   * blame, `details` is {@link InvalidFieldDetails} naming it, so the form can mark it.
+   */
   | "invalid_input"
   /** The signed-in user does not belong to a company yet. */
   | "no_company"

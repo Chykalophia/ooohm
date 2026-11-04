@@ -12,7 +12,12 @@ const INITIALS = ["M", "T", "W", "T", "F", "S", "S"];
  * days that never cost leave faded. Leave wins over a holiday; today on leave keeps
  * the leave's look with an ink ring around it. Neighbouring months' days are left blank.
  */
-function miniDay(day: CalendarDay): { className: string; style?: React.CSSProperties } {
+/**
+ * One day's square. An approved day keeps its leave colour in forced colours (`swatch`:
+ * the colour is the point); a waiting one takes the system colours, with a dashed border
+ * there in place of its coloured ring, which forced colours drop.
+ */
+function miniDay(day: CalendarDay): { className: string; style?: React.CSSProperties; swatch?: boolean } {
   const base = "flex aspect-square items-center justify-center rounded-[4px] text-[11px] tabular-nums";
   if (!day.inMonth) return { className: `${base} invisible` };
   const entry = day.entries.find((e) => e.status === "approved") ?? day.entries[0];
@@ -20,8 +25,11 @@ function miniDay(day: CalendarDay): { className: string; style?: React.CSSProper
     const color = normalizeHexColor(entry.leaveTypeColor);
     const today = day.isToday ? " outline-2 outline-offset-1 outline-foreground" : "";
     return entry.status === "approved"
-      ? { className: `${base} font-medium${today}`, style: { backgroundColor: color, color: readableTextColor(color) } }
-      : { className: `${base} font-medium text-foreground${today}`, style: { boxShadow: `inset 0 0 0 1.5px ${color}` } };
+      ? { className: `${base} font-medium${today}`, style: { backgroundColor: color, color: readableTextColor(color) }, swatch: true }
+      : {
+          className: `${base} font-medium text-foreground forced-colors:border forced-colors:border-dashed${today}`,
+          style: { boxShadow: `inset 0 0 0 1.5px ${color}` },
+        };
   }
   if (day.isToday) return { className: `${base} bg-foreground font-semibold text-background` };
   if (day.holiday) return { className: `${base} text-foreground ring-1 ring-foreground/60 ring-inset` };
@@ -61,9 +69,9 @@ export function YearGrid({ months }: { months: { month: YearMonth; weeks: Calend
                 </span>
               ))}
               {weeks.flat().map((day) => {
-                const { className, style } = miniDay(day);
+                const { className, style, swatch } = miniDay(day);
                 return (
-                  <span key={day.date} className={className} style={style} data-swatch={style ? "" : undefined}>
+                  <span key={day.date} className={className} style={style} data-swatch={swatch ? "" : undefined}>
                     {Number(day.date.slice(8))}
                   </span>
                 );

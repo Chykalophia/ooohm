@@ -6,6 +6,29 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * One switch in the header pauses everything that moves on its own (WCAG 2.2.2): the
+ * sentence demo, the year, the Needs you list, the webhook stream, the terminal, the
+ * themes and the clips. Kept for the visit; with reduced motion nothing moves anyway.
+ */
+const motion = (() => {
+  const KEY = "ooohm:paused";
+  let paused = false;
+  try { paused = sessionStorage.getItem(KEY) === "1"; } catch {}
+  const subs = new Set();
+  return {
+    get paused() { return paused; },
+    set(p) {
+      paused = p;
+      try { sessionStorage.setItem(KEY, p ? "1" : "0"); } catch {}
+      for (const f of subs) f(p);
+    },
+    on(f) { subs.add(f); },
+  };
+})();
+/** True when nothing should move on its own. */
+const still = () => reduceMotion || motion.paused;
+
 /** Runs `start` while `el` is on screen and `stop` when it leaves. */
 function whileVisible(el, start, stop = () => {}, threshold = 0.3) {
   if (!el) return;
@@ -191,16 +214,21 @@ function sentence() {
   // The demo plays scenes until someone touches the sentence.
   const NOTE_TURN = "Your turn. This demo counts Monday to Friday with US holidays; in the app, each company sets its own working days and holidays.";
   reserve(note, [NOTE_TURN]);
-  let playing = !reduceMotion;
+  let playing = !still();
   let timer = 0;
   let visible = false;
   let scene = 0;
+  // The preview line is announced only once the person is driving it, never while the
+  // demo plays (WCAG 4.1.3: it would talk over someone reading the page).
+  const listen = () => preview.setAttribute("aria-live", "polite");
   const stopDemo = () => {
+    listen();
     if (!playing) return;
     playing = false;
     clearTimeout(timer);
     note.textContent = NOTE_TURN;
   };
+  motion.on((p) => p && stopDemo());
   for (const ev of ["pointerdown", "keydown", "focusin"]) form.addEventListener(ev, stopDemo, { once: true });
 
   // The two dates change together, so no half-changed range flashes up in between.
@@ -223,9 +251,10 @@ function sentence() {
     });
   }
   render();
-  if (!reduceMotion) {
+  if (playing) {
     whileVisible(form, () => { visible = true; clearTimeout(timer); if (playing) timer = setTimeout(tick, 2800); }, () => { visible = false; clearTimeout(timer); });
   } else {
+    listen();
     note.textContent = "Change any part of the sentence. This demo counts Monday to Friday with US holidays; in the app, each company sets its own.";
   }
 }
@@ -299,25 +328,30 @@ function year() {
       line.textContent = LAST[carry];
     }
   }
+  // While the year plays the line isn't announced; a choice the person makes is.
   function run(from = 0) {
     clearTimeout(timer);
+    line.setAttribute("aria-live", "off");
+    if (still()) return show(items.length - 1);
     const next = (i) => {
       show(i);
       if (i < items.length - 1) timer = setTimeout(() => next(i + 1), i === 0 ? 1400 : 1700);
     };
     next(from);
   }
+  motion.on((p) => { if (p && timer) { clearTimeout(timer); timer = 0; show(items.length - 1); } });
   reserve(line, [...STEPS.map((x) => x.text), ...Object.values(LAST)]);
   $$("[data-carry]", card).forEach((b) =>
     b.addEventListener("click", () => {
       carry = Number(b.dataset.carry);
+      line.setAttribute("aria-live", "polite");
       $$("[data-carry]", card).forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
       clearTimeout(timer);
       show(items.length - 1);
     }),
   );
-  $("[data-year-replay]", card).addEventListener("click", () => (reduceMotion ? show(items.length - 1) : run(0)));
-  if (reduceMotion) return show(items.length - 1);
+  $("[data-year-replay]", card).addEventListener("click", () => run(0));
+  if (still()) return show(items.length - 1);
   show(0);
   whileVisible(card, () => { if (!started) { started = true; run(0); } }, () => {}, 0.5);
 }
@@ -328,10 +362,13 @@ function year() {
 function mail() {
   const btn = $("[data-mail-approve]");
   if (!btn) return;
+  // The button stays enabled (aria-disabled), so focus stays on it, and the status line
+  // is on the page from the start, so filling it is announced (WCAG 2.4.3, 4.1.3).
   btn.addEventListener("click", () => {
-    btn.disabled = true;
+    if (btn.getAttribute("aria-disabled") === "true") return;
+    btn.setAttribute("aria-disabled", "true");
     btn.textContent = "Approved";
-    $("[data-mail-done]").hidden = false;
+    $("[data-mail-done]").textContent = "Approved. Lena gets an email, and her calendar feed updates.";
     const li = document.createElement("li");
     li.className = "fresh";
     li.innerHTML = "<time>Nov 3, 09:41</time><span><b>Maya Chen</b> approved Lena Park’s 3 days, through the email link</span>";
@@ -348,6 +385,8 @@ function triage() {
   let pool = 0;
   fill(rows, 3);
   if (reduceMotion) return;
+  // It goes round the whole pool once, then rests.
+  let steps = 0;
   function fill(root, n) { for (let i = 0; i < n; i++) root.append(row()); layout(); }
   function row() {
     const r = POOL[pool++ % POOL.length];
@@ -386,14 +425,18 @@ function triage() {
   let visible = false;
   let busy = false;
   const loop = () => {
+    if (motion.paused || steps >= POOL.length) return;
     timer = setTimeout(async () => {
       busy = true;
+      steps++;
       await step();
       busy = false;
       if (visible) loop();
     }, 1200);
   };
-  whileVisible(rows, () => { visible = true; if (!busy) { clearTimeout(timer); loop(); } }, () => { visible = false; clearTimeout(timer); });
+  const resume = () => { if (visible && !busy) { clearTimeout(timer); loop(); } };
+  whileVisible(rows, () => { visible = true; resume(); }, () => { visible = false; clearTimeout(timer); });
+  motion.on((p) => (p ? clearTimeout(timer) : resume()));
 }
 const POOL = [
   ["Lena Park", "Dec 21 – Dec 23", "3 days", "var(--pto)"],
@@ -435,10 +478,19 @@ function consoleStream() {
     li.innerHTML = `<div class="ev-head"><span class="ev-type">${type}</span><span class="ev-ok"><b>200</b> · ${ms} ms</span></div><div class="ev-json">${json(data)}</div>`;
     log.append(li);
     while (log.children.length > 7) log.firstElementChild.remove();
+    log.scrollTop = log.scrollHeight;
   }
   for (let k = 0; k < 6; k++) push();
   if (reduceMotion) return;
-  whileVisible(log, () => { clearInterval(timer); timer = setInterval(push, 2200); }, () => clearInterval(timer));
+  // One round of every event, then it rests.
+  let left = EVENTS.length;
+  let visible = false;
+  const start = () => {
+    clearInterval(timer);
+    if (visible && !motion.paused && left > 0) timer = setInterval(() => { push(); if (--left <= 0) clearInterval(timer); }, 2200);
+  };
+  whileVisible(log, () => { visible = true; start(); }, () => { visible = false; clearInterval(timer); });
+  motion.on((p) => (p ? clearInterval(timer) : start()));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -464,19 +516,27 @@ function terminal() {
   const full = `<span class="c">$</span> docker compose up\n` + TERM.map(([c, t]) => `<span class="${c}">${t}</span>`).join("\n");
   if (reduceMotion) return (pre.innerHTML = full);
   let running = false;
+  let done = false;
+  // Paused, it shows the finished output instead of typing it.
+  const finish = () => { done = true; pre.innerHTML = full; };
+  motion.on((p) => p && running && !done && finish());
   async function run() {
     if (running) return;
     running = true;
+    if (motion.paused) return finish();
     pre.innerHTML = `<span class="c">$</span> <span data-typed></span><span class="caret"></span>`;
     const typed = $("[data-typed]", pre);
     await sleep(500);
-    for (const ch of "docker compose up") { typed.textContent += ch; await sleep(55 + Math.random() * 50); }
+    for (const ch of "docker compose up") { if (done) return; typed.textContent += ch; await sleep(55 + Math.random() * 50); }
     await sleep(350);
+    if (done) return;
     pre.querySelector(".caret").remove();
     for (const [c, t] of TERM) {
+      if (done) return;
       pre.insertAdjacentHTML("beforeend", `\n<span class="${c}">${t}</span>`);
       await sleep(t ? 260 : 120);
     }
+    done = true;
   }
   whileVisible(pre, run, () => {}, 0.4);
 }
@@ -511,7 +571,18 @@ function themes() {
     }, user ? 120 : 250);
   }
   buttons.forEach((b, i) => b.addEventListener("click", () => { auto = false; clearInterval(timer); pick(i, true); }));
-  whileVisible(root, () => { clearInterval(timer); if (auto) timer = setInterval(() => pick((current + 1) % buttons.length), 2600); }, () => clearInterval(timer));
+  // It shows each theme once, back to Classic, then rests.
+  let visible = false;
+  const start = () => {
+    clearInterval(timer);
+    if (!visible || !auto || motion.paused) return;
+    timer = setInterval(() => {
+      pick((current + 1) % buttons.length);
+      if (current === 0) { auto = false; clearInterval(timer); }
+    }, 2600);
+  };
+  whileVisible(root, () => { visible = true; start(); }, () => { visible = false; clearInterval(timer); });
+  motion.on((p) => (p ? clearInterval(timer) : start()));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -527,9 +598,24 @@ function clips() {
     btn.className = "clip-toggle";
     const label = () => { btn.textContent = held ? "Play" : "Pause"; btn.setAttribute("aria-label", `${held ? "Play" : "Pause"} the clip`); };
     label();
-    btn.addEventListener("click", () => { held = !held; label(); if (held) v.pause(); else v.play().catch(() => {}); });
+    let visible = false;
+    const play = () => { if (visible && !held && !motion.paused) v.play().catch(() => (v.controls = true)); };
+    btn.addEventListener("click", () => { held = !held; label(); if (held) v.pause(); else v.play().catch(() => (v.controls = true)); });
     (v.closest(".browser")?.querySelector(".browser-bar") ?? v.parentElement).append(btn);
-    whileVisible(v, () => { v.preload = "auto"; if (!held) v.play().catch(() => (v.controls = true)); }, () => v.pause(), 0.35);
+    whileVisible(v, () => { visible = true; v.preload = "auto"; play(); }, () => { visible = false; v.pause(); }, 0.35);
+    motion.on((p) => {
+      held = p;
+      label();
+      if (p) v.pause();
+      else play();
+    });
+  }
+  // The tour as text goes in the film's dialog too, under the video.
+  const transcript = $("[data-transcript]");
+  if (transcript) {
+    const copy = transcript.cloneNode(true);
+    copy.removeAttribute("data-transcript");
+    $("[data-film]").append(copy);
   }
   const dialog = $("[data-film]");
   const film = $("[data-film-video]");
@@ -549,6 +635,27 @@ function clips() {
 
 function chrome() {
   const nav = $("[data-nav]");
+
+  // Below 1000px the section links fold into a "Sections" menu.
+  const toggle = $("[data-nav-toggle]");
+  const links = $("#nav-links");
+  const setOpen = (open) => { toggle.setAttribute("aria-expanded", String(open)); links.classList.toggle("open", open); };
+  toggle.hidden = false;
+  toggle.addEventListener("click", () => setOpen(toggle.getAttribute("aria-expanded") !== "true"));
+  links.addEventListener("click", (e) => { if (e.target.closest("a")) setOpen(false); });
+  addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") { setOpen(false); toggle.focus(); }
+  });
+  addEventListener("pointerdown", (e) => { if (!nav.contains(e.target)) setOpen(false); });
+
+  const pause = $("[data-motion-toggle]");
+  if (!reduceMotion) {
+    pause.hidden = false;
+    pause.setAttribute("aria-pressed", String(motion.paused));
+    pause.addEventListener("click", () => motion.set(!motion.paused));
+    motion.on((p) => pause.setAttribute("aria-pressed", String(p)));
+  }
+
   const onScroll = () => nav.classList.toggle("scrolled", scrollY > 8);
   addEventListener("scroll", onScroll, { passive: true });
   onScroll();

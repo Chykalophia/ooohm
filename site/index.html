@@ -27,12 +27,14 @@
         <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg>
         <span><b>OOO</b>hm</span>
       </a>
-      <nav aria-label="Sections" class="nav-links">
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" data-nav-toggle hidden>Sections</button>
+      <nav aria-label="Sections" class="nav-links" id="nav-links">
         <a href="#how">How it works</a>
         <a href="#managers">For managers</a>
         <a href="#developers">Developers</a>
         <a href="#self-host">Self-hosting</a>
       </nav>
+      <button class="motion-toggle" type="button" aria-pressed="false" data-motion-toggle aria-label="Pause animations" hidden>Pause<span class="motion-more"> animations</span></button>
       <a class="btn btn-quiet nav-cta" href="https://github.com/Chykalophia/ooohm">GitHub</a>
     </div>
   </header>
@@ -54,9 +56,9 @@
           </div>
         </div>
 
-        <div class="hero-demo" aria-label="Try the request sentence">
+        <div class="hero-demo" role="group" aria-label="Try the request sentence">
           <form class="card sentence-card" data-sentence aria-label="Request time off">
-            <p class="card-title">Request time off</p>
+            <h2 class="card-title">Request time off</h2>
             <p class="sentence">
               I’m taking
               <span class="chip chip-select"><span data-out="type">PTO (Scheduled Time Off)</span>
@@ -78,7 +80,7 @@
                 </select>
               </span>.
             </p>
-            <p class="preview" aria-live="polite" data-preview>This request takes 3 days. Afterwards you'd have 6 days left for 2026.</p>
+            <p class="preview" aria-live="off" data-preview>This request takes 3 days. Afterwards you'd have 6 days left for 2026.</p>
             <p class="why" data-why></p>
             <div class="squares-wrap">
               <div class="squares" data-squares aria-hidden="true"></div>
@@ -101,7 +103,21 @@
           <img src="media/tour.jpg" alt="" width="1600" height="900" loading="lazy">
           <span class="play"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7.5-4.5z"/></svg></span>
         </button>
+        <h2 class="sr-only">The tour</h2>
         <p class="film-caption" id="film-title"><b>The tour.</b> A request, an approval and the calendar, recorded in the real app. 46 seconds, no sound.</p>
+        <details class="transcript" data-transcript>
+          <summary>Read the tour as text</summary>
+          <ol>
+            <li><b>0:00</b> The OOOhm logo, and the line “Time off, without the back-and-forth.”</li>
+            <li><b>0:04</b> A chat: “hey, can I take the 21st to the 23rd?”, “who’s covering for you?”, “and how many days do you have left?”</li>
+            <li><b>0:06</b> The chat turns into one sentence: “I’m taking PTO from Mon, Dec 21 to Wed, Dec 23.” Under it: “This request takes 3 days. Afterwards you’d have 6 days left for 2026.”</li>
+            <li><b>0:08</b> 01, Ask in one sentence. In the app, Lena picks PTO and December 21 to 23. OOOhm counts 3 working days as she chooses them and shows she’ll have 6 left.</li>
+            <li><b>0:17</b> 02, Approve with the whole picture. On Approvals, Maya sees that Aisha is off on the same days, then approves Lena’s request in one click.</li>
+            <li><b>0:25</b> 03, Or drag across the days. On the calendar, Maya drags from November 23 to 27. Weekends and company holidays don’t count, so Thanksgiving week is 3 days, not 5.</li>
+            <li><b>0:33</b> 04, See who’s out, and when. The team’s month, filtered to the Design department, then Maya’s whole year on one page.</li>
+            <li><b>0:41</b> The end: “Time off for small teams. Self-hosted, source-available, made by Chykalophia.”</li>
+          </ol>
+        </details>
       </div>
     </section>
 
@@ -117,7 +133,7 @@
           <div class="chapter-copy">
             <p class="step">01</p>
             <h3>Ask in one sentence.</h3>
-            <p>Pick a type and two dates. OOOhm counts the working days as you go and tells you what you’ll have left, before you send anything.</p>
+            <p id="about-ask">Pick a type and two dates. OOOhm counts the working days as you go and tells you what you’ll have left, before you send anything.</p>
             <ul class="facts">
               <li>Half days are one choice in the sentence</li>
               <li>Add a note for your approver if you like</li>
@@ -126,7 +142,7 @@
           </div>
           <figure class="chapter-media">
             <div class="browser"><div class="browser-bar"><i></i><i></i><i></i><span>Home</span></div>
-              <video data-autoplay muted loop playsinline preload="none" poster="media/ask.jpg" width="1720" height="1280" aria-label="Lena asks for December 21 to 23 in one sentence and sees she'll have 6 days left">
+              <video data-autoplay muted loop playsinline preload="none" poster="media/ask.jpg" aria-describedby="about-ask" width="1720" height="1280" aria-label="Lena asks for December 21 to 23 in one sentence and sees she'll have 6 days left">
                 <source src="media/ask.mp4" type="video/mp4">
               </video>
             </div>
@@ -137,7 +153,7 @@
           <div class="chapter-copy">
             <p class="step">02</p>
             <h3>Approve with the whole picture.</h3>
-            <p>Every request says who else is off on those days, or that nobody in the team is. Approve or decline in one click, with a reason if you want one. It’s on their dashboard straight away.</p>
+            <p id="about-approve">Every request says who else is off on those days, or that nobody in the team is. Approve or decline in one click, with a reason if you want one. It’s on their dashboard straight away.</p>
             <ul class="facts">
               <li>One approver per person: their manager</li>
               <li>Needs you, then Settled, so nothing slips</li>
@@ -146,7 +162,7 @@
           </div>
           <figure class="chapter-media">
             <div class="browser"><div class="browser-bar"><i></i><i></i><i></i><span>Approvals</span></div>
-              <video data-autoplay muted loop playsinline preload="none" poster="media/approve.jpg" width="1720" height="1280" aria-label="Maya sees that Aisha is off on the same days and approves Lena's request">
+              <video data-autoplay muted loop playsinline preload="none" poster="media/approve.jpg" aria-describedby="about-approve" width="1720" height="1280" aria-label="Maya sees that Aisha is off on the same days and approves Lena's request">
                 <source src="media/approve.mp4" type="video/mp4">
               </video>
             </div>
@@ -157,16 +173,16 @@
           <div class="chapter-copy">
             <p class="step">03</p>
             <h3>Or drag across the days.</h3>
-            <p>On the calendar, press on the first day and let go on the last. Weekends and company holidays are hatched, and they never count against anyone.</p>
+            <p id="about-calendar">On the calendar, press on the first day and let go on the last. Weekends and company holidays are hatched, and they never count against anyone.</p>
             <ul class="facts">
               <li>Thanksgiving week is three days, not five</li>
-              <li>Keyboard and Shift-click work as well</li>
+              <li>Or click the first day, then the last; the keyboard works too</li>
               <li>Month and year views</li>
             </ul>
           </div>
           <figure class="chapter-media">
             <div class="browser"><div class="browser-bar"><i></i><i></i><i></i><span>Calendar</span></div>
-              <video data-autoplay muted loop playsinline preload="none" poster="media/calendar.jpg" width="2080" height="1600" aria-label="Maya drags from November 23 to 27; the request counts 3 days because of Thanksgiving">
+              <video data-autoplay muted loop playsinline preload="none" poster="media/calendar.jpg" aria-describedby="about-calendar" width="2080" height="1600" aria-label="Maya drags from November 23 to 27; the request counts 3 days because of Thanksgiving">
                 <source src="media/calendar.mp4" type="video/mp4">
               </video>
             </div>
@@ -177,7 +193,7 @@
           <div class="chapter-copy">
             <p class="step">04</p>
             <h3>See who’s out, and when.</h3>
-            <p>One list for the month, filtered by team. Your own year on one page. And if you live in your calendar app, subscribe and it stays up to date there.</p>
+            <p id="about-team">One list for the month, filtered by team. Your own year on one page. And if you live in your calendar app, subscribe and it stays up to date there.</p>
             <ul class="facts">
               <li>Pending requests are marked, so plans aren’t surprises</li>
               <li>Feeds for Google Calendar, Apple Calendar and Outlook</li>
@@ -185,7 +201,7 @@
           </div>
           <figure class="chapter-media">
             <div class="browser"><div class="browser-bar"><i></i><i></i><i></i><span>Team</span></div>
-              <video data-autoplay muted loop playsinline preload="none" poster="media/team.jpg" width="1720" height="1280" aria-label="The team's month, filtered to Design, then Maya's year at a glance">
+              <video data-autoplay muted loop playsinline preload="none" poster="media/team.jpg" aria-describedby="about-team" width="1720" height="1280" aria-label="The team's month, filtered to Design, then Maya's year at a glance">
                 <source src="media/team.mp4" type="video/mp4">
               </video>
             </div>
@@ -205,14 +221,14 @@
         </div>
         <div class="card year-card" data-year>
           <div class="year-head">
-            <p class="card-title">PTO for <span data-year-label>2026</span></p>
+            <h3 class="card-title">PTO for <span data-year-label>2026</span></h3>
             <div class="seg" role="group" aria-label="Carryover for PTO">
               <button type="button" aria-pressed="true" data-carry="0">Carryover off</button>
               <button type="button" aria-pressed="false" data-carry="5">Up to 5 days</button>
             </div>
           </div>
           <div class="squares big" data-year-squares aria-hidden="true"></div>
-          <p class="year-line" data-year-line aria-live="polite">6 days left of 15.</p>
+          <p class="year-line" data-year-line aria-live="off">6 days left of 15.</p>
           <ol class="timeline" data-timeline>
             <li><b>Jan 1</b> 15 days for the year</li>
             <li><b>Mar 12</b> Sick day</li>
@@ -248,21 +264,21 @@
               <p class="overlap"><span class="dot"></span>Aisha Khan is off then too.</p>
               <div class="mail-actions" data-mail-actions>
                 <button type="button" class="btn btn-primary btn-small" data-mail-approve>Approve</button>
-                <span class="btn btn-quiet btn-small" aria-hidden="true">Open in OOOhm</span>
+                <a class="btn btn-quiet btn-small" href="#how">Open in OOOhm</a>
               </div>
-              <p class="mail-done" data-mail-done hidden role="status">Approved. Lena gets an email, and her calendar feed updates.</p>
+              <p class="mail-done" data-mail-done role="status"></p>
             </div>
           </div>
 
-          <div class="audit" aria-label="Audit log">
-            <p class="card-title">Audit log</p>
+          <section class="audit" aria-labelledby="audit-title">
+            <h3 class="card-title" id="audit-title">Audit log</h3>
             <ol class="audit-list" data-audit>
               <li><time>Nov 3, 09:12</time><span><b>Lena Park</b> asked for 3 days of PTO</span></li>
               <li><time>Nov 2, 17:40</time><span><b>Maya Chen</b> added Christmas Eve as a holiday; 2 requests were recounted</span></li>
               <li><time>Nov 2, 10:05</time><span><b>Maya Chen</b> changed Priya Nair’s PTO allowance from 15 to 17</span></li>
             </ol>
             <p class="audit-note">Each row names a person, a person through an import or the email link, their API key, or a system job. Nothing is anonymous.</p>
-          </div>
+          </section>
         </div>
 
         <div class="triage" data-triage aria-hidden="true">
@@ -330,10 +346,10 @@
           </dl>
           <a class="text-link" href="https://github.com/Chykalophia/ooohm/blob/main/docs/api.md">Read the API reference</a>
         </div>
-        <div class="console" aria-label="A webhook stream" data-console>
+        <figure class="console" aria-label="A webhook stream" data-console>
           <div class="console-bar"><span>POST https://hooks.example.com/ooohm</span></div>
-          <ol class="console-log" data-console-log aria-live="off"></ol>
-        </div>
+          <ol class="console-log" data-console-log aria-live="off" aria-label="Recent deliveries" tabindex="0"></ol>
+        </figure>
       </div>
     </section>
 
@@ -345,10 +361,10 @@
           <h2 id="host-title">Runs where you do. Your data stays in your Postgres.</h2>
         </header>
         <div class="host-grid">
-          <div class="term" data-term aria-label="Starting OOOhm with Docker Compose">
+          <figure class="term" data-term aria-label="Starting OOOhm with Docker Compose">
             <div class="console-bar"><span>~/ooohm</span></div>
             <pre data-term-out></pre>
-          </div>
+          </figure>
           <ul class="hosts">
             <li>
               <h3>Docker Compose</h3>

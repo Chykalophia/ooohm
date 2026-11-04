@@ -203,8 +203,10 @@ function sentence() {
     why.textContent = reason;
     drawSquares(squares, t.allowance, t.used, request, 0, 20);
     if (last.type !== undefined) { sendSeq++; sent.textContent = ""; }
-    f.to.removeAttribute("aria-invalid");
-    f.to.removeAttribute("aria-describedby");
+    for (const el of [f.from, f.to]) {
+      el.removeAttribute("aria-invalid");
+      el.removeAttribute("aria-describedby");
+    }
     last = s;
   }
 
@@ -228,10 +230,15 @@ function sentence() {
         : "Those days are all weekends or holidays, so there's nothing to send.";
     // Emptied first, so sending the same request twice is announced twice.
     // An edit in the meantime (render) cancels it, so an old confirmation never comes back.
-    // A bad range marks the last day invalid and points it at the message, so the field says why.
-    if (!ok) {
-      f.to.setAttribute("aria-invalid", "true");
-      f.to.setAttribute("aria-describedby", "sent-note");
+    // Each bad date is marked invalid and pointed at the message, so the field says why:
+    // a missing or out-of-range first day, or a last day that's out of range or before it.
+    const badFrom = !f.from.value || !f.from.checkValidity();
+    const badTo = !f.to.checkValidity() || (!badFrom && f.to.value < f.from.value);
+    for (const [el, bad] of [[f.from, badFrom], [f.to, badTo]]) {
+      if (bad) {
+        el.setAttribute("aria-invalid", "true");
+        el.setAttribute("aria-describedby", "sent-note");
+      }
     }
     const seq = ++sendSeq;
     sent.textContent = "";

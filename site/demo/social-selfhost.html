@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OOOhm on LinkedIn: self-hosting it (composition)</title>
+<!--
+  4:5 LinkedIn cut, about 47 s: the README's Docker Compose setup, then the other ways to run it.
+  The commands and output match README.md and docker-compose.yml; keep them in step.
+-->
+<link rel="stylesheet" href="social/social.css">
+<style>
+  .term { position: absolute; left: 60px; right: 60px; top: 330px; height: 720px; background: #1c1917; color: #e7e5e4; border-radius: 22px; overflow: hidden; font: 400 25px/1.65 "JetBrains Mono", monospace; }
+  .term .tbar { height: 54px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1.5px solid #292524; color: #a8a29e; font-size: 20px; }
+  .term pre { margin: 0; padding: 22px 26px; white-space: pre-wrap; word-break: break-all; font: inherit; }
+  .term .c { color: #5eead4; } .term .d { color: #a8a29e; } .term .g { color: #86efac; } .term .k { color: #fcd34d; }
+  .term .caret { display: inline-block; width: 13px; height: 28px; background: #e7e5e4; vertical-align: -5px; }
+  .note { position: absolute; right: 84px; top: 1000px; font-size: 22px; color: #d6d3d1; background: #292524; border-radius: 999px; padding: 8px 18px; opacity: 0; }
+  #f-home { top: 330px; }
+  .hosts { position: absolute; left: 72px; right: 72px; top: 330px; list-style: none; padding: 0; display: grid; gap: 22px; }
+  .hosts li { background: #fff; border: 1.5px solid var(--border); border-radius: 20px; padding: 28px 32px; }
+  .hosts h3 { font-size: 40px; letter-spacing: -0.025em; font-weight: 600; }
+  .hosts p { margin-top: 8px; font-size: 27px; color: var(--body); line-height: 1.35; }
+  .hosts code { display: inline-block; margin-top: 16px; font: 400 23px/1 "JetBrains Mono", monospace; background: var(--bg); border: 1.5px solid var(--border); border-radius: 9px; padding: 10px 14px; color: var(--ink); }
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><symbol id="mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f766e"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5" fill="none" stroke="#fff" stroke-width="3.1" stroke-linejoin="round"/></g></symbol></svg>
+
+  <section class="scene" id="s-term">
+    <h1 class="head">Self-host your time off app. <span class="a">Clone, configure, start.</span></h1>
+    <div class="term"><div class="tbar" id="tbar">~</div><pre id="term"></pre></div>
+    <p class="note" id="note">first build takes a few minutes · sped up</p>
+  </section>
+
+  <section class="scene" id="s-home">
+    <h1 class="head">Open it, <span class="a">and you’re in.</span></h1>
+    <div class="frame" id="f-home"><div class="bar"><i></i><i></i><i></i><span class="addr">localhost:3000</span></div><img src="../media/themes/classic.jpg" alt=""></div>
+  </section>
+
+  <section class="scene" id="s-other">
+    <h1 class="head">Not a Docker shop? <span class="a">Pick another way.</span></h1>
+    <ul class="hosts" id="hosts">
+      <li><h3>Any Postgres 15+</h3><p>Your own server, Neon, Supabase or RDS. Run pnpm worker beside the app.</p><code>pnpm db:migrate &amp;&amp; pnpm build &amp;&amp; pnpm start</code></li>
+      <li><h3>Vercel</h3><p>Migrations run as part of the build.</p></li>
+      <li><h3>One machine, no database server</h3><p>Embedded Postgres in the same process, for a small team on a small box.</p><code>pnpm build &amp;&amp; pnpm start:embedded</code></li>
+    </ul>
+  </section>
+
+  <section class="scene center end" id="s-end">
+    <div>
+      <div class="logo"><svg><use href="#mark"/></svg><span><span class="o">OOO</span><span class="hm">hm</span></span></div>
+      <p class="tag">Time off for small teams.</p>
+      <div class="facts"><span>Free</span><span>Source-available</span><span>Your data, your Postgres</span></div>
+      <p class="cta">Link in the first comment</p>
+      <p class="gh" id="gh"></p>
+    </div>
+  </section>
+
+  <p class="caption" id="caption"></p>
+
+<script src="social/social.js"></script>
+<script>
+  window.SIZE = { w: 1080, h: 1350 };
+  window.CLIPS = [];
+  window.DURATION = 47;
+  window.POSTER = 0;
+  window.CAPTIONS = [
+    { at: 0, end: 3.8, text: "Want your team’s time off on your own server? Here’s the whole setup." },
+    { at: 4.0, end: 8.0, text: "Clone the repository." },
+    { at: 8.1, end: 11.0, text: "Copy the example settings." },
+    { at: 11.1, end: 16.8, text: "Add two secrets and the admin’s email. That’s all it needs." },
+    { at: 16.9, end: 21.0, text: "Start it. The database, app, worker and a mail catcher come up together." },
+    { at: 21.1, end: 24.8, text: "Migrations and the first company and admin are set up for you." },
+    { at: 25.3, end: 28.8, text: "Open localhost:3000. Your sign-in link lands in Mailpit." },
+    { at: 28.9, end: 32.0, text: "You’re in, as the admin, ready to invite your team." },
+    { at: 32.5, end: 36.3, text: "No Docker? Run it on any Postgres 15+, or on Vercel." },
+    { at: 36.4, end: 39.9, text: "Or on one small machine, with no database server at all." },
+    { at: 40.4, end: 46.7, text: "It’s free to run for your team. The link to the repo is in the first comment." },
+  ];
+  $("gh").textContent = `${URL_TEXT} · github.com/Chykalophia/ooohm`;
+
+  // Each step: when it starts typing, the command, then the lines it prints.
+  const STEPS = [
+    { at: 4.2, cwd: "~", cmd: "git clone https://github.com/Chykalophia/ooohm && cd ooohm", out: [["d", "Cloning into 'ooohm'... done."]] },
+    { at: 8.3, cwd: "~/ooohm", cmd: "cp .env.example .env", out: [] },
+    { at: 11.3, cwd: "~/ooohm", cmd: "nano .env", out: [
+      ["k", "BETTER_AUTH_SECRET=&lt;openssl rand -base64 32&gt;"],
+      ["k", "WEBHOOK_ENCRYPTION_KEY=&lt;openssl rand -base64 32&gt;"],
+      ["k", "SEED_ADMIN_EMAIL=you@agency.com"],
+    ] },
+    { at: 17.1, cwd: "~/ooohm", cmd: "docker compose up", out: [
+      ["d", "[+] Running 5/5"],
+      ["g", " ✔ db        Healthy"],
+      ["g", " ✔ migrate   Exited   migrations, seed"],
+      ["g", " ✔ app       Started  :3000"],
+      ["g", " ✔ worker    Started  webhooks, daily jobs"],
+      ["g", " ✔ mailpit   Started  :8025"],
+      ["d", "app  | ready"],
+    ] },
+  ];
+  const TYPE = 0.04, LINE = 0.32, CLEAR_AT = 16.9;
+
+  function terminal(t) {
+    let html = "";
+    let cwd = "~";
+    for (const [i, s] of STEPS.entries()) {
+      if (t < s.at) break;
+      if (s.at < CLEAR_AT && t >= CLEAR_AT) continue; // the screen clears before compose starts
+      cwd = s.cwd;
+      const typed = Math.min(s.cmd.length, Math.floor((t - s.at) / TYPE));
+      html += `${html ? "\n" : ""}<span class="c">$</span> ${s.cmd.slice(0, typed)}`;
+      const done = s.at + s.cmd.length * TYPE + 0.3;
+      const next = STEPS[i + 1]?.at ?? Infinity;
+      const n = Math.floor(Math.max(0, t - done) / (s.cmd.startsWith("docker") ? 0.5 : LINE)) + (t >= done ? 1 : 0);
+      for (const [cl, tx] of s.out.slice(0, n)) html += `\n<span class="${cl}">${tx}</span>`;
+      if (typed < s.cmd.length || (t < next && n === 0)) html += `<span class="caret" style="opacity:${Math.floor(t * 2) % 2 ? 0.25 : 1}"></span>`;
+    }
+    if (!html) html = `<span class="c">$</span> <span class="caret" style="opacity:${Math.floor(t * 2) % 2 ? 0.25 : 1}"></span>`;
+    $("term").innerHTML = html;
+    $("tbar").textContent = cwd;
+  }
+
+  window.seek = async function seek(t) {
+    $("s-term").style.opacity = shown(t, 0, 25.2);
+    terminal(t);
+    $("note").style.opacity = ramp(t, 18.6, 19.0) * (1 - ramp(t, 23.5, 24.0));
+
+    $("s-home").style.opacity = shown(t, 25.0, 32.3);
+    $("f-home").style.transform = `translateY(${30 * (1 - ramp(t, 25.0, 25.6, out))}px)`;
+
+    $("s-other").style.opacity = shown(t, 32.1, 40.3);
+    [...$("hosts").children].forEach((li, j) => { const a = [32.5, 33.6, 36.4][j]; set(li, ramp(t, a, a + 0.4, out), 18 * (1 - ramp(t, a, a + 0.4, out))); });
+
+    $("s-end").style.opacity = ramp(t, 40.0, 40.5);
+    $("s-end").firstElementChild.style.transform = `translateY(${16 * (1 - ramp(t, 40.0, 40.7))}px)`;
+
+    drawCaption(t);
+  };
+  window.ready = readyAll();
+</script>
+</body>
+</html>

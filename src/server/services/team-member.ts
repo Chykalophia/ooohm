@@ -13,7 +13,7 @@ import type { ServiceContext } from "@/server/context";
 import { listHolidayDates, listHolidays, listPersonLeave } from "@/server/repositories/calendar";
 import { findCompany } from "@/server/repositories/companies";
 import { findDepartment } from "@/server/repositories/departments";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findPerson } from "@/server/repositories/users";
 import { summarizeBalances } from "./balances";
 
@@ -96,11 +96,11 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
 async function addLeaveForm(ctx: ServiceContext, actor: Actor, today: string, workingDays: number[]) {
   const lookaheadEnd = fromEpochDay(toEpochDay(today) + WORKING_DAY_LOOKAHEAD - 1);
   const [types, holidays] = await Promise.all([
-    listLeaveTypesWithAllowance(ctx.db, actor.companyId),
+    listActiveLeaveTypesWithAllowance(ctx.db, actor.companyId),
     listHolidayDates(ctx.db, actor.companyId, today, lookaheadEnd),
   ]);
   return {
-    leaveTypes: types.filter((t) => !t.archived).map(({ id, name, color }) => ({ id, name, color })),
+    leaveTypes: types.map(({ id, name, color }) => ({ id, name, color })),
     defaultDate: nextWorkingDay(today, { workingDays, holidays }),
   };
 }

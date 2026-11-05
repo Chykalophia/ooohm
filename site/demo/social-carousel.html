@@ -124,7 +124,7 @@
 
 <script>
   const URL_TEXT = new URLSearchParams(location.search).get("url") || "ooohm.team";
-  document.getElementById("links").innerHTML = `${URL_TEXT}<br>github.com/Chykalophia/ooohm`;
+  document.getElementById("links").replaceChildren(URL_TEXT, document.createElement("br"), "github.com/Chykalophia/ooohm");
   const THEMES = [["classic", "Classic"], ["cobalt", "Cobalt"], ["marigold", "Ink & Marigold"], ["saffron", "Saffron"], ["graphite", "Graphite"], ["plum", "Plum"], ["signal", "Signal"], ["forest", "Forest"], ["frost", "Frost"]];
   document.getElementById("themes").innerHTML = THEMES.map(([id, name]) => `<figure><img src="../media/themes/${id}.jpg" alt=""><figcaption>${name}</figcaption></figure>`).join("");
   const slides = [...document.querySelectorAll(".slide")];

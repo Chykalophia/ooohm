@@ -1,0 +1,32 @@
+/* Shared look for the 4:5 LinkedIn cuts (social-*.html): the site's palette, type and captions. */
+@font-face { font-family: "Instrument Sans"; src: url("../../fonts/instrument-sans.woff2") format("woff2"); font-weight: 400 700; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 400 500; }
+:root { --bg: #fafaf9; --ink: #1c1917; --body: #44403c; --muted: #78716c; --border: #e7e5e4; --accent: #0f766e; --soft: #e5f1ef; --line: #b7d9d4; }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 1080px; height: 1350px; overflow: hidden; background: var(--bg); font-family: "Instrument Sans", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+.scene { position: absolute; inset: 0; opacity: 0; }
+.center { display: grid; place-items: center; text-align: center; }
+
+/* The line at the top of each scene: short, large, the thing to remember. */
+.head { position: absolute; left: 72px; right: 72px; top: 96px; font-size: 64px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 600; text-wrap: balance; }
+.head .a { color: var(--accent); }
+.kicker { font-size: 28px; font-weight: 500; color: var(--accent); letter-spacing: .01em; margin-bottom: 18px; }
+
+.frame { position: absolute; left: 50%; width: 960px; translate: -50% 0; background: #fff; border: 1.5px solid var(--border); border-radius: 22px; overflow: hidden; box-shadow: 0 2px 4px rgba(28,25,23,.04), 0 40px 80px -40px rgba(28,25,23,.25); }
+.bar { height: 44px; display: flex; align-items: center; gap: 9px; padding: 0 20px; border-bottom: 1.5px solid var(--border); background: #fbfbfa; }
+.bar i { width: 12px; height: 12px; border-radius: 50%; background: #d6d3d1; }
+.bar .addr { margin-left: 14px; font: 400 19px/1 "JetBrains Mono", monospace; color: var(--muted); }
+.frame img { display: block; width: 100%; }
+
+.logo { display: flex; align-items: center; justify-content: center; gap: 20px; font-size: 104px; font-weight: 600; letter-spacing: -0.04em; }
+.logo svg { width: 108px; height: 108px; }
+.logo .o { color: var(--accent); }
+.logo .hm { color: var(--muted); font-weight: 400; }
+.end .tag { font-size: 44px; margin-top: 26px; font-weight: 500; letter-spacing: -0.025em; }
+.end .facts { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 900px; }
+.end .facts span { font-size: 28px; color: var(--body); background: #fff; border: 1.5px solid var(--border); border-radius: 999px; padding: 10px 24px; }
+.end .cta { margin-top: 56px; font-size: 40px; font-weight: 600; color: var(--accent); }
+.end .gh { margin-top: 14px; font-size: 30px; color: var(--body); }
+
+/* Captions: same place in every cut, readable on any frame, sound off. */
+.caption { position: absolute; left: 0; right: 0; margin-inline: auto; width: fit-content; bottom: 64px; max-width: 960px; text-align: center; font-size: 40px; line-height: 1.28; font-weight: 500; letter-spacing: -0.01em; color: #fff; background: rgba(28,25,23,.88); border-radius: 16px; padding: 14px 28px 16px; opacity: 0; text-wrap: balance; }

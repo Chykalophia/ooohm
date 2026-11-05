@@ -87,6 +87,20 @@ the film is cut to the first minute of "Wallpaper" by Kevin MacLeod, from incomp
 
 > Music: "Wallpaper" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 
+### LinkedIn cuts
+
+Three 4:5 videos (1080×1350) and a carousel for LinkedIn, built from the same recordings:
+`social-aha.html` (asking and approving, 38 s), `social-reframe.html` (the spreadsheet, then the fix, 26 s)
+and `social-selfhost.html` (the Docker Compose setup and the other ways to run it, 47 s). Each one opens on
+its hook, so the first frame works as the post's thumbnail. Shared styles and timing live in `demo/social/`.
+
+```bash
+NODE_PATH=$(npm root -g) node site/demo/render-launch.mjs --music Wallpaper.mp3 --film social-aha.html --out aha.mp4
+NODE_PATH=$(npm root -g) node site/demo/render-carousel.mjs --out carousel.pdf   # also writes one PNG per slide
+```
+
+`social-selfhost.html` mirrors the setup in the root README and `docker-compose.yml`; keep them in step.
+
 ## Fonts
 
 Instrument Sans and JetBrains Mono, both under the SIL Open Font License 1.1, are served from `fonts/`

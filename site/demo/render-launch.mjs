@@ -26,10 +26,12 @@ const FPS = 30;
 const { values: args } = parseArgs({ options: { music: { type: "string" }, film: { type: "string" }, out: { type: "string" }, url: { type: "string" } } });
 if (!args.music) throw new Error("Pass --music <file>: the film is cut to Wallpaper by Kevin MacLeod.");
 if (!existsSync(args.music)) throw new Error(`No music file at ${args.music}.`);
+const film = args.film ?? "launch.html";
+if (!/^[\w-]+\.html$/.test(film)) throw new Error("--film must be a file name in site/demo, such as social-aha.html.");
+if (film !== "launch.html" && !args.out) throw new Error("Pass --out with --film, so the cut doesn't replace the launch film.");
 const outFile = resolve(args.out ?? join(MEDIA, "launch.mp4"));
 if (!/\.mp4$/i.test(outFile)) throw new Error("--out must name an .mp4 file.");
 const stem = outFile.replace(/\.mp4$/i, "");
-const film = args.film ?? "launch.html";
 const FRAMES = join(here, ".frames", film.replace(/\.html$/, ""));
 
 rmSync(FRAMES, { recursive: true, force: true });

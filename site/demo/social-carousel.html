@@ -9,7 +9,7 @@
   @page { size: 1080px 1350px; margin: 0; }
   html, body { height: auto; overflow: visible; }
   .slide { position: relative; width: 1080px; height: 1350px; overflow: hidden; background: var(--bg); break-after: page; }
-  .slide:last-child { break-after: auto; }
+  .slide:last-of-type { break-after: auto; }
   .num { position: absolute; right: 72px; bottom: 60px; font-size: 24px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .brand { position: absolute; left: 72px; bottom: 56px; display: flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 600; letter-spacing: -0.03em; }
   .brand svg { width: 36px; height: 36px; }
@@ -111,7 +111,7 @@
     <ul class="hosts">
       <li><h3>Docker Compose</h3><p>Database, app, worker and a mail catcher, migrations on start.</p><code>docker compose up</code></li>
       <li><h3>Any Postgres 15+, or Vercel</h3><p>Your own server, Neon, Supabase or RDS.</p></li>
-      <li><h3>One machine, no database server</h3><p>Embedded Postgres, for a small team on a small box.</p><code>pnpm start:embedded</code></li>
+      <li><h3>One machine, no database server</h3><p>Embedded Postgres, for a small team on a small box.</p><code>pnpm build &amp;&amp; pnpm start:embedded</code></li>
     </ul>
   </section>
 

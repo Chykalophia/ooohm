@@ -12,9 +12,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const here = dirname(fileURLToPath(import.meta.url));
 const { values: args } = parseArgs({ options: { out: { type: "string" }, url: { type: "string" } } });
-const outFile = resolve(args.out ?? join(here, "..", "media", "carousel.pdf"));
+// Defaults to the gitignored .frames folder, so a plain run never lands in the deployed site.
+const outFile = resolve(args.out ?? join(here, ".frames", "carousel.pdf"));
 if (!/\.pdf$/i.test(outFile)) throw new Error("--out must name a .pdf file.");
 const pngDir = outFile.replace(/\.pdf$/i, "");
+mkdirSync(dirname(outFile), { recursive: true });
 
 const browser = await chromium.launch();
 let count;

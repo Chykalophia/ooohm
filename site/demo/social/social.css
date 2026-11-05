@@ -1,7 +1,7 @@
 /* Shared look for the 4:5 LinkedIn cuts (social-*.html): the site's palette, type and captions. */
 @font-face { font-family: "Instrument Sans"; src: url("../../fonts/instrument-sans.woff2") format("woff2"); font-weight: 400 700; }
 @font-face { font-family: "JetBrains Mono"; src: url("../../fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 400 500; }
-:root { --bg: #fafaf9; --ink: #1c1917; --body: #44403c; --muted: #78716c; --border: #e7e5e4; --accent: #0f766e; --soft: #e5f1ef; --line: #b7d9d4; }
+:root { --bg: #fafaf9; --ink: #1c1917; --body: #44403c; --muted: #57534e; --border: #e7e5e4; --accent: #0f766e; --soft: #e5f1ef; --line: #b7d9d4; }
 * { box-sizing: border-box; margin: 0; }
 html, body { width: 1080px; height: 1350px; overflow: hidden; background: var(--bg); font-family: "Instrument Sans", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
 .scene { position: absolute; inset: 0; opacity: 0; }

@@ -27,7 +27,7 @@
   <svg width="0" height="0" style="position:absolute"><symbol id="mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f766e"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5" fill="none" stroke="#fff" stroke-width="3.1" stroke-linejoin="round"/></g></symbol></svg>
 
   <section class="scene" id="s-term">
-    <h1 class="head">Self-host your time off app. <span class="a">Three commands, one file.</span></h1>
+    <h1 class="head">Self-host your time off app. <span class="a">Clone, configure, start.</span></h1>
     <div class="term"><div class="tbar" id="tbar">~</div><pre id="term"></pre></div>
     <p class="note" id="note">first build takes a few minutes · sped up</p>
   </section>
@@ -42,7 +42,7 @@
     <ul class="hosts" id="hosts">
       <li><h3>Any Postgres 15+</h3><p>Your own server, Neon, Supabase or RDS.</p><code>pnpm db:migrate &amp;&amp; pnpm build &amp;&amp; pnpm start</code></li>
       <li><h3>Vercel</h3><p>Migrations run as part of the build.</p></li>
-      <li><h3>One machine, no database server</h3><p>Embedded Postgres in the same process, for a small team on a small box.</p><code>pnpm start:embedded</code></li>
+      <li><h3>One machine, no database server</h3><p>Embedded Postgres in the same process, for a small team on a small box.</p><code>pnpm build &amp;&amp; pnpm start:embedded</code></li>
     </ul>
   </section>
 

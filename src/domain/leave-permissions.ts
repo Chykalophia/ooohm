@@ -69,3 +69,13 @@ export function canSeeLeaveDetails(actor: Actor, person: PersonOwnership, manage
   if (person.id === actor.id || isAdmin(actor)) return true;
   return managersSeeDetails && person.managerId === actor.id;
 }
+
+/**
+ * Whether `actor` may add time off for `person`, approved as it is added: an admin of
+ * their company, or their direct manager. Never for oneself: one's own time off goes
+ * through the request form and its approver like everyone else's.
+ */
+export function canAddLeaveFor(actor: Actor, person: PersonOwnership): boolean {
+  if (person.companyId !== actor.companyId || person.id === actor.id) return false;
+  return isAdmin(actor) || person.managerId === actor.id;
+}

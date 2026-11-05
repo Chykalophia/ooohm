@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type Actor, toActor } from "@/domain/actor";
 import { byUser } from "@/domain/change-source";
-import { canCancel, canDecide, decidesByAssignment, type RequestOwnership } from "@/domain/leave-permissions";
+import { canAddLeaveFor, canCancel, canDecide, decidesByAssignment, type RequestOwnership } from "@/domain/leave-permissions";
 
 const actor = (id: string, role: Actor["role"], companyId = "c1"): Actor => ({ id, companyId, role, canSelfApprove: false, source: byUser(id) });
 const request = (over: Partial<RequestOwnership> = {}): RequestOwnership => ({
@@ -81,4 +81,14 @@ test("an actor needs a company; unknown roles degrade to employee; a session act
     canSelfApprove: false,
     source: { kind: "user", userId: "u" },
   });
+});
+
+test("time off can be added for someone by an admin of their company or their direct manager, never for oneself", () => {
+  const ana = { id: "ana", companyId: "c1", managerId: "mgr" };
+  assert.equal(canAddLeaveFor(actor("mgr", "manager"), ana), true);
+  assert.equal(canAddLeaveFor(actor("mgr", "employee"), ana), true, "managing someone is the reporting line, not the role");
+  assert.equal(canAddLeaveFor(actor("boss", "admin"), ana), true);
+  assert.equal(canAddLeaveFor(actor("other", "manager"), ana), false);
+  assert.equal(canAddLeaveFor(actor("ana", "admin"), ana), false);
+  assert.equal(canAddLeaveFor(actor("boss", "admin", "c2"), ana), false);
 });

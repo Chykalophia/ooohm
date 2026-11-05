@@ -11,6 +11,7 @@ import { ItemList, Item } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { BackLink, Section } from "@/components/ui/section";
 import { textLink } from "@/components/ui/styles";
+import { RequestLeaveForm } from "@/app/request-leave-form";
 import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
 
 /** The teammate, loaded once per request for both the tab title and the page. */
@@ -35,7 +36,8 @@ type Entry = Member["upcoming"][number];
 /**
  * One teammate, opened from Team. Everyone sees what the team calendar shows: who they
  * are and their leave around now. The person, admins and (when the company allows it)
- * their manager also see their balances and the notes on their requests.
+ * their manager also see their balances and the notes on their requests. Admins and
+ * their direct manager can add time off for them, approved as it is added.
  */
 export default async function TeamMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -66,6 +68,14 @@ export default async function TeamMemberPage({ params }: { params: Promise<{ id:
         <Section title={`In the last ${member.recentDays} days`}>
           <LeaveList entries={member.recent} />
         </Section>
+      )}
+
+      {member.addLeave && member.addLeave.leaveTypes.length > 0 && (
+        <RequestLeaveForm
+          leaveTypes={member.addLeave.leaveTypes}
+          defaultDate={member.addLeave.defaultDate}
+          forPerson={{ id: person.id, name: person.name }}
+        />
       )}
 
       {member.balances && <BalanceSummary summary={member.balances} title={`Balance for ${member.balances.year}`} />}

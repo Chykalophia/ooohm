@@ -370,6 +370,14 @@ address, and never fail the user's action.
    `leave.requested`. If the rule says self-approve, it immediately moves to `approved` (`decided_at` = now,
    approver = requester) and records `leave.approved`. Self-approved requests are held to the same balance.
 
+**Added for someone.** An admin (for anyone in the company) or a person's direct manager can add time off for
+them from their Team page (`addLeaveFor`, `src/server/services/leave-on-behalf.ts`; Admin → People links
+there). It runs the same checks as the person's own submit, under the person's member lock, and is stored as
+theirs with the one adding it as approver, approved on the spot: `leave.requested` then `leave.approved`, both
+with that admin or manager as actor, so the audit log names them. Nobody adds for themself. The person gets an
+"added for you" email and can cancel it like any request of their own. A manager who may not see the person's
+balance (`managers_see_details` off) gets the cost but never what is left, in the preview or a shortfall.
+
 ### Approval rule
 
 `ApprovalRule` (`src/domain/approval-rule.ts`) is pluggable; v1 ships `ManagerApprovalRule`:

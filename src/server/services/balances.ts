@@ -144,14 +144,19 @@ export interface LeaveAssessment {
  * count as spent).
  *
  * Read-only. Submit calls it inside its transaction after locking the requester, so
- * concurrent submits by one person see each other's days.
+ * concurrent submits by one person see each other's days. `actor` is whoever the time
+ * off is for: the person themself, or the one a manager or admin adds it for.
  *
  * @throws DomainError `invalid_input`, `invalid_date_range`, `range_too_long`,
  *   `half_day_multi_day`, `leave_type_unavailable`, `no_company`,
  *   `policy_unavailable`, `zero_days`, `overlapping_request` or
  *   `insufficient_balance` (with {@link BalanceShortfallDetails}).
  */
-export async function assessLeaveRequest(ex: Executor, actor: Actor, draft: LeaveDraft): Promise<LeaveAssessment> {
+export async function assessLeaveRequest(
+  ex: Executor,
+  actor: Pick<Actor, "id" | "companyId">,
+  draft: LeaveDraft,
+): Promise<LeaveAssessment> {
   const range = draftRange(draft);
   assertValidRange(range);
   if (!isUuid(draft.leaveTypeId)) throw new DomainError("leave_type_unavailable");

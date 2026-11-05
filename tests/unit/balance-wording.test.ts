@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ALLOWANCE_AUDIT_ACTIONS, BALANCE_EVENT_TYPES } from "@/domain/events";
 import type { Balance } from "@/domain/allowance-policy";
-import { formatBalanceTotal, formatBalanceUsage, formatRequestCost, formatShortfall, formatSubmitted } from "@/lib/format";
+import { formatAddedFor, formatBalanceTotal, formatBalanceUsage, formatRequestCost, formatShortfall, formatSubmitted } from "@/lib/format";
 
 test("the preview says what a request costs and what it leaves", () => {
   assert.equal(
@@ -84,5 +84,18 @@ test("after a submit, the confirmation names the dates and days that were sent",
   assert.equal(
     formatSubmitted({ startDate: "2026-11-02", endDate: "2026-11-02", dayPortion: "am", days: 0.5, approved: false }),
     "Sent for approval: Mon, Nov 2, 2026 (morning) (0.5 days).",
+  );
+});
+
+test("adding time off for someone talks about them", () => {
+  assert.equal(
+    formatRequestCost({ days: 1, years: [{ year: 2026, days: 1, remainingAfter: 4 }] }, "Ana"),
+    "This request takes 1 day. Afterwards Ana would have 4 days left for 2026.",
+  );
+  assert.equal(formatShortfall({ year: 2026, requested: 3, remaining: 2, yearsSpanned: 1, person: "Ana" }), "That's 3 days, but Ana only has 2 days left for 2026.");
+  assert.equal(formatShortfall({ year: 2026, requested: 3, remaining: 0, yearsSpanned: 1, person: "Ana" }), "That's 3 days, but Ana has no days left for 2026.");
+  assert.equal(
+    formatAddedFor("Ana", { startDate: "2026-11-02", endDate: "2026-11-02", dayPortion: "full", days: 1 }),
+    "Added for Ana: Mon, Nov 2, 2026 (1 day). It's approved, and Ana gets an email about it.",
   );
 });

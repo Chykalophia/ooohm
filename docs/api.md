@@ -155,7 +155,7 @@ For example, the year rollover's `balance.adjusted` carries `"actorId": null, "a
 
 | Type | When |
 | --- | --- |
-| `leave.requested` | A request is submitted (also for self-approved ones, followed by `leave.approved`) |
+| `leave.requested` | A request is submitted (also for self-approved ones, and for time off a manager or admin adds for someone, each followed by `leave.approved`; the actor is whoever submitted or added it) |
 | `leave.approved` | An approver or admin approves, or a request is self-approved |
 | `leave.rejected` | An approver or admin declines |
 | `leave.cancelled` | The requester cancels a pending or approved request. Approved leave that ended before the current year (in the company's time zone) cannot be cancelled, so no `leave.cancelled` follows for it. |

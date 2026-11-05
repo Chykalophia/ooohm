@@ -68,13 +68,15 @@ export function formatCount(n: number, one: string, many: string): string {
  * The live preview line for a draft request, e.g. "This request takes 3 days. Afterwards
  * you'd have 12 days left for 2026." A request over New Year says what each year is
  * charged and what each tracked year keeps. Untracked types get only the first sentence.
+ *
+ * @param person Who the time off is for, when it isn't the reader: "Afterwards Ana would have…".
  */
-export function formatRequestCost(cost: RequestCost): string {
+export function formatRequestCost(cost: RequestCost, person?: string): string {
   const split = cost.years.length > 1 ? `: ${cost.years.map((y) => `${y.days} in ${y.year}`).join(", ")}` : "";
   const left = cost.years
     .filter((y): y is typeof y & { remainingAfter: number } => y.remainingAfter !== null)
     .map((y) => `${formatDays(y.remainingAfter)} left for ${y.year}`);
-  const after = left.length > 0 ? ` Afterwards you'd have ${left.join(" and ")}.` : "";
+  const after = left.length > 0 ? ` Afterwards ${person ? `${person} would` : "you'd"} have ${left.join(" and ")}.` : "";
   return `This request takes ${formatDays(cost.days)}${split}.${after}`;
 }
 
@@ -94,10 +96,30 @@ export function formatSubmitted(request: {
   return request.approved ? `Approved: ${what}. Enjoy your time off.` : `Sent for approval: ${what}.`;
 }
 
-/** Why a request was refused for lack of balance, saying exactly what is left. */
+/**
+ * What a manager or admin just added for someone, e.g. "Added for Ana: Mon, Nov 9,
+ * 2026 (1 day). It's approved, and Ana gets an email about it."
+ */
+export function formatAddedFor(
+  person: string,
+  request: { startDate: string; endDate: string; dayPortion: "full" | "am" | "pm"; days: number },
+): string {
+  const what = `${formatLeaveDates(request.startDate, request.endDate, request.dayPortion)} (${formatDays(request.days)})`;
+  return `Added for ${person}: ${what}. It's approved, and ${person} gets an email about it.`;
+}
+
+/**
+ * Why a request was refused for lack of balance, saying exactly what is left: to the
+ * person ("you only have…"), or naming them when someone else is adding it ("Ana only has…").
+ */
 export function formatShortfall(s: BalanceShortfallDetails): string {
+  const { person } = s;
   const asked = `That's ${formatDays(s.requested)}${s.yearsSpanned > 1 ? ` in ${s.year}` : ""}`;
-  const left = s.remaining > 0 ? `you only have ${formatDays(s.remaining)} left for ${s.year}` : `you have no days left for ${s.year}`;
+  const who = person ?? "you";
+  const left =
+    s.remaining > 0
+      ? `${who} only ${person ? "has" : "have"} ${formatDays(s.remaining)} left for ${s.year}`
+      : `${who} ${person ? "has" : "have"} no days left for ${s.year}`;
   return `${asked}, but ${left}.`;
 }
 

@@ -7,7 +7,9 @@ import { log } from "@/lib/log";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { serviceContext } from "@/server/runtime";
 import { previewLeaveRequest } from "@/server/services/balances";
+import { previewLeaveFor } from "@/server/services/leave-on-behalf";
 import { type LeavePreviewResponse, leaveDraftSchema, readDraftFields } from "@/app/_lib/leave-input";
+import { addForMessages } from "@/app/_lib/leave-for-messages";
 import { messageFor, messageForError } from "@/app/_lib/run-action";
 
 /**
@@ -24,7 +26,9 @@ function reply(body: LeavePreviewResponse, status = 200): Response {
 }
 
 /**
- * Live preview for the request form: `GET /api/leave-preview?leaveTypeId=&startDate=&endDate=&dayPortion=`.
+ * Live preview for the request form: `GET /api/leave-preview?leaveTypeId=&startDate=&endDate=&dayPortion=`,
+ * plus `&for=<user id>` on a teammate's page, where a manager or admin adds time off for them
+ * (`previewLeaveFor`).
  *
  * Runs the same service computation as submit (`assessLeaveRequest`) for the signed-in
  * person and answers with what the request would cost and leave, or the calm message
@@ -43,11 +47,19 @@ export async function GET(request: NextRequest): Promise<Response> {
   const parsed = leaveDraftSchema.safeParse(readDraftFields(request.nextUrl.searchParams));
   if (!parsed.success) return reply({ ok: false, message: messageFor("invalid_input") }, 400);
 
+  const forUserId = request.nextUrl.searchParams.get("for");
   try {
+    if (forUserId) {
+      const { cost, personName } = await previewLeaveFor(serviceContext(), actor, forUserId, parsed.data);
+      return reply({ ok: true, message: formatRequestCost(cost, personName), cost });
+    }
     const cost = await previewLeaveRequest(serviceContext(), actor, parsed.data);
     return reply({ ok: true, message: formatRequestCost(cost), cost });
   } catch (err) {
-    if (isDomainError(err)) return reply({ ok: false, message: messageForError(err, "leave_preview") }, 422);
+    if (isDomainError(err)) {
+      const message = (forUserId ? addForMessages[err.code] : undefined) ?? messageForError(err, "leave_preview");
+      return reply({ ok: false, message }, 422);
+    }
     log.error({ err }, "leave_preview_failed");
     return reply({ ok: false, message: "The preview isn't available right now." }, 500);
   }

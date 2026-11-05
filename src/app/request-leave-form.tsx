@@ -6,16 +6,19 @@ import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { type FormState, IDLE, nextFormKey } from "@/components/forms/form-state";
 import { FormStatus } from "@/components/forms/form-status";
 import { useFormAction } from "@/components/forms/use-form-action";
-import { REQUEST_FORM_ID } from "@/components/layout/anchors";
+import { ADD_LEAVE_FORM_ID, REQUEST_FORM_ID } from "@/components/layout/anchors";
 import { ChoiceChip, Fieldset, SelectField, TextAreaField, TextField } from "@/components/ui/fields";
 import { Section } from "@/components/ui/section";
 import { cx, errorText, primaryButton } from "@/components/ui/styles";
 import type { LeavePreviewResponse } from "./_lib/leave-input";
-import { requestLeaveAction } from "./actions";
+import { addLeaveForAction, requestLeaveAction } from "./actions";
 import { showsPreview } from "./request-preview";
 
 export type LeaveTypeOption = { id: string; name: string; color: string };
 export type Portion = "full" | "am" | "pm";
+
+/** Someone else the form adds time off for (a teammate's page, for an admin or their manager). */
+export type ForPerson = { id: string; name: string };
 
 const PORTIONS: { value: Portion; label: string }[] = [
   { value: "full", label: "Full day" },
@@ -32,15 +35,44 @@ const PREVIEW_ID = "leave-preview";
  * leave type, the next working day, full day), so asking for a single day off is pick a
  * date, then submit. An admin can swap it for {@link RequestLeaveSentence}, which shares
  * every piece below.
+ *
+ * With `forPerson` it adds time off for that person instead, approved as it is added
+ * (`addLeaveForAction`), and its preview talks about them.
  */
-export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; defaultDate: string }) {
-  const { state, dispatch, pending, onSubmit, key } = useRequestAction();
+export function RequestLeaveForm({
+  leaveTypes,
+  defaultDate,
+  forPerson,
+}: {
+  leaveTypes: LeaveTypeOption[];
+  defaultDate: string;
+  forPerson?: ForPerson;
+}) {
+  const { state, dispatch, pending, onSubmit, key } = useRequestAction(forPerson ? addLeaveForAction : requestLeaveAction);
+  const label = forPerson ? "Add time off" : "Request time off";
 
   return (
-    <Section id={REQUEST_FORM_ID} title="Request time off" surface className="scroll-mt-6 space-y-5">
+    <Section
+      id={forPerson ? ADD_LEAVE_FORM_ID : REQUEST_FORM_ID}
+      title={forPerson ? `Add time off for ${forPerson.name}` : "Request time off"}
+      surface
+      className="scroll-mt-6 space-y-5"
+    >
       <form action={dispatch} onSubmit={onSubmit} className="space-y-5">
-        <Fields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} />
-        <SubmitRow state={state} pending={pending} label="Request time off" />
+        {forPerson && (
+          <>
+            <input type="hidden" name="userId" value={forPerson.id} />
+            <p className="text-sm text-muted">It&apos;s approved as you add it, and they get an email about it.</p>
+          </>
+        )}
+        <Fields
+          key={key}
+          leaveTypes={leaveTypes}
+          defaultDate={defaultDate}
+          justSubmitted={state.status === "success"}
+          forUserId={forPerson?.id}
+        />
+        <SubmitRow state={state} pending={pending} label={label} />
       </form>
     </Section>
   );
@@ -51,8 +83,8 @@ export function RequestLeaveForm({ leaveTypes, defaultDate }: { leaveTypes: Leav
  * resets them to their defaults; an error keeps the current key so the person's input
  * survives. Shared by the form and the sentence.
  */
-export function useRequestAction() {
-  const { state, dispatch, pending, onSubmit } = useFormAction(requestLeaveAction, IDLE);
+export function useRequestAction(action: typeof requestLeaveAction = requestLeaveAction) {
+  const { state, dispatch, pending, onSubmit } = useFormAction(action, IDLE);
   const [resetKey, setResetKey] = useState("form");
   const key = nextFormKey(resetKey, state);
   if (key !== resetKey) setResetKey(key);
@@ -78,8 +110,9 @@ export function SubmitRow({ state, pending, label }: { state: FormState; pending
  *
  * @param justSubmitted The last submit succeeded: the preview stays hidden until the
  *   person starts the next request.
+ * @param forUserId Someone else the time off is for: the preview is for them.
  */
-export function useLeaveDraft(leaveTypes: LeaveTypeOption[], defaultDate: string, justSubmitted: boolean) {
+export function useLeaveDraft(leaveTypes: LeaveTypeOption[], defaultDate: string, justSubmitted: boolean, forUserId?: string) {
   const [leaveTypeId, setLeaveTypeId] = useState(leaveTypes[0]?.id ?? "");
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
@@ -87,7 +120,7 @@ export function useLeaveDraft(leaveTypes: LeaveTypeOption[], defaultDate: string
   const [note, setNote] = useState("");
   const singleDay = startDate === endDate;
   const draft = { leaveTypeId, startDate, endDate, dayPortion };
-  const preview = useLeavePreview(draft);
+  const preview = useLeavePreview(draft, forUserId);
   const defaults = { leaveTypeId: leaveTypes[0]?.id ?? "", startDate: defaultDate, endDate: defaultDate, dayPortion: "full" };
   // The note is not previewed, but typing one is starting the next request, so it counts here.
   const previewShown = showsPreview(justSubmitted, { ...draft, note }, { ...defaults, note: "" });
@@ -126,10 +159,12 @@ function Fields({
   leaveTypes,
   defaultDate,
   justSubmitted,
+  forUserId,
 }: {
   leaveTypes: LeaveTypeOption[];
   defaultDate: string;
   justSubmitted: boolean;
+  forUserId?: string;
 }) {
   const {
     leaveTypeId,
@@ -145,7 +180,7 @@ function Fields({
     previewShown,
     changeStart,
     changeEnd,
-  } = useLeaveDraft(leaveTypes, defaultDate, justSubmitted);
+  } = useLeaveDraft(leaveTypes, defaultDate, justSubmitted, forUserId);
 
   return (
     <>
@@ -232,11 +267,13 @@ export type LeavePreview = { message: string; ok: boolean; current: boolean };
  * Afterwards you'd have 12 days left for 2026."), or why it can't be requested, using the same computation as
  * submit. Debounced; a newer draft aborts the older request, so answers never arrive
  * out of order. While a newer answer is on its way, the last one stays, marked busy.
+ *
+ * @param forUserId Someone else the time off is for (`for=`): what it would cost them.
  */
-export function useLeavePreview(draft: Draft): LeavePreview {
+export function useLeavePreview(draft: Draft, forUserId?: string): LeavePreview {
   const [preview, setPreview] = useState<Preview | null>(null);
   const complete = draft.leaveTypeId !== "" && draft.startDate !== "";
-  const query = new URLSearchParams(draft).toString();
+  const query = new URLSearchParams(forUserId ? { ...draft, for: forUserId } : draft).toString();
 
   useEffect(() => {
     if (!complete) return;

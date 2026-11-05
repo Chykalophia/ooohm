@@ -72,7 +72,7 @@ export default async function LeaveTypesPage() {
                   </p>
                   <p className="text-sm text-muted">{summary(t)}</p>
                 </div>
-                <div className="max-w-full">
+                <div className="max-w-full break-words">
                   <InlineAction
                     action={archiveLeaveTypeAction}
                     fields={{ id: t.id, archived: "true" }}

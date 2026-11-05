@@ -48,9 +48,9 @@ export interface InstallInput {
 export function normalizeInstall(input: InstallInput): InstallInput {
   const companyName = oneLine(input.companyName);
   if (companyName.length === 0 || companyName.length > COMPANY_NAME_MAX_LENGTH) {
-    throw new DomainError("invalid_input", `Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`);
+    throw new DomainError("invalid_input", `Company names are 1 to ${COMPANY_NAME_MAX_LENGTH} characters.`, { field: "companyName" });
   }
   const timezone = input.timezone.trim();
-  if (!isSupportedTimeZone(timezone)) throw new DomainError("invalid_input", "Unknown time zone.");
+  if (!isSupportedTimeZone(timezone)) throw new DomainError("invalid_input", "Unknown time zone.", { field: "timezone" });
   return { companyName, timezone, adminName: normalizePersonName(input.adminName), adminEmail: normalizeEmail(input.adminEmail) };
 }

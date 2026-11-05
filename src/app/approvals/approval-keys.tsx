@@ -11,9 +11,17 @@ const storageKey = (userId: string) => `ooohm:approval-keys:${userId}`;
 /** Fired in this tab when the choice changes (`storage` only fires in other tabs). */
 const CHANGE_EVENT = "ooohm:approval-keys";
 
+/** Inputs that take no typing: a letter pressed on them can be a shortcut. */
+const NON_TEXT_INPUTS = new Set(["checkbox", "radio", "button", "submit", "reset"]);
+
+/**
+ * Whether a key press is someone typing, so it isn't a shortcut. The checkbox that turns
+ * shortcuts on isn't typing: J right after ticking it moves to the first request.
+ */
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  if (target instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(target.type);
+  return target.isContentEditable || ["TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
 /**

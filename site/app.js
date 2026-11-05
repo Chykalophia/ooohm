@@ -131,6 +131,8 @@ function sentence() {
   const why = $("[data-why]", form);
   const squares = $("[data-squares]", form);
   const sent = $("[data-sent]", form);
+  // Counts submits and edits, so a late confirmation can tell it is out of date.
+  let sendSeq = 0;
   const note = $("[data-demo-note]");
   let last = {};
 
@@ -200,7 +202,11 @@ function sentence() {
     preview.innerHTML = line;
     why.textContent = reason;
     drawSquares(squares, t.allowance, t.used, request, 0, 20);
-    if (last.type !== undefined) sent.textContent = "";
+    if (last.type !== undefined) { sendSeq++; sent.textContent = ""; }
+    for (const el of [f.from, f.to]) {
+      el.removeAttribute("aria-invalid");
+      el.removeAttribute("aria-describedby");
+    }
     last = s;
   }
 
@@ -215,9 +221,30 @@ function sentence() {
   form.addEventListener("change", render);
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    if (!f.from.value || !f.from.checkValidity() || !f.to.checkValidity() || f.to.value < f.from.value) return;
-    const c = count(f.from.value, f.to.value, f.portion.value);
-    sent.textContent = c.total ? `Sent for approval: ${days(c.total)}. (Only in this demo, so nobody got an email.)` : "";
+    const ok = f.from.value && f.from.checkValidity() && f.to.checkValidity() && f.to.value >= f.from.value;
+    const c = ok ? count(f.from.value, f.to.value, f.portion.value) : null;
+    // The form is novalidate, so out-of-range days reach this handler and get our message.
+    const outOfRange = (f.from.value && !f.from.checkValidity()) || !f.to.checkValidity();
+    const text = !ok
+      ? outOfRange ? "Pick days in 2026 or 2027." : "Pick a first day, and a last day on or after it."
+      : c.total
+        ? `Sent for approval: ${days(c.total)}. (Only in this demo, so nobody got an email.)`
+        : "Those days are all weekends or holidays, so there's nothing to send.";
+    // Emptied first, so sending the same request twice is announced twice.
+    // An edit in the meantime (render) cancels it, so an old confirmation never comes back.
+    // Each bad date is marked invalid and pointed at the message, so the field says why:
+    // a missing or out-of-range first day, or a last day that's out of range or before it.
+    const badFrom = !f.from.value || !f.from.checkValidity();
+    const badTo = !f.to.checkValidity() || (!badFrom && f.to.value < f.from.value);
+    for (const [el, bad] of [[f.from, badFrom], [f.to, badTo]]) {
+      if (bad) {
+        el.setAttribute("aria-invalid", "true");
+        el.setAttribute("aria-describedby", "sent-note");
+      }
+    }
+    const seq = ++sendSeq;
+    sent.textContent = "";
+    requestAnimationFrame(() => { if (seq === sendSeq) sent.textContent = text; });
   });
 
   // The demo plays scenes until someone touches the sentence.
@@ -231,10 +258,9 @@ function sentence() {
   // The preview line is announced only once the person is driving it, never while the
   // demo plays (WCAG 4.1.3: it would talk over someone reading the page).
   const listen = () => preview.setAttribute("aria-live", "polite");
-  // Someone touching the sentence ends the demo for good; the header switch only holds it.
-  let touched = false;
+  // Someone touching the sentence ends the demo for good (playing stays false); the
+  // header switch only holds it.
   const stopDemo = () => {
-    touched = true;
     listen();
     if (!playing) return;
     playing = false;

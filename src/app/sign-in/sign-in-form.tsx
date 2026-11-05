@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { TextField } from "@/components/ui/fields";
 import { buttonClass, cx, focusRing, textLink } from "@/components/ui/styles";
@@ -15,8 +15,6 @@ const CANCELLED = new Set(["AUTH_CANCELLED", "ERROR_CEREMONY_ABORTED"]);
 
 type State = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; email: string } | { kind: "error"; message: string };
 
-/** Moves focus to the element once, when it mounts (a stable ref callback, so a re-render never re-focuses). */
-const focusOnMount = (el: HTMLElement | null) => el?.focus();
 
 export function SignInForm({
   googleEnabled,
@@ -32,6 +30,24 @@ export function SignInForm({
   const [state, setState] = useState<State>(
     linkFailed ? { kind: "error", message: "That sign-in link didn't work. Request a new one." } : { kind: "idle" },
   );
+  // Once a link is sent, the form stays a moment longer, faded out, after focus is on
+  // "Check your email": when the focused form goes in the same instant, a screen reader
+  // (Orca) moves its own focus there silently and the result is never read.
+  const [formGone, setFormGone] = useState(false);
+  const dropTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const formRef = useRef<HTMLFormElement>(null);
+  const focusThenDropForm = useCallback((el: HTMLElement | null) => {
+    if (!el) return;
+    el.focus();
+    dropTimer.current = setTimeout(() => setFormGone(true), 200);
+  }, []);
+  const useDifferentEmail = () => {
+    clearTimeout(dropTimer.current);
+    setFormGone(false);
+    setState({ kind: "idle" });
+    // Back to the email field, whether the form was still there (a quick click) or comes back.
+    requestAnimationFrame(() => formRef.current?.querySelector<HTMLInputElement>("input[type=email]")?.focus());
+  };
 
   const router = useRouter();
   // Passkeys need a browser that supports them, known only after mount (the server can't tell).
@@ -91,67 +107,75 @@ export function SignInForm({
     }
   }
 
-  if (state.kind === "sent") {
-    return (
-      // The form this replaces held focus, so focus moves to the heading: the person hears
-      // the result and stays in place (a status region added with its text is often not read).
-      <div className="space-y-2 text-center">
-        <h2 ref={focusOnMount} tabIndex={-1} aria-describedby="sign-in-sent" className={cx("rounded-sm font-medium", focusRing)}>
-          Check your email
-        </h2>
-        <p id="sign-in-sent" className="text-sm text-muted">
-          We sent a sign-in link to <span className="text-foreground">{state.email}</span>. It expires in 15 minutes.
-        </p>
-        <button type="button" className={cx(textLink, "text-sm text-accent-ink")} onClick={() => setState({ kind: "idle" })}>
-          Use a different email
-        </button>
-      </div>
-    );
-  }
+  // The form this replaces held focus, so focus moves to the heading: the person hears
+  // the result and stays in place (a status region added with its text is often not read).
+  const sent = state.kind === "sent" && (
+    <div className="space-y-2 text-center">
+      <h2 ref={focusThenDropForm} tabIndex={-1} aria-describedby="sign-in-sent" className={cx("rounded-sm font-medium", focusRing)}>
+        Check your email
+      </h2>
+      <p id="sign-in-sent" className="text-sm text-muted">
+        We sent a sign-in link to <span className="text-foreground">{state.email}</span>. It expires in 15 minutes.
+      </p>
+      <button
+        type="button"
+        className={cx(textLink, "text-sm text-accent-ink")}
+        onClick={useDifferentEmail}
+      >
+        Use a different email
+      </button>
+    </div>
+  );
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={sendLink} className="space-y-3">
-        <TextField
-          label="Work email"
-          type="email"
-          required
-          // "webauthn" lets the browser offer saved passkeys here too.
-          autoComplete="email webauthn"
-          autoFocus
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@company.com"
-        />
-        <button type="submit" aria-disabled={state.kind === "sending"} className={cx(buttonClass("primary"), "w-full")}>
-          {state.kind === "sending" ? "Sending…" : "Email me a sign-in link"}
-        </button>
-      </form>
+    <>
+      {sent}
+      {/* One tree for both states, so the heading isn't remounted when the form goes. */}
+      {!formGone && (
+        <div inert={!!sent} className={cx("space-y-4", sent && "pointer-events-none opacity-0")}>
+          <form ref={formRef} onSubmit={sendLink} className="space-y-3">
+            <TextField
+              label="Work email"
+              type="email"
+              required
+              // "webauthn" lets the browser offer saved passkeys here too.
+              autoComplete="email webauthn"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+            />
+            <button type="submit" aria-disabled={state.kind === "sending"} className={cx(buttonClass("primary"), "w-full")}>
+              {state.kind === "sending" ? "Sending…" : "Email me a sign-in link"}
+            </button>
+          </form>
 
-      {state.kind === "error" && (
-        <ErrorMessage as="p" className="text-sm">
-          {state.message}
-        </ErrorMessage>
+          {state.kind === "error" && (
+            <ErrorMessage as="p" className="text-sm">
+              {state.message}
+            </ErrorMessage>
+          )}
+
+          {passkeys && (
+            <button type="button" onClick={signInWithPasskey} className={cx(buttonClass("outline"), "w-full")}>
+              Sign in with a passkey
+            </button>
+          )}
+
+          {googleEnabled && (
+            <>
+              <div className="flex items-center gap-3 text-xs text-muted">
+                <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+              </div>
+              <button type="button" onClick={signInWithGoogle} className={cx(buttonClass("outline"), "w-full")}>
+                Continue with Google
+              </button>
+            </>
+          )}
+
+          <p className="text-center text-xs text-muted">No account? Ask your admin to add you.</p>
+        </div>
       )}
-
-      {passkeys && (
-        <button type="button" onClick={signInWithPasskey} className={cx(buttonClass("outline"), "w-full")}>
-          Sign in with a passkey
-        </button>
-      )}
-
-      {googleEnabled && (
-        <>
-          <div className="flex items-center gap-3 text-xs text-muted">
-            <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
-          </div>
-          <button type="button" onClick={signInWithGoogle} className={cx(buttonClass("outline"), "w-full")}>
-            Continue with Google
-          </button>
-        </>
-      )}
-
-      <p className="text-center text-xs text-muted">No account? Ask your admin to add you.</p>
-    </div>
+    </>
   );
 }

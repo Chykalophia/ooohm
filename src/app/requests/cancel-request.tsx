@@ -104,14 +104,17 @@ export function CancelRequest({
   return (
     <div className="flex flex-wrap items-center gap-3 sm:justify-end">
       {state.status === "error" && <ErrorMessage className="text-sm">{state.message}</ErrorMessage>}
-      {/* One status region, always rendered, so screen readers announce what goes into it
-          (a region created together with its text is often skipped). */}
-      <span role="status" className="text-sm text-muted empty:sr-only">
+      {/* One live region, always rendered, so screen readers announce what goes into it
+          (a region created together with its text is often skipped). A plain polite region
+          rather than role="status": an empty status is still read out as "status bar" on
+          every request while someone reads the list. */}
+      <span aria-live="polite" aria-atomic="true" className="text-sm text-muted empty:sr-only">
         {counting ? (
           <>
-            Cancelling<span aria-hidden> in {secondsLeft}s</span>
+            {/* The spaces sit outside the hidden spans, so "Cancelling in" isn't read as one word. */}
+            Cancelling <span aria-hidden>in {secondsLeft}s</span>
             {/* Announced once, not every second. */}
-            <span className="sr-only"> in {UNDO_SECONDS} seconds. Undo keeps it.</span>
+            <span className="sr-only">in {UNDO_SECONDS} seconds. Undo keeps it.</span>
           </>
         ) : pending ? (
           "Cancelling…"

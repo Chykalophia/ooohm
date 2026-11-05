@@ -97,7 +97,8 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                   <Link href={`/admin/people/${p.id}`} className={textLink}>
                     {p.name || p.email}
                   </Link>
-                  {!p.isActive && <span className="ml-2 text-sm font-normal text-muted">Deactivated</span>}
+                  {!p.isActive && " "}
+                  {!p.isActive && <span className="ml-1 text-sm font-normal text-muted">Deactivated</span>}
                 </p>
                 <p className="text-sm break-all text-muted">{p.email}</p>
                 {p.scrubScheduledAt && (

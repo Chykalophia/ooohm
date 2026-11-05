@@ -57,7 +57,7 @@
         </div>
 
         <div class="hero-demo" role="group" aria-label="Try the request sentence">
-          <form class="card sentence-card" data-sentence aria-label="Request time off">
+          <form class="card sentence-card" data-sentence aria-label="Request time off" novalidate>
             <h2 class="card-title">Request time off</h2>
             <p class="sentence">
               I’m taking
@@ -88,7 +88,7 @@
             </div>
             <div class="send-row">
               <button class="btn btn-primary btn-small" type="submit">Send request</button>
-              <span class="sent" data-sent role="status"></span>
+              <span class="sent" id="sent-note" data-sent aria-live="polite" aria-atomic="true"></span>
             </div>
           </form>
           <p class="demo-note" data-demo-note>Playing a few examples, counted Monday to Friday with US holidays. Change any part of the sentence to try your own.</p>
@@ -266,7 +266,7 @@
                 <button type="button" class="btn btn-primary btn-small" data-mail-approve>Approve</button>
                 <a class="btn btn-quiet btn-small" href="#how">Open in OOOhm<span class="sr-only">: in this demo, it goes to How it works</span></a>
               </div>
-              <p class="mail-done" data-mail-done role="status"></p>
+              <p class="mail-done" data-mail-done aria-live="polite" aria-atomic="true"></p>
             </div>
           </div>
 

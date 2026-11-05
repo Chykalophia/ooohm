@@ -27,6 +27,7 @@ try {
   await page.pdf({ path: outFile, width: "1080px", height: "1350px", printBackground: true, preferCSSPageSize: true });
   mkdirSync(pngDir, { recursive: true });
   const slides = await page.$$(".slide");
+  if (slides.length === 0) throw new Error("social-carousel.html has no .slide sections.");
   for (const [i, slide] of slides.entries()) await slide.screenshot({ path: join(pngDir, `${String(i + 1).padStart(2, "0")}.png`) });
   count = slides.length;
 } finally {

@@ -23,6 +23,7 @@ const kinds: LeaveEmail[] = [
   { kind: "rejected", recipientName: hostile, leave: leave({ requesterName: hostile }), reason: hostile, link: "https://x/" },
   { kind: "cancelled_requester", recipientName: hostile, leave: leave({ requesterName: hostile }), link: "https://x/" },
   { kind: "cancelled_approver", recipientName: hostile, leave: leave({ requesterName: hostile }), link: "https://x/approvals" },
+  { kind: "added", recipientName: hostile, leave: leave({ requesterName: hostile, note: hostile }), addedByName: hostile, link: "https://x/" },
 ];
 
 test("subjects are fixed strings, except the request email's, which names the requester and dates on one line", () => {
@@ -33,6 +34,7 @@ test("subjects are fixed strings, except the request email's, which names the re
     "Your time off request was declined",
     "Your time off request was cancelled",
     "A time off request was cancelled",
+    "Time off was added for you",
   ]);
   for (const s of subjects) assert.doesNotMatch(s, /[\r\n]/);
   const oneDay = renderLeaveEmail({ ...kinds[0], leave: leave({ startDate: "2026-12-21", endDate: "2026-12-21" }) } as LeaveEmail);
@@ -242,4 +244,14 @@ test("a request email with an approve link leads with Approve, then Open in OOOh
   const without = renderLeaveEmail({ kind: "requested", recipientName: "Jo", leave: leave(), link: "https://x/approvals" });
   assert.doesNotMatch(without.text, /Approve:/);
   assert.match(without.text, /Review in OOOhm: https:\/\/x\/approvals/);
+});
+
+test("time off added for someone says who added it, that it's approved, and the note", () => {
+  const added = renderLeaveEmail({ kind: "added", recipientName: "Ana", leave: leave({ note: "Feel better" }), addedByName: "Mo Reyes", link: "https://x/" });
+  assert.equal(added.subject, "Time off was added for you");
+  assert.match(added.text, /^Mo Reyes added your PTO, Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\. It's approved, so there's nothing you need to do\./);
+  assert.match(added.text, /Note: \u201cFeel better\u201d/);
+  const unnamed = renderLeaveEmail({ kind: "added", recipientName: "Ana", leave: leave(), addedByName: " ", link: "https://x/" });
+  assert.match(unnamed.text, /^Someone added your PTO/);
+  assert.doesNotMatch(unnamed.text, /Note:/);
 });

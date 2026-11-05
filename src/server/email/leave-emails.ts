@@ -52,6 +52,14 @@ export type LeaveEmail =
       approveLink?: string | null;
     }
   | { kind: "approved"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
+  | {
+      kind: "added";
+      recipientName: string;
+      leave: LeaveSummary;
+      /** The manager or admin who added the time off for the recipient. */
+      addedByName: string;
+      link: string;
+    }
   | { kind: "rejected"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
   | { kind: "cancelled_requester"; recipientName: string; leave: LeaveSummary; link: string }
   | { kind: "cancelled_approver"; recipientName: string; leave: LeaveSummary; link: string }
@@ -114,6 +122,12 @@ function parts(email: LeaveEmail): Parts {
         lead: [{ text: "Your " }, type, { text: ` is approved, ${when}.` }],
         extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined,
       };
+    case "added":
+      return {
+        subject: "Time off was added for you",
+        lead: [{ text: `${email.addedByName || "Someone"} added your ` }, type, { text: `, ${when}. It's approved, so there's nothing you need to do.` }],
+        extra: leave.note ? { label: "Note", value: leave.note, quoted: true } : undefined,
+      };
     case "rejected":
       return {
         subject: "Your time off request was declined",
@@ -175,7 +189,8 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
     ...input,
     recipientName: displayName(input.recipientName),
     leave: { ...input.leave, requesterName: displayName(input.leave.requesterName) },
-  };
+    ...(input.kind === "added" ? { addedByName: displayName(input.addedByName) } : {}),
+  } as LeaveEmail;
   const { link } = email;
   const p = parts(email);
   const approveLink = email.kind === "requested" ? (email.approveLink ?? null) : null;

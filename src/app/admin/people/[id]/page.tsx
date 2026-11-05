@@ -10,6 +10,7 @@ import { ActionForm } from "@/components/forms/action-form";
 import { InlineAction } from "@/components/forms/inline-action";
 import { BackLink, Section } from "@/components/ui/section";
 import { outlineButton } from "@/components/ui/styles";
+import { ADD_LEAVE_FORM_ID } from "@/components/layout/anchors";
 import { cancelDeletionAction, deactivateAction, reactivateAction, resendInviteAction, updatePersonAction } from "@/app/admin/people/actions";
 import { BalanceList } from "@/components/leave/balance-list";
 import { Blocked, DeletePersonDialog } from "@/app/admin/people/delete-person-dialog";
@@ -52,9 +53,16 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       <Section
         title={`Balance for ${year}`}
         action={
-          <Link href={`/admin/people/${person.id}/allowances?year=${year}`} className={outlineButton}>
-            Change allowances
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {person.isActive && !isSelf && (
+              <Link href={`/team/${person.id}#${ADD_LEAVE_FORM_ID}`} className={outlineButton}>
+                Add time off
+              </Link>
+            )}
+            <Link href={`/admin/people/${person.id}/allowances?year=${year}`} className={outlineButton}>
+              Change allowances
+            </Link>
+          </div>
         }
       >
         {balances ? (

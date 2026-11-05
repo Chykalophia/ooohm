@@ -101,6 +101,8 @@ export interface BalanceShortfallDetails {
   readonly remaining: number;
   /** How many calendar years the request spans (1 or 2). */
   readonly yearsSpanned: number;
+  /** Who the time off is for, when someone else is adding it for them: the message names them. */
+  readonly person?: string;
 }
 
 /**

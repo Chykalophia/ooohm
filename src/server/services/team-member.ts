@@ -4,12 +4,13 @@ import { entriesCostingDaysIn } from "@/domain/calendar";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
-import { canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/domain/leave-days";
+import { canAddLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
 import { teamLabel } from "@/domain/person";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { listHolidays, listPersonLeave } from "@/server/repositories/calendar";
+import { listHolidayDates, listHolidays, listPersonLeave } from "@/server/repositories/calendar";
 import { findCompany } from "@/server/repositories/companies";
 import { findDepartment } from "@/server/repositories/departments";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
@@ -32,6 +33,9 @@ const AHEAD_DAYS = 365;
  *   request's days, note and approver's reason. For anyone else those are never read
  *   past the query, so they never leave the service.
  *
+ * - An admin, or the person's direct manager ({@link canAddLeaveFor}), also gets
+ *   `addLeave`: what the form to add time off for them needs (`addLeaveFor`).
+ *
  * Inactive and deleted people are not on Team, so they are `not_found` here too.
  *
  * @throws DomainError `not_found`, `no_company`.
@@ -48,13 +52,15 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
   const to = fromEpochDay(toEpochDay(today) + AHEAD_DAYS);
   const showDetails = canSeeLeaveDetails(actor, { ...person, companyId: actor.companyId }, company.managersSeeDetails);
   const year = yearInTimeZone(company.timezone, now);
+  const canAdd = canAddLeaveFor(actor, { ...person, companyId: actor.companyId });
 
-  const [department, manager, holidays, leave, balances] = await Promise.all([
+  const [department, manager, holidays, leave, balances, addLeave] = await Promise.all([
     person.departmentId ? findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined,
     person.managerId ? findPerson(ctx.db, actor.companyId, person.managerId) : undefined,
     listHolidays(ctx.db, actor.companyId, from, to),
     listPersonLeave(ctx.db, actor.companyId, person.id, from, to),
     showDetails ? personBalances(ctx, actor, person, company.allowancePolicy, year) : null,
+    canAdd ? addLeaveForm(ctx, actor, today, company.workingDays) : null,
   ]);
 
   const shown = entriesCostingDaysIn(leave, { first: from, last: to, workingDays: company.workingDays, holidays });
@@ -81,6 +87,21 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
      */
     balances: showDetails && balances ? { ...balances, items: balances.items.filter((i) => !isEmptyBalance(i.balance)) } : null,
     showDetails,
+    /** The add-time-off form's leave types and default date, for an admin or their manager; `null` for anyone else. */
+    addLeave,
+  };
+}
+
+/** What the form to add time off for someone needs: active leave types (the first is its default) and the next working day. */
+async function addLeaveForm(ctx: ServiceContext, actor: Actor, today: string, workingDays: number[]) {
+  const lookaheadEnd = fromEpochDay(toEpochDay(today) + WORKING_DAY_LOOKAHEAD - 1);
+  const [types, holidays] = await Promise.all([
+    listLeaveTypesWithAllowance(ctx.db, actor.companyId),
+    listHolidayDates(ctx.db, actor.companyId, today, lookaheadEnd),
+  ]);
+  return {
+    leaveTypes: types.filter((t) => !t.archived).map(({ id, name, color }) => ({ id, name, color })),
+    defaultDate: nextWorkingDay(today, { workingDays, holidays }),
   };
 }
 

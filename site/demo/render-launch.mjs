@@ -33,33 +33,39 @@ const film = args.film ?? "launch.html";
 const FRAMES = join(here, ".frames", film.replace(/\.html$/, ""));
 
 rmSync(FRAMES, { recursive: true, force: true });
+// If a step fails, the browser still closes; the frames stay for a look and the next run clears them.
 const browser = await chromium.launch();
-const filmUrl = pathToFileURL(join(here, film)).href + (args.url ? `?url=${encodeURIComponent(args.url)}` : "");
-const probe = await browser.newPage();
-await probe.goto(filmUrl);
-const { size, clips, poster } = await probe.evaluate(() => ({ size: window.SIZE ?? { w: 1920, h: 1080 }, clips: window.CLIPS ?? ["ask", "approve", "calendar", "team"], poster: window.POSTER ?? 57 }));
-await probe.close();
-const counts = {};
-for (const clip of clips) {
-  const dir = join(FRAMES, clip);
-  mkdirSync(dir, { recursive: true });
-  execFileSync("ffmpeg", ["-loglevel", "error", "-i", join(MEDIA, `${clip}.mp4`), "-vf", `fps=${FPS},scale=1400:-2`, "-q:v", "3", join(dir, "%05d.jpg")]);
-  counts[clip] = readdirSync(dir).length;
-}
-
 const out = join(FRAMES, "out");
-mkdirSync(out, { recursive: true });
-const page = await browser.newPage({ viewport: { width: size.w, height: size.h } });
-await page.goto(filmUrl);
-await page.evaluate(async (c) => { window.CLIP_COUNTS = c; await document.fonts.ready; await window.ready; }, counts);
-const { duration, captions } = await page.evaluate(() => ({ duration: window.DURATION, captions: window.CAPTIONS }));
-const total = Math.round(duration * FPS);
-for (let f = 0; f < total; f++) {
-  await page.evaluate((t) => window.seek(t), f / FPS);
-  await page.screenshot({ path: join(out, `${String(f).padStart(5, "0")}.jpg`), type: "jpeg", quality: 92 });
-  if (f % 300 === 0) console.log(`frame ${f}/${total}`);
+let duration, captions, poster, total;
+try {
+  const filmUrl = pathToFileURL(join(here, film)).href + (args.url ? `?url=${encodeURIComponent(args.url)}` : "");
+  const probe = await browser.newPage();
+  await probe.goto(filmUrl);
+  const meta = await probe.evaluate(() => ({ size: window.SIZE ?? { w: 1920, h: 1080 }, clips: window.CLIPS ?? ["ask", "approve", "calendar", "team"], poster: window.POSTER ?? 57 }));
+  await probe.close();
+  poster = meta.poster;
+  const counts = {};
+  for (const clip of meta.clips) {
+    const dir = join(FRAMES, clip);
+    mkdirSync(dir, { recursive: true });
+    execFileSync("ffmpeg", ["-loglevel", "error", "-i", join(MEDIA, `${clip}.mp4`), "-vf", `fps=${FPS},scale=1400:-2`, "-q:v", "3", join(dir, "%05d.jpg")]);
+    counts[clip] = readdirSync(dir).length;
+  }
+
+  mkdirSync(out, { recursive: true });
+  const page = await browser.newPage({ viewport: { width: meta.size.w, height: meta.size.h } });
+  await page.goto(filmUrl);
+  await page.evaluate(async (c) => { window.CLIP_COUNTS = c; await document.fonts.ready; await window.ready; }, counts);
+  ({ duration, captions } = await page.evaluate(() => ({ duration: window.DURATION, captions: window.CAPTIONS })));
+  total = Math.round(duration * FPS);
+  for (let f = 0; f < total; f++) {
+    await page.evaluate((t) => window.seek(t), f / FPS);
+    await page.screenshot({ path: join(out, `${String(f).padStart(5, "0")}.jpg`), type: "jpeg", quality: 92 });
+    if (f % 300 === 0) console.log(`frame ${f}/${total}`);
+  }
+} finally {
+  await browser.close();
 }
-await browser.close();
 
 // Music: the start of the track, faded out over the end card and levelled for social players.
 const fadeAt = duration - 3.5;

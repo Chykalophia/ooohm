@@ -17,12 +17,17 @@ if (!/\.pdf$/i.test(outFile)) throw new Error("--out must name a .pdf file.");
 const pngDir = outFile.replace(/\.pdf$/i, "");
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1080, height: 1350 } });
-await page.goto(pathToFileURL(join(here, "social-carousel.html")).href + (args.url ? `?url=${encodeURIComponent(args.url)}` : ""));
-await page.evaluate(async () => { await document.fonts.ready; await window.ready; });
-await page.pdf({ path: outFile, width: "1080px", height: "1350px", printBackground: true, preferCSSPageSize: true });
-mkdirSync(pngDir, { recursive: true });
-const slides = await page.$$(".slide");
-for (const [i, slide] of slides.entries()) await slide.screenshot({ path: join(pngDir, `${String(i + 1).padStart(2, "0")}.png`) });
-await browser.close();
-console.log(`carousel: ${slides.length} slides → ${outFile} and ${pngDir}/`);
+let count;
+try {
+  const page = await browser.newPage({ viewport: { width: 1080, height: 1350 } });
+  await page.goto(pathToFileURL(join(here, "social-carousel.html")).href + (args.url ? `?url=${encodeURIComponent(args.url)}` : ""));
+  await page.evaluate(async () => { await document.fonts.ready; await window.ready; });
+  await page.pdf({ path: outFile, width: "1080px", height: "1350px", printBackground: true, preferCSSPageSize: true });
+  mkdirSync(pngDir, { recursive: true });
+  const slides = await page.$$(".slide");
+  for (const [i, slide] of slides.entries()) await slide.screenshot({ path: join(pngDir, `${String(i + 1).padStart(2, "0")}.png`) });
+  count = slides.length;
+} finally {
+  await browser.close();
+}
+console.log(`carousel: ${count} slides → ${outFile} and ${pngDir}/`);

@@ -97,7 +97,7 @@ post's thumbnail. Shared styles and timing live in `demo/social/`.
 
 ```bash
 for cut in aha reframe selfhost; do
-  NODE_PATH=$(npm root -g) node site/demo/render-launch.mjs --music Wallpaper.mp3 --film social-$cut.html --out $cut.mp4
+  NODE_PATH=$(npm root -g) node site/demo/render-launch.mjs --music Wallpaper.mp3 --film social-$cut.html --out $cut.mp4 || break
 done
 NODE_PATH=$(npm root -g) node site/demo/render-carousel.mjs --out carousel.pdf   # also writes one PNG per slide
 ```

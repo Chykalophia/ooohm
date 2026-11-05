@@ -60,7 +60,9 @@ export default async function LeaveTypesPage() {
             id: t.id,
             label: t.name,
             content: (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              // Wraps rather than squeezing: when Archive opens its question, the question
+              // takes its own line under the name instead of crowding the name column.
+              <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
                 <div className="min-w-0 space-y-1">
                   <p className="flex flex-wrap items-center gap-2 font-medium">
                     <Chip t={t} />
@@ -70,7 +72,7 @@ export default async function LeaveTypesPage() {
                   </p>
                   <p className="text-sm text-muted">{summary(t)}</p>
                 </div>
-                <div className="shrink-0">
+                <div className="max-w-full">
                   <InlineAction
                     action={archiveLeaveTypeAction}
                     fields={{ id: t.id, archived: "true" }}

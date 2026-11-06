@@ -38,7 +38,8 @@ export async function GET(request: Request): Promise<Response> {
       headers: {
         ...PRIVATE,
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        // The name is a number and a [a-z0-9-] slug; the encoded form keeps it safe whatever it becomes.
+        "Content-Disposition": `attachment; filename="${filename.replace(/[^\w.-]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
       },
     });
   } catch (err) {

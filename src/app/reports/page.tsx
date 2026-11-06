@@ -154,7 +154,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <span aria-hidden className="h-0.5 w-3 rounded-full bg-muted" />
               {nav.year - 1}
             </li>
-            {anyAhead && <li>Dashed months are booked ahead</li>}
+            {report.months.some((m) => m.ahead) && <li>Dashed months are still ahead</li>}
           </ul>
           <details className="text-sm">
             <summary className={cx(textLink, "w-fit cursor-pointer text-muted")}>Show as a table</summary>
@@ -258,7 +258,7 @@ function RunningTotalTable({ report }: { report: LeaveReport }) {
             <tr key={m.month}>
               <th scope="row" className={cx(tableCell, "text-left font-normal")}>
                 {formatMonth(m.month)}
-                {m.ahead && <span className="text-muted"> (with bookings)</span>}
+                {m.ahead && m.total > 0 && <span className="text-muted"> (with bookings)</span>}
               </th>
               <td className={cx(tableCell, "text-right font-medium tabular-nums")}>{report.runningTotal.days[i]}</td>
               <td className={cx(tableCell, "text-right tabular-nums text-muted")}>{report.runningTotal.previous[i]}</td>

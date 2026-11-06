@@ -11,6 +11,7 @@ export type AdminSection =
   | "holidays"
   | "company"
   | "appearance"
+  | "emails"
   | "audit"
   | "webhooks"
   | "api-keys"
@@ -30,12 +31,13 @@ const SECTIONS: { id: AdminSection; href: string; label: string; group?: readonl
   { id: "holidays", href: "/admin/holidays", label: "Holidays" },
   { id: "company", href: "/admin/company", label: "Company" },
   { id: "appearance", href: "/admin/appearance", label: "Appearance" },
+  { id: "emails", href: "/admin/emails", label: "Emails" },
   { id: "audit", href: "/admin/audit", label: "Audit log" },
   { id: "webhooks", href: "/admin/webhooks", label: "Integrations", group: INTEGRATION_SECTIONS.map((s) => s.id) },
 ];
 
 /**
- * The admin sub-navigation: one calm row of eight pills, wrapping on small screens. On
+ * The admin sub-navigation: one calm row of nine pills, wrapping on small screens. On
  * an integration screen a second, quieter row switches between webhooks, API keys and
  * connectors.
  */

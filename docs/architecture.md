@@ -348,9 +348,30 @@ entry, and return it from the service. The sign-in link someone asks for on the 
 the module: Better Auth sends it (`src/lib/auth.ts`, template in `src/lib/sign-in-email.ts`), outside any change.
 `tests/unit/email-output.test.ts` pins every email's output; update its snapshot only for a deliberate change.
 
-Notification emails have fixed subjects, except the request email's, which names the requester and the dates.
-Notes and reasons go in the body only (HTML-escaped there), never in a header; names are collapsed to one line of
-at most 100 characters, so the one that reaches a subject cannot add a header. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
+**Admin → Emails** (`/admin/emails`, `src/server/services/admin-emails.ts`) lets an admin replace one email's subject
+and message with the company's own words. Each catalog type carries its editable copy (`EditableCopy`): a default
+subject and message written with `{{variable}}` placeholders, the variables it offers (`{{requester}}`, `{{dates}}`,
+`{{days}}`, …), and sample data for the editor's live preview. Rules (`src/domain/email-template.ts`):
+
+- Only the subject and the message change. The request's details (the note, who else is off, a decline reason), the
+  buttons, the links, the approve note and the layout stay as OOOhm sends them, so no wording can break an approve
+  link or drop who asked for what.
+- Copy is checked on save: a variable the email does not have, a subject over 150 characters or a message over 2,000
+  is refused (`invalid_input` with the field). A blank field, or one typed exactly as the default, stores nothing.
+- Filling never makes markup: values and the copy itself are HTML-escaped, a value is never read as a template, and
+  the subject is filled onto one line (capped at 200 characters), so nothing typed can add a header.
+- The message's first paragraph leads the email (its heading); later paragraphs (after a blank line) follow the
+  request's details, before the buttons.
+- Copy lives in `email_templates` (one row per company and type). `send.ts` reads it once per change, after commit,
+  with the accent; if it cannot be read, or a saved field names a variable the email no longer has, that email goes
+  out in its default words.
+- Saving and resetting take the company lock, write an audit row (`email_template.updated`, `email_template.reset`,
+  before and after) and an outbox event of the same name ([docs/api.md](api.md)).
+
+By default, notification emails have fixed subjects, except the request email's, which names the requester and the
+dates; a company's own subject (above) is filled the same way. Notes and reasons go in the body only (HTML-escaped
+there), never in a header; names are collapsed to one line of at most 100 characters, so the one that reaches a
+subject cannot add a header. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
 (`renameSelf`), which normalizes it and records it as their own `user.updated`, since a name reaches approvers'
 inboxes and emails. Sends run after commit (`after()` in the app), each in
 its own try/catch; failures are logged as the type's failure event (`leave_email_failed` with the request id and email kind, or

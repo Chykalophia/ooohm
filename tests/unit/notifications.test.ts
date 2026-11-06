@@ -74,6 +74,8 @@ function fakeContext(
       tasks.push(task());
     },
     db: {
+      // No company to read: every query finds nothing.
+      select: () => ({ from: () => ({ where: async () => [] }) }),
       transaction: async (work: (tx: unknown) => Promise<unknown>) => {
         const value = await work({});
         timeline.push(options.commit === "fails" ? "rolled back" : "committed");

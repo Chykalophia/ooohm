@@ -342,15 +342,15 @@ Every email a change sends goes through one module, `src/server/notifications`:
 - `send.ts` sends after commit: it reads the company's accent once (`accent.ts`), builds each email, and isolates
   each send.
 
-A service returns `{ result, notify }` from `commitThenNotify(ctx, companyId, work)`, where each notification is
-`{ type, to, data }`; it never renders or sends an email itself. To add an email, write its template, add a catalog
+A service's `work` callback returns `{ result, notify }` to `commitThenNotify(ctx, companyId, work)`, which returns
+`result` once the change commits; each notification is `{ type, to, data }`. A service never renders or sends an email itself. To add an email, write its template, add a catalog
 entry, and return it from the service. The sign-in link someone asks for on the sign-in page is the one email outside
 the module: Better Auth sends it (`src/lib/auth.ts`, template in `src/lib/sign-in-email.ts`), outside any change.
 `tests/unit/email-output.test.ts` pins every email's output; update its snapshot only for a deliberate change.
 
-Notification emails have fixed subjects. Names, notes and reasons go in
-the body only (HTML-escaped there), never in a header; names are also collapsed to one line of at most 100
-characters. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
+Notification emails have fixed subjects, except the request email's, which names the requester and the dates.
+Notes and reasons go in the body only (HTML-escaped there), never in a header; names are collapsed to one line of
+at most 100 characters, so the one that reaches a subject cannot add a header. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
 (`renameSelf`), which normalizes it and records it as their own `user.updated`, since a name reaches approvers'
 inboxes and emails. Sends run after commit (`after()` in the app), each in
 its own try/catch; failures are logged as the type's failure event (`leave_email_failed` with the request id and email kind, or

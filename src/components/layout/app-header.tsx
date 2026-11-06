@@ -57,6 +57,9 @@ function jumpsFor(nav: HeaderNav, approvals: boolean): JumpItem[] {
   ];
 }
 
+/** Phones: "Request time off" on its own row, full width, 16px (8px gap + 8px) below the links. */
+const PHONE_FULL_WIDTH = "max-sm:mt-2 max-sm:w-full max-sm:py-2.5";
+
 function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
     <Link
@@ -83,7 +86,10 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
  *
  * The header is the same size, with every link in the same place, on every page: the
  * current link's bold never changes its width ({@link SteadyLabel}), and on the
- * dashboard an invisible copy of "Request time off" keeps its place. ⌘K opens
+ * dashboard an invisible copy of "Request time off" keeps its place. On phones the
+ * button takes a row of its own, full width and 16px under the links, so a thumb can't
+ * catch a link by mistake; the dashboard's copy is dropped there instead of leaving a
+ * blank row. ⌘K opens
  * {@link JumpMenu} with the same screens.
  */
 export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSection }) {
@@ -98,7 +104,7 @@ export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSec
       <Link href="/" className={cx("rounded-md", focusRing)}>
         <Logo />
       </Link>
-      <nav aria-label="Main" className="app-nav flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+      <nav aria-label="Main" className="app-nav flex flex-wrap items-center gap-x-5 gap-y-2 text-sm max-sm:w-full">
         {nav.member && (
           <>
             <NavLink href="/calendar" active={current === "calendar"}>
@@ -130,11 +136,11 @@ export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSec
         {nav.member &&
           (current === "home" ? (
             // Holds the button's place (visibility: hidden, so it is neither seen, read nor focused).
-            <span aria-hidden className={cx(buttonClass("accent", "sm"), "invisible")}>
+            <span aria-hidden className={cx(buttonClass("accent", "sm"), "invisible max-sm:hidden")}>
               Request time off
             </span>
           ) : (
-            <Link href={`/#${REQUEST_FORM_ID}`} className={buttonClass("accent", "sm")}>
+            <Link href={`/#${REQUEST_FORM_ID}`} className={cx(buttonClass("accent", "sm"), PHONE_FULL_WIDTH)}>
               Request time off
             </Link>
           ))}

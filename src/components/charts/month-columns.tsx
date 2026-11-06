@@ -29,7 +29,7 @@ export function MonthColumns({ columns, compareLabel }: { columns: MonthColumn[]
   return (
     <div aria-hidden className="space-y-2">
       <div className="relative grid h-48 grid-cols-12 items-end gap-1.5 border-b border-border sm:gap-2.5">
-        {columns.map((c) => (
+        {columns.map((c, i) => (
           <div key={c.label} className="group relative flex h-full items-end justify-center">
             <div
               className={`flex w-full max-w-9 flex-col-reverse gap-[2px] ${c.ahead ? "opacity-55" : ""}`}
@@ -46,7 +46,7 @@ export function MonthColumns({ columns, compareLabel }: { columns: MonthColumn[]
             {c.compare > 0 && (
               <div className="pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-foreground/45" style={{ bottom: `calc(${(c.compare / max) * 100}% - 1px)` }} />
             )}
-            <ChartTooltip>
+            <ChartTooltip align={i < 2 ? "start" : i > columns.length - 3 ? "end" : "center"}>
               <p className="font-medium">{c.title}</p>
               {c.segments.map((s) => (
                 <p key={s.key} className="flex items-center gap-1.5">

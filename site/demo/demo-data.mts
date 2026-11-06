@@ -92,7 +92,7 @@ const reqs: Req[] = [
 ];
 // History for the Reports screen: four earlier years and this year up to October, all
 // approved, from a fixed seed so every run draws the same charts. Summer and December
-// are busiest, and each year takes a little more time off than the one before.
+// are busiest, and time off grows over the years (not every year: 2023 dips).
 function seeded(seed: number) {
   return () => ((seed = (seed * 1664525 + 1013904223) % 2 ** 32) / 2 ** 32);
 }

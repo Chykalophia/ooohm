@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { leaveRequestDays, leaveRequests, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 
@@ -14,6 +14,8 @@ export async function listReportPeople(ex: Executor, companyId: string, filter: 
     .where(
       and(
         eq(user.companyId, companyId),
+        // A full scrub leaves nothing to report on; a delete that kept records keeps its history.
+        or(isNull(user.deletedAt), eq(user.deletionMode, "records_kept")),
         filter.managerId ? eq(user.managerId, filter.managerId) : undefined,
         filter.departmentId ? eq(user.departmentId, filter.departmentId) : undefined,
       ),

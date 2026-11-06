@@ -19,7 +19,7 @@ export function YearColumns({ years }: { years: { year: number; days: number }[]
               className={`w-full max-w-14 rounded-t-[4px] bg-accent ${i === years.length - 1 ? "" : "opacity-45"}`}
               style={{ height: `${(y.days / max) * 80}%`, minHeight: y.days > 0 ? 2 : 0 }}
             />
-            <ChartTooltip>
+            <ChartTooltip align={i === 0 ? "start" : i === years.length - 1 ? "end" : "center"}>
               <p className="font-medium">{y.year}</p>
               <p>{formatDays(y.days)} off</p>
             </ChartTooltip>

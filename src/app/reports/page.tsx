@@ -67,7 +67,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   );
   const departmentId = department?.id ?? null;
   const { totals } = report;
-  const who = scope.kind === "company" ? "everyone in the company" : "the people who report to you";
+  const who = department
+    ? `${scope.kind === "company" ? "everyone" : "the people who report to you"} in ${department.name}`
+    : scope.kind === "company"
+      ? "everyone in the company"
+      : "the people who report to you";
   const typesInMonths = report.leaveTypes.filter((t) => report.months.some((m) => m.byType.some((s) => s.leaveTypeId === t.id)));
   const anyAhead = report.months.some((m) => m.ahead && m.total > 0);
   const change = changeOnLastYear(report);

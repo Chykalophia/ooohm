@@ -71,6 +71,10 @@ describe("allocateYearToMonths", () => {
 
   test("scales to the stored days when the calendar changed since (months still add up to the year)", () => {
     const got = allocateYearToMonths(range, calendar, 2026, 4);
+    assert.deepEqual(got, [
+      { month: "2026-10", days: 1.6 },
+      { month: "2026-11", days: 2.4 },
+    ]);
     assert.equal(
       got.reduce((s, m) => s + m.days, 0),
       4,
@@ -269,7 +273,7 @@ describe("buildLeaveReport", () => {
     );
     assert.deepEqual(report.byDepartment, [
       { departmentId: "dev", name: "Dev", headcount: 2, days: 6, daysPerPerson: 3 },
-      { departmentId: "ops", name: "Ops", headcount: 1, days: 4, daysPerPerson: 4 },
+      { departmentId: "ops", name: "Ops", headcount: 1, days: 4, daysPerPerson: 2 },
       { departmentId: null, name: "No department", headcount: 1, days: 0, daysPerPerson: 0 },
     ]);
   });

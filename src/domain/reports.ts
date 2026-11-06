@@ -179,7 +179,7 @@ export interface LeaveReport {
     peopleOff: number;
     /** Active people the report covers. */
     headcount: number;
-    /** Approved days over the headcount, to one decimal. */
+    /** Active people's approved days over the headcount, to one decimal. */
     daysPerPerson: number;
     /** Requests charging the year, by status. */
     requests: Record<LeaveStatus, number>;
@@ -194,7 +194,7 @@ export interface LeaveReport {
   trend: { year: number; days: number }[];
   /** Leave types with approved days, most first. */
   byType: (ReportLeaveType & { leaveTypeId: string; days: number; requests: number })[];
-  /** Each department, then "No department"; approved days and days per active person. */
+  /** Each department, then "No department": approved days (everyone's) and days per active person (theirs). */
   byDepartment: { departmentId: string | null; name: string; headcount: number; days: number; daysPerPerson: number }[];
   /** Active people, and inactive ones with leave in the year, by name. */
   people: ReportPersonRow[];
@@ -253,6 +253,8 @@ export function buildLeaveReport(input: LeaveReportInput): LeaveReport {
   const approvedOf = (userId: string) => approved.filter((r) => r.userId === userId);
   const active = input.people.filter((p) => p.isActive);
   const approvedDays = addDays(...approved.map((r) => daysIn(r, year)));
+  /** Per person counts only the people still here, over and under the line. */
+  const daysOf = (people: readonly ReportPerson[]) => addDays(...people.flatMap((p) => approvedOf(p.id).map((r) => daysIn(r, year))));
 
   const byType = input.leaveTypes
     .map((t) => {
@@ -267,8 +269,8 @@ export function buildLeaveReport(input: LeaveReportInput): LeaveReport {
     .map(({ departmentId, name }) => {
       const members = input.people.filter((p) => p.departmentId === departmentId);
       const headcount = members.filter((p) => p.isActive).length;
-      const days = addDays(...members.flatMap((p) => approvedOf(p.id).map((r) => daysIn(r, year))));
-      return { departmentId, name, headcount, days, daysPerPerson: perPerson(days, headcount) };
+      const days = daysOf(members);
+      return { departmentId, name, headcount, days, daysPerPerson: perPerson(daysOf(members.filter((p) => p.isActive)), headcount) };
     })
     .filter((d) => d.headcount > 0 || d.days > 0);
 
@@ -307,7 +309,7 @@ export function buildLeaveReport(input: LeaveReportInput): LeaveReport {
       pendingDays: addDays(...inYear.filter((r) => r.status === "pending").map((r) => daysIn(r, year))),
       peopleOff: new Set(approved.map((r) => r.userId)).size,
       headcount: active.length,
-      daysPerPerson: perPerson(approvedDays, active.length),
+      daysPerPerson: perPerson(daysOf(active), active.length),
       requests: { approved: count("approved"), pending: count("pending"), rejected: count("rejected"), cancelled: count("cancelled") },
       medianDecisionHours: median(waits),
       decisions: waits.length,

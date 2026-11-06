@@ -315,11 +315,18 @@ export interface UserDeletionScheduleEventPayload extends PersonAttribution {
   scheduledFor: string;
 }
 
-/** Version 1 payload of every `department.*` event: the department after the change (before, when deleted). */
-export interface DepartmentEventPayload extends PersonAttribution {
+/**
+ * Version 1 payload of every `department.*` event: the department after the change
+ * (before, when deleted). Made by a person, except `department.manager_changed` when a
+ * scheduled scrub deletes the department's manager (`actorId` is then `null`).
+ */
+export interface DepartmentEventPayload extends Attribution {
   departmentId: string;
   name: string;
-  /** Added within version 1: the department's manager (optional), who approves for its people without a manager of their own. */
+  /**
+   * Added within version 1: the department's optional manager, who approves for its
+   * people whose own manager is missing or inactive.
+   */
   managerId: string | null;
 }
 

@@ -216,7 +216,7 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 
 | Type | Payload |
 | --- | --- |
-| `department.created`, `.renamed`, `.deleted`, `.manager_changed` | `departmentId, name, managerId, actorId, actor`. `managerId` (the department's optional manager, who approves for its people without a manager of their own) and `department.manager_changed` were added within version 1. |
+| `department.created`, `.renamed`, `.deleted`, `.manager_changed` | `departmentId, name, managerId, actorId, actor`. `managerId` (the department's optional manager, who approves for its people whose own manager is missing or inactive) and `department.manager_changed` were added within version 1. `actorId` is `null` on a `department.manager_changed` sent when a scheduled scrub deletes the manager. |
 | `level.created`, `.renamed`, `.deleted` | `levelId, name, actorId, actor`. Levels (Intern, Senior) were added within version 1. |
 | `allowance_rule.set`, `.removed` | `ruleId, leaveTypeId, departmentId, levelId, days, actorId, actor`: a yearly allowance of one leave type for a department, a level or both (at least one is set). Added within version 1. The allowance rows it moves each send `balance.adjusted` with `reason: "allowance_rule"`. |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |

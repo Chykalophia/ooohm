@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { createDepartment, listDepartmentsForAdmin, setDepartmentManager } from "@/server/services/admin-departments";
 import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
+import { deletePerson } from "@/server/services/admin-people-deletion";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { addLeaveFor } from "@/server/services/leave-on-behalf";
 import { submitLeaveRequest } from "@/server/services/leave-requests";
@@ -183,5 +184,24 @@ describe("department managers", { skip }, () => {
     const added = await addLeaveFor(ctx, head, bo.id, day(co.pto));
     assert.equal(added.status, "approved");
     await rejectsWith(addLeaveFor(ctx, head, out.id, day(co.pto)), "forbidden");
+  });
+
+  test("deleting a deactivated department manager clears them from the department, audited", async () => {
+    const { co, ctx, design } = await seed();
+    const { boss, head } = co.people;
+    await setDepartmentManager(ctx, boss, design.id, head.id);
+    await deactivatePerson(ctx, boss, head.id);
+
+    await deletePerson(ctx, boss, head.id, { mode: "records_kept", confirmName: "Head" });
+    const [listed] = await listDepartmentsForAdmin(ctx, boss);
+    assert.equal(listed.managerId, null, "no tombstone left managing the department");
+    const audit = await companyAudit(t.db, co.companyId, "department.manager");
+    assert.deepEqual(
+      audit.map((a) => [a.actorId, a.before, a.after]),
+      [
+        [boss.id, { managerId: null }, { managerId: head.id }],
+        [boss.id, { managerId: head.id }, { managerId: null }],
+      ],
+    );
   });
 });

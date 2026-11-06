@@ -102,6 +102,15 @@ export async function setDepartmentManagerRow(tx: Transaction, companyId: string
   return row;
 }
 
+/** Clears `userId` as manager of every department they manage; returns those departments after the change. */
+export async function clearDepartmentsManagedBy(tx: Transaction, companyId: string, userId: string): Promise<DepartmentRow[]> {
+  return tx
+    .update(departments)
+    .set({ managerId: null })
+    .where(and(eq(departments.companyId, companyId), eq(departments.managerId, userId)))
+    .returning(fields);
+}
+
 export async function deleteDepartment(tx: Transaction, companyId: string, id: string): Promise<void> {
   await tx.delete(departments).where(and(eq(departments.id, id), eq(departments.companyId, companyId)));
 }

@@ -21,7 +21,7 @@
  *   magic link; inactive ones cannot. An email that belongs to another company is left
  *   out and reported. The import must leave the company with an active admin.
  * - **Approvals follow OOOhm's rule.** Imported pending requests are routed as OOOhm
- *   would route them now (the requester's manager, else an admin), not to TimeOff's
+ *   would route them now (the requester's manager, else their department's manager, else an admin), not to TimeOff's
  *   stored approver, which stays in the audit row; decided requests keep their decider.
  * - **Audited, announced once.** Every imported row writes an `audit_log` row
  *   (`import.*` actions, `after.source: "import:timeoff"`) in the transaction.
@@ -494,7 +494,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
   // Leave requests
   const requestPlan = plan.requests.filter((r) => !excluded.has(r.personKey));
   // Pending requests go to whoever OOOhm's approval rule picks in the imported org (the
-  // manager, else an admin), not TimeOff's stored approver; decided ones keep TimeOff's decider.
+  // manager, else their department's manager, else an admin), not TimeOff's stored approver; decided ones keep TimeOff's decider.
   const pendingApprover = new Map<string, string | null>();
   const pendingRequesters = [...new Set(requestPlan.filter((r) => r.status === "pending").map((r) => idOf.get(r.personKey)!))];
   if (pendingRequesters.length > 0) {

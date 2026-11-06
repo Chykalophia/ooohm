@@ -50,16 +50,19 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
   const today = todayInTimeZone(company.timezone, now);
   const from = fromEpochDay(toEpochDay(today) - RECENT_DAYS);
   const to = fromEpochDay(toEpochDay(today) + AHEAD_DAYS);
-  const department = person.departmentId ? await findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined;
+  // Only the details and the add form wait on the department (its manager decides them).
+  const [department, manager, holidays, leave] = await Promise.all([
+    person.departmentId ? findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined,
+    person.managerId ? findPerson(ctx.db, actor.companyId, person.managerId) : undefined,
+    listHolidays(ctx.db, actor.companyId, from, to),
+    listPersonLeave(ctx.db, actor.companyId, person.id, from, to),
+  ]);
   const owned = { id: person.id, companyId: actor.companyId, managerId: person.managerId, departmentManagerId: department?.managerId ?? null };
   const showDetails = canSeeLeaveDetails(actor, owned, company.managersSeeDetails);
   const year = yearInTimeZone(company.timezone, now);
   const canAdd = canAddLeaveFor(actor, owned);
 
-  const [manager, holidays, leave, balances, addLeave] = await Promise.all([
-    person.managerId ? findPerson(ctx.db, actor.companyId, person.managerId) : undefined,
-    listHolidays(ctx.db, actor.companyId, from, to),
-    listPersonLeave(ctx.db, actor.companyId, person.id, from, to),
+  const [balances, addLeave] = await Promise.all([
     showDetails ? personBalances(ctx, actor, person, company.allowancePolicy, year) : null,
     canAdd ? addLeaveForm(ctx, actor, today, company.workingDays) : null,
   ]);

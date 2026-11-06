@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { type AgendaItem, yearHasHolidays } from "@/domain/calendar";
+import { isHolidayYear } from "@/domain/holidays";
 import { formatLeaveDates, formatMonth } from "@/lib/format";
 import { getMonthCalendar, getYearCalendar } from "@/server/services/calendar";
 import { AppPage } from "@/components/layout/app-page";
@@ -153,7 +154,8 @@ function NoHolidaysNote({ year, admin }: { year: number; admin: boolean }) {
   return (
     <p className="text-sm text-muted">
       No company holidays have been added for {year} yet.{" "}
-      {admin ? (
+      {/* Admin → Holidays only opens 2000 to 2100; another year would land on this one. */}
+      {admin && isHolidayYear(year) ? (
         <Link href={`/admin/holidays?year=${year}`} className={cx(textLink, "font-medium text-accent-ink")}>
           Add {year}&apos;s holidays
         </Link>

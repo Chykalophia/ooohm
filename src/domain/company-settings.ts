@@ -114,6 +114,6 @@ export const APPROVAL_MODE_LABELS: Readonly<Record<ApprovalMode, { label: string
   required: { label: "Ask first", description: "People ask, and their manager approves before the time off is booked." },
   heads_up: {
     label: "Just let us know",
-    description: "Time off is booked as soon as it's sent. Their manager gets an email about it; nobody has to approve it.",
+    description: "Time off is booked as soon as it's sent. Their manager, or an admin when there isn't one, gets an email about it; nobody has to approve it.",
   },
 };

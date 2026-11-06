@@ -453,7 +453,7 @@ credential) otherwise. Adding a provider is one file implementing `MailTransport
 | Requested (approval turned off) | Requester gets "booked"; their manager (else the fallback admin) gets a heads-up, with who else is off then; no review email |
 | Approved | Requester, with the approver's note if they wrote one |
 | Rejected | Requester, with the reason |
-| Cancelled | Requester, plus the approver unless the approver is the person cancelling; with approval turned off, the person told about self-booked time off is told it's cancelled |
+| Cancelled | Requester, plus the approver unless the approver is the person cancelling; while approval is turned off, cancelling time off the person approved themself also tells their manager now (else the fallback admin) |
 | Recounted by a calendar change | Requester only, saying which holiday or the working days changed; not when only the year split moved |
 
 "Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`, sentences from `src/domain/overlap.ts`)

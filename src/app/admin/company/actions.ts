@@ -18,7 +18,7 @@ const companySchema = z.object({
   approvalMode: formFields.text(20).optional(),
 });
 
-/** Company page: saves the name, time zone, working days, allowance policy, the deletion grace option what managers see of their reports, and whether time off needs approval. */
+/** Company page: saves the name, time zone, working days, allowance policy, the deletion grace option, what managers see of their reports, and whether time off needs approval. */
 export async function updateCompanyAction(_prev: FormState, formData: FormData): Promise<FormState> {
   return adminAction(
     "company_update",

@@ -7,7 +7,7 @@ import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card } from "@/components/ui/card";
 import { CheckboxField, ChoiceChip, Fieldset, SelectField, TextField } from "@/components/ui/fields";
-import { choiceCard } from "@/components/ui/styles";
+import { choiceCard, cx, nativeCheck } from "@/components/ui/styles";
 import { WEEKDAY_NAMES } from "@/lib/format";
 import { ActionForm } from "@/components/forms/action-form";
 
@@ -60,7 +60,7 @@ export default async function CompanyPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               {APPROVAL_MODES.map((mode) => (
                 <label key={mode} className={choiceCard}>
-                  <input type="radio" name="approvalMode" value={mode} defaultChecked={approvalMode === mode} className="mt-1 accent-[var(--accent)]" />
+                  <input type="radio" name="approvalMode" value={mode} defaultChecked={approvalMode === mode} className={cx("mt-1", nativeCheck)} />
                   <span>
                     <span className="block text-sm font-medium">{APPROVAL_MODE_LABELS[mode].label}</span>
                     <span className="block text-xs text-muted">{APPROVAL_MODE_LABELS[mode].description}</span>

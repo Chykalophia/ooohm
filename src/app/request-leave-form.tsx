@@ -68,7 +68,7 @@ export function RequestLeaveForm({
             <p className="text-sm text-muted">It&apos;s approved as you add it, and they get an email about it.</p>
           </>
         )}
-        {!forPerson && headsUp && <p className="text-sm text-muted">It&apos;s booked as you send it, and your manager gets an email about it.</p>}
+        {!forPerson && headsUp && <p className="text-sm text-muted">It&apos;s booked as you send it, and your manager (or an admin, if you don&apos;t have one) gets an email about it.</p>}
         <Fields
           key={key}
           leaveTypes={leaveTypes}

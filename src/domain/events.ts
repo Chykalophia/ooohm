@@ -342,7 +342,8 @@ export interface CompanyEventPayload extends PersonAttribution {
   managersSeeDetails: boolean;
   /**
    * Added within version 1: `required` (time off waits for an approver) or `heads_up`
-   * (booked as it is sent, and the person's manager is told). New values may appear.
+   * (booked as it is sent; the person's active manager, else the fallback admin, is told,
+   * and nobody when there is neither). New values may appear.
    */
   approvalMode: string;
   /** Added within version 1: the theme key everyone sees, e.g. `classic` or `cobalt`. */

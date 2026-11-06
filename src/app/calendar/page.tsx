@@ -56,6 +56,11 @@ function AgendaRow({ item }: { item: AgendaItem<CalendarViewEntry> }) {
         <ColorLabel color={entry.leaveTypeColor} className="font-medium">
           <Link
             href={entry.isMine ? `/requests/${entry.id}` : `/team/${entry.userId}`}
+            aria-label={
+              entry.isMine
+                ? undefined
+                : `${entry.personName}, ${formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}, ${entry.leaveTypeName}: open their page`
+            }
             className="outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent-ink"
           >
             {formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}

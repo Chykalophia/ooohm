@@ -765,7 +765,8 @@ functions in `src/domain/calendar.ts`.
 
 ### Privacy rule
 
-Every member may see who is out, when, and the leave type's name and colour. Nobody sees another person's request
+A member may see who is out, when, and the leave type's name and colour, for the people their calendar scope
+allows (`calendarScopeFor`, above: everyone, unless an admin narrows it for employees). Nobody sees another person's request
 note, decision note or balance on any calendar screen or feed. This is enforced by shape, not by filtering: every
 calendar view and both feeds are built from `CalendarEntry` (`src/domain/calendar.ts`), and the repository's
 calendar queries (`src/server/repositories/calendar.ts`) select only its fields. Notes are left out of the personal

@@ -89,7 +89,8 @@ export class ManagerApprovalRule implements ApprovalRule {
  *
  * Used to re-route pending requests when an admin change moves the right to decide
  * them (the approver is deactivated or demoted from admin, the requester's manager
- * changes, or someone who can take an admin's self-routed request is invited as admin,
+ * changes, the requester moves department, their department's manager changes, or
+ * someone who can take an admin's self-routed request is invited as admin,
  * promoted to admin or reactivated), and at
  * decision time to check that a stored assignment still holds (`canDecide`).
  *

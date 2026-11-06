@@ -196,7 +196,8 @@ export function calendarFeedAuditAction(event: keyof typeof CALENDAR_FEED_EVENT_
 /**
  * `leave.reassigned`: a pending request moved to another approver because an admin
  * changed who may decide it: its approver was deactivated or demoted from admin, the
- * requester's manager changed, or someone was invited as admin, promoted to admin or
+ * requester's manager or department changed, their department's manager changed, or
+ * someone was invited as admin, promoted to admin or
  * reactivated who can now take a request an admin had routed to themself. The actor is
  * always the admin who made that change. Public contract; never rename it.
  */
@@ -318,7 +319,7 @@ export interface UserDeletionScheduleEventPayload extends PersonAttribution {
 export interface DepartmentEventPayload extends PersonAttribution {
   departmentId: string;
   name: string;
-  /** The department's manager (optional), who approves for its people without a manager of their own. */
+  /** Added within version 1: the department's manager (optional), who approves for its people without a manager of their own. */
   managerId: string | null;
 }
 

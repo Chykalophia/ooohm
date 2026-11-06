@@ -500,8 +500,8 @@ export interface DeactivationResult {
  * drop out of approvals, calendars and emails. Their own requests stay as they are.
  *
  * Pending requests they were assigned to approve move to whoever the approval rule
- * now picks for each requester (their active manager, else the longest-standing other
- * active admin; never self-approval), each with a `leave.reassigned` event and a
+ * now picks for each requester (their active manager, else their department's active
+ * manager, else the longest-standing other active admin; never self-approval), each with a `leave.reassigned` event and a
  * review email to the new approver after commit.
  *
  * API keys and webhook endpoints they created stay (they belong to the company); the

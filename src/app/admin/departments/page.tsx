@@ -70,7 +70,7 @@ export default async function DepartmentsPage() {
                           ? [...managerOptions, { value: d.managerId, label: `${d.managerName} (deactivated)` }]
                           : managerOptions
                       }
-                      hint="Approves for people here who have no manager of their own, and can see their time off like a manager."
+                      hint="Approves for people here who have no active manager of their own. Sees their balances and notes like a manager, when the company lets managers see them."
                     />
                   </ActionForm>
                 </Reveal>

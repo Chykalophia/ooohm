@@ -102,8 +102,8 @@ export const departments = pgTable(
       .references(() => companies.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     /**
-     * Optional. Approves requests from the department's people who have no manager of
-     * their own, and is treated like a manager for its people's leave details and for
+     * Optional. Approves requests from the department's people whose own manager is
+     * missing or inactive, and is treated like a manager for its people's leave details and for
      * adding time off for them.
      */
     managerId: text("manager_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),

@@ -82,7 +82,8 @@ export async function previewLeaveFor(
 
 /**
  * Adds time off for someone else, approved on the spot: an admin for anyone in their
- * company, or a manager for the people who report to them directly. For when the person
+ * company, or a manager for the people who report to them directly or whose department
+ * they manage. For when the person
  * can't or didn't ask themself (they called in sick, or the leave was agreed in person).
  *
  * Counted and checked exactly as the person's own request would be
@@ -95,8 +96,8 @@ export async function previewLeaveFor(
  *
  * @returns The stored request, `approved`, with `personName`: how a confirmation names them.
  * @throws DomainError as {@link assessLeaveRequest}, plus `not_found` (nobody active
- *   by that id in the company), `forbidden` (not an admin or their manager, or the
- *   actor themself) and `rate_limited` (as for the person's own submits).
+ *   by that id in the company), `forbidden` (not an admin, their manager or their
+ *   department's manager, or the actor themself) and `rate_limited` (as for the person's own submits).
  */
 export async function addLeaveFor(
   ctx: ServiceContext,

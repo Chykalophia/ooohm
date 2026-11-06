@@ -412,8 +412,8 @@ optional reason (max 500 characters) stored in `decision_note`. Every status cha
 
 **A stored assignment grants the right to decide only while it still matches the approval rule** (`canDecide`,
 `src/domain/leave-permissions.ts`). When the right rests on the assignment (a non-admin approver, or an admin
-deciding their own request routed to themself), `decideLeaveRequest` reads the requester, their manager and the
-active admins in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
+deciding their own request routed to themself), `decideLeaveRequest` reads the requester, their manager, their
+department's manager and the active admins (`loadApprovalContext`, `src/server/services/approval-routing.ts`) in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
 `forbidden` and the request is left to the admins, who see every pending request. Its compare-and-set then also
 requires `approver_id` to still be the actor, so it loses (`conflict`) to a concurrent re-route. This closes the
 window a submit leaves open: submit reads the manager and the admins without locking them (a shared lock on the

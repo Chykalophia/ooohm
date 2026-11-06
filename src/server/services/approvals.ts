@@ -20,7 +20,8 @@ import {
 } from "@/server/repositories/leave-requests";
 import { findCompanySettings } from "@/server/repositories/calendar";
 import { findLeaveType } from "@/server/repositories/leave-types";
-import { findMember, listActiveAdmins } from "@/server/repositories/users";
+import { findMember } from "@/server/repositories/users";
+import { loadApprovalContext } from "./approval-routing";
 import { alsoOffFor } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify } from "./notify";
@@ -58,14 +59,12 @@ function scopeFor(actor: Actor): InboxScope {
 
 /**
  * Who the approval rule (minus self-approval) picks for `requesterId`'s pending
- * requests now, read inside `tx`: three reads at most.
+ * requests now, read inside `tx`: five reads at most.
  */
 async function currentApprover(tx: Transaction, companyId: string, requesterId: string): Promise<string | null> {
-  const [requester, admins] = await Promise.all([findMember(tx, companyId, requesterId), listActiveAdmins(tx, companyId)]);
+  const requester = await findMember(tx, companyId, requesterId);
   if (!requester) return null;
-  const manager =
-    requester.managerId && requester.managerId !== requester.id ? ((await findMember(tx, companyId, requester.managerId)) ?? null) : null;
-  return reassignApprover(new ManagerApprovalRule(), { requester, manager, admins });
+  return reassignApprover(new ManagerApprovalRule(), await loadApprovalContext(tx, companyId, requester));
 }
 
 /**

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type Actor, toActor } from "@/domain/actor";
 import { byUser } from "@/domain/change-source";
-import { canAddLeaveFor, canCancel, canDecide, decidesByAssignment, type RequestOwnership } from "@/domain/leave-permissions";
+import { canAddLeaveFor, canCancel, canDecide, canSeeLeaveDetails, decidesByAssignment, type RequestOwnership } from "@/domain/leave-permissions";
 
 const actor = (id: string, role: Actor["role"], companyId = "c1"): Actor => ({ id, companyId, role, canSelfApprove: false, source: byUser(id) });
 const request = (over: Partial<RequestOwnership> = {}): RequestOwnership => ({
@@ -84,11 +84,21 @@ test("an actor needs a company; unknown roles degrade to employee; a session act
 });
 
 test("time off can be added for someone by an admin of their company or their direct manager, never for oneself", () => {
-  const ana = { id: "ana", companyId: "c1", managerId: "mgr" };
+  const ana = { id: "ana", companyId: "c1", managerId: "mgr", departmentManagerId: null };
   assert.equal(canAddLeaveFor(actor("mgr", "manager"), ana), true);
   assert.equal(canAddLeaveFor(actor("mgr", "employee"), ana), true, "managing someone is the reporting line, not the role");
   assert.equal(canAddLeaveFor(actor("boss", "admin"), ana), true);
   assert.equal(canAddLeaveFor(actor("other", "manager"), ana), false);
   assert.equal(canAddLeaveFor(actor("ana", "admin"), ana), false);
   assert.equal(canAddLeaveFor(actor("boss", "admin", "c2"), ana), false);
+});
+
+test("a department's manager counts as a manager for its people: details while the company allows, and adding time off", () => {
+  const ana = { id: "ana", companyId: "c1", managerId: "mgr", departmentManagerId: "head" };
+  assert.equal(canAddLeaveFor(actor("head", "employee"), ana), true);
+  assert.equal(canSeeLeaveDetails(actor("head", "manager"), ana, true), true);
+  assert.equal(canSeeLeaveDetails(actor("head", "manager"), ana, false), false, "the company keeps details from managers");
+  assert.equal(canSeeLeaveDetails(actor("mgr", "manager"), ana, true), true);
+  assert.equal(canSeeLeaveDetails(actor("other", "manager"), ana, true), false);
+  assert.equal(canAddLeaveFor(actor("ana", "employee"), { ...ana, departmentManagerId: "ana" }), false, "never for oneself");
 });

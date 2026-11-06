@@ -1,29 +1,35 @@
 import type { Metadata } from "next";
 import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
 import { formatCount } from "@/lib/format";
-import { listDepartmentsForAdmin } from "@/server/services/admin-departments";
+import { listDepartmentManagerChoices, listDepartmentsForAdmin } from "@/server/services/admin-departments";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card, Item, ItemList } from "@/components/ui/card";
-import { TextField } from "@/components/ui/fields";
+import { SelectField, TextField } from "@/components/ui/fields";
 import { ActionForm } from "@/components/forms/action-form";
 import { InlineAction } from "@/components/forms/inline-action";
 import { Reveal } from "@/components/forms/reveal";
 import { outlineButton } from "@/components/ui/styles";
-import { createDepartmentAction, deleteDepartmentAction, renameDepartmentAction } from "@/app/admin/departments/actions";
+import {
+  createDepartmentAction,
+  deleteDepartmentAction,
+  renameDepartmentAction,
+  setDepartmentManagerAction,
+} from "@/app/admin/departments/actions";
 
 export const metadata: Metadata = { title: "Departments · Admin · OOOhm" };
 
 export default async function DepartmentsPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const departments = await listDepartmentsForAdmin(ctx, actor);
+  const [departments, people] = await Promise.all([listDepartmentsForAdmin(ctx, actor), listDepartmentManagerChoices(ctx, actor)]);
+  const managerOptions = [{ value: "", label: "No department manager" }, ...people.map((p) => ({ value: p.id, label: p.label }))];
 
   return (
     <AdminShell
       nav={nav}
       section="departments"
       title="Departments"
-      description="Group people so the team view can show one department at a time. Approvals follow each person's manager, not their department."
+      description="Group people so the team view can show one department at a time. A department can have a manager, who approves for its people that have no manager of their own."
     >
       <Card aria-label="Add a department">
         <ActionForm action={createDepartmentAction} submitLabel="Add department" pendingLabel="Adding…" resetOnSuccess className="space-y-4">
@@ -43,7 +49,31 @@ export default async function DepartmentsPage() {
                   {d.members === 0 ? "Nobody" : formatCount(d.members, "person", "people")}
                 </p>
               </div>
+              <p className="text-sm text-muted">{d.managerName ? `Managed by ${d.managerName}` : "No department manager"}</p>
               <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+                <Reveal label={d.managerId ? "Change manager" : "Set a manager"} ariaLabel={`Change the manager of ${d.name}`}>
+                  <ActionForm
+                    action={setDepartmentManagerAction}
+                    submitLabel="Save"
+                    pendingLabel="Saving…"
+                    buttonClassName={outlineButton}
+                    className="space-y-3"
+                  >
+                    <input type="hidden" name="id" value={d.id} />
+                    <SelectField
+                      label={`Manager of ${d.name}`}
+                      name="managerId"
+                      optional
+                      defaultValue={d.managerId ?? ""}
+                      options={
+                        d.managerId && !people.some((p) => p.id === d.managerId)
+                          ? [...managerOptions, { value: d.managerId, label: `${d.managerName} (deactivated)` }]
+                          : managerOptions
+                      }
+                      hint="Approves for people here who have no active manager of their own. Sees their balances and notes like a manager, when the company lets managers see them."
+                    />
+                  </ActionForm>
+                </Reveal>
                 <Reveal label="Rename" ariaLabel={`Rename ${d.name}`}>
                   <ActionForm action={renameDepartmentAction} submitLabel="Save" pendingLabel="Saving…" buttonClassName={outlineButton} className="space-y-3">
                     <input type="hidden" name="id" value={d.id} />

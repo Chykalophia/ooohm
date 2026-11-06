@@ -70,8 +70,8 @@ export const SUBMIT_WINDOW_MINUTES = 10;
  *
  * The company's approval mode picks the rule ({@link approvalRuleFor}) unless `rule` is
  * given. The request is approved on the spot when the rule says so (self-approval, or
- * every request while approval is turned off, when the person's manager is told
- * instead of asked); otherwise it waits for the approver it was routed to. Every transition writes
+ * every request while approval is turned off, when the manager, else the fallback
+ * admin, is told instead of asked); otherwise it waits for the approver it was routed to. Every transition writes
  * `audit_log` and `events_outbox` rows in the same transaction, and emails go out only
  * after commit.
  *

@@ -30,7 +30,7 @@ export function RequestLeaveSentence({
   return (
     <Section id={REQUEST_FORM_ID} title={headsUp ? "Book time off" : "Request time off"} surface className="scroll-mt-6 space-y-4">
       <form action={dispatch} onSubmit={onSubmit} className="space-y-4">
-        <SentenceFields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} />
+        <SentenceFields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} headsUp={headsUp} />
         <SubmitRow state={state} pending={pending} label={headsUp ? "Book it" : "Send request"} />
       </form>
     </Section>
@@ -61,11 +61,14 @@ function SentenceFields({
   leaveTypes,
   defaultDate,
   justSubmitted,
+  headsUp,
 }: {
   leaveTypes: LeaveTypeOption[];
   defaultDate: string;
   justSubmitted: boolean;
+  headsUp: boolean;
 }) {
+  const noteFor = headsUp ? "your manager" : "your approver";
   const {
     leaveTypeId,
     setLeaveTypeId,
@@ -130,13 +133,13 @@ function SentenceFields({
 
       <details className="group text-sm">
         <summary className={cx("w-fit cursor-pointer rounded-md font-medium text-accent-ink marker:content-none", focusRing)}>
-          Add a note for your approver
+          Add a note for {noteFor}
         </summary>
         <textarea
           name="note"
           rows={2}
           maxLength={NOTE_MAX_LENGTH}
-          aria-label="Note for your approver"
+          aria-label={`Note for ${noteFor}`}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           className={cx(fieldClass(), "mt-2 resize-y")}

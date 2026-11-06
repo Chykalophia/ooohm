@@ -88,6 +88,12 @@ describe("company logo", { skip }, () => {
     const audit = await companyAudit(t.db, co.companyId, "company.");
     assert.equal(audit.length, 3, "upload, replace, remove; removing nothing records nothing");
     assert.equal((audit[2].after as { logo: unknown }).logo, null);
+    const events = await companyEvents(t.db, co.companyId, "company.updated");
+    assert.deepEqual(
+      events.map((e) => (e.payload as { logo: { sha256: string } | null }).logo?.sha256 ?? null),
+      [sha(first), sha(jpeg), null],
+      "upload, replace and remove are each announced once",
+    );
   });
 
   test("the logo route answers a bare 404 for anything but a stored logo", async () => {

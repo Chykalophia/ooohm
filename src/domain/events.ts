@@ -1,6 +1,7 @@
 import type { CalendarDate } from "./calendar-date";
 import type { FeedKind } from "./calendar-feed";
 import type { Role } from "./actor";
+import type { LogoType } from "./company-logo";
 import type { ChangeProcess, ChangeSource, PersonChangeSource } from "./change-source";
 import type { DayPortion, LeaveStatus } from "./leave-request";
 
@@ -354,7 +355,7 @@ export interface CompanyEventPayload extends PersonAttribution {
    * Added within version 1: the company's logo (its SHA-256, `image/png` or `image/jpeg`,
    * and its size in pixels), or null for none. The file is at `/logo/<sha256>.<png|jpg>`.
    */
-  logo: { sha256: string; contentType: string; width: number; height: number } | null;
+  logo: { sha256: string; contentType: LogoType; width: number; height: number } | null;
 }
 
 /**

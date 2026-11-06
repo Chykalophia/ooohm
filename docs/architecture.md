@@ -285,7 +285,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId` |
+| `company.updated` | Company settings, appearance or logo saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, logo, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -1012,7 +1012,7 @@ the root layout puts on `<html>` as `data-layout` (left off for `standard`). Eac
 carry: it changes spacing, shape, type size, surface treatment and navigation, never content or actions. Colours
 stay derived from the theme (a tinted card or ground, a darker grey for text on it), so an admin can try one on the
 whole company and switch back.
-`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle` and `layout`.
+`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle`, `layout` and `logo`.
 
 The same page sets the company's logo (`updateCompanyLogo`, `removeCompanyLogo`). The file is judged by its bytes,
 never its name or claimed type (`readLogoImage`, `src/domain/company-logo.ts`): PNG or JPEG only, up to 512 KB and 4096

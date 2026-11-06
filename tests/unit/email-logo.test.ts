@@ -29,6 +29,12 @@ test("email logo: without a logo, or without a public URL to point at, the wordm
   assert.match(emailDocument("<p>x</p>", DEFAULT_EMAIL_ACCENT, undefined, "Hi"), />OOOhm<\/td>/);
 });
 
+test("email logo: a JPEG logo is linked as .jpg", () => {
+  const accent = emailAccent({ ...company, logoType: "image/jpeg" }, "https://hr.example.com");
+  assert.equal(accent.logo?.src, `https://hr.example.com/logo/${SHA}.jpg`);
+  assert.ok(renderSignInEmail("https://hr.example.com/x", accent).html.includes(`<img src="https://hr.example.com/logo/${SHA}.jpg"`));
+});
+
 test("email logo: the app URL's trailing slash does not double up", () => {
   assert.equal(emailAccent(company, "https://hr.example.com/").logo?.src, `https://hr.example.com/logo/${SHA}.png`);
 });

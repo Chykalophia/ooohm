@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { refresh } from "next/cache";
 import { z } from "zod";
 import { type DomainError, isDomainError } from "@/domain/errors";
 import { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport } from "@/server/services/admin-people-import";
@@ -70,6 +71,9 @@ export async function peopleImportAction(_prev: ImportState, formData: FormData)
       try {
         if (input.intent === "check") return await check();
         const result = await importPeople(ctx, actor, { csv, sendInvites: input.sendInvites });
+        // The page keeps showing the outcome; this only drops cached copies of other
+        // pages (People), so going back shows the new people.
+        refresh();
         if (result.added === 0) {
           return { status: "imported", id: randomUUID(), message: "Nobody was added: everyone in the file already has an account." };
         }

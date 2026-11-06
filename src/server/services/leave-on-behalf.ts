@@ -11,7 +11,7 @@ import type { Executor } from "@/db/types";
 import type { ServiceContext } from "@/server/context";
 import { insertRequestDays } from "@/server/repositories/balances";
 import { findCompany, shareLockCompany } from "@/server/repositories/companies";
-import { countRecentRequests, insertLeaveRequest, lockLeaveRequest, type LeaveRequestRow, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
+import { countRecentRequests, findLeaveRequest, insertLeaveRequest, lockLeaveRequest, type LeaveRequestRow, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
 import { findLeaveType } from "@/server/repositories/leave-types";
 import { findPerson, lockPerson, type PersonRow } from "@/server/repositories/users";
 import { assessLeaveRequest, draftRange, type LeaveDraft } from "./balances";
@@ -177,13 +177,17 @@ export async function removeLeaveFor(ctx: ServiceContext, actor: Actor, requestI
   if (!isUuid(requestId)) throw new DomainError("not_found");
 
   return commitThenNotify(ctx, async (tx) => {
-    const before = await lockLeaveRequest(tx, actor.companyId, requestId);
-    if (!before) throw new DomainError("not_found");
-    // Locked, so an admin moving them to another manager can't land between the check and the change.
-    const person = await lockPerson(tx, actor.companyId, before.userId);
+    // Whose it is, unlocked; then the person, then the request: the order a manager change locks
+    // in (person, then their requests), so the two can never deadlock. The person stays locked,
+    // so an admin moving them to another manager can't land between the check and the change.
+    const owner = await findLeaveRequest(tx, actor.companyId, requestId);
+    if (!owner) throw new DomainError("not_found");
+    const person = await lockPerson(tx, actor.companyId, owner.userId);
     if (!person || !canCorrectLeaveFor(actor, { id: person.id, companyId: actor.companyId, managerId: person.managerId })) {
       throw new DomainError("forbidden");
     }
+    const before = await lockLeaveRequest(tx, actor.companyId, requestId);
+    if (!before || before.userId !== person.id) throw new DomainError("not_found");
     const company = await findCompany(tx, actor.companyId);
     if (!company) throw new DomainError("no_company");
     assertRemovableOn(before, todayInTimeZone(company.timezone, ctx.now()));

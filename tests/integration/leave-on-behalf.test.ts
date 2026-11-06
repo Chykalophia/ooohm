@@ -237,7 +237,7 @@ describe("leave requests: added for someone by a manager or admin", { skip }, ()
       assert.deepEqual((await getTeamMember(ctx, ana, ana.id)).earlier, []);
     });
 
-    test("a manager who loses the person mid-removal is refused: the person is locked first", async () => {
+    test("a manager who is no longer the person's manager is refused when removing their leave", async () => {
       const co = await seed();
       const ctx = createTestContext(t.db, { now });
       const { mo, ana, boss } = co.people;

@@ -79,6 +79,31 @@ export function buildFeedCalendar(content: FeedContent, generatedAt: Date): IcsC
 }
 
 /** The calendar name subscribers see, e.g. "OOOhm: Who's out at Acme". */
+/** A feed's calendar name without the company: what a subscribe link offers, where the company isn't known. */
+export const FEED_SHORT_NAMES: Record<FeedKind, string> = { personal: "OOOhm: My time off", team: "OOOhm: Who's out" };
+
 export function feedCalendarName(kind: FeedKind, companyName: string): string {
-  return kind === "personal" ? "OOOhm: My time off" : `OOOhm: Who's out at ${companyName}`;
+  return kind === "personal" ? FEED_SHORT_NAMES.personal : `${FEED_SHORT_NAMES.team} at ${companyName}`;
+}
+
+/** One-tap ways to subscribe to a feed, so a new link never has to be copied by hand. */
+export interface AddToCalendarLinks {
+  google: string;
+  /** `webcal://`: Apple Calendar on Mac, iPhone and iPad, and most other desktop apps. */
+  apple: string;
+  /** Outlook on the web (Microsoft 365). */
+  outlook: string;
+}
+
+/**
+ * The subscribe links for a feed's `url` (`https://…/api/ics/<token>.ics`). Each one
+ * carries the secret link to that calendar service, which is what subscribing does anyway.
+ */
+export function addToCalendarLinks(url: string, name: string): AddToCalendarLinks {
+  const webcal = url.replace(/^https?:\/\//, "webcal://");
+  return {
+    google: `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`,
+    apple: webcal,
+    outlook: `https://outlook.office.com/calendar/0/addfromweb?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`,
+  };
 }

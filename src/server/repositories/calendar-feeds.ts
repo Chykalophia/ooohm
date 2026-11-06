@@ -65,6 +65,7 @@ export async function listLiveFeeds(ex: Executor, userId: string) {
       kind: calendarFeedTokens.kind,
       createdAt: calendarFeedTokens.createdAt,
       lastUsedAt: calendarFeedTokens.lastUsedAt,
+      tokenHint: calendarFeedTokens.tokenHint,
     })
     .from(calendarFeedTokens)
     .where(
@@ -114,7 +115,7 @@ export async function revokeAllLiveFeeds(tx: Transaction, userId: string, at: Da
 
 export async function insertFeed(
   tx: Transaction,
-  values: { companyId: string; userId: string; kind: FeedKind; tokenHash: string; createdAt: Date },
+  values: { companyId: string; userId: string; kind: FeedKind; tokenHash: string; tokenHint: string; createdAt: Date },
 ): Promise<CalendarFeedRow> {
   const [row] = await tx.insert(calendarFeedTokens).values(values).returning();
   return row;

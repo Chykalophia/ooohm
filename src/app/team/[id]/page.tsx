@@ -11,8 +11,14 @@ import { ItemList, Item } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { BackLink, Section } from "@/components/ui/section";
 import { textLink } from "@/components/ui/styles";
+import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { RequestLeaveForm } from "@/app/request-leave-form";
 import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
+import { removeLeaveForAction } from "@/app/actions";
+import { RemoveLeave } from "./remove-leave";
+
+/** Where focus goes once a removed entry leaves its list: the "Coming up" heading, which is always shown. */
+const UPCOMING_HEADING = "upcoming-heading";
 
 /** The teammate, loaded once per request for both the tab title and the page. */
 const loadMember = cache(async (id: string) => {
@@ -37,7 +43,8 @@ type Entry = Member["upcoming"][number];
  * One teammate, opened from Team. Everyone sees what the team calendar shows: who they
  * are and their leave around now. The person, admins and (when the company allows it)
  * their manager also see their balances and the notes on their requests. Admins and
- * their direct manager can add time off for them, approved as it is added.
+ * their direct manager can add time off for them, approved as it is added, and remove
+ * approved time off of this year (past days included) to correct the record, with a reason.
  */
 export default async function TeamMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -60,13 +67,20 @@ export default async function TeamMemberPage({ params }: { params: Promise<{ id:
         </p>
       )}
 
-      <Section title="Coming up">
+      <Section title="Coming up" headingId={UPCOMING_HEADING}>
         {member.upcoming.length === 0 ? <p className="text-muted">Nothing planned.</p> : <LeaveList entries={member.upcoming} />}
       </Section>
 
       {member.recent.length > 0 && (
         <Section title={`In the last ${member.recentDays} days`}>
           <LeaveList entries={member.recent} />
+        </Section>
+      )}
+
+      {/* Only their manager or an admin gets these, to correct them. */}
+      {member.earlier.length > 0 && (
+        <Section title={`Earlier in ${member.year}`}>
+          <LeaveList entries={member.earlier} />
         </Section>
       )}
 
@@ -88,24 +102,35 @@ function LeaveList({ entries }: { entries: readonly Entry[] }) {
   return (
     <ItemList>
       {entries.map((e) => (
-        <Item key={e.id} className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <ColorLabel color={e.leaveTypeColor} className="font-medium">
-              {formatLeaveDates(e.startDate, e.endDate, e.dayPortion)}
-            </ColorLabel>
-            <p className="text-sm text-muted">
-              {e.leaveTypeName}
-              {e.details && ` · ${formatDays(e.details.days)}`}
-            </p>
-            {e.details?.note && <p className="text-sm break-words text-muted">{e.details.note}</p>}
-            {e.details?.decisionNote && (
-              <p className="text-sm break-words">
-                <span className="text-muted">Note from approver: </span>
-                {e.details.decisionNote}
+        <Item key={e.id} className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <ColorLabel color={e.leaveTypeColor} className="font-medium">
+                {formatLeaveDates(e.startDate, e.endDate, e.dayPortion)}
+              </ColorLabel>
+              <p className="text-sm text-muted">
+                {e.leaveTypeName}
+                {e.details && ` · ${formatDays(e.details.days)}`}
               </p>
-            )}
+              {e.details?.note && <p className="text-sm break-words text-muted">{e.details.note}</p>}
+              {e.details?.decisionNote && (
+                <p className="text-sm break-words">
+                  <span className="text-muted">Note from approver: </span>
+                  {e.details.decisionNote}
+                </p>
+              )}
+            </div>
+            {e.status === "pending" && <StatusBadge status="pending" />}
           </div>
-          {e.status === "pending" && <StatusBadge status="pending" />}
+          {e.removable && (
+            <RemoveLeave
+              action={removeLeaveForAction}
+              requestId={e.id}
+              dates={formatLeaveDates(e.startDate, e.endDate, e.dayPortion)}
+              maxLength={NOTE_MAX_LENGTH}
+              focusOnSuccess={UPCOMING_HEADING}
+            />
+          )}
         </Item>
       ))}
     </ItemList>

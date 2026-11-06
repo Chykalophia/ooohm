@@ -79,3 +79,13 @@ export function canAddLeaveFor(actor: Actor, person: PersonOwnership): boolean {
   if (person.companyId !== actor.companyId || person.id === actor.id) return false;
   return isAdmin(actor) || person.managerId === actor.id;
 }
+
+/**
+ * Whether `actor` may correct `person`'s time off, removing approved leave that was
+ * recorded wrongly (past leave included): the same people who may add it for them
+ * ({@link canAddLeaveFor}), an admin of their company or their direct manager. Never
+ * for oneself.
+ */
+export function canCorrectLeaveFor(actor: Actor, person: PersonOwnership): boolean {
+  return canAddLeaveFor(actor, person);
+}

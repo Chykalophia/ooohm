@@ -4,7 +4,7 @@ import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
 import type { LeaveReport } from "@/domain/reports";
 import { formatCount, formatDays, formatMonth, formatWait } from "@/lib/format";
 import { getLeaveReport } from "@/server/services/reports";
-import { departmentParamSchema, readParam, yearParamSchema } from "@/app/_lib/calendar-input";
+import { readReportQuery } from "@/app/_lib/report-input";
 import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
 import { BarList } from "@/components/charts/bar-list";
 import { type MonthColumn, MonthColumns } from "@/components/charts/month-columns";
@@ -57,14 +57,7 @@ function changeOnLastYear(report: LeaveReport): string | undefined {
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="reports" />;
-  const params = await searchParams;
-  const year = readParam(yearParamSchema, params.year);
-  const { nav, departments, department, scope, report } = await orNotFound(
-    getLeaveReport(page.ctx, page.actor, {
-      year: year === undefined ? undefined : Number(year),
-      departmentId: readParam(departmentParamSchema, params.department),
-    }),
-  );
+  const { nav, departments, department, scope, report } = await orNotFound(getLeaveReport(page.ctx, page.actor, readReportQuery(await searchParams)));
   const departmentId = department?.id ?? null;
   const { totals } = report;
   const who = department

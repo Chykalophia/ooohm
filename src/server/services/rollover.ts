@@ -10,7 +10,7 @@ import { listCompanies } from "@/server/repositories/calendar";
 import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { listActiveMembers, lockMember } from "@/server/repositories/users";
 import { recordAllowanceChange } from "./allowance-changes";
-import { balanceInputs } from "./balances";
+import { balanceInputs, loadAllowanceDefaults } from "./balances";
 import { inTransaction } from "./notify";
 
 /** What one run changed. A second run over the same data reports zeros. */
@@ -39,11 +39,10 @@ interface MemberRollover {
   policy: AllowancePolicy;
   memberId: string;
   memberCreatedAt: Date;
-  /** Counting types with `carryover_enabled`. */
-  carryTypes: readonly LeaveTypeForRollover[];
-  /** Counting types without a default allowance, carryover on or off. */
-  noDefaultTypes: readonly LeaveTypeForRollover[];
-  defaultTypes: readonly (LeaveTypeForRollover & { defaultAllowanceDays: number })[];
+  /** Active types that count against allowance. */
+  types: readonly LeaveTypeForRollover[];
+  /** Whether to create current-year rows from defaults (the nightly run does; a re-carry does not). */
+  createDefaults: boolean;
   closingYear: number;
   currentYear: number;
   /** Recorded on every row it writes: the rollover itself, or the edit that re-carried. */
@@ -65,10 +64,18 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
   let carried = 0;
   let created = 0;
 
+  // The member's own defaults (allowance rules for their department and level), read
+  // under their lock so a move between departments is either fully seen or not at all.
+  const defaults = await loadAllowanceDefaults(tx, job.companyId, [member.id]);
+  const own = job.types.map((t) => ({ ...t, defaultAllowanceDays: defaults(member.id, t) }));
+  const noDefaultTypes = own.filter((t) => t.defaultAllowanceDays === null);
+  const defaultTypes = job.createDefaults
+    ? own.flatMap((t) => (t.defaultAllowanceDays !== null ? [{ ...t, defaultAllowanceDays: t.defaultAllowanceDays }] : []))
+    : [];
   // Someone who joined after the closing year had no balance in it, so carries nothing.
-  const carryTypes = yearInTimeZone(job.timezone, job.memberCreatedAt) <= job.closingYear ? job.carryTypes : [];
+  const carryTypes = yearInTimeZone(job.timezone, job.memberCreatedAt) <= job.closingYear ? own.filter((t) => t.carryoverEnabled) : [];
   const carryIds = new Set(carryTypes.map((t) => t.id));
-  const types = [...carryTypes, ...job.noDefaultTypes.filter((t) => !carryIds.has(t.id))];
+  const types = [...carryTypes, ...noDefaultTypes.filter((t) => !carryIds.has(t.id))];
   if (types.length > 0) {
     const allowanceRows = await listAllowances(tx, {
       userIds: [member.id],
@@ -76,7 +83,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
       leaveTypeIds: types.map((t) => t.id),
     });
     const bookedRows = await sumBookedDays(tx, { userIds: [member.id], years: [job.closingYear], leaveTypeIds: [...carryIds] });
-    const inputs = balanceInputs(allowanceRows, bookedRows);
+    const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
 
     for (const leaveType of types) {
       const carry = carryIds.has(leaveType.id)
@@ -111,7 +118,7 @@ async function rollMember(tx: Transaction, job: MemberRollover): Promise<{ carri
 
   const createdRows = await insertMissingAllowances(
     tx,
-    job.defaultTypes.map((t) => ({ userId: member.id, leaveTypeId: t.id, year: job.currentYear, days: t.defaultAllowanceDays })),
+    defaultTypes.map((t) => ({ userId: member.id, leaveTypeId: t.id, year: job.currentYear, days: t.defaultAllowanceDays })),
   );
   for (const after of createdRows) {
     await job.record(tx, { companyId: job.companyId, reason: "allowance_created", before: null, after, source: job.source });
@@ -157,9 +164,8 @@ export async function recarryMemberLeaveType(
     policy: job.policy,
     memberId: job.member.id,
     memberCreatedAt: job.member.createdAt,
-    carryTypes: t.carryoverEnabled ? [t] : [],
-    noDefaultTypes: t.defaultAllowanceDays === null ? [t] : [],
-    defaultTypes: [],
+    types: [t],
+    createDefaults: false,
     closingYear: job.closingYear,
     currentYear: job.closingYear + 1,
     source: job.source,
@@ -181,8 +187,9 @@ export async function recarryMemberLeaveType(
  * For every counting type without a default, carryover on or off, a person with a row
  * in or before the closing year gets a missing next-year row copied from their latest
  * one (`days`), even when nothing carries; the balance already inherits that row, so
- * this only makes it explicit. Then each member gets a current-year row, from the
- * default, for every tracked type that has a default; existing rows are never
+ * this only makes it explicit. Then each member gets a current-year row, from their
+ * default (the allowance rule for their department and level, else the type's), for
+ * every tracked type that has one; existing rows are never
  * overwritten.
  *
  * Each member is processed in its own transaction under their member lock, and every
@@ -218,11 +225,7 @@ export async function runYearRollover(ctx: ServiceContext, fromYear?: number): P
       listActiveLeaveTypesWithAllowance(ctx.db, company.id),
       listActiveMembers(ctx.db, company.id),
     ]);
-    const carryTypes = types.filter((t) => t.carryoverEnabled && t.countsAgainstAllowance);
-    const noDefaultTypes = types.filter((t) => t.countsAgainstAllowance && t.defaultAllowanceDays === null);
-    const defaultTypes = types.flatMap((t) =>
-      t.countsAgainstAllowance && t.defaultAllowanceDays !== null ? [{ ...t, defaultAllowanceDays: t.defaultAllowanceDays }] : [],
-    );
+    const counting = types.filter((t) => t.countsAgainstAllowance);
 
     let carried = 0;
     let created = 0;
@@ -234,9 +237,8 @@ export async function runYearRollover(ctx: ServiceContext, fromYear?: number): P
           policy,
           memberId: member.id,
           memberCreatedAt: member.createdAt,
-          carryTypes,
-          noDefaultTypes,
-          defaultTypes,
+          types: counting,
+          createDefaults: true,
           closingYear,
           currentYear,
           source: ROLLOVER_SOURCE,

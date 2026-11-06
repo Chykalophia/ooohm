@@ -27,6 +27,7 @@ const MESSAGES: Record<DomainErrorCode, string> = {
   invalid_manager: "Pick a manager who is an active member of the company, other than this person.",
   manager_cycle: "That manager reports to this person, directly or through others. Pick someone else.",
   department_not_empty: "That department still has people in it. Move them to another department first.",
+  level_not_empty: "That level still has people at it. Move them to another level first.",
   self_change_not_allowed: "You can't deactivate your own account. Ask another admin.",
   insecure_url: "Use an address that starts with https://.",
   blocked_address: "That address points inside a private network. Use a public address.",

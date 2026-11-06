@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Invite someone · Admin · OOOhm" };
 
 export default async function InvitePage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const { departments, managers } = await getPersonFormOptions(ctx, actor, null);
+  const { departments, levels, managers } = await getPersonFormOptions(ctx, actor, null);
 
   return (
     <AdminShell
@@ -26,7 +26,7 @@ export default async function InvitePage() {
       <Card aria-label="Invite">
         <ActionForm action={inviteAction} submitLabel="Send invite" pendingLabel="Sending…" resetOnSuccess>
           <TextField label="Email" name="email" type="email" required maxLength={EMAIL_MAX_LENGTH} autoComplete="off" />
-          <PersonFields departments={departments} managers={managers} />
+          <PersonFields departments={departments} levels={levels} managers={managers} />
         </ActionForm>
       </Card>
       <BackLink href="/admin/people">Back to people</BackLink>

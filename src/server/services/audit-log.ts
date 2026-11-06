@@ -14,6 +14,7 @@ import { formatInstantDateTime } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";
 import { listAuditPage } from "@/server/repositories/audit-log";
 import { listDepartments } from "@/server/repositories/departments";
+import { listLevels } from "@/server/repositories/levels";
 import { findCompany } from "@/server/repositories/companies";
 import { listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { listPeopleNames } from "@/server/repositories/users";
@@ -81,25 +82,28 @@ type AuditNames = Parameters<typeof describeAuditChange>[2];
 
 /**
  * What naming audit rows takes, loaded once per read in parallel: the company (its time
- * zone), its people (deleted ones included, so history still names them), departments
- * and leave types (for ids inside before/after snapshots).
+ * zone), its people (deleted ones included, so history still names them), departments,
+ * levels and leave types (for ids inside before/after snapshots).
  *
  * @throws DomainError `no_company`.
  */
 async function loadAuditNaming(ctx: ServiceContext, companyId: string) {
-  const [company, people, departments, leaveTypes] = await Promise.all([
+  const [company, people, departments, levels, leaveTypes] = await Promise.all([
     findCompany(ctx.db, companyId),
     listPeopleNames(ctx.db, companyId, { includeDeleted: true }),
     listDepartments(ctx.db, companyId),
+    listLevels(ctx.db, companyId),
     listAllLeaveTypes(ctx.db, companyId),
   ]);
   if (!company) throw new DomainError("no_company");
   const peopleById = new Map(people.map((p) => [p.id, personLabel(p)]));
   const departmentsById = new Map(departments.map((d) => [d.id, d.name]));
+  const levelsById = new Map(levels.map((l) => [l.id, l.name]));
   const typesById = new Map(leaveTypes.map((t) => [t.id, t.name]));
   const names: AuditNames = {
     person: (id: string) => peopleById.get(id),
     department: (id: string) => departmentsById.get(id),
+    level: (id: string) => levelsById.get(id),
     leaveType: (id: string) => typesById.get(id),
     instant: (iso: string) => formatInstantDateTime(new Date(iso), company.timezone),
   };
@@ -167,8 +171,8 @@ function searchFor(raw: string | undefined, people: readonly { id: string; name:
  * One page of the company's audit log, newest first, with the names the filters and
  * summaries need.
  *
- * A fixed five queries whatever the page holds: the company's time zone, its people,
- * departments and leave types in parallel (for the filter pickers and for naming ids
+ * A fixed six queries whatever the page holds: the company's time zone, its people,
+ * departments, levels and leave types in parallel (for the filter pickers and for naming ids
  * inside before/after snapshots), then the page itself, whose actor and subject names
  * come from joins.
  *

@@ -643,7 +643,7 @@ export async function exportPersonRecords(ctx: ServiceContext, actor: Actor, use
   }));
 
   if (years.length > 0 && types.length > 0) {
-    const balanceOf = await loadBalances(ctx.db, { allowancePolicy: company.allowancePolicy, leaveTypes: types, userIds: [person.id], years }).catch(
+    const balanceOf = await loadBalances(ctx.db, { companyId: actor.companyId, allowancePolicy: company.allowancePolicy, leaveTypes: types, userIds: [person.id], years }).catch(
       (err: unknown) => {
         log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");
         return null;

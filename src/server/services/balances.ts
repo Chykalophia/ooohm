@@ -12,11 +12,13 @@ import {
   remainingAfter,
   resolveAllowancePolicy,
 } from "@/domain/allowance-policy";
+import { defaultAllowanceFor } from "@/domain/allowance-rules";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { assertValidRange, type DayPortion, type LeaveRange, rangesOverlap } from "@/domain/leave-request";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
+import { listAllowanceRules, listPlacements } from "@/server/repositories/allowance-rules";
 import { type AllowanceRow, listAllowances, sumBookedDays } from "@/server/repositories/balances";
 import { findCompanySettings, listHolidayDates, listHolidays } from "@/server/repositories/calendar";
 import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
@@ -37,6 +39,28 @@ export function draftRange(draft: LeaveDraft): LeaveRange {
 
 const NOTHING_BOOKED: BookedDays = { approved: 0, pending: 0 };
 
+/**
+ * Each person's default yearly allowance of a leave type: the allowance rule for their
+ * department and level ({@link defaultAllowanceFor}), else the type's own default.
+ */
+export type AllowanceDefaults = (userId: string, leaveType: { id: string; defaultAllowanceDays: number | null }) => number | null;
+
+/** {@link AllowanceDefaults} when no rule applies: every type's own default. */
+export const typeDefaults: AllowanceDefaults = (_userId, leaveType) => leaveType.defaultAllowanceDays;
+
+/**
+ * The company's {@link AllowanceDefaults} for `userIds`, read in `ex`: one query for
+ * the rules, and one more for where the people sit only when the company has any.
+ */
+export async function loadAllowanceDefaults(ex: Executor, companyId: string, userIds: readonly string[]): Promise<AllowanceDefaults> {
+  const rules = await listAllowanceRules(ex, companyId);
+  if (rules.length === 0) return typeDefaults;
+  const placements = await listPlacements(ex, companyId, userIds);
+  return (userId, leaveType) => defaultAllowanceFor(leaveType, placements.get(userId) ?? NOWHERE, rules);
+}
+
+const NOWHERE = { departmentId: null, levelId: null } as const;
+
 /** The allowance years to load for balances of `years`: each year and the one after it. */
 export function allowanceYearsFor(years: readonly number[]): number[] {
   return [...new Set(years.flatMap((y) => [y, y + 1]))];
@@ -55,6 +79,7 @@ export function allowanceYearsFor(years: readonly number[]): number[] {
 export function balanceInputs(
   allowanceRows: readonly AllowanceRow[],
   bookedRows: readonly ({ userId: string; leaveTypeId: string; year: number } & BookedDays)[],
+  defaults: AllowanceDefaults,
 ) {
   const key = (userId: string, leaveTypeId: string, year: number) => `${userId}|${leaveTypeId}|${year}`;
   const allowance = new Map(allowanceRows.map((r) => [key(r.userId, r.leaveTypeId, r.year), r]));
@@ -79,7 +104,7 @@ export function balanceInputs(
       const sums = booked.get(key(userId, leaveType.id, year)) ?? NOTHING_BOOKED;
       const carriedOut = allowance.get(key(userId, leaveType.id, year + 1))?.carriedOverDays ?? 0;
       return policy.balance({
-        leaveType,
+        leaveType: { ...leaveType, defaultAllowanceDays: defaults(userId, leaveType) },
         allowance: record,
         inheritedDays: latestRow(userId, leaveType.id, year - 1)?.days ?? null,
         booked: { approved: sums.approved, pending: sums.pending },
@@ -101,6 +126,7 @@ export function balanceInputs(
 export async function loadBalances(
   ex: Executor,
   scope: {
+    companyId: string;
     allowancePolicy: string;
     leaveTypes: readonly (LeaveTypeAllowanceSettings & { id: string })[];
     userIds: readonly string[];
@@ -109,11 +135,12 @@ export async function loadBalances(
 ): Promise<(userId: string, leaveTypeId: string, year: number) => Balance> {
   const policy = resolveAllowancePolicy(scope.allowancePolicy);
   const leaveTypeIds = scope.leaveTypes.map((t) => t.id);
-  const [allowanceRows, bookedRows] = await Promise.all([
+  const [allowanceRows, bookedRows, defaults] = await Promise.all([
     listAllowances(ex, { userIds: scope.userIds, years: allowanceYearsFor(scope.years), leaveTypeIds }),
     sumBookedDays(ex, { userIds: scope.userIds, years: scope.years, leaveTypeIds }),
+    loadAllowanceDefaults(ex, scope.companyId, scope.userIds),
   ]);
-  const inputs = balanceInputs(allowanceRows, bookedRows);
+  const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
   const types = new Map(scope.leaveTypes.map((t) => [t.id, t]));
   return (userId, leaveTypeId, year) => {
     const type = types.get(leaveTypeId);
@@ -180,11 +207,12 @@ export async function assessLeaveRequest(
   if (existing.some((other) => rangesOverlap(range, other))) throw new DomainError("overlapping_request");
 
   const years = split.map((s) => s.year);
-  const [allowanceRows, bookedRows] = await Promise.all([
+  const [allowanceRows, bookedRows, defaults] = await Promise.all([
     listAllowances(ex, { userIds: [actor.id], years: allowanceYearsFor(years), leaveTypeIds: [leaveType.id] }),
     sumBookedDays(ex, { userIds: [actor.id], years, leaveTypeIds: [leaveType.id] }),
+    loadAllowanceDefaults(ex, actor.companyId, [actor.id]),
   ]);
-  const inputs = balanceInputs(allowanceRows, bookedRows);
+  const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
   const charges = split.map(({ year, days }) => ({ year, days, before: inputs.balance(policy, leaveType, actor.id, year) }));
   assertCovered(charges);
 
@@ -232,9 +260,10 @@ export type LeaveTypeWithAllowance = Awaited<ReturnType<typeof listLeaveTypesWit
 
 /**
  * {@link getBalanceSummary} for a caller that already loaded the company's settings
- * and leave types (the dashboard, an admin's view of a person): two queries, allowance
- * rows and booked-day sums (aggregated in SQL), in parallel, whatever the number of
- * types or requests.
+ * and leave types (the dashboard, an admin's view of a person): allowance rows,
+ * booked-day sums (aggregated in SQL) and the person's defaults
+ * ({@link loadAllowanceDefaults}, skipped when `loaded.defaults` is passed) in
+ * parallel, whatever the number of types or requests.
  *
  * Every active type gets an item. An archived type gets one only when the person has
  * an allowance row or approved or pending days of it in the year, so retiring a type
@@ -244,16 +273,17 @@ export type LeaveTypeWithAllowance = Awaited<ReturnType<typeof listLeaveTypesWit
  */
 export async function summarizeBalances(
   ex: Executor,
-  person: { id: string },
-  loaded: { allowancePolicy: string; types: readonly LeaveTypeWithAllowance[]; year: number },
+  person: { id: string; companyId: string },
+  loaded: { allowancePolicy: string; types: readonly LeaveTypeWithAllowance[]; year: number; defaults?: AllowanceDefaults },
 ): Promise<BalanceSummary> {
   const policy = resolveAllowancePolicy(loaded.allowancePolicy);
   const { year } = loaded;
-  const [allowanceRows, bookedRows] = await Promise.all([
+  const [allowanceRows, bookedRows, defaults] = await Promise.all([
     listAllowances(ex, { userIds: [person.id], years: allowanceYearsFor([year]) }),
     sumBookedDays(ex, { userIds: [person.id], years: [year] }),
+    loaded.defaults ?? loadAllowanceDefaults(ex, person.companyId, [person.id]),
   ]);
-  const inputs = balanceInputs(allowanceRows, bookedRows);
+  const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
   return {
     year,
     items: loaded.types.flatMap((t) => {

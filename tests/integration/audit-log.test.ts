@@ -284,7 +284,7 @@ describe("admin: audit log viewer", { skip }, () => {
     await rejectsWith(getAuditLog(ctx, co.people.emp, {}), "forbidden");
   });
 
-  test("a page costs five queries whatever it holds", async () => {
+  test("a page costs six queries whatever it holds", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {} });
     let queries = 0;
     const counting = t.withLogger({ logQuery: () => void queries++ });
@@ -303,7 +303,7 @@ describe("admin: audit log viewer", { skip }, () => {
     queries = 0;
     const full = await getAuditLog(ctx, co.people.boss, { subjectUserId: co.people.ana.id });
     assert.equal(full.entries.length, AUDIT_PAGE_SIZE);
-    assert.equal(empty, 5, "company, people, departments, leave types, then the page");
+    assert.equal(empty, 6, "company, people, departments, levels, leave types, then the page");
     assert.equal(queries, empty, "no query per row");
   });
 

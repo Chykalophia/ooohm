@@ -47,6 +47,21 @@ export function normalizePersonName(raw: string): string {
   return name;
 }
 
+export const LEVEL_NAME_MAX_LENGTH = 60;
+
+/**
+ * A level name as stored: one line, trimmed.
+ *
+ * @throws DomainError `invalid_input` when blank or longer than {@link LEVEL_NAME_MAX_LENGTH}.
+ */
+export function normalizeLevelName(raw: string): string {
+  const name = oneLine(raw);
+  if (name.length === 0 || name.length > LEVEL_NAME_MAX_LENGTH) {
+    throw new DomainError("invalid_input", `Level names are 1 to ${LEVEL_NAME_MAX_LENGTH} characters.`, { field: "name" });
+  }
+  return name;
+}
+
 export const DEPARTMENT_NAME_MAX_LENGTH = 60;
 
 /**

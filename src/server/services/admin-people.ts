@@ -39,6 +39,8 @@ import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
 import { findDepartment, listDepartments } from "@/server/repositories/departments";
+import { findLevel, listLevels } from "@/server/repositories/levels";
+import { followDefaults } from "./admin-allowance-rules";
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { countLiveEndpoints } from "@/server/repositories/webhooks";
 import {
@@ -63,7 +65,7 @@ import {
 } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { cancelScheduledScrubIn } from "./admin-people-deletion";
-import { type BalanceSummary, summarizeBalances } from "./balances";
+import { type BalanceSummary, loadAllowanceDefaults, summarizeBalances } from "./balances";
 import { revokeFeedsOnDeactivation } from "./calendar-feeds";
 import { commitThenSend, type DeferredEmail } from "./notify";
 
@@ -83,6 +85,8 @@ const PEOPLE_KEY = [textPart(500), textPart(320)] as const;
 export interface PersonInput {
   name: string;
   departmentId: string | null;
+  /** Their level, for allowance rules. Left out: unchanged (none for someone new). */
+  levelId?: string | null;
   managerId: string | null;
   role: string;
   canSelfApprove: boolean;
@@ -99,6 +103,7 @@ export function personSnapshot(p: PersonRow) {
     email: p.email,
     role: p.role,
     departmentId: p.departmentId,
+    levelId: p.levelId,
     managerId: p.managerId,
     canSelfApprove: p.canSelfApprove,
     isActive: p.isActive,
@@ -113,6 +118,7 @@ export function personPayload(p: PersonRow): Unattributed<UserEventPayload> {
     name: p.name,
     role: p.role,
     departmentId: p.departmentId,
+    levelId: p.levelId,
     managerId: p.managerId,
     canSelfApprove: p.canSelfApprove,
     isActive: p.isActive,
@@ -124,9 +130,17 @@ function lineMap(rows: readonly ({ id: string } & ReportingLine)[]): Map<string,
 }
 
 /** @throws DomainError `invalid_input` for a malformed field. */
-function normalizePersonInput(input: PersonInput): { name: string; role: Role; departmentId: string | null; managerId: string | null; canSelfApprove: boolean } {
+function normalizePersonInput(input: PersonInput): {
+  name: string;
+  role: Role;
+  departmentId: string | null;
+  levelId?: string | null;
+  managerId: string | null;
+  canSelfApprove: boolean;
+} {
   if (!isRole(input.role)) throw new DomainError("invalid_input", "Unknown role.");
   if (input.departmentId !== null && !isUuid(input.departmentId)) throw new DomainError("invalid_input", "Unknown department.");
+  if (input.levelId !== undefined && input.levelId !== null && !isUuid(input.levelId)) throw new DomainError("invalid_input", "Unknown level.");
   if (input.managerId !== null && (input.managerId.length === 0 || input.managerId.length > 100)) {
     throw new DomainError("invalid_input", "Unknown manager.");
   }
@@ -134,9 +148,15 @@ function normalizePersonInput(input: PersonInput): { name: string; role: Role; d
     name: normalizePersonName(input.name),
     role: input.role,
     departmentId: input.departmentId,
+    ...(input.levelId !== undefined && { levelId: input.levelId }),
     managerId: input.managerId,
     canSelfApprove: input.canSelfApprove === true,
   };
+}
+
+/** @throws DomainError `invalid_input` when the level is not one of the company's. */
+async function assertLevel(tx: Transaction, companyId: string, levelId: string | null | undefined): Promise<void> {
+  if (levelId && !(await findLevel(tx, companyId, levelId))) throw new DomainError("invalid_input", "Unknown level.");
 }
 
 /** @throws DomainError `invalid_input` when the department is not one of the company's. */
@@ -232,8 +252,9 @@ export async function listPeople(ctx: ServiceContext, actor: Actor, filter: Omit
  */
 export async function getPersonFormOptions(ctx: ServiceContext, actor: Actor, personId: string | null) {
   assertCanAdminister(actor);
-  const [departments, lines, names] = await Promise.all([
+  const [departments, levels, lines, names] = await Promise.all([
     listDepartments(ctx.db, actor.companyId),
+    listLevels(ctx.db, actor.companyId),
     listReportingLines(ctx.db, actor.companyId),
     listPeopleNames(ctx.db, actor.companyId),
   ]);
@@ -244,6 +265,8 @@ export async function getPersonFormOptions(ctx: ServiceContext, actor: Actor, pe
   const current = personId ? lines.find((l) => l.id === personId)?.managerId : null;
   return {
     departments,
+    /** Empty when the company uses no levels; the form then leaves the field out. */
+    levels,
     managers: names
       .filter((n) => allowed.has(n.id) || n.id === current)
       .map((n) => ({ id: n.id, label: n.isActive ? personLabel(n) : `${personLabel(n)} (deactivated)` })),
@@ -270,10 +293,12 @@ export async function getPersonDetail(ctx: ServiceContext, actor: Actor, userId:
   if (!person) throw new DomainError("not_found");
   if (!company) throw new DomainError("no_company");
   const balanceYear = year ?? yearInTimeZone(company.timezone, ctx.now());
-  const balances: BalanceSummary | null = await summarizeBalances(ctx.db, person, {
+  const defaults = await loadAllowanceDefaults(ctx.db, actor.companyId, [person.id]);
+  const balances: BalanceSummary | null = await summarizeBalances(ctx.db, { id: person.id, companyId: actor.companyId }, {
     allowancePolicy: company.allowancePolicy,
     types,
     year: balanceYear,
+    defaults,
   }).catch((err: unknown) => {
     if (!isDomainError(err, "policy_unavailable")) throw err;
     log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");
@@ -286,8 +311,10 @@ export async function getPersonDetail(ctx: ServiceContext, actor: Actor, userId:
     /** Allowances of years before this one are closed; see `firstEditableAllowanceYear`. */
     firstEditableYear: firstEditableAllowanceYear(yearInTimeZone(company.timezone, ctx.now())),
     balances,
-    /** Each type's allowance settings, by id, for the allowance editor. */
-    leaveTypes: new Map(types.map((t) => [t.id, { countsAgainstAllowance: t.countsAgainstAllowance, defaultAllowanceDays: t.defaultAllowanceDays }])),
+    /** Each type's allowance settings, by id, for the allowance editor: the default is this person's (allowance rules applied). */
+    leaveTypes: new Map(
+      types.map((t) => [t.id, { countsAgainstAllowance: t.countsAgainstAllowance, defaultAllowanceDays: defaults(person.id, t) }]),
+    ),
   };
 }
 
@@ -314,6 +341,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
       await assertUnderInviteLimit(tx, actor);
       if (await emailInUse(tx, email)) throw new DomainError("already_exists");
       await assertDepartment(tx, actor.companyId, fields.departmentId);
+      await assertLevel(tx, actor.companyId, fields.levelId);
       assertValidManager(null, fields.managerId, lineMap(await listReportingLines(tx, actor.companyId)));
 
       const person = await insertPerson(tx, { id: randomUUID(), companyId: actor.companyId, email, ...fields });
@@ -399,10 +427,11 @@ export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: st
   assertCanAdminister(actor);
   const fields = normalizePersonInput(input);
   return commitThenSend(ctx, async (tx) => {
-    await beginAdminChange(tx, actor);
+    const company = await beginAdminChange(tx, actor);
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
     await assertDepartment(tx, actor.companyId, fields.departmentId);
+    await assertLevel(tx, actor.companyId, fields.levelId);
     if (fields.managerId !== before.managerId) {
       assertValidManager(before.id, fields.managerId, lineMap(await listReportingLines(tx, actor.companyId)));
     }
@@ -416,7 +445,17 @@ export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: st
 
     const changed = (Object.keys(fields) as (keyof typeof fields)[]).filter((k) => fields[k] !== before[k]);
     if (changed.length === 0) return { result: { person: before, requestsReassigned: 0 }, outgoing: [] };
+    const placed = before.departmentId !== fields.departmentId || (fields.levelId !== undefined && before.levelId !== fields.levelId);
+    const defaultsBefore = placed ? await loadAllowanceDefaults(tx, actor.companyId, [before.id]) : null;
     const after = await updatePersonRow(tx, actor.companyId, before.id, fields);
+    if (defaultsBefore) {
+      await followDefaults(tx, actor, {
+        userIds: [after.id],
+        fromYear: yearInTimeZone(company.timezone, ctx.now()),
+        before: defaultsBefore,
+        after: await loadAllowanceDefaults(tx, actor.companyId, [after.id]),
+      });
+    }
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.userUpdated,
       entityType: "user",

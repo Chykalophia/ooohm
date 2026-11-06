@@ -168,7 +168,7 @@ Payload: `requestId, userId, leaveTypeId, startDate, endDate, dayPortion ("full"
 
 | Type | When |
 | --- | --- |
-| `balance.adjusted` | An allowance row changed: `reason` is `carryover` or `allowance_created` (year rollover), `admin_edit` (an admin), or `sync` (an adapter) |
+| `balance.adjusted` | An allowance row changed: `reason` is `carryover` or `allowance_created` (year rollover), `admin_edit` (an admin), `sync` (an adapter), or `allowance_rule` (an allowance rule, or the person's department or level, changed a row that was following the default; added within version 1) |
 
 Payload: `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId, actor` (the
 row after the change).
@@ -178,11 +178,11 @@ row after the change).
 | Type | When |
 | --- | --- |
 | `user.created` | An admin invites someone, or an adapter's sync adds them |
-| `user.updated` | Name, department, manager, role or self-approval changed. Usually by an admin; a person can also change their own name, and is then the actor |
+| `user.updated` | Name, department, level, manager, role or self-approval changed. Usually by an admin; a person can also change their own name, and is then the actor |
 | `user.deactivated`, `user.reactivated` | |
 | `user.invite_resent` | An admin sent a new sign-in link |
 
-Payload: `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId, actor` (the person
+Payload: `userId, email, name, role, departmentId, levelId, managerId, canSelfApprove, isActive, actorId, actor` (`levelId` added within version 1) (the person
 after the change). It never holds a session, token or sign-in link.
 
 **Deleting people** (added in M8)
@@ -217,6 +217,8 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 | Type | Payload |
 | --- | --- |
 | `department.created`, `.renamed`, `.deleted`, `.manager_changed` | `departmentId, name, managerId, actorId, actor`. `managerId` (the department's optional manager, who approves for its people whose own manager is missing or inactive) and `department.manager_changed` were added within version 1. `actorId` is `null` on a `department.manager_changed` sent when a scheduled scrub deletes the manager. |
+| `level.created`, `.renamed`, `.deleted` | `levelId, name, actorId, actor`. Levels (Intern, Senior) were added within version 1. |
+| `allowance_rule.set`, `.removed` | `ruleId, leaveTypeId, departmentId, levelId, days, actorId, actor`: a yearly allowance of one leave type for a department, a level or both (at least one is set). Added within version 1. The allowance rows it moves each send `balance.adjusted` with `reason: "allowance_rule"`. |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
 | `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId, actor`. `deletionGrace`, `managersSeeDetails`, `theme`, `accentColor`, `corners`, `requestStyle` and `layout` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, `accentColor` is `#rrggbb` or null, `requestStyle` is `form` or `sentence`, and `layout` is `standard`, `tonal`, `grouped`, `compact` or `legible`. New theme, corner, request-style and layout keys may appear. |

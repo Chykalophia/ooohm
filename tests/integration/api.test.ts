@@ -326,8 +326,8 @@ describe("REST API v1", { skip }, () => {
     assert.equal(await cost("/api/v1/leave-types"), 2);
     assert.equal(await cost("/api/v1/leave-requests", { limit: "1" }), 2);
     assert.equal(await cost("/api/v1/leave-requests", { limit: "200" }), 2);
-    assert.equal(await cost("/api/v1/balances"), 6);
-    assert.equal(await cost("/api/v1/balances", { userId: co.people.ana.id }), 6);
+    assert.equal(await cost("/api/v1/balances"), 7);
+    assert.equal(await cost("/api/v1/balances", { userId: co.people.ana.id }), 7);
     assert.equal(await cost("/api/v1/holidays"), 3);
     assert.equal(await cost("/api/v1/events", { limit: "1" }), 2);
     const [{ id: after }] = await companyEvents(t.db, co.companyId, "leave.requested");

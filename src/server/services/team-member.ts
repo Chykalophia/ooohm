@@ -112,7 +112,7 @@ async function addLeaveForm(ctx: ServiceContext, actor: Actor, today: string, wo
 /** The person's balances for `year`, or `null` (logged) when the company's allowance policy is unknown. */
 async function personBalances(ctx: ServiceContext, actor: Actor, person: { id: string }, allowancePolicy: string, year: number) {
   const types = await listLeaveTypesWithAllowance(ctx.db, actor.companyId);
-  return summarizeBalances(ctx.db, person, { allowancePolicy, types, year }).catch((err: unknown) => {
+  return summarizeBalances(ctx.db, { id: person.id, companyId: actor.companyId }, { allowancePolicy, types, year }).catch((err: unknown) => {
     if (!isDomainError(err, "policy_unavailable")) throw err;
     log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");
     return null;

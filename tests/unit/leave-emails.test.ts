@@ -279,6 +279,6 @@ test("heads-up time off: the requester hears it's booked, their manager is told 
 
   const hostileName = renderLeaveEmail({ kind: "heads_up", recipientName: hostile, leave: leave({ requesterName: hostile, note: hostile }), link: "https://x/" });
   assert.doesNotMatch(hostileName.subject, /[\r\n]/);
-  assert.doesNotMatch(hostileName.html, /<script>/);
+  assert.doesNotMatch(hostileName.html, /<script\b/i);
   assert.match(hostileName.html, /&lt;script&gt;/);
 });

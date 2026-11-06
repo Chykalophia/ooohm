@@ -1,6 +1,7 @@
-import { and, asc, between, eq, gte, inArray, lte, type SQL } from "drizzle-orm";
+import { and, asc, between, eq, gte, inArray, lte, or, type SQL } from "drizzle-orm";
 import { companies, departments, holidays, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
+import type { CalendarScope } from "@/domain/calendar-visibility";
 import { ACTIVE_STATUSES, earliestOverlappingStart } from "@/domain/leave-request";
 
 const settingsFields = {
@@ -12,6 +13,40 @@ const settingsFields = {
 export async function findCompanySettings(ex: Executor, companyId: string) {
   const [row] = await ex.select(settingsFields).from(companies).where(eq(companies.id, companyId));
   return row;
+}
+
+/**
+ * A calendar viewer and their company's calendar settings in one query: who manages
+ * them, read fresh (a new manager applies at once), and what the company lets employees
+ * see of each other. `undefined` when the company is missing; `managerId` is null when
+ * the person is not in the company.
+ */
+export async function findCalendarViewer(ex: Executor, companyId: string, userId: string) {
+  const [row] = await ex
+    .select({ ...settingsFields, colleagueVisibility: companies.colleagueVisibility, managerId: user.managerId })
+    .from(companies)
+    .leftJoin(user, and(eq(user.id, userId), eq(user.companyId, companies.id)))
+    .where(eq(companies.id, companyId));
+  return row;
+}
+
+/**
+ * `scope` (`calendarScopeFor`) as a condition on `user`, the SQL twin of
+ * `canSeeOnCalendar`. `undefined` for everyone, so it drops out of an `and(...)`.
+ */
+export function scopeCondition(scope: CalendarScope): SQL | undefined {
+  switch (scope.kind) {
+    case "everyone":
+      return undefined;
+    case "self":
+      return eq(user.id, scope.viewerId);
+    case "team":
+      return or(
+        eq(user.id, scope.viewerId),
+        eq(user.managerId, scope.viewerId),
+        ...(scope.managerId === null ? [] : [eq(user.id, scope.managerId), eq(user.managerId, scope.managerId)]),
+      );
+  }
 }
 
 /** Every company with its calendar settings, for jobs that run across all of them. */
@@ -92,10 +127,19 @@ export async function listPersonalEntries(ex: Executor, companyId: string, userI
  * blank) and department. One query whatever the number of people or requests: a
  * range scan on `leave_requests_company_dates_idx`.
  *
- * @param departmentId Only people in this department; already checked to belong to
- *   the company.
+ * @param filter.departmentId Only people in this department; already checked to belong
+ *   to the company.
+ * @param filter.scope Only the people the viewer may see (`calendarScopeFor`). Every
+ *   caller showing leave to a member passes it; only approvers' "also off" lines leave
+ *   it out.
  */
-export async function listTeamEntries(ex: Executor, companyId: string, from: string, to: string, departmentId: string | null = null) {
+export async function listTeamEntries(
+  ex: Executor,
+  companyId: string,
+  from: string,
+  to: string,
+  filter: { departmentId?: string | null; scope?: CalendarScope } = {},
+) {
   return ex
     .select({
       ...entryFields,
@@ -113,7 +157,8 @@ export async function listTeamEntries(ex: Executor, companyId: string, from: str
         activeInRange(companyId, from, to),
         eq(user.companyId, companyId),
         eq(user.isActive, true),
-        departmentId ? eq(user.departmentId, departmentId) : undefined,
+        filter.departmentId ? eq(user.departmentId, filter.departmentId) : undefined,
+        filter.scope ? scopeCondition(filter.scope) : undefined,
       ),
     )
     .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id));

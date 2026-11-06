@@ -148,6 +148,13 @@
       "when": 1793744819798,
       "tag": "0020_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793933617621,
+      "tag": "0021_colleague_visibility",
+      "breakpoints": true
     }
   ]
 }

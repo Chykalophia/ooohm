@@ -285,7 +285,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, colleagueVisibility, theme, accentColor, corners, requestStyle, layout, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -717,6 +717,22 @@ CRON_TZ=America/Chicago
   the service drops those fields before returning, so they never reach the page. Inactive, deleted and
   other companies' people are a 404.
 - `/calendar/subscriptions`: the two feeds (below), linked from both pages.
+
+**Whose time off a person sees.** One rule, in `domain/calendar-visibility.ts`: `calendarScopeFor(viewer,
+company)` returns a `CalendarScope` (`everyone`, `team` or `self`), and every reader filters by it: Who's out,
+the calendar's filters, `/team/[id]` (a 404 outside it) and the team calendar link (its owner's scope, read on
+every fetch). The SQL form is `scopeCondition` in `repositories/calendar.ts`, which `listTeamEntries` takes;
+`canSeeOnCalendar` is the same rule for one person. Admins and managers see everyone. Employees see what
+**Admin → Company → People can see the time off of** allows (`companies.colleague_visibility`): everyone (the
+default), their team (themself, their manager, the others who report to that manager, and their own direct
+reports; with no manager, only themself and their reports), or only their own. An unknown stored value reads as
+`self`. Approvers' "also off" lines are not filtered. A new kind of scope is a new `CalendarScope` case handled in
+`canSeeOnCalendar` and `scopeCondition`.
+
+The month view of `/calendar` shows the person's own leave by default; `?show=team` or `?show=everyone` add
+colleagues' leave as far as their scope allows (`narrowCalendarScope`: anything else falls back to just them).
+The filters are pills under the month links, shown only when there is more than one. A colleague's chip reads
+"Ana: PTO" and opens their page; only the person's own chips open requests. The year view stays personal.
 
 The header links Calendar and Team for every member of a company, and on every page but the dashboard a **Request
 time off** link to the dashboard's form (`/#request`, an accent outline, so each screen keeps one filled main

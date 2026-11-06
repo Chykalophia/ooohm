@@ -406,6 +406,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
       allowancePolicy: "annual_calendar_year",
       deletionGrace: false,
       managersSeeDetails: true,
+      colleagueVisibility: "everyone",
       theme: "classic",
       accentColor: null,
       corners: "theme",

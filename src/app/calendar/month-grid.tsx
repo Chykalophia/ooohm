@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
-import type { CalendarDay } from "@/domain/calendar";
+import type { CalendarDay, CalendarViewEntry } from "@/domain/calendar";
 import { formatLeaveDates, formatLongDate } from "@/lib/format";
 import { IDLE } from "@/components/forms/form-state";
 import { LeaveChip } from "@/components/leave/leave-chip";
@@ -28,7 +28,7 @@ const OFF_DAY = "bg-background bg-[repeating-linear-gradient(135deg,var(--color-
  * contrast), so the three never look alike. A selected day takes a light accent tint over any of them,
  * and in forced colours (which drop the tint) an outline in the system highlight.
  */
-function dayStyle(day: CalendarDay, selected: boolean): { cell: string; number: string } {
+function dayStyle(day: CalendarDay<CalendarViewEntry>, selected: boolean): { cell: string; number: string } {
   const number = !day.inMonth ? "text-muted" : !day.isWorkingDay || day.holiday !== null ? "text-muted" : "text-foreground";
   if (selected) return { cell: "bg-accent/15 forced-colors:outline-2 forced-colors:-outline-offset-2 forced-colors:outline-[Highlight]", number };
   if (!day.inMonth) return { cell: "bg-transparent", number };
@@ -37,12 +37,14 @@ function dayStyle(day: CalendarDay, selected: boolean): { cell: string; number: 
 }
 
 /** What a screen reader hears for a day: its date, then anything on it. */
-function dayLabel(day: CalendarDay): string {
+function dayLabel(day: CalendarDay<CalendarViewEntry>): string {
   const parts = [formatLongDate(day.date)];
   if (day.isToday) parts.push("today");
   if (day.holiday) parts.push(`${day.holiday}, company holiday`);
   else if (!day.isWorkingDay) parts.push("not a working day");
-  for (const e of day.entries) parts.push(`${e.leaveTypeName}${e.status === "pending" ? ", waiting for approval" : ""}`);
+  for (const e of day.entries) {
+    parts.push(`${e.isMine ? "" : `${e.personName}: `}${e.leaveTypeName}${e.status === "pending" ? ", waiting for approval" : ""}`);
+  }
   return parts.join(", ");
 }
 
@@ -60,7 +62,15 @@ function ordered(a: string, b: string): Range {
  * stretches the pick.
  * Phones get the agenda instead; the form on Home works everywhere.
  */
-export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[][]; caption: string; leaveTypes: LeaveTypeOption[] }) {
+export function MonthGrid({
+  weeks,
+  caption,
+  leaveTypes,
+}: {
+  weeks: CalendarDay<CalendarViewEntry>[][];
+  caption: string;
+  leaveTypes: LeaveTypeOption[];
+}) {
   const days = weeks.flat();
   const [anchor, setAnchor] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
@@ -230,7 +240,11 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                         <ul className="space-y-1">
                           {day.entries.map((entry) => (
                             <li key={entry.id} className="pointer-events-auto">
-                              <LeaveChip entry={entry} href={`/requests/${entry.id}`} />
+                              {entry.isMine ? (
+                                <LeaveChip entry={entry} href={`/requests/${entry.id}`} />
+                              ) : (
+                                <LeaveChip entry={entry} personName={entry.personName} href={`/team/${entry.userId}`} />
+                              )}
                             </li>
                           ))}
                         </ul>

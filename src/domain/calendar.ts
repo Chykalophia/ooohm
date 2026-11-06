@@ -79,6 +79,15 @@ export interface TeamCalendarEntry extends CalendarEntry {
   departmentName: string | null;
 }
 
+/**
+ * An entry on the person's own calendar, which can also show colleagues' leave (the
+ * calendar's filters): whose it is, and whether it is the viewer's own, which alone
+ * opens its request.
+ */
+export interface CalendarViewEntry extends TeamCalendarEntry {
+  isMine: boolean;
+}
+
 /** Only approved and pending leave appear on calendars; rejected and cancelled never do. */
 export function isShownOnCalendar(status: LeaveStatus): boolean {
   return (ACTIVE_STATUSES as readonly LeaveStatus[]).includes(status);
@@ -89,7 +98,7 @@ export interface Holiday {
   name: string;
 }
 
-export interface CalendarDay {
+export interface CalendarDay<E extends CalendarEntry = CalendarEntry> {
   date: CalendarDate;
   /** False for the leading and trailing days of the neighbouring months. */
   inMonth: boolean;
@@ -102,26 +111,26 @@ export interface CalendarDay {
    * Leave that costs this day: entries covering the date, on working days that are not
    * holidays only, since leave never counts on those. Ordered by start date.
    */
-  entries: CalendarEntry[];
+  entries: E[];
 }
 
-export interface MonthGridInput {
+export interface MonthGridInput<E extends CalendarEntry = CalendarEntry> {
   month: YearMonth;
   today: CalendarDate;
   /** ISO weekdays that are working days (1 = Monday ... 7 = Sunday). */
   workingDays: readonly number[];
   holidays: readonly Holiday[];
-  entries: readonly CalendarEntry[];
+  entries: readonly E[];
 }
 
 /** The month as weeks of seven {@link CalendarDay}s, Monday first. */
-export function buildMonthGrid(input: MonthGridInput): CalendarDay[][] {
+export function buildMonthGrid<E extends CalendarEntry>(input: MonthGridInput<E>): CalendarDay<E>[][] {
   const { start, end } = monthGridBounds(input.month);
   const working = new Set(input.workingDays);
   const holidays = new Map(input.holidays.map((h) => [h.date, h.name]));
   const entries = sortEntries(input.entries.filter((e) => isShownOnCalendar(e.status)));
 
-  const days = eachDate(start, end).map((date): CalendarDay => {
+  const days = eachDate(start, end).map((date): CalendarDay<E> => {
     const isWorkingDay = working.has(isoWeekday(date));
     const holiday = holidays.get(date) ?? null;
     const counts = costsLeave(date, working, holidays);
@@ -134,7 +143,7 @@ export function buildMonthGrid(input: MonthGridInput): CalendarDay[][] {
       entries: counts ? entries.filter((e) => e.startDate <= date && e.endDate >= date) : [],
     };
   });
-  const weeks: CalendarDay[][] = [];
+  const weeks: CalendarDay<E>[][] = [];
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
   return weeks;
 }
@@ -171,8 +180,8 @@ export function entriesCostingDaysIn<T extends CalendarEntry>(entries: readonly 
   });
 }
 
-export type AgendaItem =
-  | { kind: "leave"; date: CalendarDate; entry: CalendarEntry }
+export type AgendaItem<E extends CalendarEntry = CalendarEntry> =
+  | { kind: "leave"; date: CalendarDate; entry: E }
   | { kind: "holiday"; date: CalendarDate; name: string };
 
 /**
@@ -181,12 +190,14 @@ export type AgendaItem =
  * date order. A request that began in an earlier month sorts by its start date, so it
  * comes first.
  */
-export function buildAgenda(input: Pick<MonthGridInput, "month" | "workingDays" | "holidays" | "entries">): AgendaItem[] {
+export function buildAgenda<E extends CalendarEntry>(
+  input: Pick<MonthGridInput<E>, "month" | "workingDays" | "holidays" | "entries">,
+): AgendaItem<E>[] {
   const { first, last } = monthBounds(input.month);
-  const leave: AgendaItem[] = sortEntries(
+  const leave: AgendaItem<E>[] = sortEntries(
     entriesCostingDaysIn(input.entries, { first, last, workingDays: input.workingDays, holidays: input.holidays }),
   ).map((entry) => ({ kind: "leave", date: entry.startDate, entry }));
-  const holidays: AgendaItem[] = input.holidays
+  const holidays: AgendaItem<E>[] = input.holidays
     .filter((h) => h.date >= first && h.date <= last)
     .map((h) => ({ kind: "holiday", date: h.date, name: h.name }));
   // Stable sort: on the same date, holidays come before leave.

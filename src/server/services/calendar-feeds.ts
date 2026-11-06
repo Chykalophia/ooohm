@@ -1,5 +1,6 @@
 import type { Actor } from "@/domain/actor";
 import { buildFeedCalendar, type FeedContent, feedCalendarName, type FeedKind, feedWindow, isFeedKind } from "@/domain/calendar-feed";
+import { calendarScopeFor } from "@/domain/calendar-visibility";
 import type { PersonChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import {
@@ -187,7 +188,8 @@ export interface RenderedFeed {
  * whose owner is inactive or has left the company, so deactivating someone stops
  * their feeds at once. Covers {@link feedWindow} around today in the company's time
  * zone. The team feed follows the team view's privacy rule: who, when and which leave
- * type only, never a note.
+ * type only, never a note; and only the people its owner may see now
+ * (`calendarScopeFor`), so a change of setting, role or manager reaches it at once.
  *
  * Two queries, or three when the `last_used_at` stamp is missing or over an hour old:
  * the token lookup, then the entries and the stamp in parallel.
@@ -218,7 +220,9 @@ export async function renderCalendarFeed(
       ? listPersonalEntries(ctx.db, feed.companyId, feed.userId, from, to).then(
           (entries): FeedContent => ({ kind: "personal", calendarName, entries }),
         )
-      : listTeamEntries(ctx.db, feed.companyId, from, to).then(
+      : listTeamEntries(ctx.db, feed.companyId, from, to, {
+          scope: calendarScopeFor({ id: feed.userId, role: feed.ownerRole, managerId: feed.ownerManagerId }, feed),
+        }).then(
           (rows): FeedContent => ({ kind: "team", calendarName, entries: rows.map(toTeamEntry) }),
         ),
     stale ? touchFeed(ctx.db, feed.id, now, staleBefore) : undefined,

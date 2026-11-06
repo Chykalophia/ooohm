@@ -4,6 +4,7 @@ import {
   buildAgenda,
   buildMonthGrid,
   type CalendarEntry,
+  type CalendarViewEntry,
   entriesCostingDaysIn,
   groupByPerson,
   isYearMonth,
@@ -15,11 +16,12 @@ import {
   type TeamCalendarEntry,
   type YearMonth,
 } from "@/domain/calendar";
+import { calendarFiltersFor, calendarScopeFor, narrowCalendarScope } from "@/domain/calendar-visibility";
 import { DomainError } from "@/domain/errors";
 import { teamLabel } from "@/domain/person";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { findCompanySettings, listHolidays, listPersonalEntries, listTeamEntries } from "@/server/repositories/calendar";
+import { findCalendarViewer, findCompanySettings, listHolidays, listPersonalEntries, listTeamEntries } from "@/server/repositories/calendar";
 import { listDepartments } from "@/server/repositories/departments";
 import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 
@@ -51,28 +53,49 @@ export function toTeamEntry({ personEmail, ...row }: TeamRow): TeamCalendarEntry
 }
 
 /**
- * The actor's own month: approved and pending leave (rejected and cancelled never
- * show), company holidays and working days, plus the active leave types, so the
- * month can be used to ask for time off. Four queries whatever the month holds:
- * company settings, then holidays, the actor's leave and the leave types in parallel.
+ * The scope (`calendarScopeFor`) of whoever is looking, from one query that also reads
+ * the company's calendar settings.
+ *
+ * @throws DomainError `no_company` when the actor's company is missing.
+ */
+async function calendarViewer(ctx: ServiceContext, actor: Actor) {
+  const viewer = await findCalendarViewer(ctx.db, actor.companyId, actor.id);
+  if (!viewer) throw new DomainError("no_company");
+  const person = { id: actor.id, role: actor.role, managerId: viewer.managerId };
+  return { settings: viewer, person, scope: calendarScopeFor(person, viewer) };
+}
+
+/**
+ * The actor's month: approved and pending leave (rejected and cancelled never show),
+ * company holidays and working days, plus the active leave types, so the month can be
+ * used to ask for time off. By default only the actor's own leave; `filter` adds their
+ * team's or everyone's, as far as the company lets them see (`narrowCalendarScope`):
+ * who, when and which leave type, never a note. Four queries whatever the month holds:
+ * the viewer and company settings, then holidays, the leave and the leave types in
+ * parallel.
  *
  * @param month `YYYY-MM`; anything else (or nothing) means the current month in the
  *   company's time zone.
+ * @param filter `me`, `team` or `everyone`; one the actor may not use (or none) means `me`.
+ * @returns `filter` as applied, and `filters`, the ones the actor may use.
  * @throws DomainError `no_company` when the actor's company is missing.
  */
-export async function getMonthCalendar(ctx: ServiceContext, actor: Actor, month?: string) {
-  const settings = await findCompanySettings(ctx.db, actor.companyId);
-  if (!settings) throw new DomainError("no_company");
+export async function getMonthCalendar(ctx: ServiceContext, actor: Actor, month?: string, filter?: string) {
+  const { settings, person, scope } = await calendarViewer(ctx, actor);
+  const shown = narrowCalendarScope(scope, person, filter);
   const nav = monthNav(month, todayInTimeZone(settings.timezone, ctx.now()));
   const { start, end } = monthGridBounds(nav.month);
-  const [holidays, entries, types] = await Promise.all([
+  const [holidays, rows, types] = await Promise.all([
     listHolidays(ctx.db, actor.companyId, start, end),
-    listPersonalEntries(ctx.db, actor.companyId, actor.id, start, end),
+    listTeamEntries(ctx.db, actor.companyId, start, end, { scope: shown.scope }),
     listActiveLeaveTypesWithAllowance(ctx.db, actor.companyId),
   ]);
-  const input = { month: nav.month, today: nav.today, workingDays: settings.workingDays, holidays, entries: entries satisfies CalendarEntry[] };
+  const entries = rows.map((row): CalendarViewEntry => ({ ...toTeamEntry(row), isMine: row.userId === actor.id }));
+  const input = { month: nav.month, today: nav.today, workingDays: settings.workingDays, holidays, entries };
   return {
     nav,
+    filter: shown.filter,
+    filters: calendarFiltersFor(scope),
     weeks: buildMonthGrid(input),
     agenda: buildAgenda(input),
     leaveTypes: types.map(({ id, name, color }) => ({ id, name, color })),
@@ -131,32 +154,29 @@ export interface TeamCalendarQuery {
 
 /**
  * Who in the actor's company is out during a month: approved leave and pending leave
- * (marked as such) of every active member that costs at least one working day of the
- * month, grouped by person, optionally limited to one department.
+ * (marked as such) of every active member the actor may see (`calendarScopeFor`) that
+ * costs at least one working day of the month, grouped by person, optionally limited to
+ * one department.
  *
  * Every member may see this, so it shows who, when and which leave type, and never a
  * request's note, its decision note or anyone's balance: the entries it is built from
  * do not carry them.
  *
- * Four queries however many people or requests: settings and departments in
- * parallel, then the month's holidays and one range query over
+ * Four queries however many people or requests: the viewer with the company's
+ * settings, and departments, in parallel, then the month's holidays and one range query over
  * `(company_id, start_date, end_date)` in parallel.
  *
  * @throws DomainError `no_company` when the actor's company is missing.
  */
 export async function getTeamCalendar(ctx: ServiceContext, actor: Actor, query: TeamCalendarQuery = {}) {
-  const [settings, departments] = await Promise.all([
-    findCompanySettings(ctx.db, actor.companyId),
-    listDepartments(ctx.db, actor.companyId),
-  ]);
-  if (!settings) throw new DomainError("no_company");
+  const [{ settings, scope }, departments] = await Promise.all([calendarViewer(ctx, actor), listDepartments(ctx.db, actor.companyId)]);
   const nav = monthNav(query.month, todayInTimeZone(settings.timezone, ctx.now()));
   // Only a department of this company filters; an unknown id falls back to everyone.
   const department = departments.find((d) => d.id === query.departmentId) ?? null;
   const { first, last } = monthBounds(nav.month);
   const [holidays, rows] = await Promise.all([
     listHolidays(ctx.db, actor.companyId, first, last),
-    listTeamEntries(ctx.db, actor.companyId, first, last, department?.id ?? null),
+    listTeamEntries(ctx.db, actor.companyId, first, last, { departmentId: department?.id ?? null, scope }),
   ]);
   // Same rule as the month grid: someone whose leave only covers this month's weekends
   // or holidays is not out this month.

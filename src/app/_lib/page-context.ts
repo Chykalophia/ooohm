@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Actor } from "@/domain/actor";
 import { canAdminister } from "@/domain/admin-permissions";
 import { isDomainError } from "@/domain/errors";
+import { canViewReports } from "@/domain/reports";
 import { type ColorMode, colorModeOrDefault } from "@/domain/color-mode";
 import { requireActor } from "@/lib/auth";
 import type { ServiceContext } from "@/server/context";
@@ -26,7 +27,7 @@ export type CompanylessPage = { actor: null; nav: HeaderNav };
 export async function requireMemberPage(): Promise<MemberPage | CompanylessPage> {
   const { user, actor } = await requireActor();
   const userName = user.name || user.email;
-  if (!actor) return { actor: null, nav: { userName, approvals: null, member: false, admin: false } };
+  if (!actor) return { actor: null, nav: { userName, approvals: null, member: false, admin: false, reports: false } };
   return memberPage(actor, userName, colorModeOrDefault(user.colorMode));
 }
 
@@ -36,7 +37,7 @@ function memberPage(actor: Actor, userName: string, colorMode: ColorMode): Membe
   // The page may bail out (a 404) before the header awaits this; mark the rejection as
   // handled so it isn't reported as unhandled. The header still sees it.
   approvals.catch(() => {});
-  return { actor, ctx, nav: { userName, approvals, member: true, admin: canAdminister(actor) }, colorMode };
+  return { actor, ctx, nav: { userName, approvals, member: true, admin: canAdminister(actor), reports: canViewReports(actor) }, colorMode };
 }
 
 /**

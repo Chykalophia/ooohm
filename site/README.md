@@ -71,6 +71,8 @@ The scripts use the preinstalled Playwright (`NODE_PATH=$(npm root -g)` if it's 
 `ffmpeg`, and `psql` (the Postgres client). `--env-file=.env` points the recorder's `psql` calls at
 the app's `DATABASE_URL`. Sign-in goes through the real magic-link flow, reading the token from the local database.
 Run `demo-data.mts` again before `record.mjs ask approve`, since those clips change requests as they go.
+It also writes four years of approved history (2022 to 2025) and this year up to October, from a fixed seed, so
+the Reports screen draws the same charts every time.
 
 ## The launch film
 

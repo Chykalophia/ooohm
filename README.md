@@ -12,6 +12,7 @@ OOOhm is a calm, modern leave tracker for small teams. Employees can request tim
 - Leave requests (full or half day) with manager approval, and optional self-approval for specific people
 - Balances per leave type: a yearly allowance that resets Jan 1, with optional carryover
 - A who's-out calendar plus personal and team ICS feeds for Google Calendar
+- Reports for admins and managers: days off by month against last year, five years of totals, by leave type, department and person, with a CSV download
 - Per-company working days and public holidays
 - Admin screens, an audit log, and an import tool for TimeOff.Management
 - Deactivating people, and deleting them for good (a full scrub, or keeping their records), with a CSV export first

@@ -129,7 +129,11 @@ export const BALANCE_EVENT_TYPES = {
  * - `sync`: an integration adapter's inbound sync set the year's `days` (and
  *   `adjustmentDays`, when it sent one). Same columns as `admin_edit`.
  */
-export type BalanceChangeReason = "carryover" | "allowance_created" | "admin_edit" | "sync";
+/**
+ * Why an allowance row changed. `allowance_rule`: the row was following its person's
+ * default and an allowance rule (or the person's department or level) changed it.
+ */
+export type BalanceChangeReason = "carryover" | "allowance_created" | "admin_edit" | "sync" | "allowance_rule";
 
 /**
  * Version 1 payload of `balance.adjusted`: the allowance row after the change. The year
@@ -153,6 +157,7 @@ export const ALLOWANCE_AUDIT_ACTIONS: Readonly<Record<BalanceChangeReason, strin
   allowance_created: "allowance.created",
   admin_edit: "allowance.edited",
   sync: "allowance.synced",
+  allowance_rule: "allowance.rule_applied",
 };
 
 /** Calendar feed event types written to `events_outbox`. Public contract; never rename one. */
@@ -236,6 +241,11 @@ export const ADMIN_EVENT_TYPES = {
   departmentRenamed: "department.renamed",
   departmentDeleted: "department.deleted",
   departmentManagerChanged: "department.manager_changed",
+  levelCreated: "level.created",
+  levelRenamed: "level.renamed",
+  levelDeleted: "level.deleted",
+  allowanceRuleSet: "allowance_rule.set",
+  allowanceRuleRemoved: "allowance_rule.removed",
   leaveTypeCreated: "leave_type.created",
   leaveTypeUpdated: "leave_type.updated",
   leaveTypeArchived: "leave_type.archived",
@@ -262,6 +272,8 @@ export interface UserEventPayload extends Attribution {
   name: string;
   role: Role;
   departmentId: string | null;
+  /** Their level (for allowance rules), added within version 1. */
+  levelId: string | null;
   managerId: string | null;
   canSelfApprove: boolean;
   isActive: boolean;
@@ -308,6 +320,25 @@ export interface DepartmentEventPayload extends PersonAttribution {
   name: string;
   /** The department's manager (optional), who approves for its people without a manager of their own. */
   managerId: string | null;
+}
+
+/** Version 1 payload of every `level.*` event: the level after the change (before, when deleted). */
+export interface LevelEventPayload extends PersonAttribution {
+  levelId: string;
+  name: string;
+}
+
+/**
+ * Version 1 payload of `allowance_rule.set` and `.removed`: the rule after the change
+ * (before, when removed). People's allowance rows it moves each get `balance.adjusted`
+ * (`reason: "allowance_rule"`).
+ */
+export interface AllowanceRuleEventPayload extends PersonAttribution {
+  ruleId: string;
+  leaveTypeId: string;
+  departmentId: string | null;
+  levelId: string | null;
+  days: number;
 }
 
 /** Version 1 payload of every `leave_type.*` event: the leave type after the change. */

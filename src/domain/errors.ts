@@ -66,6 +66,8 @@ export type DomainErrorCode =
   | "manager_cycle"
   /** A department still has people in it, so deleting it would silently move them. */
   | "department_not_empty"
+  /** A level still has people at it, so deleting it would silently move them. */
+  | "level_not_empty"
   /** Admins cannot deactivate their own account; another admin has to. */
   | "self_change_not_allowed"
   /** A webhook URL is not `https://` (and plain `http://` is not allowed here). */

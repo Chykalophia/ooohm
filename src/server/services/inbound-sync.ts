@@ -93,6 +93,7 @@ function userPayload(p: PersonRow): Unattributed<UserEventPayload> {
     name: p.name,
     role: p.role,
     departmentId: p.departmentId,
+    levelId: p.levelId,
     managerId: p.managerId,
     canSelfApprove: p.canSelfApprove,
     isActive: p.isActive,

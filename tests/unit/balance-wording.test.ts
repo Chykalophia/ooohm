@@ -54,6 +54,7 @@ test("balance event and audit names are the public contract", () => {
     allowance_created: "allowance.created",
     admin_edit: "allowance.edited",
     sync: "allowance.synced",
+    allowance_rule: "allowance.rule_applied",
   });
 });
 

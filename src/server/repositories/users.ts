@@ -90,6 +90,7 @@ const personFields = {
   email: user.email,
   role: user.role,
   departmentId: user.departmentId,
+  levelId: user.levelId,
   managerId: user.managerId,
   canSelfApprove: user.canSelfApprove,
   isActive: user.isActive,
@@ -106,6 +107,7 @@ export type PersonRow = {
   email: string;
   role: Role;
   departmentId: string | null;
+  levelId: string | null;
   managerId: string | null;
   canSelfApprove: boolean;
   isActive: boolean;
@@ -221,6 +223,7 @@ export async function insertPerson(
     name: string;
     role: Role;
     departmentId: string | null;
+    levelId?: string | null;
     managerId: string | null;
     canSelfApprove: boolean;
     /** Defaults to true (an admin's invite); an inbound sync may create people inactive. */
@@ -247,7 +250,7 @@ export async function updatePerson(
   tx: Transaction,
   companyId: string,
   userId: string,
-  set: Partial<Pick<PersonRow, "name" | "role" | "departmentId" | "managerId" | "canSelfApprove" | "isActive">>,
+  set: Partial<Pick<PersonRow, "name" | "role" | "departmentId" | "levelId" | "managerId" | "canSelfApprove" | "isActive">>,
 ): Promise<PersonRow> {
   const [row] = await tx
     .update(user)
@@ -279,6 +282,11 @@ export async function deleteSessionsOf(tx: Transaction, userId: string): Promise
 /** How many people (active or not) are in a department. */
 export async function countDepartmentMembers(ex: Executor, departmentId: string): Promise<number> {
   const [row] = await ex.select({ n: sql<number>`count(*)::int` }).from(user).where(eq(user.departmentId, departmentId));
+  return row?.n ?? 0;
+}
+
+export async function countLevelMembers(ex: Executor, levelId: string): Promise<number> {
+  const [row] = await ex.select({ n: sql<number>`count(*)::int` }).from(user).where(eq(user.levelId, levelId));
   return row?.n ?? 0;
 }
 

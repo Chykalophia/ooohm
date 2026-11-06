@@ -46,7 +46,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       <Section title="Details" surface className="space-y-5">
         <ActionForm action={updatePersonAction} submitLabel="Save changes" pendingLabel="Saving…">
           <input type="hidden" name="userId" value={person.id} />
-          <PersonFields departments={options.departments} managers={options.managers} person={person} />
+          <PersonFields departments={options.departments} levels={options.levels} managers={options.managers} person={person} />
         </ActionForm>
       </Section>
 

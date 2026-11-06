@@ -589,6 +589,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
 
   // Reconciliation
   const reconciliation = await reconcile(tx, {
+    companyId: company.id,
     plan,
     excluded,
     people: new Map(people.map((p) => [p.key, { id: idOf.get(p.key)!, email: p.email, name: p.name }])),
@@ -758,6 +759,7 @@ function allowanceSnapshot(r: AllowanceSnapshotInput) {
 async function reconcile(
   tx: Transaction,
   job: {
+    companyId: string;
     plan: ImportPlan;
     excluded: ReadonlySet<number>;
     people: ReadonlyMap<number, { id: string; email: string; name: string }>;
@@ -771,6 +773,7 @@ async function reconcile(
   const empty = { currentYear: job.currentYear, rows: [], mismatches: [], currentYearMismatches: 0 };
   if (!job.poolRow || expected.length === 0) return empty;
   const balanceOf = await loadBalances(tx, {
+    companyId: job.companyId,
     allowancePolicy: job.allowancePolicy,
     leaveTypes: [job.poolRow],
     userIds: [...new Set(expected.map((e) => job.people.get(e.personKey)!.id))],

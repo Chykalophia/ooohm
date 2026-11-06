@@ -38,6 +38,11 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   [ADMIN_EVENT_TYPES.departmentRenamed]: "Department renamed",
   [ADMIN_EVENT_TYPES.departmentDeleted]: "Department deleted",
   [ADMIN_EVENT_TYPES.departmentManagerChanged]: "Department manager changed",
+  [ADMIN_EVENT_TYPES.levelCreated]: "Level created",
+  [ADMIN_EVENT_TYPES.levelRenamed]: "Level renamed",
+  [ADMIN_EVENT_TYPES.levelDeleted]: "Level deleted",
+  [ADMIN_EVENT_TYPES.allowanceRuleSet]: "Allowance rule set",
+  [ADMIN_EVENT_TYPES.allowanceRuleRemoved]: "Allowance rule removed",
   [ADMIN_EVENT_TYPES.leaveTypeCreated]: "Leave type created",
   [ADMIN_EVENT_TYPES.leaveTypeUpdated]: "Leave type edited",
   [ADMIN_EVENT_TYPES.leaveTypeArchived]: "Leave type archived",
@@ -48,6 +53,7 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   [ADMIN_EVENT_TYPES.holidayDeleted]: "Holiday deleted",
   [ADMIN_EVENT_TYPES.companyUpdated]: "Company settings changed",
   [ALLOWANCE_AUDIT_ACTIONS.sync]: "Allowance synced",
+  [ALLOWANCE_AUDIT_ACTIONS.allowance_rule]: "Allowance set by a rule",
   [INTEGRATION_EVENT_TYPES.webhookEndpointCreated]: "Webhook endpoint added",
   [INTEGRATION_EVENT_TYPES.webhookEndpointUpdated]: "Webhook endpoint edited",
   [INTEGRATION_EVENT_TYPES.webhookEndpointEnabled]: "Webhook endpoint turned on",
@@ -117,6 +123,7 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   email: "Email",
   role: "Role",
   departmentId: "Department",
+  levelId: "Level",
   managerId: "Manager",
   canSelfApprove: "Approves own requests",
   isActive: "Active",
@@ -210,6 +217,8 @@ export function auditFieldLabel(field: string): string {
 export interface AuditNames {
   person(id: string): string | undefined;
   department(id: string): string | undefined;
+  /** A level's name; without it a level prints as stored. */
+  level?(id: string): string | undefined;
   leaveType(id: string): string | undefined;
   /** An ISO instant ("2026-11-03T01:43:53.883Z") as the reader's time; printed as stored without it. */
   instant?(iso: string): string;
@@ -249,6 +258,7 @@ export function formatAuditValue(field: string, value: unknown, names: AuditName
     if (field === "mode") return DELETION_MODE_LABELS[value] ?? value;
     if (PERSON_FIELDS.has(field)) return names.person(value) ?? "someone else";
     if (field === "departmentId") return names.department(value) ?? "a deleted department";
+    if (field === "levelId" && names.level) return names.level(value) ?? "a deleted level";
     if (field === "leaveTypeId") return names.leaveType(value) ?? "another leave type";
     if (names.instant && isInstantField(field) && isInstant(value)) return names.instant(value);
     return value;

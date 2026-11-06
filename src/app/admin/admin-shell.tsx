@@ -7,6 +7,7 @@ import { cx, focusRing } from "@/components/ui/styles";
 export type AdminSection =
   | "people"
   | "departments"
+  | "levels"
   | "leave-types"
   | "holidays"
   | "company"
@@ -26,6 +27,7 @@ const INTEGRATION_SECTIONS: { id: AdminSection; href: string; label: string }[] 
 const SECTIONS: { id: AdminSection; href: string; label: string; group?: readonly AdminSection[] }[] = [
   { id: "people", href: "/admin/people", label: "People" },
   { id: "departments", href: "/admin/departments", label: "Departments" },
+  { id: "levels", href: "/admin/levels", label: "Levels" },
   { id: "leave-types", href: "/admin/leave-types", label: "Leave types" },
   { id: "holidays", href: "/admin/holidays", label: "Holidays" },
   { id: "company", href: "/admin/company", label: "Company" },
@@ -35,7 +37,7 @@ const SECTIONS: { id: AdminSection; href: string; label: string; group?: readonl
 ];
 
 /**
- * The admin sub-navigation: one calm row of eight pills, wrapping on small screens. On
+ * The admin sub-navigation: one calm row of nine pills, wrapping on small screens. On
  * an integration screen a second, quieter row switches between webhooks, API keys and
  * connectors.
  */

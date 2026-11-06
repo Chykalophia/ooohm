@@ -22,7 +22,7 @@ import { findCompanySettings } from "@/server/repositories/calendar";
 import { listHolidayRows } from "@/server/repositories/holidays";
 import { listAllLeaveTypes, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { companyEventExists, listCompanyEvents } from "@/server/repositories/outbox";
-import { allowanceYearsFor, balanceInputs } from "./balances";
+import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "./balances";
 
 export const API_DEFAULT_PAGE_SIZE = 100;
 export const API_MAX_PAGE_SIZE = 200;
@@ -200,11 +200,12 @@ export async function listBalancesForApi(ctx: ServiceContext, client: ApiClient,
   const policy = resolveAllowancePolicy(settings.allowancePolicy);
   const year = q.year ?? yearInTimeZone(settings.timezone, ctx.now());
   const userIds = people.map((p) => p.id);
-  const [allowanceRows, bookedRows] = await Promise.all([
+  const [allowanceRows, bookedRows, defaults] = await Promise.all([
     listAllowances(ctx.db, { userIds, years: allowanceYearsFor([year]) }),
     sumBookedDays(ctx.db, { userIds, years: [year] }),
+    loadAllowanceDefaults(ctx.db, client.companyId, userIds),
   ]);
-  const inputs = balanceInputs(allowanceRows, bookedRows);
+  const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
   const data: ApiBalance[] = userIds.flatMap((userId) =>
     types.flatMap((t): ApiBalance[] => {
       if (t.archived && !inputs.allowanceRow(userId, t.id, year) && !inputs.hasBooked(userId, t.id, year)) return [];

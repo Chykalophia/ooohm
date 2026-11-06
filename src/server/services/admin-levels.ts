@@ -21,6 +21,7 @@ import {
   renameLevel as renameLevelRow,
 } from "@/server/repositories/levels";
 import { countLevelMembers } from "@/server/repositories/users";
+import { lockCompany } from "@/server/repositories/companies";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { removeRulesOf } from "./admin-allowance-rules";
 import { inTransaction } from "./notify";
@@ -108,6 +109,8 @@ export async function deleteLevel(ctx: ServiceContext, actor: Actor, id: string)
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
   await inTransaction(ctx, async (tx) => {
+    // The company lock first, as rule changes take it, so a rule removed here is removed once.
+    if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);
     const before = await lockLevel(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");

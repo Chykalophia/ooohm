@@ -18,19 +18,6 @@ const approvalFields = {
 };
 
 /**
- * Reads a company member and holds a row lock on them until the transaction ends.
- * Serialises concurrent submissions by the same person, so two overlapping requests
- * sent at once cannot both pass the overlap check.
- *
- * The lock is `FOR NO KEY UPDATE`, not `FOR UPDATE`: it still conflicts with itself,
- * but not with the `FOR KEY SHARE` lock Postgres takes when another transaction
- * inserts a row referencing this user (e.g. a request routed to them as approver).
- * `FOR UPDATE` would deadlock two people who approve each other submitting at once.
- *
- * A deleted person (a tombstone) is not a member: nothing may be written for them, so
- * they read as missing.
- */
-/**
  * Takes the member lock ({@link lockMember}) of each of `userIds`, in id order so two
  * callers never wait on each other's half.
  */
@@ -44,6 +31,19 @@ export async function lockMembers(tx: Transaction, companyId: string, userIds: r
     .for("no key update");
 }
 
+/**
+ * Reads a company member and holds a row lock on them until the transaction ends.
+ * Serialises concurrent submissions by the same person, so two overlapping requests
+ * sent at once cannot both pass the overlap check.
+ *
+ * The lock is `FOR NO KEY UPDATE`, not `FOR UPDATE`: it still conflicts with itself,
+ * but not with the `FOR KEY SHARE` lock Postgres takes when another transaction
+ * inserts a row referencing this user (e.g. a request routed to them as approver).
+ * `FOR UPDATE` would deadlock two people who approve each other submitting at once.
+ *
+ * A deleted person (a tombstone) is not a member: nothing may be written for them, so
+ * they read as missing.
+ */
 export async function lockMember(tx: Transaction, companyId: string, userId: string) {
   const [row] = await tx
     .select(approvalFields)

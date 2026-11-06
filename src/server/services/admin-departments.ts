@@ -137,6 +137,8 @@ export async function deleteDepartment(ctx: ServiceContext, actor: Actor, id: st
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
   await inTransaction(ctx, async (tx) => {
+    // The company lock first, as rule changes take it, so a rule removed here is removed once.
+    if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);
     const before = await lockDepartment(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");

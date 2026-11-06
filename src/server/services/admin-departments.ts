@@ -26,6 +26,7 @@ import { isUniqueViolation } from "@/server/repositories/errors";
 import { listPendingRequestsInDepartment } from "@/server/repositories/leave-requests";
 import { countDepartmentMembers, findMember, listPeopleNames } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { removeRulesOf } from "./admin-allowance-rules";
 import { rerouteApprovals } from "./approval-routing";
 import { commitThenSend, inTransaction } from "./notify";
 
@@ -140,6 +141,7 @@ export async function deleteDepartment(ctx: ServiceContext, actor: Actor, id: st
     const before = await lockDepartment(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");
     if ((await countDepartmentMembers(tx, id)) > 0) throw new DomainError("department_not_empty");
+    await removeRulesOf(tx, actor, { departmentId: id });
     await deleteDepartmentRow(tx, actor.companyId, id);
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.departmentDeleted,

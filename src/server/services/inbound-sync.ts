@@ -79,6 +79,7 @@ function snapshot(p: PersonRow, source: string) {
     email: p.email,
     role: p.role,
     departmentId: p.departmentId,
+    levelId: p.levelId,
     managerId: p.managerId,
     canSelfApprove: p.canSelfApprove,
     isActive: p.isActive,

@@ -22,6 +22,7 @@ import {
 } from "@/server/repositories/levels";
 import { countLevelMembers } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { removeRulesOf } from "./admin-allowance-rules";
 import { inTransaction } from "./notify";
 
 function payload(row: LevelRow): Unattributed<LevelEventPayload> {
@@ -97,8 +98,8 @@ export async function renameLevel(ctx: ServiceContext, actor: Actor, id: string,
 }
 
 /**
- * Deletes a level nobody is at (its allowance rules go with it, which changes nobody's
- * allowance). One with people at it is refused, as for departments: move them first,
+ * Deletes a level nobody is at. Its allowance rules go with it, each recorded as
+ * removed; that changes nobody's allowance. One with people at it is refused, as for departments: move them first,
  * which is audited per person.
  *
  * @throws DomainError `forbidden`, `not_found`, or `level_not_empty`.
@@ -111,6 +112,7 @@ export async function deleteLevel(ctx: ServiceContext, actor: Actor, id: string)
     const before = await lockLevel(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");
     if ((await countLevelMembers(tx, id)) > 0) throw new DomainError("level_not_empty");
+    await removeRulesOf(tx, actor, { levelId: id });
     await deleteLevelRow(tx, actor.companyId, id);
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.levelDeleted,

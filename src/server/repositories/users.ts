@@ -30,6 +30,20 @@ const approvalFields = {
  * A deleted person (a tombstone) is not a member: nothing may be written for them, so
  * they read as missing.
  */
+/**
+ * Takes the member lock ({@link lockMember}) of each of `userIds`, in id order so two
+ * callers never wait on each other's half.
+ */
+export async function lockMembers(tx: Transaction, companyId: string, userIds: readonly string[]): Promise<void> {
+  if (userIds.length === 0) return;
+  await tx
+    .select({ id: user.id })
+    .from(user)
+    .where(and(eq(user.companyId, companyId), inArray(user.id, [...userIds]), isNull(user.deletedAt)))
+    .orderBy(asc(sql`${user.id}`))
+    .for("no key update");
+}
+
 export async function lockMember(tx: Transaction, companyId: string, userId: string) {
   const [row] = await tx
     .select(approvalFields)

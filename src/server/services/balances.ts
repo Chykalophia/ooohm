@@ -260,9 +260,10 @@ export type LeaveTypeWithAllowance = Awaited<ReturnType<typeof listLeaveTypesWit
 
 /**
  * {@link getBalanceSummary} for a caller that already loaded the company's settings
- * and leave types (the dashboard, an admin's view of a person): two queries, allowance
- * rows and booked-day sums (aggregated in SQL), in parallel, whatever the number of
- * types or requests.
+ * and leave types (the dashboard, an admin's view of a person): allowance rows,
+ * booked-day sums (aggregated in SQL) and the person's defaults
+ * ({@link loadAllowanceDefaults}, skipped when `loaded.defaults` is passed) in
+ * parallel, whatever the number of types or requests.
  *
  * Every active type gets an item. An archived type gets one only when the person has
  * an allowance row or approved or pending days of it in the year, so retiring a type
@@ -273,14 +274,14 @@ export type LeaveTypeWithAllowance = Awaited<ReturnType<typeof listLeaveTypesWit
 export async function summarizeBalances(
   ex: Executor,
   person: { id: string; companyId: string },
-  loaded: { allowancePolicy: string; types: readonly LeaveTypeWithAllowance[]; year: number },
+  loaded: { allowancePolicy: string; types: readonly LeaveTypeWithAllowance[]; year: number; defaults?: AllowanceDefaults },
 ): Promise<BalanceSummary> {
   const policy = resolveAllowancePolicy(loaded.allowancePolicy);
   const { year } = loaded;
   const [allowanceRows, bookedRows, defaults] = await Promise.all([
     listAllowances(ex, { userIds: [person.id], years: allowanceYearsFor([year]) }),
     sumBookedDays(ex, { userIds: [person.id], years: [year] }),
-    loadAllowanceDefaults(ex, person.companyId, [person.id]),
+    loaded.defaults ?? loadAllowanceDefaults(ex, person.companyId, [person.id]),
   ]);
   const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
   return {

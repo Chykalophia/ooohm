@@ -3,9 +3,10 @@ import { after, before, describe, test } from "node:test";
 import { and, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { listAllowanceRulesForAdmin, removeAllowanceRule, setAllowanceRule } from "@/server/services/admin-allowance-rules";
-import { createDepartment } from "@/server/services/admin-departments";
+import { createDepartment, deleteDepartment } from "@/server/services/admin-departments";
 import { createLevel, deleteLevel, listLevelsForAdmin, renameLevel } from "@/server/services/admin-levels";
-import { updatePerson } from "@/server/services/admin-people";
+import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
+import { deletePerson } from "@/server/services/admin-people-deletion";
 import { getBalanceSummary } from "@/server/services/balances";
 import { submitLeaveRequest } from "@/server/services/leave-requests";
 import { runYearRollover } from "@/server/services/rollover";
@@ -84,7 +85,7 @@ describe("allowance rules by department and level", { skip }, () => {
   });
 
   test("a department's rule sets its people's allowance; the most specific rule wins; others keep the default", async () => {
-    const { co, ctx, vac, dev, intern } = await seed();
+    const { co, ctx, vac, dev, senior, intern } = await seed();
     const { boss, ana, ivy, bo } = co.people;
 
     await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: dev.id, levelId: null, days: 20 });
@@ -94,12 +95,19 @@ describe("allowance rules by department and level", { skip }, () => {
     assert.equal(await allowanceOf(ctx, ivy, vac), 10, "intern in Dev: the level's rule is more specific");
     assert.equal(await allowanceOf(ctx, bo, vac), 15, "outside both: the type's default");
 
+    await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: null, levelId: senior.id, days: 22 });
+    assert.equal(await allowanceOf(ctx, ana, vac), 22, "senior: the level's rule beats the department's");
+    await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: dev.id, levelId: senior.id, days: 25 });
+    assert.equal(await allowanceOf(ctx, ana, vac), 25, "senior in Dev: department and level beat both");
+
     const rules = await listAllowanceRulesForAdmin(ctx, boss, vac);
     assert.deepEqual(
       rules.map((r) => [r.departmentName, r.levelName, r.days]),
       [
         ["Dev", null, 20],
         [null, "Intern", 10],
+        [null, "Senior", 22],
+        ["Dev", "Senior", 25],
       ],
     );
 
@@ -148,20 +156,21 @@ describe("allowance rules by department and level", { skip }, () => {
     await setAllowance(t.db, { userId: ivy.id, leaveTypeId: vac, year: 2026, days: 18 });
     await setAllowance(t.db, { userId: bo.id, leaveTypeId: vac, year: 2026, days: 15 });
     await setAllowance(t.db, { userId: ana.id, leaveTypeId: vac, year: 2025, days: 15 });
+    await setAllowance(t.db, { userId: ana.id, leaveTypeId: vac, year: 2027, days: 15 });
 
     const result = await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: dev.id, levelId: null, days: 20 });
-    assert.equal(result.allowancesUpdated, 1);
+    assert.equal(result.allowancesUpdated, 2);
     const days = async (userId: string, year: number) =>
       (await allowancesOf(t.db, userId)).find((a) => a.leaveTypeId === vac && a.year === year)?.days;
     assert.equal(await days(ana.id, 2026), 20, "was on the default: follows the rule");
     assert.equal(await days(ivy.id, 2026), 18, "set by hand: kept");
     assert.equal(await days(bo.id, 2026), 15, "outside the department: untouched");
     assert.equal(await days(ana.id, 2025), 15, "closed years are left alone");
+    assert.equal(await days(ana.id, 2027), 20, "a later year's row follows too");
 
     const moves = await companyAudit(t.db, co.companyId, "allowance.rule_applied");
-    assert.equal(moves.length, 1);
-    assert.equal(moves[0].subjectUserId, ana.id);
-    assert.equal(moves[0].actorId, boss.id);
+    assert.equal(moves.length, 2);
+    assert.ok(moves.every((m) => m.subjectUserId === ana.id && m.actorId === boss.id));
     const [balance] = await companyEvents(t.db, co.companyId, "balance.adjusted");
     assert.equal((balance.payload as { reason: string }).reason, "allowance_rule");
 
@@ -186,7 +195,41 @@ describe("allowance rules by department and level", { skip }, () => {
     assert.deepEqual(await row(), [{ days: 20 }]);
     await updatePerson(ctx, boss, bo.id, { ...person, departmentId: dev.id, levelId: senior.id });
     assert.deepEqual(await row(), [{ days: 25 }]);
+    const updates = (await companyAudit(t.db, co.companyId, "user.updated")).filter((a) => a.subjectUserId === bo.id);
+    assert.deepEqual(
+      updates.map((a) => [(a.before as { levelId: string | null }).levelId, (a.after as { levelId: string | null }).levelId]),
+      [
+        [null, null],
+        [null, senior.id],
+      ],
+    );
+    const events = (await companyEvents(t.db, co.companyId, "user.updated")).filter((e) => (e.payload as { userId: string }).userId === bo.id);
+    assert.deepEqual(
+      events.map((e) => (e.payload as { levelId: string | null }).levelId),
+      [null, senior.id],
+    );
     await rejectsWith(updatePerson(ctx, boss, bo.id, { ...person, departmentId: dev.id, levelId: ZERO_UUID }), "invalid_input");
+  });
+
+  test("deleting a level or department records the removal of its rules; a deleted person no longer holds a level", async () => {
+    const { co, ctx, vac, dev, senior, intern } = await seed();
+    const { boss, ana, ivy } = co.people;
+    const forLevel = await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: null, levelId: intern.id, days: 10 });
+    const forDept = await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: dev.id, levelId: null, days: 20 });
+
+    await deactivatePerson(ctx, boss, ivy.id);
+    await deletePerson(ctx, boss, ivy.id, { mode: "records_kept", confirmName: "Ivy" });
+    await deleteLevel(ctx, boss, intern.id);
+    await place(ana.id, null, senior.id);
+    await deleteDepartment(ctx, boss, dev.id);
+
+    const removed = await companyEvents(t.db, co.companyId, "allowance_rule.removed");
+    assert.deepEqual(
+      removed.map((e) => (e.payload as { ruleId: string }).ruleId),
+      [forLevel.id, forDept.id],
+    );
+    assert.equal((await companyAudit(t.db, co.companyId, "allowance_rule.removed")).length, 2);
+    assert.deepEqual(await listAllowanceRulesForAdmin(ctx, boss, vac), []);
   });
 
   test("the year rollover gives new rows from the rules", async () => {

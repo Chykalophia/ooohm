@@ -21,6 +21,7 @@ import type { ServiceContext } from "@/server/context";
 import {
   type AllowanceRuleRow,
   deleteAllowanceRule,
+  deleteAllowanceRulesOf,
   findAllowanceRule,
   findAllowanceRuleFor,
   insertAllowanceRule,
@@ -34,6 +35,7 @@ import { findDepartment, listDepartments } from "@/server/repositories/departmen
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { findLeaveType, listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { findLevel, listLevels } from "@/server/repositories/levels";
+import { lockMembers } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { recordAllowanceChange } from "./allowance-changes";
 import { type AllowanceDefaults, loadAllowanceDefaults } from "./balances";
@@ -118,7 +120,7 @@ export async function setAllowanceRule(ctx: ServiceContext, actor: Actor, input:
 
       const before = await findAllowanceRuleFor(tx, actor.companyId, input.leaveTypeId, rule);
       if (before && before.days === rule.days) return { ...before, allowancesUpdated: 0 };
-      const userIds = await listMembersAt(tx, actor.companyId, rule);
+      const userIds = await membersAt(tx, actor, rule);
       const defaultsBefore = await loadAllowanceDefaults(tx, actor.companyId, userIds);
       const after = before
         ? await updateAllowanceRuleDays(tx, actor.companyId, before.id, rule.days)
@@ -160,7 +162,7 @@ export async function removeAllowanceRule(ctx: ServiceContext, actor: Actor, id:
     const year = await thisYear(ctx, tx, actor);
     const before = await findAllowanceRule(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");
-    const userIds = await listMembersAt(tx, actor.companyId, before);
+    const userIds = await membersAt(tx, actor, before);
     const defaultsBefore = await loadAllowanceDefaults(tx, actor.companyId, userIds);
     await deleteAllowanceRule(tx, actor.companyId, id);
     await recordAdminChange(tx, actor, {
@@ -180,6 +182,35 @@ export async function removeAllowanceRule(ctx: ServiceContext, actor: Actor, id:
     });
     return { allowancesUpdated };
   });
+}
+
+/**
+ * The people a rule's target matches, under their member locks: the year rollover reads
+ * a member's defaults under that lock, so it either sees this change or finishes first
+ * (and its new row is then moved here like any other).
+ */
+async function membersAt(tx: Transaction, actor: Actor, target: Placement): Promise<string[]> {
+  const userIds = await listMembersAt(tx, actor.companyId, target);
+  await lockMembers(tx, actor.companyId, userIds);
+  return userIds;
+}
+
+/**
+ * Removes every rule of a department or level about to be deleted, recording
+ * `allowance_rule.removed` for each (the foreign key would drop them silently). Nobody
+ * is placed there any more, so no allowance moves.
+ */
+export async function removeRulesOf(tx: Transaction, actor: Actor, target: { departmentId: string } | { levelId: string }): Promise<void> {
+  for (const rule of await deleteAllowanceRulesOf(tx, actor.companyId, target)) {
+    await recordAdminChange(tx, actor, {
+      type: ADMIN_EVENT_TYPES.allowanceRuleRemoved,
+      entityType: "allowance_rule",
+      entityId: rule.id,
+      before: snapshot(rule),
+      after: null,
+      payload: payload(rule),
+    });
+  }
 }
 
 /** Locks the company and checks the actor, then this year in the company's time zone. */

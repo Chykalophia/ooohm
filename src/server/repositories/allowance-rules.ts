@@ -67,6 +67,23 @@ export async function deleteAllowanceRule(tx: Transaction, companyId: string, id
   await tx.delete(allowanceRules).where(and(eq(allowanceRules.id, id), eq(allowanceRules.companyId, companyId)));
 }
 
+/** Deletes every rule of a department or of a level (before that is deleted); returns them. */
+export async function deleteAllowanceRulesOf(
+  tx: Transaction,
+  companyId: string,
+  target: { departmentId: string } | { levelId: string },
+): Promise<AllowanceRuleRow[]> {
+  return tx
+    .delete(allowanceRules)
+    .where(
+      and(
+        eq(allowanceRules.companyId, companyId),
+        "departmentId" in target ? eq(allowanceRules.departmentId, target.departmentId) : eq(allowanceRules.levelId, target.levelId),
+      ),
+    )
+    .returning(fields);
+}
+
 /** Where each of `userIds` (of the company) sits: department and level. */
 export async function listPlacements(ex: Executor, companyId: string, userIds: readonly string[]) {
   if (userIds.length === 0) return new Map<string, Placement>();

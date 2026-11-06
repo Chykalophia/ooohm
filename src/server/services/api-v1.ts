@@ -184,8 +184,10 @@ export interface ApiBalance {
  * Balances for one year (default: the current year in the company's time zone), for
  * every active person, or for one person (active or not), computed exactly as the
  * dashboard computes them. Every active leave type is listed, and an archived one only
- * where the person has an allowance row or booked days for it. Five queries: settings,
- * leave types and people in parallel, then allowance rows and booked-day sums.
+ * where the person has an allowance row or booked days for it. Six queries: settings,
+ * leave types and people in parallel, then allowance rows, booked-day sums and the
+ * allowance rules; a seventh reads the people's departments and levels when the
+ * company has rules.
  *
  * @throws DomainError `policy_unavailable` when the company's policy is unknown.
  */

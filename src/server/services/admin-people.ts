@@ -298,6 +298,7 @@ export async function getPersonDetail(ctx: ServiceContext, actor: Actor, userId:
     allowancePolicy: company.allowancePolicy,
     types,
     year: balanceYear,
+    defaults,
   }).catch((err: unknown) => {
     if (!isDomainError(err, "policy_unavailable")) throw err;
     log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");

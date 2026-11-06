@@ -23,6 +23,9 @@ test("a department's rule replaces the default for its people", () => {
 });
 
 test("the most specific rule wins: department and level, then level, then department", () => {
+  const withSenior: AllowanceRule[] = [...rules, { leaveTypeId: "pto", departmentId: null, levelId: "senior", days: 22 }];
+  assert.equal(defaultAllowanceFor(pto, { departmentId: "dev", levelId: "senior" }, withSenior), 25, "department and level beat the level alone");
+  assert.equal(defaultAllowanceFor(pto, { departmentId: "sales", levelId: "senior" }, withSenior), 22);
   assert.equal(defaultAllowanceFor(pto, { departmentId: "dev", levelId: "senior" }, rules), 25);
   assert.equal(defaultAllowanceFor(pto, { departmentId: "dev", levelId: "intern" }, rules), 10, "an intern's level beats the department");
   assert.equal(defaultAllowanceFor(pto, { departmentId: "sales", levelId: "intern" }, rules), 10);

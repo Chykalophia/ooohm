@@ -228,6 +228,7 @@ export async function writeTombstone(
       canSelfApprove: false,
       managerId: null,
       departmentId: null,
+      levelId: null,
       deletedAt: values.at,
       deletionMode: values.mode,
       scrubScheduledAt: null,

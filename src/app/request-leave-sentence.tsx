@@ -68,7 +68,6 @@ function SentenceFields({
   justSubmitted: boolean;
   headsUp: boolean;
 }) {
-  const noteFor = headsUp ? "your manager" : "your approver";
   const {
     leaveTypeId,
     setLeaveTypeId,
@@ -133,13 +132,13 @@ function SentenceFields({
 
       <details className="group text-sm">
         <summary className={cx("w-fit cursor-pointer rounded-md font-medium text-accent-ink marker:content-none", focusRing)}>
-          Add a note for {noteFor}
+          {headsUp ? "Add a note" : "Add a note for your approver"}
         </summary>
         <textarea
           name="note"
           rows={2}
           maxLength={NOTE_MAX_LENGTH}
-          aria-label={`Note for ${noteFor}`}
+          aria-label={headsUp ? "Note" : "Note for your approver"}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           className={cx(fieldClass(), "mt-2 resize-y")}

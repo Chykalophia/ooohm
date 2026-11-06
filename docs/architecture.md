@@ -411,8 +411,8 @@ Approved leave of the open year that is **over** (its last day is before today, 
 `isLeaveOver`) can't be cancelled by its requester either; the service refuses with `leave_taken`, and
 `cancellable` is false. It was taken, so cancelling it would quietly hand the days back. A correction is for their
 direct manager or an admin (`canCorrectLeaveFor`, the same people who may add leave for them): `removeLeaveFor`
-(the **Remove** action on the person's Team page) cancels approved leave of the open year, past or not
-(`canRemoveOn`), with a required reason stored in `decision_note`. It is recorded as `leave_request.cancelled` and
+(the **Remove** action on the person's Team page, which for them also lists this year's leave from before its
+60 days) cancels approved leave that isn't from a closed year, past or future (`canRemoveOn`), with a required reason stored in `decision_note`. It is recorded as `leave_request.cancelled` and
 `leave.cancelled` by the one removing it, so the audit log names who and why (its `before` keeps the approver's
 earlier note), and the person is emailed (`removed`). To change dates, remove the leave and add the right ones. A
 closed year's leave still can't be removed. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an

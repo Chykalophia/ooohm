@@ -12,34 +12,25 @@ import { ColorLabel } from "@/components/ui/color-label";
 import { BackLink, Section } from "@/components/ui/section";
 import { textLink } from "@/components/ui/styles";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { RequestLeaveForm } from "@/app/request-leave-form";
+import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
 import { removeLeaveForAction } from "@/app/actions";
 import { RemoveLeave } from "./remove-leave";
 
+/** Where focus goes once a removed entry leaves its list: the "Coming up" heading, which is always shown. */
 const UPCOMING_HEADING = "upcoming-heading";
-const RECENT_HEADING = "recent-heading";
-import { RequestLeaveForm } from "@/app/request-leave-form";
-import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
 
 /** The teammate, loaded once per request for both the tab title and the page. */
 const loadMember = cache(async (id: string) => {
   const page = await requireMemberPage();
-  return {
-    page,
-    member: page.actor ? await getTeamMember(page.ctx, page.actor, id) : null,
-  };
+  return { page, member: page.actor ? await getTeamMember(page.ctx, page.actor, id) : null };
 });
 
 /** The tab names the teammate (WCAG 2.4.2); if they can't be loaded, the page itself answers. */
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   try {
     const { member } = await loadMember((await params).id);
-    return {
-      title: member ? `${member.person.name} · Team · OOOhm` : "Team · OOOhm",
-    };
+    return { title: member ? `${member.person.name} · Team · OOOhm` : "Team · OOOhm" };
   } catch {
     return { title: "Team · OOOhm" };
   }
@@ -55,35 +46,20 @@ type Entry = Member["upcoming"][number];
  * their direct manager can add time off for them, approved as it is added, and remove
  * approved time off of this year (past days included) to correct the record, with a reason.
  */
-export default async function TeamMemberPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function TeamMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { page, member } = await orNotFound(loadMember(id));
   if (!member) return <NoCompany nav={page.nav} current="team" />;
   const { person } = member;
-  const about = [
-    person.departmentName,
-    person.managerName && `Reports to ${person.managerName}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const about = [person.departmentName, person.managerName && `Reports to ${person.managerName}`].filter(Boolean).join(" · ");
 
   return (
-    <AppPage
-      nav={page.nav}
-      current="team"
-      title={person.name}
-      description={about || undefined}
-    >
+    <AppPage nav={page.nav} current="team" title={person.name} description={about || undefined}>
       <BackLink href="/team">← Who&apos;s out</BackLink>
 
       {person.isMe && (
         <p className="text-sm text-muted">
-          This is you. Your teammates see when you&apos;re off, not your notes
-          or balances. All your requests are on{" "}
+          This is you. Your teammates see when you&apos;re off, not your notes or balances. All your requests are on{" "}
           <Link href="/requests" className={textLink}>
             Your requests
           </Link>
@@ -92,25 +68,21 @@ export default async function TeamMemberPage({
       )}
 
       <Section title="Coming up" headingId={UPCOMING_HEADING}>
-        {member.upcoming.length === 0 ? (
-          <p className="text-muted">Nothing planned.</p>
-        ) : (
-          <LeaveList entries={member.upcoming} headingId={UPCOMING_HEADING} />
-        )}
+        {member.upcoming.length === 0 ? <p className="text-muted">Nothing planned.</p> : <LeaveList entries={member.upcoming} />}
       </Section>
 
-      {/* Always rendered once there was something, so removing the last entry still has a heading to focus. */}
-      <Section
-        title={`In the last ${member.recentDays} days`}
-        headingId={RECENT_HEADING}
-        className={member.recent.length > 0 ? "space-y-4" : "sr-only"}
-      >
-        {member.recent.length > 0 ? (
-          <LeaveList entries={member.recent} headingId={RECENT_HEADING} />
-        ) : (
-          <p>Nothing.</p>
-        )}
-      </Section>
+      {member.recent.length > 0 && (
+        <Section title={`In the last ${member.recentDays} days`}>
+          <LeaveList entries={member.recent} />
+        </Section>
+      )}
+
+      {/* Only their manager or an admin gets these, to correct them. */}
+      {member.earlier.length > 0 && (
+        <Section title={`Earlier in ${member.year}`}>
+          <LeaveList entries={member.earlier} />
+        </Section>
+      )}
 
       {member.addLeave && member.addLeave.leaveTypes.length > 0 && (
         <RequestLeaveForm
@@ -120,24 +92,13 @@ export default async function TeamMemberPage({
         />
       )}
 
-      {member.balances && (
-        <BalanceSummary
-          summary={member.balances}
-          title={`Balance for ${member.balances.year}`}
-        />
-      )}
+      {member.balances && <BalanceSummary summary={member.balances} title={`Balance for ${member.balances.year}`} />}
     </AppPage>
   );
 }
 
 /** Leave as the team calendar shows it, plus the days and notes for those allowed to see them. */
-function LeaveList({
-  entries,
-  headingId,
-}: {
-  entries: readonly Entry[];
-  headingId: string;
-}) {
+function LeaveList({ entries }: { entries: readonly Entry[] }) {
   return (
     <ItemList>
       {entries.map((e) => (
@@ -151,11 +112,7 @@ function LeaveList({
                 {e.leaveTypeName}
                 {e.details && ` · ${formatDays(e.details.days)}`}
               </p>
-              {e.details?.note && (
-                <p className="text-sm break-words text-muted">
-                  {e.details.note}
-                </p>
-              )}
+              {e.details?.note && <p className="text-sm break-words text-muted">{e.details.note}</p>}
               {e.details?.decisionNote && (
                 <p className="text-sm break-words">
                   <span className="text-muted">Note from approver: </span>
@@ -171,7 +128,7 @@ function LeaveList({
               requestId={e.id}
               dates={formatLeaveDates(e.startDate, e.endDate, e.dayPortion)}
               maxLength={NOTE_MAX_LENGTH}
-              focusOnSuccess={headingId}
+              focusOnSuccess={UPCOMING_HEADING}
             />
           )}
         </Item>

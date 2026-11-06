@@ -179,7 +179,8 @@ export async function removeLeaveFor(ctx: ServiceContext, actor: Actor, requestI
   return commitThenNotify(ctx, async (tx) => {
     const before = await lockLeaveRequest(tx, actor.companyId, requestId);
     if (!before) throw new DomainError("not_found");
-    const person = await findPerson(tx, actor.companyId, before.userId);
+    // Locked, so an admin moving them to another manager can't land between the check and the change.
+    const person = await lockPerson(tx, actor.companyId, before.userId);
     if (!person || !canCorrectLeaveFor(actor, { id: person.id, companyId: actor.companyId, managerId: person.managerId })) {
       throw new DomainError("forbidden");
     }

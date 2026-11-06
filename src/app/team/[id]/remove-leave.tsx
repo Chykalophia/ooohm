@@ -14,8 +14,8 @@ import { dangerOutlineButton } from "@/components/ui/styles";
  * then the remove. It corrects the record (entered twice, or they worked after all), so
  * it sits behind a reveal and is never one click; the person is emailed the reason.
  *
- * On success the entry leaves the list, and this form with it, so focus moves to
- * `focusOnSuccess` (the list's heading), as Cancel does on "Your requests".
+ * On success the entry leaves its list, and this form with it, so focus moves to
+ * `focusOnSuccess` (a heading that is always shown), as Cancel does on "Your requests".
  */
 export function RemoveLeave({
   action,
@@ -31,12 +31,9 @@ export function RemoveLeave({
   maxLength: number;
   focusOnSuccess: string;
 }) {
-  const { state, dispatch, pending, onSubmit } = useFormAction<
-    Awaited<ReturnType<FormAction>>
-  >(async (prev, formData) => {
+  const { state, dispatch, pending, onSubmit } = useFormAction<Awaited<ReturnType<FormAction>>>(async (prev, formData) => {
     const next = await action(prev, formData);
-    if (next.status === "success")
-      document.getElementById(focusOnSuccess)?.focus();
+    if (next.status === "success") document.getElementById(focusOnSuccess)?.focus();
     return next;
   }, IDLE);
 
@@ -53,11 +50,7 @@ export function RemoveLeave({
           maxLength={maxLength}
         />
         <div className="flex flex-wrap items-center gap-4">
-          <button
-            type="submit"
-            aria-disabled={pending}
-            className={dangerOutlineButton}
-          >
+          <button type="submit" aria-disabled={pending} className={dangerOutlineButton}>
             {pending ? <PendingLabel label="Removing…" /> : "Remove time off"}
           </button>
           <FormStatus state={state} />

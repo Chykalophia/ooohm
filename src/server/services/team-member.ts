@@ -36,7 +36,8 @@ const AHEAD_DAYS = 365;
  *
  * - An admin, or the person's direct manager ({@link canAddLeaveFor}), also gets
  *   `addLeave`: what the form to add time off for them needs (`addLeaveFor`), and each
- *   approved entry of the open year is `removable` by them (`removeLeaveFor`).
+ *   approved entry of the open year is `removable` by them (`removeLeaveFor`). They also
+ *   get `earlier`: this year's leave from before the recent window.
  *
  * Inactive and deleted people are not on Team, so they are `not_found` here too.
  *
@@ -56,17 +57,20 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
   const year = yearInTimeZone(company.timezone, now);
   const canAdd = canAddLeaveFor(actor, { ...person, companyId: actor.companyId });
   const canCorrect = canCorrectLeaveFor(actor, { ...person, companyId: actor.companyId });
+  // Someone who may correct the person's leave also sees this year's from before the recent window.
+  const yearStart = `${year}-01-01`;
+  const readFrom = canCorrect && yearStart < from ? yearStart : from;
 
   const [department, manager, holidays, leave, balances, addLeave] = await Promise.all([
     person.departmentId ? findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined,
     person.managerId ? findPerson(ctx.db, actor.companyId, person.managerId) : undefined,
-    listHolidays(ctx.db, actor.companyId, from, to),
-    listPersonLeave(ctx.db, actor.companyId, person.id, from, to),
+    listHolidays(ctx.db, actor.companyId, readFrom, to),
+    listPersonLeave(ctx.db, actor.companyId, person.id, readFrom, to),
     showDetails ? personBalances(ctx, actor, person, company.allowancePolicy, year) : null,
     canAdd ? addLeaveForm(ctx, actor, today, company.workingDays) : null,
   ]);
 
-  const shown = entriesCostingDaysIn(leave, { first: from, last: to, workingDays: company.workingDays, holidays });
+  const shown = entriesCostingDaysIn(leave, { first: readFrom, last: to, workingDays: company.workingDays, holidays });
   const entries = shown.map(({ days, note, decisionNote, ...entry }) => ({
     ...entry,
     details: showDetails ? { days, note, decisionNote } : null,
@@ -84,8 +88,15 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
     /** Leave that ends today or later, earliest first. */
     upcoming: entries.filter((e) => e.endDate >= today),
     /** Leave that ended in the last {@link RECENT_DAYS} days, latest first. */
-    recent: entries.filter((e) => e.endDate < today).reverse(),
+    recent: entries.filter((e) => e.endDate < today && e.endDate >= from).reverse(),
+    /**
+     * For their manager or an admin only (`[]` for anyone else): this year's leave that ended
+     * before the recent window, latest first, so it can still be corrected.
+     */
+    earlier: entries.filter((e) => e.endDate < from).reverse(),
     recentDays: RECENT_DAYS,
+    /** The company's current year, which `earlier` covers. */
+    year,
     /**
      * This year's balances, for those allowed to see them (types with nothing allotted
      * and nothing booked left out, as on Home); `null` otherwise, or when the policy is unknown.

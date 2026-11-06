@@ -220,5 +220,30 @@ describe("leave requests: added for someone by a manager or admin", { skip }, ()
       assert.equal(await removable(bo), false);
       assert.equal(await removable(ana), false, "her own: not a correction");
     });
+
+    test("leave earlier this year, past the 60-day list, is shown to those who may correct it, and only to them", async () => {
+      const co = await seed();
+      const ctx = createTestContext(t.db, { now });
+      const { boss, mo, ana, bo } = co.people;
+      const feb = createTestContext(t.db, { now: new Date("2026-01-26T12:00:00Z") });
+      const winter = await addLeaveFor(feb, mo, ana.id, { leaveTypeId: co.pto, startDate: "2026-02-02", endDate: "2026-02-03", dayPortion: "full" });
+      await feb.settle();
+
+      const forManager = await getTeamMember(ctx, mo, ana.id);
+      assert.deepEqual(forManager.earlier.map((e) => [e.id, e.removable]), [[winter.id, true]]);
+      assert.equal(forManager.recent.some((e) => e.id === winter.id), false, "not in the 60-day list");
+      assert.equal((await getTeamMember(ctx, boss, ana.id)).earlier.length, 1);
+      assert.deepEqual((await getTeamMember(ctx, bo, ana.id)).earlier, []);
+      assert.deepEqual((await getTeamMember(ctx, ana, ana.id)).earlier, []);
+    });
+
+    test("a manager who loses the person mid-removal is refused: the person is locked first", async () => {
+      const co = await seed();
+      const ctx = createTestContext(t.db, { now });
+      const { mo, ana, boss } = co.people;
+      const req = await pastLeaveOf(co);
+      await t.db.update(schema.user).set({ managerId: boss.id }).where(eq(schema.user.id, ana.id));
+      await rejectsWith(removeLeaveFor(ctx, mo, req.id, "no longer mine"), "forbidden");
+    });
   });
 });

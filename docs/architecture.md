@@ -845,7 +845,8 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
   waiting for approval and the median time from request to an approver's decision (self-approved requests and
   ones decided as they were made, such as leave added for someone, are left out); twelve stacked columns by
   leave type, with a tick at the year before's total for the same month, and months after today's lighter
-  (booked, not yet taken); five years of totals; days by leave type, by department (per active person),
+  (booked, not yet taken); a running total through the year as a line over last year's (`runningTotal`,
+  dashed where booked ahead); five years of totals; days by leave type, by department (per active person),
   request counts by status, and a table of people. Inactive people appear only with leave in the year.
 - **Days come from each request's stored split** (`leave_request_days`), the same numbers balances use, never
   a recount. Only spreading a year's days over its months uses the calendar (`allocateYearToMonths`): when a
@@ -862,7 +863,7 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
   and the people in scope in parallel; then their leave over the five years, two years of holidays and the
   two balance reads. `tests/integration/reports.test.ts` pins both counts.
 - **Charts** are server-rendered HTML in `src/components/charts/` (`MonthColumns`, `YearColumns`, `BarList`,
-  `StatTile`), coloured with leave type colours and theme tokens only, with a 2px gap between stacked
+  `StatTile`; `RunningTotalLines` is an inline SVG stretched to its box, with HTML hover zones and dots), coloured with leave type colours and theme tokens only, with a 2px gap between stacked
   segments and a tooltip on hover. They are hidden from screen readers; the same numbers are in text, a
   "Show as a table" disclosure and the people table.
 

@@ -239,6 +239,32 @@ describe("buildLeaveReport", () => {
     );
   });
 
+  test("running totals: approved days so far by each month's end, this year and the one before", () => {
+    const report = buildLeaveReport(
+      input({
+        requests: [
+          request("ana", "2026-01-05", "2026-01-06"), // Jan 2
+          request("bo", "2026-03-02", "2026-03-02", { dayPortion: "am" }), // Mar 0.5
+          request("cy", "2026-12-07", "2026-12-08"), // Dec 2, booked ahead
+          request("ana", "2026-04-06", "2026-04-06", { status: "pending", decidedAt: null }),
+          request("ana", "2025-02-03", "2025-02-05"), // Feb 2025: 3
+          request("ana", "2025-11-03", "2025-11-03", { dayPortion: "pm" }), // Nov 2025: 0.5
+        ],
+      }),
+    );
+    assert.deepEqual(report.runningTotal.days, [2, 2, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 4.5]);
+    assert.deepEqual(report.runningTotal.previous, [0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3.5, 3.5]);
+    assert.equal(report.runningTotal.days.at(-1), report.totals.approvedDays, "ends at the year's total");
+  });
+
+  test("running totals add in tenths, without float drift", () => {
+    const tenths = Array.from({ length: 10 }, (_, i) =>
+      request("ana", `2026-01-${String(5 + i).padStart(2, "0")}`, `2026-01-${String(5 + i).padStart(2, "0")}`, { split: [{ year: 2026, days: 0.1 }] }),
+    );
+    const report = buildLeaveReport(input({ requests: tenths.filter((r) => !["2026-01-10", "2026-01-11"].includes(r.startDate)) }));
+    assert.equal(report.runningTotal.days[0], 0.8);
+  });
+
   test("by leave type, most days first, with request counts; types with nothing are left out", () => {
     const report = buildLeaveReport(
       input({

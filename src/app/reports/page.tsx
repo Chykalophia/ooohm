@@ -8,6 +8,7 @@ import { readReportQuery } from "@/app/_lib/report-input";
 import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
 import { BarList } from "@/components/charts/bar-list";
 import { type MonthColumn, MonthColumns } from "@/components/charts/month-columns";
+import { RunningTotalLines } from "@/components/charts/running-total-lines";
 import { StatTile } from "@/components/charts/stat-tile";
 import { YearColumns } from "@/components/charts/year-columns";
 import { AppPage } from "@/components/layout/app-page";
@@ -134,6 +135,34 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         )}
       </Section>
 
+      {(totals.approvedDays > 0 || report.previousYearMonths.some((d) => d > 0)) && (
+        <Section title="Running total" surface>
+          <RunningTotalLines
+            labels={SHORT_MONTH}
+            days={report.runningTotal.days}
+            previous={report.runningTotal.previous}
+            takenMonths={report.months.filter((m) => !m.ahead).length}
+            label={String(nav.year)}
+            compareLabel={String(nav.year - 1)}
+          />
+          <ul aria-label="Key" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden className="h-0.5 w-3 rounded-full bg-accent" />
+              {nav.year}
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden className="h-0.5 w-3 rounded-full bg-muted" />
+              {nav.year - 1}
+            </li>
+            {anyAhead && <li>Dashed months are booked ahead</li>}
+          </ul>
+          <details className="text-sm">
+            <summary className={cx(textLink, "w-fit cursor-pointer text-muted")}>Show as a table</summary>
+            <RunningTotalTable report={report} />
+          </details>
+        </Section>
+      )}
+
       <Section title="Year over year" surface>
         <YearColumns years={report.trend} />
         <p className="sr-only">{report.trend.map((y) => `${y.year}: ${formatDays(y.days)}`).join(", ")}</p>
@@ -201,6 +230,43 @@ function RequestCounts({ report }: { report: LeaveReport }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** The running total's numbers: days so far by each month's end, this year and the year before. */
+function RunningTotalTable({ report }: { report: LeaveReport }) {
+  const right = cx(tableHeadCell, "text-right");
+  return (
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full text-sm">
+        <caption className="sr-only">Approved days off so far by the end of each month</caption>
+        <thead>
+          <tr>
+            <th scope="col" className={tableHeadCell}>
+              By the end of
+            </th>
+            <th scope="col" className={right}>
+              {report.year}
+            </th>
+            <th scope="col" className={right}>
+              {report.year - 1}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.months.map((m, i) => (
+            <tr key={m.month}>
+              <th scope="row" className={cx(tableCell, "text-left font-normal")}>
+                {formatMonth(m.month)}
+                {m.ahead && <span className="text-muted"> (with bookings)</span>}
+              </th>
+              <td className={cx(tableCell, "text-right font-medium tabular-nums")}>{report.runningTotal.days[i]}</td>
+              <td className={cx(tableCell, "text-right tabular-nums text-muted")}>{report.runningTotal.previous[i]}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

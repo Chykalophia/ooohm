@@ -190,6 +190,8 @@ export interface LeaveReport {
   months: ReportMonth[];
   /** The year before's approved days per month, January first. */
   previousYearMonths: number[];
+  /** Approved days so far by the end of each month, January first: the report's year and the one before. */
+  runningTotal: { days: number[]; previous: number[] };
   /** Approved days per year, oldest first, ending with the report's year. */
   trend: { year: number; days: number }[];
   /** Leave types with approved days, most first. */
@@ -224,6 +226,12 @@ function monthlyApproved(input: LeaveReportInput, year: number): Map<YearMonth, 
     }
   }
   return months;
+}
+
+/** Each value plus all before it, in tenths of a day so the sums never drift. */
+function runningSum(values: readonly number[]): number[] {
+  let sum = 0;
+  return values.map((v) => (sum = addDays(sum, v)));
 }
 
 /**
@@ -316,6 +324,7 @@ export function buildLeaveReport(input: LeaveReportInput): LeaveReport {
     },
     months,
     previousYearMonths,
+    runningTotal: { days: runningSum(months.map((m) => m.total)), previous: runningSum(previousYearMonths) },
     trend,
     byType,
     byDepartment,

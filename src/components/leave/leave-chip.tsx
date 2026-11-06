@@ -11,11 +11,12 @@ import { cx, focusRing } from "@/components/ui/styles";
  * feeds: "PTO", "PTO (AM)", "PTO (pending)".
  *
  * @param href Where the chip leads (the request's own page, for the person's own
- *   leave): it becomes a link that lifts its shadow and outline on hover.
+ *   leave, or a colleague's page): it becomes a link that lifts its shadow and outline on hover.
+ * @param personName Whose leave it is, for a colleague's: "Ana: PTO", as in the team feed.
  */
-export function LeaveChip({ entry, href }: { entry: CalendarEntry; href?: string }) {
+export function LeaveChip({ entry, href, personName }: { entry: CalendarEntry; href?: string; personName?: string }) {
   const color = normalizeHexColor(entry.leaveTypeColor);
-  const label = feedEventSummary(entry);
+  const label = feedEventSummary(entry, personName);
   const pending = entry.status === "pending";
   const className = cx(
     "block min-h-6 rounded-md px-1.5 py-1 text-xs leading-snug font-medium break-words",
@@ -32,7 +33,7 @@ export function LeaveChip({ entry, href }: { entry: CalendarEntry; href?: string
   );
   const title = `${entry.leaveTypeName}${pending ? ", waiting for approval" : ""}`;
   return href ? (
-    <Link href={href} title={`${title}: open the request`} className={className} style={style}>
+    <Link href={href} title={personName ? `${personName}, ${title}: open their page` : `${title}: open the request`} className={className} style={style}>
       {content}
     </Link>
   ) : (

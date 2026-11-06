@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { AgendaItem } from "@/domain/calendar";
+import type { AgendaItem, CalendarViewEntry } from "@/domain/calendar";
+import { CALENDAR_FILTER_LABELS, type CalendarFilter } from "@/domain/calendar-visibility";
 import { formatLeaveDates, formatMonth } from "@/lib/format";
 import { getMonthCalendar, getYearCalendar } from "@/server/services/calendar";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { StatusBadge } from "@/components/leave/status-badge";
 import { MonthNav, YearNav } from "@/components/navigation/month-nav";
+import { PillNav } from "@/components/navigation/pill-nav";
 import { Item, ItemList } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { cx, focusRing, quietLink } from "@/components/ui/styles";
-import { monthParamSchema, readParam, yearParamSchema } from "@/app/_lib/calendar-input";
+import { calendarFilterParamSchema, monthParamSchema, readParam, yearParamSchema } from "@/app/_lib/calendar-input";
 import { requireMemberPage } from "@/app/_lib/page-context";
 import { MonthGrid } from "./month-grid";
 import { YearGrid } from "./year-grid";
@@ -30,7 +32,14 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
 
 const HEADING_ID = "month-heading";
 
-function AgendaRow({ item }: { item: AgendaItem }) {
+/** The month view's address: `show` is left out for the default, just me. */
+function monthHref(month: string, filter: CalendarFilter): string {
+  const query = new URLSearchParams({ month });
+  if (filter !== "me") query.set("show", filter);
+  return `/calendar?${query}`;
+}
+
+function AgendaRow({ item }: { item: AgendaItem<CalendarViewEntry> }) {
   if (item.kind === "holiday") {
     return (
       <Item className="flex flex-col gap-1 text-muted">
@@ -40,19 +49,24 @@ function AgendaRow({ item }: { item: AgendaItem }) {
     );
   }
   const { entry } = item;
-  // The whole row opens the request: its dates are the link, stretched over the row.
+  // The whole row opens the request (or, for a colleague, their page): its dates are the link, stretched over the row.
   return (
     <Item className="relative flex items-start justify-between gap-3 transition-colors hover:bg-background">
       <div className="min-w-0 space-y-1">
         <ColorLabel color={entry.leaveTypeColor} className="font-medium">
           <Link
-            href={`/requests/${entry.id}`}
+            href={entry.isMine ? `/requests/${entry.id}` : `/team/${entry.userId}`}
+            aria-label={
+              entry.isMine
+                ? undefined
+                : `${entry.personName}, ${formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}, ${entry.leaveTypeName}: open their page`
+            }
             className="outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent-ink"
           >
             {formatLeaveDates(entry.startDate, entry.endDate, entry.dayPortion)}
           </Link>
         </ColorLabel>
-        <p className="text-sm text-muted">{entry.leaveTypeName}</p>
+        <p className="text-sm text-muted">{entry.isMine ? entry.leaveTypeName : `${entry.personName} · ${entry.leaveTypeName}`}</p>
       </div>
       {entry.status === "pending" && <StatusBadge status="pending" />}
     </Item>
@@ -82,7 +96,8 @@ function ViewSwitch({ view, month, year }: { view: "month" | "year"; month: stri
 
 /**
  * The person's own calendar, as a month (whose grid also asks for time off: drag across
- * days) or as the whole year. Phones get the month as an agenda.
+ * days) or as the whole year. Phones get the month as an agenda. The month can also
+ * show their team's or everyone's time off, as far as the company lets them see.
  */
 export default async function CalendarPage({ searchParams }: { searchParams: SearchParams }) {
   const page = await requireMemberPage();
@@ -110,7 +125,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   }
 
   const month = readParam(monthParamSchema, params.month);
-  const { nav, weeks, agenda, leaveTypes } = await getMonthCalendar(page.ctx, page.actor, month);
+  const { nav, weeks, agenda, leaveTypes, filter, filters } = await getMonthCalendar(
+    page.ctx,
+    page.actor,
+    month,
+    readParam(calendarFilterParamSchema, params.show),
+  );
+  const whose = filter === "me" ? "Your time off" : filter === "team" ? "Your team's time off" : "Everyone's time off";
 
   return (
     <AppPage
@@ -120,10 +141,21 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       action={<ViewSwitch view="month" month={nav.month} year={Number(nav.month.slice(0, 4))} />}
     >
       <section aria-labelledby={HEADING_ID} className="space-y-4">
-        <MonthNav nav={nav} href={(m) => `/calendar?month=${m}`} headingId={HEADING_ID} />
+        <MonthNav nav={nav} href={(m) => monthHref(m, filter)} headingId={HEADING_ID} />
+
+        {filters.length > 1 && (
+          <PillNav
+            label="Whose time off"
+            items={filters.map((f) => ({
+              href: monthHref(nav.month, f),
+              label: CALENDAR_FILTER_LABELS[f],
+              current: f === filter ? "page" : undefined,
+            }))}
+          />
+        )}
 
         <div className="hidden md:block">
-          <MonthGrid weeks={weeks} caption={`Your time off and company holidays in ${formatMonth(nav.month)}`} leaveTypes={leaveTypes} />
+          <MonthGrid weeks={weeks} caption={`${whose} and company holidays in ${formatMonth(nav.month)}`} leaveTypes={leaveTypes} />
         </div>
 
         <div className="md:hidden">

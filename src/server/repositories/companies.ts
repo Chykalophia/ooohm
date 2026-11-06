@@ -10,6 +10,7 @@ const companyFields = {
   allowancePolicy: companies.allowancePolicy,
   deletionGrace: companies.deletionGrace,
   managersSeeDetails: companies.managersSeeDetails,
+  colleagueVisibility: companies.colleagueVisibility,
   theme: companies.theme,
   accentColor: companies.accentColor,
   corners: companies.corners,
@@ -27,6 +28,8 @@ export type CompanyRow = {
   deletionGrace: boolean;
   /** Managers see their direct reports' balances and notes on the team member page. */
   managersSeeDetails: boolean;
+  /** What employees see of colleagues' time off; read it through `readColleagueVisibility`. */
+  colleagueVisibility: string;
   /** Raw stored appearance; read it through `readAppearance`. */
   theme: string;
   accentColor: string | null;
@@ -76,6 +79,7 @@ export async function updateCompany(
     allowancePolicy?: string;
     deletionGrace?: boolean;
     managersSeeDetails?: boolean;
+    colleagueVisibility?: string;
     theme?: string;
     accentColor?: string | null;
     corners?: string;

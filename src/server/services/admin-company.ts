@@ -1,6 +1,6 @@
 /**
  * Admin use cases for the company's own settings: name, time zone, working days, the
- * allowance policy, the deletion grace option and the appearance (theme, accent, corners). v1 runs one company per deployment;
+ * allowance policy, the deletion grace option, what people see of each other's time off and the appearance (theme, accent, corners). v1 runs one company per deployment;
  * the company is always the actor's.
  */
 import type { Transaction } from "@/db/types";
@@ -25,6 +25,7 @@ function snapshot(row: CompanyRow) {
     allowancePolicy: row.allowancePolicy,
     deletionGrace: row.deletionGrace,
     managersSeeDetails: row.managersSeeDetails,
+    colleagueVisibility: row.colleagueVisibility,
     ...readAppearance(row),
   };
 }
@@ -97,6 +98,7 @@ export async function updateCompanySettings(
     const { before, after, changed } = await changeCompany(tx, actor, (b) => ({
       deletionGrace: b.deletionGrace,
       managersSeeDetails: b.managersSeeDetails,
+      colleagueVisibility: b.colleagueVisibility,
       ...normalizeCompanySettings(input, b.timezone),
     }));
     const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);

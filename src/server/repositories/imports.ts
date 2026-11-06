@@ -73,6 +73,7 @@ export async function insertCompany(
     allowancePolicy: companies.allowancePolicy,
     deletionGrace: companies.deletionGrace,
     managersSeeDetails: companies.managersSeeDetails,
+    colleagueVisibility: companies.colleagueVisibility,
     theme: companies.theme,
     accentColor: companies.accentColor,
     corners: companies.corners,

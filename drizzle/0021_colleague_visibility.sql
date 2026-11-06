@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "colleague_visibility" text DEFAULT 'everyone' NOT NULL;

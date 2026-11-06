@@ -15,9 +15,10 @@ const companySchema = z.object({
   allowancePolicy: formFields.text(100),
   deletionGrace: formFields.checkbox,
   managersSeeDetails: formFields.checkbox,
+  colleagueVisibility: formFields.text(20),
 });
 
-/** Company page: saves the name, time zone, working days, allowance policy, the deletion grace option and what managers see of their reports. */
+/** Company page: saves the name, time zone, working days, allowance policy, the deletion grace option, what people see of each other's time off and what managers see of their reports. */
 export async function updateCompanyAction(_prev: FormState, formData: FormData): Promise<FormState> {
   return adminAction(
     "company_update",

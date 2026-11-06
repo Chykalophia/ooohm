@@ -4,6 +4,7 @@
  * submitted requests keep the per-year split stored with them (`leave_request_days`).
  */
 import { ALLOWANCE_POLICY_KEYS } from "./allowance-policy";
+import { type ColleagueVisibility, isColleagueVisibility } from "./calendar-visibility";
 import { DomainError } from "./errors";
 import { oneLine } from "./text";
 
@@ -38,6 +39,8 @@ export interface CompanySettingsInput {
   deletionGrace?: boolean;
   /** Managers see their direct reports' balances and notes. Left as it is when absent. */
   managersSeeDetails?: boolean;
+  /** What employees see of colleagues' time off (`COLLEAGUE_VISIBILITY`). Left as it is when absent. */
+  colleagueVisibility?: string;
 }
 
 export interface CompanySettings {
@@ -50,6 +53,8 @@ export interface CompanySettings {
   deletionGrace?: boolean;
   /** Present only when the input set it. */
   managersSeeDetails?: boolean;
+  /** Present only when the input set it. */
+  colleagueVisibility?: ColleagueVisibility;
 }
 
 /**
@@ -59,7 +64,8 @@ export interface CompanySettings {
  *   in {@link supportedTimeZones} (an alias written before this check existed), so
  *   saving other settings never fails on it; choosing a new zone must pass the check.
  * @throws DomainError `invalid_input`: blank or long name, unknown time zone, no
- *   working day or one outside 1 to 7, or an allowance policy nobody registered.
+ *   working day or one outside 1 to 7, an allowance policy nobody registered, or an
+ *   unknown colleague visibility.
  */
 export function normalizeCompanySettings(input: CompanySettingsInput, currentTimezone?: string): CompanySettings {
   const name = oneLine(input.name);
@@ -77,6 +83,10 @@ export function normalizeCompanySettings(input: CompanySettingsInput, currentTim
   const out: CompanySettings = { name, timezone, workingDays, allowancePolicy: input.allowancePolicy };
   if (input.deletionGrace !== undefined) out.deletionGrace = input.deletionGrace === true;
   if (input.managersSeeDetails !== undefined) out.managersSeeDetails = input.managersSeeDetails === true;
+  if (input.colleagueVisibility !== undefined) {
+    if (!isColleagueVisibility(input.colleagueVisibility)) throw new DomainError("invalid_input", "Unknown choice for who sees colleagues' time off.");
+    out.colleagueVisibility = input.colleagueVisibility;
+  }
   return out;
 }
 

@@ -1,6 +1,7 @@
 import type { Actor } from "@/domain/actor";
 import { isEmptyBalance } from "@/domain/allowance-policy";
 import { entriesCostingDaysIn } from "@/domain/calendar";
+import { calendarScopeFor, canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
@@ -36,15 +37,22 @@ const AHEAD_DAYS = 365;
  * - An admin, or the person's direct manager ({@link canAddLeaveFor}), also gets
  *   `addLeave`: what the form to add time off for them needs (`addLeaveFor`).
  *
- * Inactive and deleted people are not on Team, so they are `not_found` here too.
+ * Inactive and deleted people are not on Team, so they are `not_found` here too, as is
+ * anyone outside the people the actor may see (`calendarScopeFor`).
  *
  * @throws DomainError `not_found`, `no_company`.
  */
 export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: string) {
   if (!isUuid(userId)) throw new DomainError("not_found");
-  const [company, person] = await Promise.all([findCompany(ctx.db, actor.companyId), findPerson(ctx.db, actor.companyId, userId)]);
+  const [company, person, viewer] = await Promise.all([
+    findCompany(ctx.db, actor.companyId),
+    findPerson(ctx.db, actor.companyId, userId),
+    userId === actor.id ? undefined : findPerson(ctx.db, actor.companyId, actor.id),
+  ]);
   if (!company) throw new DomainError("no_company");
   if (!person?.isActive) throw new DomainError("not_found");
+  const scope = calendarScopeFor({ id: actor.id, role: actor.role, managerId: userId === actor.id ? person.managerId : (viewer?.managerId ?? null) }, company);
+  if (!canSeeOnCalendar(scope, person)) throw new DomainError("not_found");
 
   const now = ctx.now();
   const today = todayInTimeZone(company.timezone, now);

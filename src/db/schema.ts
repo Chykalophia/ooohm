@@ -106,6 +106,28 @@ export const departments = pgTable(
   (t) => [uniqueIndex("departments_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`)],
 );
 
+/**
+ * A company's own words for one email (Admin → Emails): its subject and message, with
+ * `{{variable}}` placeholders. `type` is a notification type (`leave.requested`, `invite`).
+ * A null field uses the email's default; a row with neither is deleted instead.
+ */
+export const emailTemplates = pgTable(
+  "email_templates",
+  {
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    subject: text("subject"),
+    message: text("message"),
+    ...timestamps,
+  },
+  (t) => [
+    primaryKey({ columns: [t.companyId, t.type] }),
+    check("email_templates_some_copy", sql`${t.subject} is not null or ${t.message} is not null`),
+  ],
+);
+
 // Auth (Better Auth core tables + OOOhm user fields)
 
 export const user = pgTable(

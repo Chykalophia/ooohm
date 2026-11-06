@@ -148,6 +148,13 @@
       "when": 1793744819798,
       "tag": "0020_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793934215766,
+      "tag": "0021_email_templates",
+      "breakpoints": true
     }
   ]
 }

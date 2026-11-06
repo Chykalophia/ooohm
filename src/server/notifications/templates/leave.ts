@@ -1,3 +1,4 @@
+import type { EmailCopy } from "@/domain/email-template";
 import { displayName } from "@/domain/person";
 import { formatDateSpan, formatDays, formatLeaveDates, formatRecountCause } from "@/lib/format";
 import type { RecountCause } from "@/lib/format";
@@ -15,11 +16,13 @@ import {
   paragraph,
 } from "@/lib/email-layout";
 import type { EmailContent } from "./content";
+import { type CopyTemplate, type CopyVariable, fillMessage, fillSubject, resolveCopy } from "./copy";
 
 /**
  * Leave notification emails: calm plain text plus an HTML twin in the shared layout
- * (`@/lib/email-layout`), with the company's accent. Each kind supplies only its words
- * ({@link LEAVE_COPY}); the layout, links and escaping are shared ({@link renderLeaveEmail}).
+ * (`@/lib/email-layout`), with the company's accent. Each kind supplies only its words, as
+ * a default subject and message an admin can replace ({@link LEAVE_KINDS}); the layout,
+ * the request's details, the links and the escaping are shared ({@link renderLeaveEmail}).
  */
 
 /** The request as it appears in an email. */
@@ -68,128 +71,133 @@ export type LeaveEmail =
       link: string;
     };
 
-interface Segment {
-  text: string;
-  bold?: boolean;
-}
+/** One leave email's kind, and the email of that kind. */
+export type LeaveKind = LeaveEmail["kind"];
+type LeaveEmailOf<K extends LeaveKind> = Extract<LeaveEmail, { kind: K }>;
 
-interface Parts {
-  subject: string;
-  /** The opening sentence, which says what happened and to which request. */
-  lead: Segment[];
-  /** The requester's note, shown in quotes (request emails only). */
+/** What follows the message: details the email adds on its own, which copy cannot change. */
+interface Details {
+  /** The requester's note, shown in quotes. */
   quote?: string;
-  /** A labelled line after the lead, e.g. a decline reason; `quoted` for words someone typed. */
+  /** A labelled line, e.g. a decline reason; `quoted` for words someone typed. */
   extra?: { label: string; value: string; quoted: boolean };
   /** Who else is off then, after a small accent mark. */
   overlap?: string;
 }
 
+/** One kind: its default words, the variables beyond the common ones, and its details. */
+interface LeaveKindSpec<K extends LeaveKind> {
+  defaults: CopyTemplate;
+  variables?: readonly CopyVariable[];
+  values?: (email: LeaveEmailOf<K>) => Record<string, string>;
+  details?: (email: LeaveEmailOf<K>) => Details;
+}
+
+/** Variables every leave email has. `leave_type` is bold in HTML. */
+export const LEAVE_VARIABLES: readonly CopyVariable[] = [
+  { name: "recipient", description: "The name of the person this email goes to" },
+  { name: "requester", description: "The name of the person the time off is for" },
+  { name: "leave_type", description: "The leave type, such as PTO (shown in bold)" },
+  { name: "dates", description: "The dates in full, such as Mon, Nov 2 to Fri, Nov 6, 2026" },
+  { name: "date_span", description: "The dates in short, such as Nov 2 to Nov 6" },
+  { name: "days", description: "How many working days it takes, such as 5 days" },
+];
+
 const quoted = (value: string) => `\u201c${value}\u201d`;
 
-/** "PTO" (bold) and its dates and days: the request as one phrase. */
-function what(leave: LeaveSummary): { type: Segment; when: string } {
-  return {
-    type: { text: leave.leaveTypeName, bold: true },
-    when: `${formatLeaveDates(leave.startDate, leave.endDate, leave.dayPortion)}: ${formatDays(leave.days)}`,
-  };
-}
-
-/** One leave email's kind, and the email of that kind. */
-export type LeaveKind = LeaveEmail["kind"];
-type LeaveEmailOf<K extends LeaveKind> = Extract<LeaveEmail, { kind: K }>;
-
-/** The request as one phrase, and the requester's name (or "Someone", the last resort). */
-interface Phrases {
-  type: Segment;
-  when: string;
-  requester: string;
-}
-
 /**
- * What each kind says, given its email and the request's phrases. Adding a kind is one
- * entry here and one in the {@link LeaveEmail} union; the layout never changes.
+ * Every leave kind. Adding one is an entry here and one in the {@link LeaveEmail} union;
+ * the layout never changes. The defaults are the emails as OOOhm has always sent them.
  */
-const LEAVE_COPY: { [K in LeaveKind]: (email: LeaveEmailOf<K>, p: Phrases) => Parts } = {
-  requested: (email, { type, when, requester }) => ({
-    // The name is one capped line (`displayName`), so it cannot add a header.
-    subject: `${requester} asked for ${formatDateSpan(email.leave.startDate, email.leave.endDate)}`,
-    lead: [{ text: `${requester} asked for ` }, type, { text: `, ${when}.` }],
-    quote: email.leave.note ?? undefined,
-    overlap: email.alsoOff ?? undefined,
-  }),
-  approved: (email, { type, when }) => ({
-    subject: "Your time off is approved",
-    lead: [{ text: "Your " }, type, { text: ` is approved, ${when}.` }],
-    extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined,
-  }),
-  added: (email, { type, when }) => ({
-    subject: "Time off was added for you",
-    lead: [{ text: `${email.addedByName || "Someone"} added your ` }, type, { text: `, ${when}. It's approved, so there's nothing you need to do.` }],
-    extra: email.leave.note ? { label: "Note", value: email.leave.note, quoted: true } : undefined,
-  }),
-  rejected: (email, { type, when }) => ({
-    subject: "Your time off request was declined",
-    lead: [{ text: "Your " }, type, { text: ` request was declined, ${when}.` }],
-    extra: email.reason ? { label: "Reason", value: email.reason, quoted: true } : undefined,
-  }),
-  cancelled_requester: (_email, { type, when }) => ({
-    subject: "Your time off request was cancelled",
-    lead: [{ text: "Your " }, type, { text: ` request was cancelled, ${when}.` }],
-  }),
-  cancelled_approver: (_email, { type, when, requester }) => ({
-    subject: "A time off request was cancelled",
-    lead: [{ text: `${requester} cancelled their ` }, type, { text: `, ${when}. Nothing else is needed from you.` }],
-  }),
-  recounted: (email, { type }) => {
-    const { leave } = email;
-    const cause = formatRecountCause(email.cause);
-    const dates = formatLeaveDates(leave.startDate, leave.endDate, leave.dayPortion);
-    if (leave.days === 0) {
-      return {
-        subject: "Your time off was recounted",
-        lead: [
-          { text: `${cause}, so your ` },
-          type,
-          {
-            text: ` for ${dates} no longer takes any days, and nothing comes off your balance. You can cancel it in OOOhm if you don't need it.`,
-          },
-        ],
-      };
-    }
-    // Same total, days moved between years (a working-days change across New Year): only
-    // sent when that leaves a year over its balance.
-    const change =
-      leave.days === email.previousDays
-        ? `still takes ${formatDays(leave.days)}, but some of it now counts in a different year`
-        : `now takes ${formatDays(leave.days)} instead of ${formatDays(email.previousDays)}`;
-    return {
-      subject: "Your time off was recounted",
-      lead: [{ text: `${cause}, so your ` }, type, { text: ` for ${dates} ${change}.` }],
-      extra: email.overdrawn ? { label: "Balance", value: `This leaves you ${email.overdrawn}.`, quoted: false } : undefined,
-    };
+export const LEAVE_KINDS: { [K in LeaveKind]: LeaveKindSpec<K> } = {
+  requested: {
+    defaults: { subject: "{{requester}} asked for {{date_span}}", message: "{{requester}} asked for {{leave_type}}, {{dates}}: {{days}}." },
+    details: (email) => ({ quote: email.leave.note ?? undefined, overlap: email.alsoOff ?? undefined }),
+  },
+  approved: {
+    defaults: { subject: "Your time off is approved", message: "Your {{leave_type}} is approved, {{dates}}: {{days}}." },
+    details: (email) => ({ extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined }),
+  },
+  added: {
+    defaults: {
+      subject: "Time off was added for you",
+      message: "{{added_by}} added your {{leave_type}}, {{dates}}: {{days}}. It's approved, so there's nothing you need to do.",
+    },
+    variables: [{ name: "added_by", description: "The name of the manager or admin who added it" }],
+    values: (email) => ({ added_by: email.addedByName || "Someone" }),
+    details: (email) => ({ extra: email.leave.note ? { label: "Note", value: email.leave.note, quoted: true } : undefined }),
+  },
+  rejected: {
+    defaults: { subject: "Your time off request was declined", message: "Your {{leave_type}} request was declined, {{dates}}: {{days}}." },
+    details: (email) => ({ extra: email.reason ? { label: "Reason", value: email.reason, quoted: true } : undefined }),
+  },
+  cancelled_requester: {
+    defaults: { subject: "Your time off request was cancelled", message: "Your {{leave_type}} request was cancelled, {{dates}}: {{days}}." },
+  },
+  cancelled_approver: {
+    defaults: {
+      subject: "A time off request was cancelled",
+      message: "{{requester}} cancelled their {{leave_type}}, {{dates}}: {{days}}. Nothing else is needed from you.",
+    },
+  },
+  recounted: {
+    defaults: { subject: "Your time off was recounted", message: "{{cause}}, so your {{leave_type}} for {{dates}} {{change}}." },
+    variables: [
+      { name: "cause", description: "What changed, such as Tue, Nov 3, 2026 is now a company holiday (Founders' Day)" },
+      { name: "change", description: "What that does to the time off, such as now takes 4 days instead of 5 days" },
+      { name: "previous_days", description: "How many working days it took before, such as 5 days" },
+    ],
+    values: (email) => {
+      const { days } = email.leave;
+      // Same total, days moved between years (a working-days change across New Year): only
+      // sent when that leaves a year over its balance.
+      const change =
+        days === 0
+          ? "no longer takes any days, and nothing comes off your balance. You can cancel it in OOOhm if you don't need it"
+          : days === email.previousDays
+            ? `still takes ${formatDays(days)}, but some of it now counts in a different year`
+            : `now takes ${formatDays(days)} instead of ${formatDays(email.previousDays)}`;
+      return { cause: formatRecountCause(email.cause), change, previous_days: formatDays(email.previousDays) };
+    },
+    details: (email) => ({
+      extra:
+        email.leave.days !== 0 && email.overdrawn ? { label: "Balance", value: `This leaves you ${email.overdrawn}.`, quoted: false } : undefined,
+    }),
   },
 };
 
-function parts(email: LeaveEmail): Parts {
-  const { type, when } = what(email.leave);
-  // Callers pass `personLabel`, which falls back to the email address; this is the last resort.
-  const requester = email.leave.requesterName || "Someone";
-  const copy = LEAVE_COPY[email.kind] as (email: LeaveEmail, p: Phrases) => Parts;
-  return copy(email, { type, when, requester });
+/** The variables a kind's copy may use: the common ones, then its own. */
+export function leaveVariables(kind: LeaveKind): readonly CopyVariable[] {
+  return [...LEAVE_VARIABLES, ...(LEAVE_KINDS[kind].variables ?? [])];
+}
+
+function valuesFor(email: LeaveEmail): Record<string, string> {
+  const { leave } = email;
+  const spec = LEAVE_KINDS[email.kind] as LeaveKindSpec<LeaveKind>;
+  return {
+    recipient: email.recipientName,
+    // Callers pass `personLabel`, which falls back to the email address; this is the last resort.
+    requester: leave.requesterName || "Someone",
+    leave_type: leave.leaveTypeName,
+    dates: formatLeaveDates(leave.startDate, leave.endDate, leave.dayPortion),
+    date_span: formatDateSpan(leave.startDate, leave.endDate),
+    days: formatDays(leave.days),
+    ...spec.values?.(email),
+  };
 }
 
 /**
  * Subject, text and HTML for one leave notification, laid out like the request email on
- * the OOOhm site: one sentence that says it all, the requester's note in quotes, who else
- * is off, then the buttons. `accent` is the company's ({@link emailAccent}).
+ * the OOOhm site: the message (its first paragraph says it all), the requester's note in
+ * quotes, who else is off, any further paragraphs of the message, then the buttons.
+ * `accent` is the company's ({@link emailAccent}); `saved` is the company's own words for
+ * this kind, if any (else the defaults in {@link LEAVE_KINDS}).
  *
- * Subjects are fixed per kind, except the request email's, which names the requester
- * and the dates as the inbox should show them. Names there are one capped line
- * (`displayName`), so no typed value can add a header; notes and reasons appear in the
- * body only, HTML-escaped there.
+ * Names are one capped line (`displayName`) and the subject is filled onto one line, so
+ * no typed value can add a header; notes and reasons appear in the body only,
+ * HTML-escaped there, and are not variables.
  */
-export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAULT_EMAIL_ACCENT): EmailContent {
+export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAULT_EMAIL_ACCENT, saved?: EmailCopy | null): EmailContent {
   const email: LeaveEmail = {
     ...input,
     recipientName: displayName(input.recipientName),
@@ -197,7 +205,12 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
     ...(input.kind === "added" ? { addedByName: displayName(input.addedByName) } : {}),
   } as LeaveEmail;
   const { link } = email;
-  const p = parts(email);
+  const spec = LEAVE_KINDS[email.kind] as LeaveKindSpec<LeaveKind>;
+  const copy = resolveCopy(spec.defaults, saved);
+  const values = valuesFor(email);
+  const subject = fillSubject(copy.subject, values);
+  const message = fillMessage(copy.message, values, ["leave_type"]);
+  const p = spec.details?.(email) ?? {};
   const approveLink = email.kind === "requested" ? (email.approveLink ?? null) : null;
   const extra = p.extra && `${p.extra.label}: ${p.extra.quoted ? quoted(p.extra.value) : p.extra.value}`;
 
@@ -211,11 +224,13 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
   const approveNote = approveLink
     ? "The Approve link is for you alone and stops working once the request is decided. To decline, open the request in OOOhm."
     : null;
+  const [lead, ...more] = message.text;
   const text = [
-    p.lead.map((s) => s.text).join(""),
+    lead,
     ...(p.quote ? ["", quoted(p.quote)] : []),
     ...(p.overlap ? ["", p.overlap] : []),
     ...(extra ? ["", extra] : []),
+    ...more.flatMap((paragraph) => ["", paragraph]),
     "",
     ...(approveLink
       ? [`Approve: ${approveLink}`, `Decline or look closer in OOOhm: ${link}`]
@@ -224,9 +239,9 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
     "",
   ].join("\n");
 
-  const lead = p.lead.map((s) => (s.bold ? `<b style="font-weight:600">${escapeHtml(s.text)}</b>` : escapeHtml(s.text))).join("");
+  const [leadHtml, ...moreHtml] = message.html;
   const body =
-    heading(lead) +
+    heading(leadHtml) +
     (p.quote ? paragraph(escapeHtml(quoted(p.quote)), `color:${BODY};white-space:pre-wrap`) : "") +
     (p.overlap ? paragraph(dot(accent) + escapeHtml(p.overlap), `color:${BODY};font-size:15px`) : "") +
     (p.extra
@@ -236,7 +251,8 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
           `color:${BODY};white-space:pre-wrap`,
         )
       : "") +
+    moreHtml.map((html) => paragraph(html)).join("") +
     buttons(actions, accent);
 
-  return { subject: p.subject, text, html: emailDocument(body, accent, approveNote ? escapeHtml(approveNote) : undefined, p.subject) };
+  return { subject, text, html: emailDocument(body, accent, approveNote ? escapeHtml(approveNote) : undefined, subject) };
 }

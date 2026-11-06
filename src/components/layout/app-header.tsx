@@ -104,7 +104,7 @@ export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSec
       <Link href="/" className={cx("rounded-md", focusRing)}>
         <Logo />
       </Link>
-      <nav aria-label="Main" className="app-nav flex flex-wrap items-center gap-x-5 gap-y-2 text-sm max-sm:w-full">
+      <nav aria-label="Main" className={cx("app-nav flex flex-wrap items-center gap-x-5 gap-y-2 text-sm", nav.member && "max-sm:w-full")}>
         {nav.member && (
           <>
             <NavLink href="/calendar" active={current === "calendar"}>

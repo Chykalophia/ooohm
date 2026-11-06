@@ -51,7 +51,7 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
   ]);
   if (!company) throw new DomainError("no_company");
   if (!person?.isActive) throw new DomainError("not_found");
-  const scope = calendarScopeFor({ id: actor.id, role: actor.role, managerId: viewer?.managerId ?? person.managerId }, company);
+  const scope = calendarScopeFor({ id: actor.id, role: actor.role, managerId: userId === actor.id ? person.managerId : (viewer?.managerId ?? null) }, company);
   if (!canSeeOnCalendar(scope, person)) throw new DomainError("not_found");
 
   const now = ctx.now();

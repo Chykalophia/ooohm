@@ -54,7 +54,16 @@ describe("parseCsv", () => {
 
   test("allows spaces after a closing quote, and refuses anything else there", () => {
     assert.deepEqual(parseCsv('"a" ,b'), [["a", "b"]]);
+    assert.deepEqual(parseCsv('a, "b, c"'), [["a", "b, c"]]);
     assert.throws(() => parseCsv('"ann@example.com" x,Ann'), (err) => isDomainError(err, "invalid_input"));
+  });
+
+  test("refuses a quote inside a cell that did not start with one", () => {
+    assert.throws(() => parseCsv('email,name\na@x.io,Ann "A, B"'), (err) => isDomainError(err, "invalid_input"));
+  });
+
+  test("keeps a row whose only cell is a quoted empty string", () => {
+    assert.deepEqual(parseCsv('""'), [[""]]);
   });
 
   test("reads back what toCsv writes", () => {

@@ -1,4 +1,29 @@
-# Importing from TimeOff.Management
+# Importing people and data
+
+## Adding people from a CSV file
+
+Admins can add many people at once on **Admin → People → Import from CSV** (`/admin/people/import`). Download the
+sample file there (`/admin/people/import/sample`), fill it in, and upload it. Checking the file writes nothing: the
+page lists who will be added, who already has an account (left as is) and every problem, by line. Only a file with no
+problems can be imported, and the import plans it again under the company lock before writing.
+
+| Column | Required | |
+| --- | --- | --- |
+| `email` | yes | Their sign-in address. |
+| `name` | yes | As others see it. |
+| `role` | no | `employee` (default), `manager` or `admin`. |
+| `department` | no | Matched by name ignoring case; a new name creates the department. |
+| `manager_email` | no | Someone already in the company (active), or another row of the file, in any order. |
+| `can_self_approve` | no | `yes` or `no` (default `no`); `true`/`false`, `y`/`n` and `1`/`0` work too. |
+
+Headers match ignoring case, spaces and hyphens; other columns are ignored and named in the preview. A file holds up
+to 500 people, and one admin can import up to 500 an hour (separate from the 30-an-hour single-invite limit). Each
+person is a `user.created` audit row and event, and each new department a `department.created`, attributed to the
+admin `via: "people_import"`. Invite emails go out after commit when the admin leaves **Email each person their
+invite now** ticked; otherwise people sign in from the sign-in page when they're ready. The rules live in
+`src/domain/people-import.ts`, the use case in `src/server/services/admin-people-import.ts`.
+
+## Importing from TimeOff.Management
 
 OOOhm replaces TimeOff.Management. `pnpm import:timeoff` reads TimeOff's SQLite database once and brings in its
 people, departments, leave types, bank holidays, allowances and the whole leave history. Every balance is then
@@ -8,7 +33,7 @@ checked against TimeOff's own figure, and the import commits only when every cur
 The importer was written from TimeOff's data layout (its tables and columns) and its documented balance rules.
 It uses none of TimeOff's code.
 
-## The short version
+### The short version
 
 ```bash
 # 1. Dry run (the default): imports everything inside a transaction, reconciles, rolls back, prints the report.
@@ -22,7 +47,7 @@ pnpm import:timeoff -- --file timeoff.sqlite --company <company id> --actor <you
 
 On the production server the commands run in the `migrate` container; see [deploy.md](deploy.md#11-import-from-timeoffmanagement).
 
-## Options
+### Options
 
 | Option | |
 | --- | --- |
@@ -45,7 +70,7 @@ It needs only `DATABASE_URL`.
 The Docker image uses `node:22-alpine` (22.23 when this was written), so the `migrate` container has it. Node
 prints an "SQLite is an experimental feature" warning on some versions; the `pnpm` script silences it.
 
-## How TimeOff maps onto OOOhm
+### How TimeOff maps onto OOOhm
 
 | TimeOff | OOOhm |
 | --- | --- |
@@ -69,7 +94,7 @@ Nobody gets a session, a password, an OAuth link or an email from the import. Ac
 invited person whose link expired: they type their email on the sign-in page and get a magic link. Access stays
 invite-only.
 
-## The allowance pool
+### The allowance pool
 
 This is the one real difference between the two models. **TimeOff has one allowance pool per person and year**,
 shared by every leave type with "use allowance" on. **OOOhm keeps an allowance per leave type.**
@@ -101,7 +126,7 @@ allowances**); until then the type is untracked for them, which means unlimited.
 default under **Leave types**, but a default replaces the inherited department figure for everyone without a row
 for that year, so set it only if every department has the same allowance.
 
-## Balance reconciliation
+### Balance reconciliation
 
 The import is accepted only if OOOhm shows every person the balance TimeOff shows them. For every imported
 person and every year they have an allowance or leave in, the report has one row:
@@ -150,7 +175,7 @@ people act on. The JSON report lists every mismatch with its likely cause:
 - Types without "use allowance" are not part of TimeOff's balance. Those with a `limit` become OOOhm allowances of
   that size, which TimeOff showed only as a cap.
 
-## Safety
+### Safety
 
 - **Dry run by default.** The dry run does everything the real run does, in one transaction, then rolls it back.
   What it reports is what `--apply` commits.
@@ -170,7 +195,7 @@ people act on. The JSON report lists every mismatch with its likely cause:
   already has. It is for a company that was used briefly before the import, never for importing a second time.
 - **An admin remains.** If no active admin would exist afterwards (no TimeOff admin and no seeded one), it refuses.
 
-## Audit and events
+### Audit and events
 
 Every imported row writes an `audit_log` row in the import's transaction: `import.company`, `import.department`,
 `import.leave_type`, `import.holiday`, `import.user`, `import.allowance`, `import.leave_request`, then
@@ -186,7 +211,7 @@ That holds even when the rollover step changes someone's carried-over days (a re
 with `--accept-mismatch`): the change is audited as `import.allowance` with reason `carryover`, without the
 nightly rollover's `balance.adjusted` event.
 
-## Getting the SQLite file out of TimeOff
+### Getting the SQLite file out of TimeOff
 
 TimeOff's default configuration keeps its data in `db.development.sqlite` in the application directory
 (`config/db.json` names the file). Stop TimeOff first, or copy it with SQLite's own backup command so the copy is
@@ -199,7 +224,7 @@ sqlite3 /path/to/timeoff/db.development.sqlite ".backup '/tmp/timeoff.sqlite'"
 Leave TimeOff read-only (or stopped) from the export until the cutover: anything changed there afterwards is not
 in the file.
 
-## Try it locally
+### Try it locally
 
 The tests build a synthetic TimeOff database (`tests/support/timeoff-fixture.ts`): two departments with different
 allowances and bosses, an admin, adjustments and carried-over days, half days, a leave over New Year, one over a

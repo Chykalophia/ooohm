@@ -1,6 +1,8 @@
 /**
- * CSV writing (RFC 4180) for downloads that open in a spreadsheet. Pure.
+ * CSV (RFC 4180): writing downloads that open in a spreadsheet, and reading uploads. Pure.
  */
+
+import { DomainError } from "./errors";
 
 export type CsvCell = string | number | boolean | null | undefined;
 
@@ -23,4 +25,55 @@ export function csvCell(value: CsvCell): string {
 /** A whole CSV document: a header row, then each row, lines ending in CRLF. */
 export function toCsv(header: readonly string[], rows: readonly (readonly CsvCell[])[]): string {
   return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
+/**
+ * Reads a CSV document (RFC 4180, as spreadsheets save it) into rows of cells. Cells are
+ * returned as written, untrimmed. Lines may end in CRLF, LF or a lone CR; a leading byte
+ * order mark and one trailing line break are dropped.
+ *
+ * @throws DomainError `invalid_input` when a quoted cell is never closed.
+ */
+export function parseCsv(text: string): string[][] {
+  const source = text.startsWith("﻿") ? text.slice(1) : text;
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  let i = 0;
+  const endRow = () => {
+    row.push(cell);
+    rows.push(row);
+    row = [];
+    cell = "";
+  };
+  while (i < source.length) {
+    const ch = source[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (source[i + 1] === '"') {
+          cell += '"';
+          i += 2;
+          continue;
+        }
+        quoted = false;
+      } else {
+        cell += ch;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '"' && cell === "") quoted = true;
+    else if (ch === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (ch === "\r" || ch === "\n") {
+      endRow();
+      if (ch === "\r" && source[i + 1] === "\n") i++;
+    } else cell += ch;
+    i++;
+  }
+  if (quoted) throw new DomainError("invalid_input", "A quoted cell in the file is never closed.");
+  if (cell !== "" || row.length > 0) endRow();
+  return rows;
 }

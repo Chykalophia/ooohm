@@ -186,7 +186,8 @@ Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-so
 | `system` | A process with no person behind it (`process`), optionally run for a person who asked for it ahead of time (`requestedBy`) | "System: year rollover", "System: scheduled Gusto sync", "System: scheduled deletion, requested by Peter Krzyzek" |
 
 `via` and `process` share one vocabulary of stable identifiers: `year_rollover`, `retention`, `adapter_sync:<adapterId>`,
-`timeoff_import` and `scheduled_scrub`. They are stored and published, so never rename one.
+`timeoff_import`, `scheduled_scrub`, `people_import` (an admin adding people from a CSV file) and the others in
+`CHANGE_PROCESSES`. They are stored and published, so never rename one.
 `changeSourceLabel` (pure) turns a source into the label above.
 
 How sources are chosen, type-enforced so a new call site cannot leave one out (every recorder takes a required

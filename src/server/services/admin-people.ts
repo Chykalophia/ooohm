@@ -161,7 +161,8 @@ async function assertDepartment(tx: Transaction, companyId: string, departmentId
 async function assertUnderInviteLimit(tx: Transaction, actor: Actor): Promise<void> {
   const sent = await countRecentActions(
     tx,
-    { companyId: actor.companyId, actorId: actor.id, actions: [ADMIN_EVENT_TYPES.userCreated, ADMIN_EVENT_TYPES.userInviteResent] },
+    // People added by a CSV import have their own limit (`admin-people-import`).
+    { companyId: actor.companyId, actorId: actor.id, actions: [ADMIN_EVENT_TYPES.userCreated, ADMIN_EVENT_TYPES.userInviteResent], via: null },
     INVITE_WINDOW_MINUTES,
   );
   if (sent >= INVITE_LIMIT) throw new DomainError("rate_limited");
@@ -172,7 +173,7 @@ async function assertUnderInviteLimit(tx: Transaction, actor: Actor): Promise<vo
  * because the account it signs into must exist first. A failure (link or SMTP) is
  * logged as `invite_email_failed` with the person's id, never their address.
  */
-function inviteEmail(ctx: ServiceContext, companyId: string, person: PersonRow, inviterName: string, companyName: string): DeferredEmail {
+export function inviteEmail(ctx: ServiceContext, companyId: string, person: PersonRow, inviterName: string, companyName: string): DeferredEmail {
   const accent = emailAccentFor(ctx, companyId);
   return {
     to: person.email,
@@ -193,14 +194,14 @@ function inviteEmail(ctx: ServiceContext, companyId: string, person: PersonRow, 
 }
 
 /** Locks the company and checks the actor is still an active admin of it. */
-async function beginAdminChange(tx: Transaction, actor: Actor) {
+export async function beginAdminChange(tx: Transaction, actor: Actor) {
   const company = await lockCompany(tx, actor.companyId);
   if (!company) throw new DomainError("no_company");
   await assertActiveAdmin(tx, actor);
   return company;
 }
 
-async function inviterName(tx: Transaction, actor: Actor): Promise<string> {
+export async function inviterName(tx: Transaction, actor: Actor): Promise<string> {
   const me = await findPerson(tx, actor.companyId, actor.id);
   return me ? personLabel(me) : "";
 }
@@ -532,7 +533,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
  * leave types: five queries at most, whatever the number of requests), so the caller's
  * company lock is held for one update and its audit rows per moved request.
  */
-async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Actor, requests: readonly LeaveRequestRow[]) {
+export async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Actor, requests: readonly LeaveRequestRow[]) {
   const pending = [...new Map(requests.map((r) => [r.id, r])).values()];
   if (pending.length === 0) return { reassigned: 0, outgoing: [] as DeferredEmail[] };
   const requesters = new Map((await findMembers(tx, actor.companyId, [...new Set(pending.map((r) => r.userId))])).map((m) => [m.id, m]));

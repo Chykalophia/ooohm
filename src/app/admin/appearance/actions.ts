@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { LOGO_RULES } from "@/domain/company-logo";
+import { LOGO_MAX_BYTES, LOGO_RULES } from "@/domain/company-logo";
+import { DomainError } from "@/domain/errors";
 import { removeCompanyLogo, updateCompanyAppearance, updateCompanyLogo } from "@/server/services/admin-company";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
@@ -45,6 +46,8 @@ export async function uploadLogoAction(_prev: FormState, formData: FormData): Pr
     formData,
     logoSchema,
     async (ctx, actor, input) => {
+      // Refuse an oversized file before reading it into memory; the service checks the bytes again.
+      if (input.logo.size > LOGO_MAX_BYTES) throw new DomainError("invalid_input", LOGO_RULES);
       await updateCompanyLogo(ctx, actor, new Uint8Array(await input.logo.arrayBuffer()));
       return "Saved. Your logo now shows in the header, on the sign-in page and in emails.";
     },

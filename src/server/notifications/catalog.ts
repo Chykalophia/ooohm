@@ -16,6 +16,8 @@ const SAMPLE_LEAVE: LeaveSummary = {
   note: "Visiting family",
 };
 const SAMPLE_LINK = "https://ooohm.example/";
+/** Where every sign-in link in a preview points: a placeholder, never a real link. */
+export const PREVIEW_SIGN_IN_URL = `${SAMPLE_LINK}sign-in`;
 
 function leave<K extends LeaveKind>(
   kind: K,
@@ -48,7 +50,7 @@ const invite = notificationType<InviteNotificationData>({
     label: "Invite",
     description: "To someone an admin adds, with their first sign-in link.",
     ...INVITE_COPY,
-    sample: { userId: "preview", recipientName: "Ana Ruiz", inviterName: "Mo Reyes", companyName: "Acme", signInUrl: `${SAMPLE_LINK}sign-in` },
+    sample: { userId: "preview", recipientName: "Ana Ruiz", inviterName: "Mo Reyes", companyName: "Acme", signInUrl: PREVIEW_SIGN_IN_URL },
   },
   build: async (data, { to, accent, issueSignInLink, copy }) =>
     renderInviteEmail({ ...data, link: await issueSignInLink(to) }, accent, copy),

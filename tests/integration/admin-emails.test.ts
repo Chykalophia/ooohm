@@ -100,6 +100,24 @@ describe("admin: email copy", { skip }, () => {
     await rejectsWith(previewEmail(ctx, boss, "invite", { subject: "{{dates}}", message: "" }), "invalid_input");
   });
 
+  test("an email whose saved copy names a withdrawn variable still opens, showing and previewing what goes out", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" } });
+    const ctx = createTestContext(t.db);
+    const { boss } = co.people;
+    await t.db.insert(schema.emailTemplates).values({
+      companyId: co.companyId,
+      type: "leave.approved",
+      subject: "Enjoy, {{requester}}",
+      message: "Signed off by {{withdrawn}}",
+    });
+    const email = await getEmailForAdmin(ctx, boss, "leave.approved");
+    assert.deepEqual(email.saved, { subject: "Enjoy, {{requester}}", message: null });
+    const preview = await previewEmail(ctx, boss, "leave.approved", { subject: email.saved?.subject ?? "", message: email.saved?.message ?? email.defaults.message });
+    assert.equal(preview.subject, "Enjoy, Ana Ruiz");
+    await resetEmailCopy(ctx, boss, "leave.approved");
+    assert.equal((await getEmailForAdmin(ctx, boss, "leave.approved")).saved, null);
+  });
+
   test("the preview renders the draft with sample data and the company's accent, and saves nothing", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);

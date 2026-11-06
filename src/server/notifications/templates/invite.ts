@@ -47,7 +47,7 @@ export function renderInviteEmail(input: InviteEmail, accent: EmailAccent = DEFA
     company: displayName(input.companyName) || "your company",
   };
   const copy = resolveCopy(INVITE_COPY.defaults, saved);
-  const subject = fillSubject(copy.subject, values);
+  const subject = fillSubject(copy.subject, values, INVITE_COPY.defaults.subject);
   const message = fillMessage(copy.message, values);
   const greeting = recipient ? `Hi ${recipient},` : "Hi,";
   const expiry = "This link works once and expires in 15 minutes. After that, get a new one here with this email address:";

@@ -5,7 +5,7 @@ import type { SyntheticEvent } from "react";
 import { ActionForm } from "@/components/forms/action-form";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { TextAreaField, TextField } from "@/components/ui/fields";
-import { unknownVariables } from "@/domain/email-template";
+import { EMAIL_MESSAGE_MAX, EMAIL_SUBJECT_MAX, unknownVariables } from "@/domain/email-template";
 import { cx, focusRing, outlineButton } from "@/components/ui/styles";
 import { type PreviewState, previewEmailAction, saveEmailCopyAction } from "@/app/admin/emails/actions";
 
@@ -63,7 +63,14 @@ export function EmailEditor({
     }
     let live = true;
     const timer = setTimeout(async () => {
-      const next: PreviewState = await previewEmailAction({ type, ...copy });
+      let next: PreviewState;
+      try {
+        next = await previewEmailAction({ type, ...copy });
+      } catch {
+        // The last good preview stays; the next change tries again.
+        if (live) setProblem("The preview isn't available right now. Your wording is unchanged.");
+        return;
+      }
       if (!live) return;
       if (next.status === "preview") {
         setShown({ subject: next.subject, html: next.html });
@@ -106,6 +113,7 @@ export function EmailEditor({
           label="Subject"
           name="subject"
           value={copy.subject}
+          maxLength={EMAIL_SUBJECT_MAX}
           onChange={(e) => setCopy({ ...copy, subject: e.target.value })}
           onSelect={track("subject")}
           hint="One line. Leave it empty for OOOhm's own subject."
@@ -115,6 +123,7 @@ export function EmailEditor({
           name="message"
           rows={6}
           value={copy.message}
+          maxLength={EMAIL_MESSAGE_MAX}
           onChange={(e) => setCopy({ ...copy, message: e.target.value })}
           onSelect={track("message")}
           hint="The first paragraph leads the email. Leave a blank line to start another; those come after the request's details. Leave it empty for OOOhm's own message."

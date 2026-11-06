@@ -75,3 +75,14 @@ test("the invite takes a company's copy too; the greeting, button and expiry sta
   assert.match(out.text, /^Hi Ana,\n\nPeter set you up in our leave tracker\.\n\nQuestions\? Ask in #people\.\n\nSign in: https:\/\/x\/verify/);
   assert.match(out.html, /Sign in to OOOhm<\/a>/);
 });
+
+test("a subject that fills to nothing goes out as the default subject", () => {
+  const base = { recipientName: "", inviterName: "Peter", companyName: "Acme", link: "https://x/v", signInUrl: "https://x/sign-in" };
+  assert.equal(renderInviteEmail(base, undefined, { subject: "{{recipient}}", message: null }).subject, "You're invited to OOOhm");
+  const out = renderLeaveEmail(
+    { kind: "approved", recipientName: " ", leave: leave(), reason: null, link: "https://x/" },
+    undefined,
+    { subject: " {{recipient}} ", message: null },
+  );
+  assert.equal(out.subject, renderLeaveEmail({ kind: "approved", recipientName: " ", leave: leave(), reason: null, link: "https://x/" }).subject);
+});

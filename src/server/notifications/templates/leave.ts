@@ -208,7 +208,7 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
   const spec = LEAVE_KINDS[email.kind] as LeaveKindSpec<LeaveKind>;
   const copy = resolveCopy(spec.defaults, saved);
   const values = valuesFor(email);
-  const subject = fillSubject(copy.subject, values);
+  const subject = fillSubject(copy.subject, values, spec.defaults.subject);
   const message = fillMessage(copy.message, values, ["leave_type"]);
   const p = spec.details?.(email) ?? {};
   const approveLink = email.kind === "requested" ? (email.approveLink ?? null) : null;

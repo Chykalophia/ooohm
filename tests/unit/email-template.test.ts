@@ -15,6 +15,11 @@ test("a template's variables are the names in double braces, spaces allowed insi
   assert.deepEqual(templateVariables("No variables here {not one} {{}}"), []);
 });
 
+test("a variable sits on one line: a placeholder broken across lines is plain text, never half a variable", () => {
+  assert.deepEqual(templateVariables("Hi {{requester\n\n}} and {{ dates\t}}"), ["dates"]);
+  assert.deepEqual(templateVariables("{{\nrequester}}"), []);
+});
+
 test("unknown variables are named once each, in order", () => {
   assert.deepEqual(unknownVariables("Hi {{name}} {{requester}} {{name}} {{when}}", ["requester"]), ["name", "when"]);
   assert.deepEqual(unknownVariables("{{requester}}", ["requester"]), []);

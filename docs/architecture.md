@@ -355,7 +355,7 @@ subject and message written with `{{variable}}` placeholders, the variables it o
 
 - Only the subject and the message change. The request's details (the note, who else is off, a decline reason), the
   buttons, the links, the approve note and the layout stay as OOOhm sends them, so no wording can break an approve
-  link or drop who asked for what.
+  link or drop the request's details. Which variables the subject and message name is the admin's choice.
 - Copy is checked on save: a variable the email does not have, a subject over 150 characters or a message over 2,000
   is refused (`invalid_input` with the field). A blank field, or one typed exactly as the default, stores nothing.
 - Filling never makes markup: values and the copy itself are HTML-escaped, a value is never read as a template, and
@@ -363,10 +363,12 @@ subject and message written with `{{variable}}` placeholders, the variables it o
 - The message's first paragraph leads the email (its heading); later paragraphs (after a blank line) follow the
   request's details, before the buttons.
 - Copy lives in `email_templates` (one row per company and type). `send.ts` reads it once per change, after commit,
-  with the accent; if it cannot be read, or a saved field names a variable the email no longer has, that email goes
-  out in its default words.
-- Saving and resetting take the company lock, write an audit row (`email_template.updated`, `email_template.reset`,
-  before and after) and an outbox event of the same name ([docs/api.md](api.md)).
+  with the accent. If it cannot be read, the email goes out in its default words; a saved field that names a variable
+  the email no longer has goes out (and opens in the editor) as that field's default, and a subject that fills to
+  nothing goes out as the default subject.
+- Saving and resetting take the company lock. When the copy in force changes, they write an audit row
+  (`email_template.updated`, `email_template.reset`, before and after) and an outbox event of the same name
+  ([docs/api.md](api.md)); saving the same words again, or resetting an email already on its defaults, writes neither.
 
 By default, notification emails have fixed subjects, except the request email's, which names the requester and the
 dates; a company's own subject (above) is filled the same way. Notes and reasons go in the body only (HTML-escaped

@@ -6,7 +6,7 @@ import { DomainError } from "@/domain/errors";
 import type { ServiceContext } from "@/server/context";
 import { emailAccentFor } from "@/server/notifications/accent";
 import { isNotificationKind, NOTIFICATION_TYPES, type NotificationKind } from "@/server/notifications/catalog";
-import { variableNames } from "@/server/notifications/copy";
+import { usableCopy, variableNames } from "@/server/notifications/copy";
 import { previewNotification } from "@/server/notifications/preview";
 import type { EmailContent } from "@/server/notifications/types";
 import { lockCompany } from "@/server/repositories/companies";
@@ -69,7 +69,9 @@ function labelOf(kind: NotificationKind) {
 
 /**
  * One email for the editor: what it is, its variables, its defaults and the company's
- * saved words (`null` when it uses the defaults).
+ * saved words (`null` when it uses the defaults). A saved field that names a variable the
+ * email no longer has is shown as the default, as it is sent, so the editor still opens
+ * and saving or resetting replaces it.
  *
  * @throws DomainError `forbidden` or `not_found`.
  */
@@ -83,7 +85,7 @@ export async function getEmailForAdmin(ctx: ServiceContext, actor: Actor, type: 
     ...labelOf(kind),
     variables: copy.variables,
     defaults: copy.defaults,
-    saved: row ? { subject: row.subject, message: row.message } : null,
+    saved: row ? usableCopy(kind, { subject: row.subject, message: row.message }) : null,
   };
 }
 
@@ -102,7 +104,7 @@ export async function previewEmail(
   assertCanAdminister(actor);
   const kind = kindOf(type);
   const copy = normalizeFor(kind, draft);
-  return previewNotification(kind, copy, await emailAccentFor(ctx, actor.companyId)(), `${ctx.appUrl}/sign-in`);
+  return previewNotification(kind, copy, await emailAccentFor(ctx, actor.companyId)());
 }
 
 function payload(kind: NotificationKind, copy: EmailCopy | null): Unattributed<EmailTemplateEventPayload> {

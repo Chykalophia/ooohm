@@ -14,7 +14,8 @@ export const EMAIL_SUBJECT_MAX = 150;
 /** Longest message an admin may save. */
 export const EMAIL_MESSAGE_MAX = 2000;
 
-const VARIABLE = /\{\{\s*([a-z][a-z_]*)\s*\}\}/g;
+/** A `{{name}}` placeholder; only spaces and tabs may pad the name, so one never spans lines. */
+const VARIABLE = /\{\{[ \t]*([a-z][a-z_]*)[ \t]*\}\}/g;
 
 /** The variable names a template uses, in order, repeats included. */
 export function templateVariables(template: string): string[] {

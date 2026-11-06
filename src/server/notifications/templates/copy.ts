@@ -24,14 +24,16 @@ const SUBJECT_SENT_MAX = 200;
 
 /**
  * The subject, filled: one line whatever the values hold, so nothing typed can add a
- * header, and capped.
+ * header, and capped. A subject that fills to nothing (`{{recipient}}` for someone with
+ * no name) is `fallback`, filled the same way, so no email goes out without one.
  */
-export function fillSubject(template: string, values: Readonly<Record<string, string>>): string {
+export function fillSubject(template: string, values: Readonly<Record<string, string>>, fallback?: string): string {
   const line = fillTemplate(template, values)
     .map((p) => p.text)
     .join("")
     .replace(/\s+/g, " ")
     .trim();
+  if (!line && fallback !== undefined && fallback !== template) return fillSubject(fallback, values);
   return line.length > SUBJECT_SENT_MAX ? `${line.slice(0, SUBJECT_SENT_MAX - 1).trimEnd()}…` : line;
 }
 

@@ -109,7 +109,8 @@ Anyone can add everyone's time off ("who's out", their own included), or only th
 OOOhm, open **Calendar**, then **Add your time off to Google Calendar, Apple Calendar or Outlook**, and create a
 link. Add it with the **Google Calendar**, **Apple Calendar** or **Outlook** button, or copy it, straight away:
 OOOhm stores only a hash of it and its last 4 characters, so it is shown once. The page then says the link is on
-and which one it is ("ending in abcd"). Anyone with the link can see that calendar; **Lost it? Replace the link**
+and, for links made from this version on, which one it is ("ending in abcd"); an older link gets its hint once
+replaced. Anyone with the link can see that calendar; **Lost it? Replace the link**
 or **Turn off** there kills the old one at once.
 
 - **Google Calendar** (web): next to **Other calendars**, click **+**, then **From URL**, paste the link and click

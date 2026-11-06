@@ -409,8 +409,9 @@ export const leaveRequestDays = pgTable(
 export const calendarFeedKindEnum = pgEnum("calendar_feed_kind", ["personal", "team"]);
 
 /**
- * Revocable ICS feed links. The token itself is never stored: only its SHA-256 (hex),
- * so a leaked database cannot be turned back into working links. A person has at most
+ * Revocable ICS feed links. The token itself is never stored: only its SHA-256 (hex)
+ * and its last 4 characters (`token_hint`), so a leaked database cannot be turned back
+ * into working links. A person has at most
  * one live (unrevoked) link per kind.
  */
 export const calendarFeedTokens = pgTable(

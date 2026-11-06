@@ -79,8 +79,11 @@ export function buildFeedCalendar(content: FeedContent, generatedAt: Date): IcsC
 }
 
 /** The calendar name subscribers see, e.g. "OOOhm: Who's out at Acme". */
+/** A feed's calendar name without the company: what a subscribe link offers, where the company isn't known. */
+export const FEED_SHORT_NAMES: Record<FeedKind, string> = { personal: "OOOhm: My time off", team: "OOOhm: Who's out" };
+
 export function feedCalendarName(kind: FeedKind, companyName: string): string {
-  return kind === "personal" ? "OOOhm: My time off" : `OOOhm: Who's out at ${companyName}`;
+  return kind === "personal" ? FEED_SHORT_NAMES.personal : `${FEED_SHORT_NAMES.team} at ${companyName}`;
 }
 
 /** One-tap ways to subscribe to a feed, so a new link never has to be copied by hand. */

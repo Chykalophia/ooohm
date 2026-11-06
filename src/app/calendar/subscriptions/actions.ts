@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { addToCalendarLinks, FEED_KINDS, type FeedKind } from "@/domain/calendar-feed";
+import { addToCalendarLinks, FEED_KINDS, FEED_SHORT_NAMES } from "@/domain/calendar-feed";
 import { issueCalendarFeed, revokeCalendarFeed } from "@/server/services/calendar-feeds";
 import { runStateAction } from "@/app/_lib/server-action";
 import type { FeedState } from "./feed-state";
@@ -10,9 +10,6 @@ const feedSchema = z.object({
   kind: z.enum(FEED_KINDS),
   intent: z.enum(["issue", "revoke"]),
 });
-
-/** The name a calendar app offers for the new calendar; people can rename it there. */
-const CALENDAR_NAME: Record<FeedKind, string> = { personal: "OOOhm: My time off", team: "OOOhm: Who's out" };
 
 /** `forbidden` here means the account was deactivated, not a request it can't touch. */
 const FEED_MESSAGES = { forbidden: "Your account can't manage calendar links right now. Ask an admin." };
@@ -30,7 +27,7 @@ export async function feedAction(_prev: FeedState, formData: FormData): Promise<
     async (ctx, actor, { kind, intent }): Promise<FeedState> => {
       if (intent === "issue") {
         const { url } = await issueCalendarFeed(ctx, actor, kind);
-        return { status: "issued", url, links: addToCalendarLinks(url, CALENDAR_NAME[kind]) };
+        return { status: "issued", url, links: addToCalendarLinks(url, FEED_SHORT_NAMES[kind]) };
       }
       await revokeCalendarFeed(ctx, actor, kind);
       return { status: "off" };

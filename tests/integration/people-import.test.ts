@@ -55,7 +55,7 @@ describe("admin: people import from CSV", { skip }, () => {
     assert.equal(ctx.deferred(), 0);
   });
 
-  test("an import creates everyone in creation order, audited through the import, and invites them after commit", async () => {
+  test("an import creates everyone with managers and departments linked, audited through the import, and invites them after commit", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Engineering" });
     const ctx = createTestContext(t.db);

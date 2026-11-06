@@ -203,6 +203,30 @@ describe("planPeopleImport", () => {
       takenEmails: new Set(["gone@x.io"]),
     });
     assert.deepEqual([p.adds, p.errors], [0, 3]);
+    assert.match(problemsOn(p, 2).join(" "), /Nobody with the manager's email/);
+    assert.match(problemsOn(p, 3).join(" "), /deactivated/);
+    assert.match(problemsOn(p, 4).join(" "), /own manager/);
+  });
+
+  test("checks the manager on a row that has other problems too", () => {
+    const p = plan("email,name,manager_email\na@x.io,,ghost@x.io\n");
+    assert.deepEqual(problemsOn(p, 2).length, 2);
+  });
+
+  test("a row with problems keeps its name for the preview", () => {
+    const p = plan("email,name,role\na@x.io,Ann Lee,wizard\n");
+    assert.ok(p.rows[0].status === "error");
+    assert.equal(p.rows[0].name, "Ann Lee");
+  });
+
+  test("a skipped row's department is not created", () => {
+    const p = plan("email,name,department\nold@x.io,Old,Legacy\nnew@x.io,New,\n", { takenEmails: new Set(["old@x.io"]) });
+    assert.deepEqual(p.newDepartments, []);
+  });
+
+  test("a column named like an object property is ignored, not mistaken for a known one", () => {
+    const { ignoredColumns } = readPeopleCsv("email,name,constructor,toString\na@x.io,A,x,y\n");
+    assert.deepEqual(ignoredColumns, ["constructor", "toString"]);
   });
 
   test("a manager on a row with problems makes their reports' rows fail too", () => {

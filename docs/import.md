@@ -3,8 +3,10 @@
 ## Adding people from a CSV file
 
 Admins can add many people at once on **Admin → People → Import from CSV** (`/admin/people/import`). Download the
-sample file there (`/admin/people/import/sample`), fill it in, and upload it. Checking the file writes nothing: the
-page lists who will be added, who already has an account (left as is) and every problem, by line. Only a file with no
+sample file there (`/admin/people/import/sample`), fill it in, and upload it. Checking the file writes nothing. A file that
+can't be read as an import (no `email` or `name` column, an unclosed quote, too many rows) is refused with one
+message; otherwise the page lists who will be added, who already has an account (left as is) and every problem, by
+line. Only a file with no
 problems can be imported, and the import plans it again under the company lock before writing.
 
 | Column | Required | |

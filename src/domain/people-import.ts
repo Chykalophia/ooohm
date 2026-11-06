@@ -78,7 +78,7 @@ export function readPeopleCsv(text: string): { rows: PeopleCsvRow[]; ignoredColu
   const ignoredColumns: string[] = [];
   header.forEach((raw, i) => {
     const key = headerKey(raw);
-    const column = (PEOPLE_IMPORT_COLUMNS as readonly string[]).includes(key) ? (key as Column) : ALIASES[key];
+    const column = (PEOPLE_IMPORT_COLUMNS as readonly string[]).includes(key) ? (key as Column) : (Object.hasOwn(ALIASES, key) ? ALIASES[key] : undefined);
     if (!column) {
       if (raw.trim() !== "") ignoredColumns.push(raw.trim());
       return;
@@ -141,7 +141,7 @@ export interface PlannedPerson {
 export type PlannedRow =
   | { line: number; email: string; status: "add"; person: PlannedPerson }
   | { line: number; email: string; status: "skip"; reason: string }
-  | { line: number; email: string; status: "error"; problems: string[] };
+  | { line: number; email: string; status: "error"; problems: string[]; /** As written, for the preview. */ name: string };
 
 export interface PeopleImportPlan {
   /** Every row of the file, in file order. */
@@ -182,7 +182,7 @@ const ALREADY_HERE = "Already has an account, so left as is.";
  *   that loop back on themselves are a problem on every row of the loop.
  */
 export function planPeopleImport(rows: readonly PeopleCsvRow[], facts: ImportFacts): PeopleImportPlan {
-  type Draft = { line: number; email: string; problems: string[]; skip: boolean; person: PlannedPerson; managerEmail: string | null };
+  type Draft = { line: number; email: string; rawName: string; problems: string[]; skip: boolean; person: PlannedPerson; managerEmail: string | null };
   const firstLine = new Map<string, number>();
   const newDepartments = new Map<string, string>();
 
@@ -205,6 +205,9 @@ export function planPeopleImport(rows: readonly PeopleCsvRow[], facts: ImportFac
     const approval = row.canSelfApprove.trim().toLowerCase();
     if (!YES.has(approval) && !NO.has(approval)) problems.push(`can_self_approve must be yes or no, not “${row.canSelfApprove}”.`);
 
+    // Someone already here is left as is, so the rest of their row does not matter.
+    const skip = !emailProblem && firstLine.get(email) === row.line && facts.takenEmails.has(email);
+
     let department: PlannedPerson["department"] = null;
     if (row.department.trim() !== "") {
       let deptName = "";
@@ -214,7 +217,7 @@ export function planPeopleImport(rows: readonly PeopleCsvRow[], facts: ImportFac
         const key = deptName.toLowerCase();
         const existing = facts.departments.get(key);
         department = existing ? { id: existing.id, name: existing.name } : { id: null, name: newDepartments.get(key) ?? deptName };
-        if (!existing && !newDepartments.has(key)) newDepartments.set(key, deptName);
+        if (!existing && !skip && !newDepartments.has(key)) newDepartments.set(key, deptName);
       }
     }
 
@@ -225,14 +228,13 @@ export function planPeopleImport(rows: readonly PeopleCsvRow[], facts: ImportFac
       else if (managerEmail === email) problems.push("Someone can't be their own manager.");
     }
 
-    // Someone already here is left as is, so the rest of their row does not matter.
-    const skip = !emailProblem && firstLine.get(email) === row.line && facts.takenEmails.has(email);
     return {
       line: row.line,
       email,
       problems: skip ? [] : problems,
       skip,
       managerEmail,
+      rawName: name || row.name.trim(),
       person: { email, name, role, department, manager: null, canSelfApprove: YES.has(approval) },
     };
   });
@@ -241,7 +243,7 @@ export function planPeopleImport(rows: readonly PeopleCsvRow[], facts: ImportFac
   const byEmail = new Map(drafts.filter((d) => firstLine.get(d.email) === d.line && !d.skip).map((d) => [d.email, d]));
 
   for (const d of drafts) {
-    if (d.skip || d.managerEmail === null || d.problems.length > 0) continue;
+    if (d.skip || d.managerEmail === null) continue;
     const member = facts.members.get(d.managerEmail);
     if (member) {
       if (member.isActive) d.person.manager = { kind: "member", id: member.id, email: d.managerEmail };
@@ -279,7 +281,7 @@ export function planPeopleImport(rows: readonly PeopleCsvRow[], facts: ImportFac
 
   const planned: PlannedRow[] = drafts.map((d) =>
     d.problems.length > 0
-      ? { line: d.line, email: d.email, status: "error", problems: d.problems }
+      ? { line: d.line, email: d.email, status: "error", problems: d.problems, name: d.rawName }
       : d.skip
         ? { line: d.line, email: d.email, status: "skip", reason: ALREADY_HERE }
         : { line: d.line, email: d.email, status: "add", person: d.person },

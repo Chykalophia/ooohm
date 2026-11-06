@@ -98,7 +98,7 @@ function Preview({ state, pending, onSubmit, dispatch, onStartOver }: {
             <button type="submit" aria-disabled={pending} className={primaryButton}>
               {pending ? <PendingLabel label="Adding…" /> : `Add ${plural(state.adds, "person", "people")}`}
             </button>
-            <button type="button" onClick={onStartOver} className={subtleButton}>
+            <button type="button" aria-disabled={pending} onClick={pending ? undefined : onStartOver} className={subtleButton}>
               Choose another file
             </button>
           </div>
@@ -151,7 +151,7 @@ function Importer({ action, onStartOver }: { action: Action; onStartOver: () => 
           <input type="hidden" name="intent" value="check" />
           <div className="space-y-1.5">
             <label htmlFor="people-import-file" className="block text-sm font-medium">
-              {preview ? "Upload the fixed file" : state.status === "imported" ? "Import another file" : "CSV file"}
+              {preview?.errors ? "Upload the fixed file" : preview ? "Upload another file" : state.status === "imported" ? "Import another file" : "CSV file"}
             </label>
             <input
               id="people-import-file"

@@ -25,6 +25,7 @@ const RATE_LIMITED = `That's more than ${PEOPLE_IMPORT_HOURLY_LIMIT} people impo
 function refusalOf(err: DomainError): string | null {
   if (err.code === "invalid_input") return err.message || "That file can't be imported.";
   if (err.code === "rate_limited") return RATE_LIMITED;
+  if (err.code === "forbidden") return "Only admins can import people.";
   if (err.code === "already_exists") return "Someone in the file was just added another way. Check the file again.";
   return null;
 }
@@ -69,15 +70,21 @@ export async function peopleImportAction(_prev: ImportState, formData: FormData)
       try {
         if (input.intent === "check") return await check();
         const result = await importPeople(ctx, actor, { csv, sendInvites: input.sendInvites });
+        if (result.added === 0) {
+          return { status: "imported", id: randomUUID(), message: "Nobody was added: everyone in the file already has an account." };
+        }
         const people = `${result.added} ${result.added === 1 ? "person" : "people"}`;
         const departments = result.departmentsCreated > 0 ? ` and ${result.departmentsCreated} ${result.departmentsCreated === 1 ? "department" : "departments"}` : "";
-        const invites = result.added === 0 ? "" : input.sendInvites ? " Each will get an email with a sign-in link." : " No invites were sent; they can sign in from the sign-in page.";
+        const invites = input.sendInvites ? " Each will get an email with a sign-in link." : " No invites were sent; they can sign in from the sign-in page.";
         return { status: "imported", id: randomUUID(), message: `Added ${people}${departments}.${invites}` };
       } catch (err) {
         const message = isDomainError(err) ? refusalOf(err) : null;
         if (message === null) throw err;
         if (input.intent === "check") return { status: "error", message, fields: ["file"] };
-        return check(message).catch(() => ({ status: "error", message }) as const);
+        return check(message).catch((recheck: unknown) => {
+          if (!isDomainError(recheck)) throw recheck;
+          return { status: "error", message } as const;
+        });
       }
     },
   );

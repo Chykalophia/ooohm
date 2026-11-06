@@ -38,7 +38,7 @@ export const IMPORT_IDLE: ImportState = { status: "idle" };
 /** The preview of a plan, as plain data for the page. */
 export function previewRows(plan: PeopleImportPlan): ImportPreviewRow[] {
   return plan.rows.map((row) => {
-    if (row.status === "error") return { line: row.line, email: row.email, name: "", status: "error", details: row.problems.join(" ") };
+    if (row.status === "error") return { line: row.line, email: row.email, name: row.name, status: "error", details: row.problems.join(" ") };
     if (row.status === "skip") return { line: row.line, email: row.email, name: "", status: "skip", details: row.reason };
     const p = row.person;
     const details = [

@@ -46,6 +46,8 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   [ADMIN_EVENT_TYPES.holidayRenamed]: "Holiday renamed",
   [ADMIN_EVENT_TYPES.holidayDeleted]: "Holiday deleted",
   [ADMIN_EVENT_TYPES.companyUpdated]: "Company settings changed",
+  [ADMIN_EVENT_TYPES.emailTemplateUpdated]: "Email wording changed",
+  [ADMIN_EVENT_TYPES.emailTemplateReset]: "Email wording reset",
   [ALLOWANCE_AUDIT_ACTIONS.sync]: "Allowance synced",
   [INTEGRATION_EVENT_TYPES.webhookEndpointCreated]: "Webhook endpoint added",
   [INTEGRATION_EVENT_TYPES.webhookEndpointUpdated]: "Webhook endpoint edited",

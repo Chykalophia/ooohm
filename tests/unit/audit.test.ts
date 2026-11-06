@@ -48,6 +48,8 @@ test("admin event names are a public contract", () => {
     "holiday.renamed",
     "holiday.deleted",
     "company.updated",
+    "email_template.updated",
+    "email_template.reset",
   ]);
 });
 

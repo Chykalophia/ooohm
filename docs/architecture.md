@@ -856,7 +856,8 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
   managers while **Managers can see their team's balances and notes** is on. Notes and decision notes are
   never selected.
 - **CSV.** `GET /reports/export` (same query) downloads the people table with a column per leave type
-  (`reportCsv`). It answers only same-site requests or a typed address, like the person export.
+  (`reportCsv`). Like the person export, it refuses a request `Sec-Fetch-Site` marks as from another site (anything but
+  `same-origin` or `none`); a browser too old to send the header is let through, and the session still decides who is asking.
 - **Queries.** Eight whatever the amount of leave, six without balances: company, departments, leave types
   and the people in scope in parallel; then their leave over the five years, two years of holidays and the
   two balance reads. `tests/integration/reports.test.ts` pins both counts.

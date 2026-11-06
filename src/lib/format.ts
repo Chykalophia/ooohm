@@ -329,7 +329,7 @@ export function formatTypicalWait(hours: number): string {
 
 /** A wait, rounded up: "under an hour", "5 hours", "1 day", "3 days". */
 export function formatWait(hours: number): string {
-  if (hours <= 1) return "under an hour";
+  if (hours < 1) return "under an hour";
   if (hours < 24) return formatCount(Math.ceil(hours), "hour", "hours");
   return formatCount(Math.ceil(hours / 24), "day", "days");
 }

@@ -207,20 +207,28 @@ function RequestCounts({ report }: { report: LeaveReport }) {
   );
 }
 
+/** The month chart's numbers: each leave type's days, the month's total and the year before's. */
 function MonthTable({ report }: { report: LeaveReport }) {
+  const types = report.leaveTypes.filter((t) => report.months.some((m) => m.byType.some((s) => s.leaveTypeId === t.id)));
+  const right = cx(tableHeadCell, "text-right");
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full text-sm">
-        <caption className="sr-only">Approved days off by month</caption>
+        <caption className="sr-only">Approved days off by month and leave type</caption>
         <thead>
           <tr>
             <th scope="col" className={tableHeadCell}>
               Month
             </th>
-            <th scope="col" className={cx(tableHeadCell, "text-right")}>
+            {types.map((t) => (
+              <th key={t.id} scope="col" className={right}>
+                {t.name}
+              </th>
+            ))}
+            <th scope="col" className={right}>
               {report.year}
             </th>
-            <th scope="col" className={cx(tableHeadCell, "text-right")}>
+            <th scope="col" className={right}>
               {report.year - 1}
             </th>
           </tr>
@@ -232,7 +240,12 @@ function MonthTable({ report }: { report: LeaveReport }) {
                 {formatMonth(m.month)}
                 {m.ahead && m.total > 0 && <span className="text-muted"> (booked)</span>}
               </th>
-              <td className={cx(tableCell, "text-right tabular-nums")}>{m.total}</td>
+              {types.map((t) => (
+                <td key={t.id} className={cx(tableCell, "text-right tabular-nums")}>
+                  {m.byType.find((s) => s.leaveTypeId === t.id)?.days ?? 0}
+                </td>
+              ))}
+              <td className={cx(tableCell, "text-right font-medium tabular-nums")}>{m.total}</td>
               <td className={cx(tableCell, "text-right tabular-nums text-muted")}>{report.previousYearMonths[i]}</td>
             </tr>
           ))}

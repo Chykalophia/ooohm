@@ -170,5 +170,6 @@ describe("reports", { skip }, () => {
     const lines = csv.trimEnd().split("\r\n");
     assert.equal(lines[0], "Person,Department,Active,PTO,SICK,Approved days,Pending days,Days left");
     assert.ok(lines.includes("Ana,Dev,yes,5,0,5,2,18"));
+    assert.ok(!csv.includes("private note"));
   });
 });

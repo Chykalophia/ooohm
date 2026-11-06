@@ -21,7 +21,7 @@ export interface MonthColumn {
  * at the year before's total so the two years read on one axis. Months still ahead are
  * lighter. Decorative for screen readers: the page puts the same numbers in a table.
  *
- * Hovering (or focusing) a column shows its numbers. The segments keep a 2px gap in the
+ * Hovering over a column shows its numbers. The segments keep a 2px gap in the
  * surface colour, so neighbouring types stay apart whatever their colours.
  */
 export function MonthColumns({ columns, compareLabel }: { columns: MonthColumn[]; compareLabel: string }) {

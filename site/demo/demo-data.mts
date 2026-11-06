@@ -12,6 +12,7 @@ import { resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as s from "../../src/db/schema";
 import { nonEmptyEnv } from "../../src/lib/integration-env";
+import { usFederalHolidays } from "../../src/domain/holidays";
 import { splitLeaveDaysByYear } from "../../src/domain/leave-days";
 import { isLocalDatabase } from "./local-db.mjs";
 
@@ -125,7 +126,15 @@ for (const year of [2022, 2023, 2024, 2025, 2026]) {
     }
   }
 }
-const holidayDates = holidays.map(([date]) => date);
+// Earlier years get their US federal holidays, so history never charges a holiday.
+for (const year of [2022, 2023, 2024, 2025]) {
+  for (const h of usFederalHolidays(year)) await db.insert(s.holidays).values({ companyId: company.id, date: h.date, name: h.name }).onConflictDoNothing();
+}
+const holidayDates = [...holidays.map(([date]) => date), ...[2022, 2023, 2024, 2025].flatMap((y) => usFederalHolidays(y).map((h) => h.date))];
+// Nobody has two requests on the same day: history skips what would overlap the story's
+// requests or an earlier generated one.
+const taken = new Map<string, [string, string][]>(Object.keys(ids).map((who) => [who, reqs.filter((r) => r[0] === who).map((r) => [r[2], r[3]] as [string, string])]));
+const overlaps = (who: string, start: string, end: string) => (taken.get(who) ?? []).some(([a, b]) => start <= b && end >= a);
 
 // Every run starts the story over: the recordings change requests as they go. One
 // transaction, so a failure leaves the previous requests in place rather than none.
@@ -140,6 +149,8 @@ await db.transaction(async (tx) => {
     await tx.insert(s.leaveRequestDays).values({ requestId: r.id, year: YEAR, days });
   }
   for (const h of history) {
+    if (overlaps(h.who, h.start, h.end)) continue;
+    taken.get(h.who)?.push([h.start, h.end]);
     const split = splitLeaveDaysByYear({ startDate: h.start, endDate: h.end, dayPortion: "full" }, { workingDays: [1, 2, 3, 4, 5], holidays: holidayDates });
     const days = split.reduce((sum, y) => sum + y.days, 0);
     if (days === 0) continue;

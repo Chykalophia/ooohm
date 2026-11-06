@@ -100,6 +100,8 @@ export async function getLeaveReport(ctx: ServiceContext, actor: Actor, query: L
         people.map((p) => {
           const tracked = types.flatMap((t) => {
             const b = balanceOf(p.id, t.id, year);
+            // As on Home, a retired type counts only for someone who still has days of it.
+            if (t.archived && b.used + b.pending === 0) return [];
             return b.tracked ? [b.remaining] : [];
           });
           return [p.id, tracked.length > 0 ? addDays(...tracked) : null] as const;

@@ -27,12 +27,17 @@ export async function GET(request: Request): Promise<Response> {
   const actor = toActor(user);
   if (!actor) return bare(404);
   const params = new URL(request.url).searchParams;
-  const year = readParam(yearParamSchema, params.get("year") ?? undefined);
+  // As the page reads them: a repeated key counts as missing.
+  const one = (key: string) => {
+    const values = params.getAll(key);
+    return values.length === 1 ? values[0] : undefined;
+  };
+  const year = readParam(yearParamSchema, one("year"));
 
   try {
     const { filename, csv } = await exportLeaveReport(serviceContext(), actor, {
       year: year === undefined ? undefined : Number(year),
-      departmentId: readParam(departmentParamSchema, params.get("department") ?? undefined),
+      departmentId: readParam(departmentParamSchema, one("department")),
     });
     return new Response(csv, {
       headers: {

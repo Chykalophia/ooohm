@@ -338,7 +338,7 @@ describe("reportCsv", () => {
 describe("formatWait", () => {
   test("rounds up to hours under a day, then to days", () => {
     assert.equal(formatWait(0.4), "under an hour");
-    assert.equal(formatWait(1), "under an hour");
+    assert.equal(formatWait(1), "1 hour");
     assert.equal(formatWait(1.2), "2 hours");
     assert.equal(formatWait(23.5), "24 hours");
     assert.equal(formatWait(24), "1 day");

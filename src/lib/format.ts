@@ -87,13 +87,16 @@ export function formatRequestCost(cost: RequestCost, person?: string): string {
  */
 export function formatSubmitted(request: {
   approved: boolean;
+  /** Approval is turned off for the company: the time off was booked, not approved. */
+  headsUp?: boolean;
   startDate: string;
   endDate: string;
   dayPortion: "full" | "am" | "pm";
   days: number;
 }): string {
   const what = `${formatLeaveDates(request.startDate, request.endDate, request.dayPortion)} (${formatDays(request.days)})`;
-  return request.approved ? `Approved: ${what}. Enjoy your time off.` : `Sent for approval: ${what}.`;
+  if (!request.approved) return `Sent for approval: ${what}.`;
+  return `${request.headsUp ? "Booked" : "Approved"}: ${what}. Enjoy your time off.`;
 }
 
 /**

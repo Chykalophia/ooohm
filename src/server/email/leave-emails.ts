@@ -52,6 +52,17 @@ export type LeaveEmail =
       approveLink?: string | null;
     }
   | { kind: "approved"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
+  /** Heads-up time off (approval turned off): the requester's confirmation. */
+  | { kind: "booked"; recipientName: string; leave: LeaveSummary; link: string }
+  /** Heads-up time off: the manager (or fallback admin) is told, not asked. */
+  | {
+      kind: "heads_up";
+      recipientName: string;
+      leave: LeaveSummary;
+      /** Who else is off on those dates (`alsoOffFor`). */
+      alsoOff?: string | null;
+      link: string;
+    }
   | {
       kind: "added";
       recipientName: string;
@@ -84,7 +95,7 @@ interface Parts {
   subject: string;
   /** The opening sentence, which says what happened and to which request. */
   lead: Segment[];
-  /** The requester's note, shown in quotes (request emails only). */
+  /** The requester's note, shown in quotes (request and heads-up emails only). */
   quote?: string;
   /** A labelled line after the lead, e.g. a decline reason; `quoted` for words someone typed. */
   extra?: { label: string; value: string; quoted: boolean };
@@ -121,6 +132,19 @@ function parts(email: LeaveEmail): Parts {
         subject: "Your time off is approved",
         lead: [{ text: "Your " }, type, { text: ` is approved, ${when}.` }],
         extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined,
+      };
+    case "booked":
+      return {
+        subject: "Your time off is booked",
+        lead: [{ text: "Your " }, type, { text: ` is booked, ${when}. Enjoy it.` }],
+      };
+    case "heads_up":
+      return {
+        // The name is one capped line (`displayName`), so it cannot add a header.
+        subject: `${requester} is off ${formatDateSpan(leave.startDate, leave.endDate)}`,
+        lead: [{ text: `${requester} is taking ` }, type, { text: `, ${when}. It's booked, so there's nothing you need to do.` }],
+        quote: leave.note ?? undefined,
+        overlap: email.alsoOff ?? undefined,
       };
     case "added":
       return {
@@ -179,8 +203,8 @@ function parts(email: LeaveEmail): Parts {
  * the OOOhm site: one sentence that says it all, the requester's note in quotes, who else
  * is off, then the buttons. `accent` is the company's ({@link emailAccent}).
  *
- * Subjects are fixed per kind, except the request email's, which names the requester
- * and the dates as the inbox should show them. Names there are one capped line
+ * Subjects are fixed per kind, except the request and heads-up emails', which name the
+ * requester and the dates as the inbox should show them. Names there are one capped line
  * (`displayName`), so no typed value can add a header; notes and reasons appear in the
  * body only, HTML-escaped there.
  */

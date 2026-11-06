@@ -82,6 +82,11 @@ test("after a submit, the confirmation names the dates and days that were sent",
   assert.equal(formatSubmitted({ ...week, approved: false }), "Sent for approval: Mon, Nov 9 to Fri, Nov 13, 2026 (5 days).");
   assert.equal(formatSubmitted({ ...week, approved: true }), "Approved: Mon, Nov 9 to Fri, Nov 13, 2026 (5 days). Enjoy your time off.");
   assert.equal(
+    formatSubmitted({ ...week, approved: true, headsUp: true }),
+    "Booked: Mon, Nov 9 to Fri, Nov 13, 2026 (5 days). Enjoy your time off.",
+    "with approval turned off, nothing was approved: it's booked",
+  );
+  assert.equal(
     formatSubmitted({ startDate: "2026-11-02", endDate: "2026-11-02", dayPortion: "am", days: 0.5, approved: false }),
     "Sent for approval: Mon, Nov 2, 2026 (morning) (0.5 days).",
   );

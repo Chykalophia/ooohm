@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "approval_mode" text DEFAULT 'required' NOT NULL;

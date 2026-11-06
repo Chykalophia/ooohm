@@ -285,7 +285,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId` |
+| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, approvalMode, theme, accentColor, corners, requestStyle, layout, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -365,10 +365,22 @@ address, and never fail the user's action.
       half day on the same date do not overlap.
    4. Refuses (`insufficient_balance`) when a tracked leave type's balance cannot cover the request in any
       year it touches. See [Balances](#balances-m3).
-4. Resolves the approver with `ManagerApprovalRule` and stores `approver_id`.
+4. Resolves the approver with the company's rule (`approvalRuleFor(companies.approval_mode)`: `ManagerApprovalRule`,
+   or `HeadsUpApprovalRule` while approval is turned off) and stores `approver_id`.
 5. Inserts as `pending` with `days` = the total, stores the per-year split in `leave_request_days`, and records
    `leave.requested`. If the rule says self-approve, it immediately moves to `approved` (`decided_at` = now,
    approver = requester) and records `leave.approved`. Self-approved requests are held to the same balance.
+
+**Approval turned off (heads-up time off).** Admin → Company, "Time off approval": `Ask first` (`required`, the
+default) or `Just let us know` (`heads_up`, `companies.approval_mode`). Some teams treat time off as something
+people tell the company rather than ask for. With `heads_up`, every submit is approved on the spot, exactly as a
+self-approved one (`approver_id` = requester, both transitions by the requester, same balance check), and the
+person the manager rule would have routed it to (minus self-approval: the active manager, else the
+longest-standing other admin) gets a "heads-up" email instead of a review email. Nobody to tell never blocks a
+submit. Cancelling such time off emails that person too. Home's form reads "Book time off". The switch applies to
+requests sent from then on; pending ones stay with their approver. It is audited and carried on
+`company.updated` (`approvalMode`). The setting lives on the company, the tenant every rule is scoped to, so it
+moves with the company if one deployment ever hosts several.
 
 **Added for someone.** An admin (for anyone in the company) or a person's direct manager can add time off for
 them from their Team page (`addLeaveFor`, `src/server/services/leave-on-behalf.ts`; Admin → People links
@@ -380,7 +392,8 @@ balance (`managers_see_details` off) gets the cost but never what is left, in th
 
 ### Approval rule
 
-`ApprovalRule` (`src/domain/approval-rule.ts`) is pluggable; v1 ships `ManagerApprovalRule`:
+`ApprovalRule` (`src/domain/approval-rule.ts`) is pluggable; v1 ships `ManagerApprovalRule` (and
+`HeadsUpApprovalRule` for companies that turned approval off, above):
 
 1. `can_self_approve` → approved on submit.
 2. An active manager (other than the requester) → routed to the manager.
@@ -437,9 +450,10 @@ credential) otherwise. Adding a provider is one file implementing `MailTransport
 | --- | --- |
 | Requested (routed) | Approver (not when it is the requester), with who else is off then |
 | Requested (self-approved) | Requester gets "approved"; no review email |
+| Requested (approval turned off) | Requester gets "booked"; their manager (else the fallback admin) gets a heads-up, with who else is off then; no review email |
 | Approved | Requester, with the approver's note if they wrote one |
 | Rejected | Requester, with the reason |
-| Cancelled | Requester, plus the approver unless the approver is the person cancelling |
+| Cancelled | Requester, plus the approver unless the approver is the person cancelling; while approval is turned off, cancelling time off the person approved themself also tells their manager now (else the fallback admin) |
 | Recounted by a calendar change | Requester only, saying which holiday or the working days changed; not when only the year split moved |
 
 "Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`, sentences from `src/domain/overlap.ts`)

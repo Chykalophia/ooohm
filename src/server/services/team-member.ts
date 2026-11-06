@@ -5,7 +5,8 @@ import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/domain/leave-days";
-import { canAddLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { canAddLeaveFor, canCorrectLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { canRemoveOn } from "@/domain/request-status";
 import { teamLabel } from "@/domain/person";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
@@ -34,7 +35,8 @@ const AHEAD_DAYS = 365;
  *   past the query, so they never leave the service.
  *
  * - An admin, or the person's direct manager ({@link canAddLeaveFor}), also gets
- *   `addLeave`: what the form to add time off for them needs (`addLeaveFor`).
+ *   `addLeave`: what the form to add time off for them needs (`addLeaveFor`), and each
+ *   approved entry of the open year is `removable` by them (`removeLeaveFor`).
  *
  * Inactive and deleted people are not on Team, so they are `not_found` here too.
  *
@@ -53,6 +55,7 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
   const showDetails = canSeeLeaveDetails(actor, { ...person, companyId: actor.companyId }, company.managersSeeDetails);
   const year = yearInTimeZone(company.timezone, now);
   const canAdd = canAddLeaveFor(actor, { ...person, companyId: actor.companyId });
+  const canCorrect = canCorrectLeaveFor(actor, { ...person, companyId: actor.companyId });
 
   const [department, manager, holidays, leave, balances, addLeave] = await Promise.all([
     person.departmentId ? findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined,
@@ -67,6 +70,8 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
   const entries = shown.map(({ days, note, decisionNote, ...entry }) => ({
     ...entry,
     details: showDetails ? { days, note, decisionNote } : null,
+    /** Whether the viewer may remove it to correct the record (`removeLeaveFor`): their manager or an admin, for approved leave of the open year. */
+    removable: canCorrect && canRemoveOn(entry, today),
   }));
   return {
     person: {

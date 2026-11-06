@@ -405,7 +405,17 @@ refuses with `past_year_closed` and the dashboard shows no Cancel button (`getDa
 request). That leave was taken and its year's balance is settled and carried over, so a past year is corrected with
 an admin's balance adjustment for that year instead. A request spanning New Year counts by its end date: Dec 29 to
 Jan 2 can still be cancelled in the new year, since part of it is in the open year (cancelling it gives back the
-days of both years). A pending request from a past year can still be withdrawn: it was never granted. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
+days of both years). A pending request from a past year can still be withdrawn: it was never granted.
+
+Approved leave of the open year that is **over** (its last day is before today, in the company's time zone:
+`isLeaveOver`) can't be cancelled by its requester either; the service refuses with `leave_taken`, and
+`cancellable` is false. It was taken, so cancelling it would quietly hand the days back. A correction is for their
+direct manager or an admin (`canCorrectLeaveFor`, the same people who may add leave for them): `removeLeaveFor`
+(the **Remove** action on the person's Team page) cancels approved leave of the open year, past or not
+(`canRemoveOn`), with a required reason stored in `decision_note`. It is recorded as `leave_request.cancelled` and
+`leave.cancelled` by the one removing it, so the audit log names who and why (its `before` keeps the approver's
+earlier note), and the person is emailed (`removed`). To change dates, remove the leave and add the right ones. A
+closed year's leave still can't be removed. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
 optional reason (max 500 characters) stored in `decision_note`. Every status change is a compare-and-set
 (`UPDATE ... WHERE status = <expected>`), so of two concurrent decisions exactly one wins and the other gets
 `conflict`.

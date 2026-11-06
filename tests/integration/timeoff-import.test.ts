@@ -684,7 +684,7 @@ describe("TimeOff import", { skip }, () => {
     );
   });
 
-  test("an imported 2025 request shows no Cancel button and cannot be cancelled; one ending in 2026 still can", async () => {
+  test("an imported 2025 request shows no Cancel button and cannot be cancelled; one ending in 2026 is over, so it can't either", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
     const ctx = createTestContext(db); // today: 2026-11-01
@@ -706,10 +706,11 @@ describe("TimeOff import", { skip }, () => {
     assert.equal(still.status, "approved");
     assert.equal(await db.$count(schema.eventsOutbox), eventsBefore, "nothing recorded");
 
-    // Erin's Dec 29 2025 to Jan 5 2026 crosses New Year, so part of it is in the open year.
+    // Erin's Dec 29 2025 to Jan 5 2026 crosses New Year: part of it is in the open year, but it is
+    // over, so only her manager or an admin can correct it now.
     const erin = await actorFor("erin@example.com");
     const [newYear] = (await requestsOf(db, erin.id)).filter((r) => r.startDate === "2025-12-29");
-    assert.equal((await getDashboard(ctx, erin)).requests.find((r) => r.id === newYear.id)?.cancellable, true);
-    assert.equal((await cancelLeaveRequest(ctx, erin, newYear.id)).status, "cancelled");
+    assert.equal((await getDashboard(ctx, erin)).requests.find((r) => r.id === newYear.id)?.cancellable, false);
+    await rejectsWith(cancelLeaveRequest(ctx, erin, newYear.id), "leave_taken");
   });
 });

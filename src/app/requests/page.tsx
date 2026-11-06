@@ -33,7 +33,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           Your requests
         </span>
       }
-      description="Everything you've asked for, latest dates first. Open one to see it in full, or cancel it while it's waiting or approved."
+      description="Everything you've asked for, latest dates first. Open one to see it in full, or cancel it until it's over."
     >
       {requests.items.length === 0 ? (
         requests.previous ? (

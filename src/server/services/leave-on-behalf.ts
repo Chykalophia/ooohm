@@ -3,14 +3,16 @@ import { remainingAfter, type RequestCost } from "@/domain/allowance-policy";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { personLabel } from "@/domain/person";
-import { canAddLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { canAddLeaveFor, canCorrectLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
 import { assertValidRange, normalizeNote } from "@/domain/leave-request";
-import { assertTransition } from "@/domain/request-status";
+import { assertRemovableOn, assertTransition } from "@/domain/request-status";
+import { todayInTimeZone } from "@/lib/dates";
 import type { Executor } from "@/db/types";
 import type { ServiceContext } from "@/server/context";
 import { insertRequestDays } from "@/server/repositories/balances";
 import { findCompany, shareLockCompany } from "@/server/repositories/companies";
-import { countRecentRequests, insertLeaveRequest, type LeaveRequestRow, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
+import { countRecentRequests, insertLeaveRequest, lockLeaveRequest, type LeaveRequestRow, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
+import { findLeaveType } from "@/server/repositories/leave-types";
 import { findPerson, lockPerson, type PersonRow } from "@/server/repositories/users";
 import { assessLeaveRequest, draftRange, type LeaveDraft } from "./balances";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
@@ -151,3 +153,67 @@ export async function addLeaveFor(
     return { result: { ...approved, personName: personLabel(subject) }, outgoing: mail };
   });
 }
+
+/**
+ * Removes someone's approved time off to correct the record: it was entered by mistake,
+ * twice, or they worked those days after all. Their direct manager or an admin may
+ * ({@link canCorrectLeaveFor}), for approved leave of the open year, past leave included
+ * (the person can no longer cancel that themself; see `isLeaveOver`). A closed year's
+ * leave is corrected with a balance adjustment instead.
+ *
+ * The request becomes `cancelled`, with the reason in `decision_note`, and is recorded as
+ * `cancelled` by the one removing it, so the audit log and the outbox name who did it and
+ * why (the audit row's `before` keeps the approver's earlier note). Its days are back in
+ * the person's balance. The person is emailed. To change the dates, remove it and add
+ * the right ones ({@link addLeaveFor}).
+ *
+ * @throws DomainError `invalid_input` (no reason, or one over the note limit), `not_found`,
+ *   `forbidden` (not an admin or their manager, or their own leave), `invalid_transition`
+ *   (not approved), `past_year_closed`, or `conflict` when it changed concurrently.
+ */
+export async function removeLeaveFor(ctx: ServiceContext, actor: Actor, requestId: string, reason: string): Promise<LeaveRequestRow> {
+  const why = normalizeNote(reason, "reason");
+  if (!why) throw new DomainError("invalid_input", "Say why it's being removed.", { field: "reason" });
+  if (!isUuid(requestId)) throw new DomainError("not_found");
+
+  return commitThenNotify(ctx, async (tx) => {
+    const before = await lockLeaveRequest(tx, actor.companyId, requestId);
+    if (!before) throw new DomainError("not_found");
+    const person = await findPerson(tx, actor.companyId, before.userId);
+    if (!person || !canCorrectLeaveFor(actor, { id: person.id, companyId: actor.companyId, managerId: person.managerId })) {
+      throw new DomainError("forbidden");
+    }
+    const company = await findCompany(tx, actor.companyId);
+    if (!company) throw new DomainError("no_company");
+    assertRemovableOn(before, todayInTimeZone(company.timezone, ctx.now()));
+
+    const after = await updateStatusIfCurrent(
+      tx,
+      { companyId: actor.companyId, id: before.id, from: before.status },
+      { status: "cancelled", decisionNote: why },
+    );
+    if (!after) throw new DomainError("conflict");
+    await recordLeaveChange(tx, { event: "cancelled", before, after, source: actor.source });
+
+    const contacts = await activeContacts(tx, actor.companyId, [after.userId, actor.id]);
+    const them = contacts.get(after.userId);
+    const me = contacts.get(actor.id);
+    const leaveType = await findLeaveType(tx, actor.companyId, after.leaveTypeId);
+    const mail: Outgoing[] = [];
+    if (them) {
+      mail.push({
+        to: them.email,
+        email: {
+          kind: "removed",
+          recipientName: them.name,
+          leave: summarize(after, them, leaveType?.name ?? "Time off"),
+          removedByName: me ? personLabel(me) : "",
+          reason: why,
+          link: `${ctx.appUrl}/requests`,
+        },
+      });
+    }
+    return { result: after, outgoing: mail };
+  });
+}
+

@@ -15,14 +15,23 @@ import { type LeaveTypeOption, LeavePreviewLine, type Portion, SubmitRow, useLea
  * the form and shares its live preview, so only the layout differs. An admin picks it
  * under Admin → Appearance.
  */
-export function RequestLeaveSentence({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; defaultDate: string }) {
+export function RequestLeaveSentence({
+  leaveTypes,
+  defaultDate,
+  headsUp = false,
+}: {
+  leaveTypes: LeaveTypeOption[];
+  defaultDate: string;
+  /** The company turned approval off: the sentence books the time off instead of asking. */
+  headsUp?: boolean;
+}) {
   const { state, dispatch, pending, onSubmit, key } = useRequestAction();
 
   return (
-    <Section id={REQUEST_FORM_ID} title="Request time off" surface className="scroll-mt-6 space-y-4">
+    <Section id={REQUEST_FORM_ID} title={headsUp ? "Book time off" : "Request time off"} surface className="scroll-mt-6 space-y-4">
       <form action={dispatch} onSubmit={onSubmit} className="space-y-4">
         <SentenceFields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} />
-        <SubmitRow state={state} pending={pending} label="Send request" />
+        <SubmitRow state={state} pending={pending} label={headsUp ? "Book it" : "Send request"} />
       </form>
     </Section>
   );

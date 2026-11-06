@@ -1,6 +1,6 @@
 import type { Actor } from "@/domain/actor";
 import { addDays, isEmptyBalance, resolveAllowancePolicy } from "@/domain/allowance-policy";
-import { type ApprovalRule, ManagerApprovalRule } from "@/domain/approval-rule";
+import { type ApprovalRule, approvalRuleFor, readApprovalMode } from "@/domain/approval-rule";
 import { fromEpochDay, isCalendarDate, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
@@ -28,6 +28,7 @@ import {
 import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findDepartment } from "@/server/repositories/departments";
 import { findMember, findPerson, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { currentApprover } from "./approvals";
 import { approveLinkFor } from "./email-approval";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { alsoOffFor } from "./also-off";
@@ -67,12 +68,15 @@ export const SUBMIT_WINDOW_MINUTES = 10;
  * spend the same days. What the request costs per year is stored with it
  * (`leave_request_days`), so later holiday edits never change a past balance.
  *
- * The request is approved on the spot when the approval rule says so (self-approval);
- * otherwise it waits for the approver it was routed to. Every transition writes
+ * The company's approval mode picks the rule ({@link approvalRuleFor}) unless `rule` is
+ * given. The request is approved on the spot when the rule says so (self-approval, or
+ * every request while approval is turned off, when the person's manager is told
+ * instead of asked); otherwise it waits for the approver it was routed to. Every transition writes
  * `audit_log` and `events_outbox` rows in the same transaction, and emails go out only
  * after commit.
  *
- * @returns The stored request in its final state (`pending` or `approved`).
+ * @returns The stored request in its final state (`pending` or `approved`), with
+ *   `headsUp`: it was booked because approval is turned off, not approved by anyone.
  * @throws DomainError as {@link assessLeaveRequest} (including `insufficient_balance`),
  *   plus `no_approver`, `rate_limited` (more than {@link SUBMIT_LIMIT} in
  *   {@link SUBMIT_WINDOW_MINUTES} minutes), or `forbidden` for an inactive requester.
@@ -81,8 +85,8 @@ export async function submitLeaveRequest(
   ctx: ServiceContext,
   actor: Actor,
   input: SubmitLeaveInput,
-  rule: ApprovalRule = new ManagerApprovalRule(),
-): Promise<LeaveRequestRow> {
+  rule?: ApprovalRule,
+): Promise<LeaveRequestRow & { headsUp: boolean }> {
   // Cheap checks first, so malformed input never opens a transaction.
   assertValidRange(draftRange(input));
   const note = normalizeNote(input.note);
@@ -107,8 +111,11 @@ export async function submitLeaveRequest(
       requester.managerId && requester.managerId !== requester.id
         ? ((await findMember(tx, actor.companyId, requester.managerId)) ?? null)
         : null;
-    const admins = await listActiveAdmins(tx, actor.companyId);
-    const decision = rule.resolve({ requester, manager, admins });
+    const [admins, settings] = await Promise.all([listActiveAdmins(tx, actor.companyId), findCompanySettings(tx, actor.companyId)]);
+    if (!settings) throw new DomainError("no_company");
+    const decision = (rule ?? approvalRuleFor(readApprovalMode(settings.approvalMode))).resolve({ requester, manager, admins });
+    const informId = decision.kind === "auto_approve" ? (decision.informId ?? null) : null;
+    const headsUp = decision.kind === "auto_approve" && decision.informId !== undefined;
 
     const created = await insertLeaveRequest(tx, {
       companyId: actor.companyId,
@@ -136,21 +143,33 @@ export async function submitLeaveRequest(
       final = approved;
     }
 
-    const contacts = await activeContacts(tx, actor.companyId, [actor.id, decision.approverId]);
+    const contacts = await activeContacts(tx, actor.companyId, [actor.id, decision.approverId, ...(informId ? [informId] : [])]);
     const me = contacts.get(actor.id);
     const approver = contacts.get(decision.approverId);
+    const told = informId ? contacts.get(informId) : undefined;
     const leave = summarize(final, me, leaveType.name);
     const mail: Outgoing[] = [];
-    if (decision.kind === "auto_approve") {
+    // Who else is off, scoped to the requester's department as on the Approvals page.
+    const alsoOffLine = async () => {
+      const person = await findPerson(tx, actor.companyId, actor.id);
+      const department = person?.departmentId ? await findDepartment(tx, actor.companyId, person.departmentId) : undefined;
+      const request = { ...final, userId: actor.id, departmentId: department?.id ?? null, departmentName: department?.name ?? null };
+      return (await alsoOffFor(tx, actor.companyId, [request])).get(final.id)?.line ?? null;
+    };
+    if (headsUp) {
+      if (me) mail.push({ to: me.email, email: { kind: "booked", recipientName: me.name, leave, link: `${ctx.appUrl}/` } });
+      if (told) {
+        mail.push({
+          to: told.email,
+          email: { kind: "heads_up", recipientName: told.name, leave, alsoOff: await alsoOffLine(), link: `${ctx.appUrl}/calendar` },
+        });
+      }
+    } else if (decision.kind === "auto_approve") {
       if (me) {
         mail.push({ to: me.email, email: { kind: "approved", recipientName: me.name, leave, reason: null, link: `${ctx.appUrl}/` } });
       }
     } else if (approver && approver.id !== actor.id) {
-      // Who else is off, scoped to the requester's department as on the Approvals page.
-      const person = await findPerson(tx, actor.companyId, actor.id);
-      const department = person?.departmentId ? await findDepartment(tx, actor.companyId, person.departmentId) : undefined;
-      const request = { ...final, userId: actor.id, departmentId: department?.id ?? null, departmentName: department?.name ?? null };
-      const alsoOff = (await alsoOffFor(tx, actor.companyId, [request])).get(final.id)?.line ?? null;
+      const alsoOff = await alsoOffLine();
       mail.push({
         to: approver.email,
         email: {
@@ -163,7 +182,7 @@ export async function submitLeaveRequest(
         },
       });
     }
-    return { result: final, outgoing: mail };
+    return { result: { ...final, headsUp }, outgoing: mail };
   });
 }
 
@@ -173,7 +192,9 @@ export async function submitLeaveRequest(
  * zone; see `isClosedYearLeave`), which nobody may cancel.
  *
  * Emails the requester, and the approver too unless the approver is the person
- * cancelling (a self-approved request).
+ * cancelling (a self-approved request). While approval is turned off, someone
+ * cancelling time off they booked themself also tells whoever was told about it
+ * (their manager now, else the fallback admin; see {@link currentApprover}).
  *
  * @throws DomainError `not_found`, `forbidden` (not the requester),
  *   `invalid_transition` (already rejected or cancelled), `past_year_closed`, or
@@ -209,7 +230,11 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
         email: { kind: "cancelled_requester", recipientName: requester.name, leave, link: `${ctx.appUrl}/` },
       });
     }
-    const approver = after.approverId ? contacts.get(after.approverId) : undefined;
+    let approver = after.approverId ? contacts.get(after.approverId) : undefined;
+    if (readApprovalMode(settings.approvalMode) === "heads_up" && after.approverId === after.userId) {
+      const toldId = await currentApprover(tx, actor.companyId, after.userId);
+      approver = toldId && toldId !== after.userId ? (await activeContacts(tx, actor.companyId, [toldId])).get(toldId) : undefined;
+    }
     if (approver && approver.id !== actor.id) {
       mail.push({
         to: approver.email,
@@ -337,6 +362,8 @@ export async function getDashboard(ctx: ServiceContext, actor: Actor) {
        */
       typicalWaitHours: r.status === "pending" && r.approverId ? (typicalWait.get(r.approverId) ?? null) : null,
     })),
+    /** `required` or `heads_up` (approval turned off): how the request form words itself. */
+    approvalMode: readApprovalMode(settings.approvalMode),
     /** Whether the person has more requests than the dashboard shows. */
     moreRequests: requests.length > DASHBOARD_REQUESTS,
     /**

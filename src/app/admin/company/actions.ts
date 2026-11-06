@@ -15,9 +15,10 @@ const companySchema = z.object({
   allowancePolicy: formFields.text(100),
   deletionGrace: formFields.checkbox,
   managersSeeDetails: formFields.checkbox,
+  approvalMode: formFields.text(20).optional(),
 });
 
-/** Company page: saves the name, time zone, working days, allowance policy, the deletion grace option and what managers see of their reports. */
+/** Company page: saves the name, time zone, working days, allowance policy, the deletion grace option what managers see of their reports, and whether time off needs approval. */
 export async function updateCompanyAction(_prev: FormState, formData: FormData): Promise<FormState> {
   return adminAction(
     "company_update",
@@ -28,6 +29,6 @@ export async function updateCompanyAction(_prev: FormState, formData: FormData):
       const changes = formatRecountOutcome(recount);
       return changes ? `Saved. ${changes}` : "Saved.";
     },
-    { invalid_input: "Give the company a name, pick a time zone from the list, and tick at least one working day." },
+    { invalid_input: "Give the company a name, pick a time zone from the list, tick at least one working day, and choose how time off is approved." },
   );
 }

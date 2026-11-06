@@ -340,6 +340,11 @@ export interface CompanyEventPayload extends PersonAttribution {
   deletionGrace: boolean;
   /** Added within version 1: managers see their direct reports' balances and request notes. */
   managersSeeDetails: boolean;
+  /**
+   * Added within version 1: `required` (time off waits for an approver) or `heads_up`
+   * (booked as it is sent, and the person's manager is told). New values may appear.
+   */
+  approvalMode: string;
   /** Added within version 1: the theme key everyone sees, e.g. `classic` or `cobalt`. */
   theme: string;
   /** Added within version 1: `#rrggbb` replacing the theme's accent, or null. */

@@ -32,7 +32,15 @@ export interface ApprovalContext {
  * - `route`: stays pending until `approverId` (or a company admin) decides it.
  */
 export type ApprovalDecision =
-  | { kind: "auto_approve"; approverId: string }
+  | {
+      kind: "auto_approve";
+      approverId: string;
+      /**
+       * Someone to tell about the booked time off, without asking them anything
+       * (heads-up mode), or `null` when there is nobody. Absent: nobody is told.
+       */
+      informId?: string | null;
+    }
   | { kind: "route"; approverId: string };
 
 /**
@@ -42,6 +50,29 @@ export type ApprovalDecision =
 export interface ApprovalRule {
   /** @throws DomainError `no_approver` when nobody can approve the request. */
   resolve(context: ApprovalContext): ApprovalDecision;
+}
+
+/**
+ * How a company treats time off, chosen by an admin for everyone (Admin → Company):
+ *
+ * - `required`: people ask, and an approver decides ({@link ManagerApprovalRule}).
+ * - `heads_up`: people tell. Time off is booked as it is sent, and the person who would
+ *   have decided it is told instead ({@link HeadsUpApprovalRule}).
+ *
+ * Stored on the company, which is the tenant every rule is scoped to, so it moves with
+ * the company should several share one deployment.
+ */
+export const APPROVAL_MODES = ["required", "heads_up"] as const;
+export type ApprovalMode = (typeof APPROVAL_MODES)[number];
+export const DEFAULT_APPROVAL_MODE: ApprovalMode = "required";
+
+export function isApprovalMode(value: string): value is ApprovalMode {
+  return (APPROVAL_MODES as readonly string[]).includes(value);
+}
+
+/** A stored mode, read safely: anything unknown asks for approval, the cautious default. */
+export function readApprovalMode(value: string): ApprovalMode {
+  return isApprovalMode(value) ? value : DEFAULT_APPROVAL_MODE;
 }
 
 /**
@@ -72,6 +103,28 @@ export class ManagerApprovalRule implements ApprovalRule {
 
     throw new DomainError("no_approver", "Nobody can approve this request. Ask an admin to set your manager.");
   }
+}
+
+/**
+ * Heads-up time off: nothing waits for a decision. Every request is approved as it is
+ * sent, recorded as decided by the requester (nobody else decided it), and the person
+ * {@link ManagerApprovalRule} would have routed it to is told (`informId`): the
+ * requester's active manager, else the longest-standing other active admin. With
+ * nobody to tell (or only the requester themself), `informId` is `null` and the time
+ * off is booked all the same: turning approval off never blocks anyone.
+ */
+export class HeadsUpApprovalRule implements ApprovalRule {
+  constructor(private readonly routing: ApprovalRule = new ManagerApprovalRule()) {}
+
+  resolve(context: ApprovalContext): ApprovalDecision {
+    const told = reassignApprover(this.routing, context);
+    return { kind: "auto_approve", approverId: context.requester.id, informId: told === context.requester.id ? null : told };
+  }
+}
+
+/** The rule for a company's {@link ApprovalMode}. */
+export function approvalRuleFor(mode: ApprovalMode): ApprovalRule {
+  return mode === "heads_up" ? new HeadsUpApprovalRule() : new ManagerApprovalRule();
 }
 
 /**

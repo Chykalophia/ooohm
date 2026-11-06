@@ -1,6 +1,6 @@
 /**
  * Admin use cases for the company's own settings: name, time zone, working days, the
- * allowance policy, the deletion grace option and the appearance (theme, accent, corners). v1 runs one company per deployment;
+ * allowance policy, whether time off needs approval, the deletion grace option and the appearance (theme, accent, corners). v1 runs one company per deployment;
  * the company is always the actor's.
  */
 import type { Transaction } from "@/db/types";
@@ -8,6 +8,7 @@ import type { Actor } from "@/domain/actor";
 import { type AppearanceInput, normalizeAppearance, readAppearance } from "@/domain/appearance";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { ALLOWANCE_POLICY_KEYS } from "@/domain/allowance-policy";
+import { readApprovalMode } from "@/domain/approval-rule";
 import { type CompanySettingsInput, normalizeCompanySettings, supportedTimeZones } from "@/domain/company-settings";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "@/domain/events";
@@ -25,6 +26,7 @@ function snapshot(row: CompanyRow) {
     allowancePolicy: row.allowancePolicy,
     deletionGrace: row.deletionGrace,
     managersSeeDetails: row.managersSeeDetails,
+    approvalMode: readApprovalMode(row.approvalMode),
     ...readAppearance(row),
   };
 }
@@ -81,7 +83,8 @@ export async function getCompanySettings(ctx: ServiceContext, actor: Actor) {
  * Saves the company's settings. A new time zone changes which day is "today" from now
  * on. New working days change how days are counted, so the pending and approved
  * requests in years still open are recounted with them ({@link recountLeave}); past
- * years keep their counts.
+ * years keep their counts. Turning approval off (`approvalMode: "heads_up"`) applies to
+ * requests sent from then on: requests already waiting stay with their approver.
  *
  * @returns The settings after the change (unchanged, with nothing recorded, when nothing
  *   differs) and what the recount changed.
@@ -97,6 +100,7 @@ export async function updateCompanySettings(
     const { before, after, changed } = await changeCompany(tx, actor, (b) => ({
       deletionGrace: b.deletionGrace,
       managersSeeDetails: b.managersSeeDetails,
+      approvalMode: readApprovalMode(b.approvalMode),
       ...normalizeCompanySettings(input, b.timezone),
     }));
     const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);

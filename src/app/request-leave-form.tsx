@@ -37,24 +37,27 @@ const PREVIEW_ID = "leave-preview";
  * every piece below.
  *
  * With `forPerson` it adds time off for that person instead, approved as it is added
- * (`addLeaveForAction`), and its preview talks about them.
+ * (`addLeaveForAction`), and its preview talks about them. With `headsUp` (the company
+ * turned approval off) it books time off rather than requesting it, and says so.
  */
 export function RequestLeaveForm({
   leaveTypes,
   defaultDate,
   forPerson,
+  headsUp = false,
 }: {
   leaveTypes: LeaveTypeOption[];
   defaultDate: string;
   forPerson?: ForPerson;
+  headsUp?: boolean;
 }) {
   const { state, dispatch, pending, onSubmit, key } = useRequestAction(forPerson ? addLeaveForAction : requestLeaveAction);
-  const label = forPerson ? "Add time off" : "Request time off";
+  const label = forPerson ? "Add time off" : headsUp ? "Book time off" : "Request time off";
 
   return (
     <Section
       id={forPerson ? ADD_LEAVE_FORM_ID : REQUEST_FORM_ID}
-      title={forPerson ? `Add time off for ${forPerson.name}` : "Request time off"}
+      title={forPerson ? `Add time off for ${forPerson.name}` : label}
       surface
       className="scroll-mt-6 space-y-5"
     >
@@ -65,6 +68,7 @@ export function RequestLeaveForm({
             <p className="text-sm text-muted">It&apos;s approved as you add it, and they get an email about it.</p>
           </>
         )}
+        {!forPerson && headsUp && <p className="text-sm text-muted">It&apos;s booked as you send it, and your manager gets an email about it.</p>}
         <Fields
           key={key}
           leaveTypes={leaveTypes}

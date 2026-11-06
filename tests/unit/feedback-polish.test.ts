@@ -33,3 +33,12 @@ test("a select leaves 4px more room on the right than a text field, for its chev
   assert.match(fieldClass("sm"), /\bpx-2\.5\b/);
   assert.match(selectClass("sm"), /\bpr-3\.5\b/, "10px + 4px");
 });
+
+test("a select sets its left and right padding apart, never on top of a field's px-*", () => {
+  for (const size of ["md", "sm"] as const) {
+    const classes = selectClass(size).split(" ");
+    assert.ok(!classes.some((c) => /^px-/.test(c)), `${size}: no px-* to fight pr-*`);
+  }
+  assert.match(selectClass("md"), /\bpl-3\b/);
+  assert.match(selectClass("sm"), /\bpl-2\.5\b/);
+});

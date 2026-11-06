@@ -18,11 +18,22 @@ export const errorText = "text-danger";
 /** `md`: a form's field. `sm`: a compact one, for toolbars such as a table's filters. */
 export type FieldSize = "md" | "sm";
 
+/** A field's shape and height, without its side padding ({@link FIELD_INLINE}). */
 const FIELD_SIZE: Record<FieldSize, string> = {
-  md: "rounded-lg px-3 py-2",
+  md: "rounded-lg py-2",
   // 16px text on phones: iOS Safari zooms the page into any field smaller than that.
-  sm: "rounded-md px-2.5 py-1.5 text-base sm:text-sm",
+  sm: "rounded-md py-1.5 text-base sm:text-sm",
 };
+
+/** A text field's side padding. */
+const FIELD_INLINE: Record<FieldSize, string> = { md: "px-3", sm: "px-2.5" };
+
+/**
+ * A select's side padding: a text field's on the left, 4px more on the right so the
+ * browser's chevron doesn't crowd the edge. Separate `pl-*` and `pr-*`, never `pr-*` on top
+ * of a field's `px-*` (two classes setting one property; see docs/architecture.md).
+ */
+const SELECT_INLINE: Record<FieldSize, string> = { md: "pl-3 pr-4", sm: "pl-2.5 pr-3.5" };
 
 /**
  * A field's edge and focus: a border of at least 3:1 against what surrounds it (WCAG
@@ -32,19 +43,18 @@ const FIELD_SIZE: Record<FieldSize, string> = {
  */
 export const fieldFrame = "border border-field outline-none focus-within:border-accent-ink focus-within:ring-2 focus-within:ring-accent-ink/20";
 
-/** The classes of a text input or select. */
+const fieldBase = (size: FieldSize) => cx("w-full bg-surface aria-[invalid=true]:border-danger", fieldFrame, FIELD_SIZE[size]);
+
+/** The classes of a text input. */
 export function fieldClass(size: FieldSize = "md"): string {
-  return cx("w-full bg-surface aria-[invalid=true]:border-danger", fieldFrame, FIELD_SIZE[size]);
+  return cx(fieldBase(size), FIELD_INLINE[size]);
 }
 
 export const field = fieldClass("md");
 
-/** A select's right padding: a field's plus 4px, so the browser's chevron doesn't crowd the edge. */
-const SELECT_END: Record<FieldSize, string> = { md: "pr-4", sm: "pr-3.5" };
-
-/** The classes of a select: {@link fieldClass} with room for its chevron. */
+/** The classes of a select: a field's, with room on the right for its chevron. */
 export function selectClass(size: FieldSize = "md"): string {
-  return cx(fieldClass(size), SELECT_END[size]);
+  return cx(fieldBase(size), SELECT_INLINE[size]);
 }
 
 /**

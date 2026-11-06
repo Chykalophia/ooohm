@@ -23,5 +23,5 @@ test("a local http address becomes webcal too", () => {
 });
 
 test("a link's hint is its last 4 characters, not enough to guess the rest", () => {
-  assert.equal(feedTokenHint("AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdE"), "AbCdE".slice(-4));
+  assert.equal(feedTokenHint("AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdE"), "bCdE");
 });

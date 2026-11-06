@@ -52,6 +52,11 @@ describe("parseCsv", () => {
     assert.throws(() => parseCsv('a,b\n"open,1'), (err) => isDomainError(err, "invalid_input"));
   });
 
+  test("allows spaces after a closing quote, and refuses anything else there", () => {
+    assert.deepEqual(parseCsv('"a" ,b'), [["a", "b"]]);
+    assert.throws(() => parseCsv('"ann@example.com" x,Ann'), (err) => isDomainError(err, "invalid_input"));
+  });
+
   test("reads back what toCsv writes", () => {
     const rows = [
       ["name", "note"],

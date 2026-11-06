@@ -32,7 +32,8 @@ export function toCsv(header: readonly string[], rows: readonly (readonly CsvCel
  * returned as written, untrimmed. Lines may end in CRLF, LF or a lone CR; a leading byte
  * order mark and one trailing line break are dropped.
  *
- * @throws DomainError `invalid_input` when a quoted cell is never closed.
+ * @throws DomainError `invalid_input` when a quoted cell is never closed, or has text after
+ *   its closing quote.
  */
 export function parseCsv(text: string): string[][] {
   const source = text.startsWith("﻿") ? text.slice(1) : text;
@@ -57,6 +58,14 @@ export function parseCsv(text: string): string[][] {
           continue;
         }
         quoted = false;
+        // Only spaces may sit between a closing quote and the next delimiter; anything
+        // else means the file is not the CSV it looks like, so refuse it rather than guess.
+        i++;
+        while (source[i] === " " || source[i] === "\t") i++;
+        if (i < source.length && source[i] !== "," && source[i] !== "\r" && source[i] !== "\n") {
+          throw new DomainError("invalid_input", "A quoted cell in the file has text after its closing quote.");
+        }
+        continue;
       } else {
         cell += ch;
       }

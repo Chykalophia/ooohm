@@ -10,7 +10,7 @@ import {
   leaveEventPayload,
 } from "@/domain/events";
 import { personLabel } from "@/domain/person";
-import type { LeaveSummary } from "@/server/email/leave-emails";
+import type { LeaveSummary } from "@/server/notifications/templates/leave";
 import { recordChange } from "@/server/repositories/change-log";
 import type { LeaveRequestRow } from "@/server/repositories/leave-requests";
 import { findContacts } from "@/server/repositories/users";

@@ -33,9 +33,6 @@ import { personLabel } from "@/domain/person";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { renderInviteEmail } from "@/server/email/invite-email";
-import { renderLeaveEmail } from "@/server/email/leave-emails";
-import { emailAccentFor } from "./email-accent";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
@@ -71,7 +68,7 @@ import { cancelScheduledScrubIn } from "./admin-people-deletion";
 import { type BalanceSummary, summarizeBalances } from "./balances";
 import { revokeFeedsOnDeactivation } from "./calendar-feeds";
 import { activeContacts, recordReassignment, summarize } from "./leave-changes";
-import { commitThenSend, type DeferredEmail } from "./notify";
+import { commitThenNotify, type Notification } from "./notify";
 
 /** Most invites (new or resent) one admin may send per {@link INVITE_WINDOW_MINUTES}. */
 export const INVITE_LIMIT = 30;
@@ -172,23 +169,11 @@ async function assertUnderInviteLimit(tx: Transaction, actor: Actor): Promise<vo
  * because the account it signs into must exist first. A failure (link or SMTP) is
  * logged as `invite_email_failed` with the person's id, never their address.
  */
-function inviteEmail(ctx: ServiceContext, companyId: string, person: PersonRow, inviterName: string, companyName: string): DeferredEmail {
-  const accent = emailAccentFor(ctx, companyId);
+function inviteEmail(ctx: ServiceContext, person: PersonRow, inviterName: string, companyName: string): Notification {
   return {
+    type: "invite",
     to: person.email,
-    build: async () =>
-      renderInviteEmail(
-        {
-          recipientName: person.name,
-          inviterName,
-          companyName,
-          link: await ctx.issueSignInLink(person.email),
-          signInUrl: `${ctx.appUrl}/sign-in`,
-        },
-        await accent(),
-      ),
-    failureEvent: "invite_email_failed",
-    logFields: { userId: person.id },
+    data: { userId: person.id, recipientName: person.name, inviterName, companyName, signInUrl: `${ctx.appUrl}/sign-in` },
   };
 }
 
@@ -315,7 +300,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
   const fields = normalizePersonInput(input);
 
   try {
-    return await commitThenSend(ctx, async (tx) => {
+    return await commitThenNotify(ctx, actor.companyId, async (tx) => {
       const company = await beginAdminChange(tx, actor);
       await assertUnderInviteLimit(tx, actor);
       if (await emailInUse(tx, email)) throw new DomainError("already_exists");
@@ -335,7 +320,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
       const rerouted = person.role === "admin" ? await rerouteApprovals(ctx, tx, actor, await listPendingSelfRouted(tx, actor.companyId)) : null;
       return {
         result: person,
-        outgoing: [inviteEmail(ctx, actor.companyId, person, await inviterName(tx, actor), company.name), ...(rerouted?.outgoing ?? [])],
+        notify: [inviteEmail(ctx, person, await inviterName(tx, actor), company.name), ...(rerouted?.notify ?? [])],
       };
     });
   } catch (err) {
@@ -353,7 +338,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
  */
 export async function resendInvite(ctx: ServiceContext, actor: Actor, userId: string): Promise<PersonRow> {
   assertCanAdminister(actor);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     const company = await beginAdminChange(tx, actor);
     const person = await findPerson(tx, actor.companyId, userId);
     if (!person) throw new DomainError("not_found");
@@ -368,7 +353,7 @@ export async function resendInvite(ctx: ServiceContext, actor: Actor, userId: st
       after: { email: person.email },
       payload: personPayload(person),
     });
-    return { result: person, outgoing: [inviteEmail(ctx, actor.companyId, person, await inviterName(tx, actor), company.name)] };
+    return { result: person, notify: [inviteEmail(ctx, person, await inviterName(tx, actor), company.name)] };
   });
 }
 
@@ -404,7 +389,7 @@ export interface PersonUpdateResult {
 export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: string, input: PersonInput): Promise<PersonUpdateResult> {
   assertCanAdminister(actor);
   const fields = normalizePersonInput(input);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     await beginAdminChange(tx, actor);
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
@@ -421,7 +406,7 @@ export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: st
     }
 
     const changed = (Object.keys(fields) as (keyof typeof fields)[]).filter((k) => fields[k] !== before[k]);
-    if (changed.length === 0) return { result: { person: before, requestsReassigned: 0 }, outgoing: [] };
+    if (changed.length === 0) return { result: { person: before, requestsReassigned: 0 }, notify: [] };
     const after = await updatePersonRow(tx, actor.companyId, before.id, fields);
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.userUpdated,
@@ -439,8 +424,8 @@ export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: st
       ...(demoted || before.managerId !== after.managerId ? await listPendingRequestsOf(tx, actor.companyId, after.id) : []),
       ...(before.role !== "admin" && after.role === "admin" ? await listPendingSelfRouted(tx, actor.companyId) : []),
     ];
-    const { reassigned, outgoing } = await rerouteApprovals(ctx, tx, actor, affected);
-    return { result: { person: after, requestsReassigned: reassigned }, outgoing };
+    const { reassigned, notify } = await rerouteApprovals(ctx, tx, actor, affected);
+    return { result: { person: after, requestsReassigned: reassigned }, notify };
   });
 }
 
@@ -481,7 +466,7 @@ export interface DeactivationResult {
 export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId: string): Promise<DeactivationResult> {
   assertCanAdminister(actor);
   assertNotSelfDeactivation(actor.id, userId);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     await beginAdminChange(tx, actor);
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
@@ -490,7 +475,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
       liveWebhookEndpointsCreated: await countLiveEndpoints(tx, actor.companyId, before.id),
     });
     if (!before.isActive) {
-      return { result: { person: before, sessionsRevoked: 0, feedsRevoked: 0, requestsReassigned: 0, ...(await credentials()) }, outgoing: [] };
+      return { result: { person: before, sessionsRevoked: 0, feedsRevoked: 0, requestsReassigned: 0, ...(await credentials()) }, notify: [] };
     }
     const adminsBefore = await listActiveAdmins(tx, actor.companyId);
     assertKeepsAnActiveAdmin(
@@ -502,7 +487,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
     const after = await updatePersonRow(tx, actor.companyId, before.id, { isActive: false });
     const sessionsRevoked = await deleteSessionsOf(tx, before.id);
     const feedsRevoked = await revokeFeedsOnDeactivation(tx, before.id, actor.source, now);
-    const { reassigned, outgoing } = await rerouteApprovals(ctx, tx, actor, await listPendingAssignedTo(tx, actor.companyId, before.id));
+    const { reassigned, notify } = await rerouteApprovals(ctx, tx, actor, await listPendingAssignedTo(tx, actor.companyId, before.id));
 
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.userDeactivated,
@@ -513,7 +498,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
       after: { ...personSnapshot(after), sessionsRevoked, feedsRevoked, requestsReassigned: reassigned },
       payload: personPayload(after),
     });
-    return { result: { person: after, sessionsRevoked, feedsRevoked, requestsReassigned: reassigned, ...(await credentials()) }, outgoing };
+    return { result: { person: after, sessionsRevoked, feedsRevoked, requestsReassigned: reassigned, ...(await credentials()) }, notify };
   });
 }
 
@@ -534,7 +519,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
  */
 async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Actor, requests: readonly LeaveRequestRow[]) {
   const pending = [...new Map(requests.map((r) => [r.id, r])).values()];
-  if (pending.length === 0) return { reassigned: 0, outgoing: [] as DeferredEmail[] };
+  if (pending.length === 0) return { reassigned: 0, notify: [] as Notification[] };
   const requesters = new Map((await findMembers(tx, actor.companyId, [...new Set(pending.map((r) => r.userId))])).map((m) => [m.id, m]));
   const managerIds = [...new Set([...requesters.values()].flatMap((r) => (r.managerId ? [r.managerId] : [])))];
   const [managers, admins] = await Promise.all([
@@ -550,14 +535,13 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
     const approverId = reassignApprover(rule, { requester, manager, admins });
     return approverId === request.approverId ? [] : [{ request, approverId }];
   });
-  if (moves.length === 0) return { reassigned: 0, outgoing: [] as DeferredEmail[] };
+  if (moves.length === 0) return { reassigned: 0, notify: [] as Notification[] };
 
   const [contacts, leaveTypes] = await Promise.all([
     activeContacts(tx, actor.companyId, moves.flatMap(({ request, approverId }) => [request.userId, approverId])),
     listAllLeaveTypes(tx, actor.companyId).then((rows) => new Map(rows.map((t) => [t.id, t.name]))),
   ]);
-  const outgoing: DeferredEmail[] = [];
-  const accent = emailAccentFor(ctx, actor.companyId);
+  const notify: Notification[] = [];
   let reassigned = 0;
   for (const { request, approverId } of moves) {
     const after = await reassignIfCurrent(tx, { companyId: actor.companyId, id: request.id, from: request.approverId }, approverId);
@@ -568,21 +552,19 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
     const approver = approverId && approverId !== request.userId ? contacts.get(approverId) : undefined;
     if (!approver) continue;
     const leave = summarize(after, contacts.get(request.userId), leaveTypes.get(after.leaveTypeId) ?? "Time off");
-    const email = {
-      kind: "requested",
-      recipientName: approver.name,
-      leave,
-      link: `${ctx.appUrl}/approvals`,
-      approveLink: approveLinkFor(ctx, after.id, approver.id),
-    } as const;
-    outgoing.push({
+    notify.push({
+      type: "leave.requested",
       to: approver.email,
-      build: async () => renderLeaveEmail(email, await accent()),
-      failureEvent: "leave_email_failed",
-      logFields: { requestId: after.id, kind: email.kind },
+      data: {
+        requestId: after.id,
+        recipientName: approver.name,
+        leave,
+        link: `${ctx.appUrl}/approvals`,
+        approveLink: approveLinkFor(ctx, after.id, approver.id),
+      },
     });
   }
-  return { reassigned, outgoing };
+  return { reassigned, notify };
 }
 
 /**
@@ -600,11 +582,11 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
  */
 export async function reactivatePerson(ctx: ServiceContext, actor: Actor, userId: string): Promise<PersonRow> {
   assertCanAdminister(actor);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     await beginAdminChange(tx, actor);
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
-    if (before.isActive) return { result: before, outgoing: [] };
+    if (before.isActive) return { result: before, notify: [] };
     // Only a deactivated person can wait for a scrub, so coming back cancels it (audited).
     await cancelScheduledScrubIn(tx, actor, before);
     const after = await updatePersonRow(tx, actor.companyId, before.id, { isActive: true });
@@ -617,7 +599,7 @@ export async function reactivatePerson(ctx: ServiceContext, actor: Actor, userId
       after: personSnapshot(after),
       payload: personPayload(after),
     });
-    const { outgoing } = await rerouteApprovals(ctx, tx, actor, await listPendingSelfRouted(tx, actor.companyId));
-    return { result: after, outgoing };
+    const { notify } = await rerouteApprovals(ctx, tx, actor, await listPendingSelfRouted(tx, actor.companyId));
+    return { result: after, notify };
   });
 }

@@ -88,7 +88,7 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
   if (input.decision !== "approve" && input.decision !== "reject") throw new DomainError("invalid_input");
   const to = input.decision === "approve" ? "approved" : "rejected";
 
-  return commitThenNotify(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     const before = await lockLeaveRequest(tx, actor.companyId, input.requestId);
     if (!before) throw new DomainError("not_found");
     const byAssignment = decidesByAssignment(actor, before);
@@ -113,12 +113,12 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
 
     const contacts = await activeContacts(tx, actor.companyId, [after.userId]);
     const requester = contacts.get(after.userId);
-    if (!requester) return { result: after, outgoing: [] };
+    if (!requester) return { result: after, notify: [] };
     const leaveType = await findLeaveType(tx, actor.companyId, after.leaveTypeId);
     const leave = summarize(after, requester, leaveType?.name ?? "Time off");
-    const link = `${ctx.appUrl}/`;
-    const email = { kind: to, recipientName: requester.name, leave, reason, link } as const;
-    return { result: after, outgoing: [{ to: requester.email, email }] };
+    const data = { requestId: after.id, recipientName: requester.name, leave, reason, link: `${ctx.appUrl}/` };
+    const type = to === "approved" ? "leave.approved" : "leave.rejected";
+    return { result: after, notify: [{ type, to: requester.email, data }] };
   });
 }
 

@@ -18,7 +18,7 @@ test("email logo: a company with a logo gets it at the top of every email, fitte
   const accent = emailAccent(company, "https://hr.example.com");
   assert.deepEqual(accent.logo, { src: `https://hr.example.com/logo/${SHA}.png`, alt: `Acme & "Sons"`, width: 160, height: 40 });
   const html = renderSignInEmail("https://hr.example.com/x", accent).html;
-  assert.match(html, new RegExp(`<img src="https://hr.example.com/logo/${SHA}.png" alt="Acme &amp; &quot;Sons&quot;" width="160" height="40"`));
+  assert.ok(html.includes(`<img src="https://hr.example.com/logo/${SHA}.png" alt="Acme &amp; &quot;Sons&quot;" width="160" height="40"`));
   assert.doesNotMatch(html, />OOOhm<\/td>/, "the logo takes the wordmark's place");
 });
 

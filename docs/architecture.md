@@ -1020,7 +1020,7 @@ pixels a side. SVG is refused because it can carry script and Outlook draws neit
 company row (`companies.logo`, with its SHA-256, type and size beside it; a check keeps the five set or cleared together),
 so no file store is needed on any host. `GET /logo/<sha256>.<png|jpg>` serves it publicly, like the favicon, because the
 sign-in page and emails show it before anyone signs in. The URL names the content, so a hit is cached for a year, and
-`nosniff` with an empty CSP keeps it an image. The header and sign-in page show it instead of the OOOhm logo
+it is sent with its own `Content-Type`, `nosniff` (so a browser never guesses another type) and `Content-Security-Policy: default-src 'none'` (so even opened directly it can load or run nothing). The header and sign-in page show it instead of the OOOhm logo
 (`getCompanyLogo` and `getDeploymentLogo`, which never fail a page), and every email puts it at the top at its absolute
 URL (`emailAccent` with `appUrl`), sized with attributes so Outlook keeps its shape. A change is a `company.updated` event
 whose `logo` describes the file.

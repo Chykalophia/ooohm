@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { updateCompanyAppearance } from "@/server/services/admin-company";
+import { LOGO_RULES } from "@/domain/company-logo";
+import { removeCompanyLogo, updateCompanyAppearance, updateCompanyLogo } from "@/server/services/admin-company";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -32,5 +33,34 @@ export async function updateAppearanceAction(_prev: FormState, formData: FormDat
       return "Saved. Everyone sees the new look the next time a page fully loads.";
     },
     { invalid_input: "Pick one of the themes, a corner style, a request style and a layout from the lists, and an accent colour like #2546d0." },
+  );
+}
+
+const logoSchema = z.object({ logo: z.instanceof(File) });
+
+/** Appearance page: sets the company's logo from the uploaded file. */
+export async function uploadLogoAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return adminAction(
+    "logo_upload",
+    formData,
+    logoSchema,
+    async (ctx, actor, input) => {
+      await updateCompanyLogo(ctx, actor, new Uint8Array(await input.logo.arrayBuffer()));
+      return "Saved. Your logo now shows in the header, on the sign-in page and in emails.";
+    },
+    { invalid_input: `Pick a logo file. ${LOGO_RULES}` },
+  );
+}
+
+/** Appearance page: removes the company's logo, so the OOOhm logo shows again. */
+export async function removeLogoAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return adminAction(
+    "logo_remove",
+    formData,
+    z.object({}),
+    async (ctx, actor) => {
+      await removeCompanyLogo(ctx, actor);
+      return "Logo removed. The OOOhm logo is back.";
+    },
   );
 }

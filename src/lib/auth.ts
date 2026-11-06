@@ -23,15 +23,23 @@ import { renderSignInEmail, SIGN_IN_LINK_MINUTES } from "@/lib/sign-in-email";
 /** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
 const linkCapture = createLinkCapture();
 
-/** The company's accent for a sign-in email; the default teal if it can't be read, so the link still goes out. */
+/** The company's accent and logo for a sign-in email; the default teal and wordmark if it can't be read, so the link still goes out. */
 async function signInAccent(companyId: string | null): Promise<EmailAccent> {
   if (!companyId) return DEFAULT_EMAIL_ACCENT;
   try {
     const [company] = await db
-      .select({ theme: schema.companies.theme, accentColor: schema.companies.accentColor })
+      .select({
+        theme: schema.companies.theme,
+        accentColor: schema.companies.accentColor,
+        name: schema.companies.name,
+        logoSha256: schema.companies.logoSha256,
+        logoType: schema.companies.logoType,
+        logoWidth: schema.companies.logoWidth,
+        logoHeight: schema.companies.logoHeight,
+      })
       .from(schema.companies)
       .where(eq(schema.companies.id, companyId));
-    return emailAccent(company);
+    return emailAccent(company, env.BETTER_AUTH_URL);
   } catch (err) {
     log.warn({ err }, "email_accent_read_failed");
     return DEFAULT_EMAIL_ACCENT;

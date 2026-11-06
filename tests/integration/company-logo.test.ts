@@ -44,8 +44,8 @@ describe("company logo", { skip }, () => {
     assert.equal(events.length, 1);
     assert.deepEqual((events[0].payload as { logo: unknown }).logo, { sha256: hash, contentType: "image/png", width: 400, height: 100 });
 
-    assert.deepEqual(await getCompanyLogo(ctx, co.companyId), { src: `/logo/${hash}.png`, alt: name, width: 128, height: 32 });
-    assert.deepEqual(await getDeploymentLogo(ctx), { src: `/logo/${hash}.png`, alt: name, width: 128, height: 32 });
+    assert.deepEqual(await getCompanyLogo(ctx, co.companyId), { src: `/logo/${hash}.png`, alt: name, width: 120, height: 30 });
+    assert.deepEqual(await getDeploymentLogo(ctx), { src: `/logo/${hash}.png`, alt: name, width: 120, height: 30 });
 
     const res = await handleLogoFetch({ ctx, file: `${hash}.png` });
     assert.equal(res.status, 200);

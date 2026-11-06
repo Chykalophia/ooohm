@@ -4,6 +4,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   index,
   integer,
@@ -20,6 +21,13 @@ import {
 import { DEFAULT_THEME } from "@/domain/appearance";
 import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
 import { COLOR_MODES, DEFAULT_COLOR_MODE } from "@/domain/color-mode";
+
+/** Raw bytes. Both drivers hand back a `Uint8Array` (postgres.js a `Buffer`, which is one). */
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+  toDriver: (value) => Buffer.from(value.buffer, value.byteOffset, value.byteLength),
+  fromDriver: (value) => new Uint8Array(value.buffer, value.byteOffset, value.byteLength),
+});
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -89,8 +97,21 @@ export const companies = pgTable("companies", {
   requestStyle: text("request_style").notNull().default("form"),
   /** `LAYOUTS` in src/domain/appearance.ts: the layout trial the whole company sees. */
   layout: text("layout").notNull().default("standard"),
+  /**
+   * The company's logo file (PNG or JPEG, see src/domain/company-logo.ts), or null for the
+   * OOOhm mark. The four columns after it describe it and are set and cleared with it.
+   */
+  logo: bytea("logo"),
+  /** SHA-256 (hex) of `logo`: names it in its URL, `/logo/<sha256>.<ext>`. */
+  logoSha256: text("logo_sha256"),
+  logoType: text("logo_type"),
+  logoWidth: integer("logo_width"),
+  logoHeight: integer("logo_height"),
   ...timestamps,
-});
+}, (t) => [
+  // A logo and its description are set and cleared together.
+  check("companies_logo_complete", sql`num_nulls(${t.logo}, ${t.logoSha256}, ${t.logoType}, ${t.logoWidth}, ${t.logoHeight}) in (0, 5)`),
+]);
 
 export const departments = pgTable(
   "departments",

@@ -1,4 +1,5 @@
 import { companyAccent, DEFAULT_THEME, THEMES } from "@/domain/appearance";
+import { EMAIL_LOGO_BOX, type LogoRef, companyLogoPath, fitLogo, readStoredLogo } from "@/domain/company-logo";
 import { type AccentTokens, accentTokens } from "@/lib/appearance";
 
 /**
@@ -7,15 +8,43 @@ import { type AccentTokens, accentTokens } from "@/lib/appearance";
  * tables, since mail clients drop stylesheets.
  */
 
-/** The accent colours an email uses, worked out like the app's so text stays readable. */
-export type EmailAccent = AccentTokens;
+/**
+ * The company's look in an email: the accent colours, worked out like the app's so text
+ * stays readable, and its logo (at an absolute URL) when it has one.
+ */
+export type EmailAccent = AccentTokens & { logo?: LogoRef };
 
-/** Classic's teal: the accent when the company's look is unknown. */
+/** Classic's teal and the OOOhm wordmark: the look when the company's is unknown. */
 export const DEFAULT_EMAIL_ACCENT: EmailAccent = accentTokens(THEMES[DEFAULT_THEME].accent);
 
-/** The accent for a company's stored appearance, or the default when there is none. */
-export function emailAccent(stored: { theme: string; accentColor: string | null } | null | undefined): EmailAccent {
-  return stored ? accentTokens(companyAccent(stored)) : DEFAULT_EMAIL_ACCENT;
+/** What {@link emailAccent} reads of a company. The name and logo columns are optional. */
+export interface EmailCompany {
+  theme: string;
+  accentColor: string | null;
+  name?: string;
+  logoSha256?: string | null;
+  logoType?: string | null;
+  logoWidth?: number | null;
+  logoHeight?: number | null;
+}
+
+/**
+ * The look for a company's stored appearance, or the default when there is none. The
+ * logo needs `appUrl`, the app's public URL, since an email can only point at an
+ * absolute one.
+ */
+export function emailAccent(stored: EmailCompany | null | undefined, appUrl?: string): EmailAccent {
+  if (!stored) return DEFAULT_EMAIL_ACCENT;
+  const tokens = accentTokens(companyAccent(stored));
+  const logo = readStoredLogo({
+    logoSha256: stored.logoSha256 ?? null,
+    logoType: stored.logoType ?? null,
+    logoWidth: stored.logoWidth ?? null,
+    logoHeight: stored.logoHeight ?? null,
+  });
+  if (!logo || !appUrl || !stored.name) return tokens;
+  const src = `${appUrl.replace(/\/+$/, "")}${companyLogoPath(logo)}`;
+  return { ...tokens, logo: { src, alt: stored.name, ...fitLogo(logo, EMAIL_LOGO_BOX) } };
 }
 
 /** Escapes `& < > " '` for HTML text and attribute values. */
@@ -89,7 +118,22 @@ export function link(href: string, label: string, accent: EmailAccent): string {
 }
 
 /**
- * The whole HTML document: the OOOhm wordmark, then `body` in a card, then an optional
+ * The top line: the company's logo, sized with attributes as well as styles so Outlook
+ * keeps its shape, or the OOOhm wordmark. With images blocked, the logo's alt text names
+ * the company.
+ */
+function masthead(accent: EmailAccent): string {
+  const cell = `<tr><td style="padding:0 4px 14px;font-family:${FONT};font-size:17px;font-weight:600;letter-spacing:-0.01em;color:${accent.accentInk}">`;
+  if (!accent.logo) return `${cell}OOOhm</td></tr>`;
+  const { src, alt, width, height } = accent.logo;
+  return (
+    `${cell}<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" ` +
+    `style="display:block;border:0;outline:none;width:${width}px;height:${height}px"></td></tr>`
+  );
+}
+
+/**
+ * The whole HTML document: the company's logo or the OOOhm wordmark, then `body` in a card, then an optional
  * quiet `footer` line under it. Both are HTML and go in as given: build them from
  * {@link escapeHtml}, {@link paragraph}, {@link link} and {@link buttons}, never from raw
  * text. `title` (plain text, the subject) names the document for screen readers and
@@ -103,7 +147,7 @@ export function emailDocument(bodyHtml: string, accent: EmailAccent, footerHtml:
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${GROUND}">` +
     `<tr><td align="center" style="padding:32px 16px">` +
     `<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px">` +
-    `<tr><td style="padding:0 4px 14px;font-family:${FONT};font-size:17px;font-weight:600;letter-spacing:-0.01em;color:${accent.accentInk}">OOOhm</td></tr>` +
+    masthead(accent) +
     `<tr><td style="background:#ffffff;border:1px solid ${BORDER};border-radius:14px;padding:24px;` +
     `font-family:${FONT};font-size:16px;line-height:1.5;color:${INK}">${bodyHtml}</td></tr>` +
     (footerHtml

@@ -1014,6 +1014,17 @@ stay derived from the theme (a tinted card or ground, a darker grey for text on 
 whole company and switch back.
 `company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle` and `layout`.
 
+The same page sets the company's logo (`updateCompanyLogo`, `removeCompanyLogo`). The file is judged by its bytes,
+never its name or claimed type (`readLogoImage`, `src/domain/company-logo.ts`): PNG or JPEG only, up to 512 KB and 4096
+pixels a side. SVG is refused because it can carry script and Outlook draws neither SVG nor WebP. The bytes live on the
+company row (`companies.logo`, with its SHA-256, type and size beside it; a check keeps the five set or cleared together),
+so no file store is needed on any host. `GET /logo/<sha256>.<png|jpg>` serves it publicly, like the favicon, because the
+sign-in page and emails show it before anyone signs in. The URL names the content, so a hit is cached for a year, and
+`nosniff` with an empty CSP keeps it an image. The header and sign-in page show it instead of the OOOhm logo
+(`getCompanyLogo` and `getDeploymentLogo`, which never fail a page), and every email puts it at the top at its absolute
+URL (`emailAccent` with `appUrl`), sized with attributes so Outlook keeps its shape. A change is a `company.updated` event
+whose `logo` describes the file.
+
 ### Audit log viewer
 
 `/admin/audit` (`getAuditLog`): a `DataTable`, one line a change (when, what, about whom, by whom), each row opening to the full time and every field changed. Newest first, or oldest (the When header), 25, 50 or 100 a page, read-only. A `TableToolbar` across its top holds the search, a Filters panel and the filters in force as removable chips; everything applies as it changes (the search after a pause in typing, an option at once, a date when its field is left). Clicking an action or a person in a row narrows the log to it. The search matches each word against action labels and people's names and emails in the app, then reads with the matching ids (`action in …` or `actor_id in …` or `subject_user_id in …`, every word), so the database never scans text. Filters: action (from the known list),

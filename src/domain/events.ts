@@ -350,6 +350,11 @@ export interface CompanyEventPayload extends PersonAttribution {
   requestStyle: string;
   /** Added within version 1: the layout trial, `standard`, `tonal`, `grouped`, `compact` or `legible`. */
   layout: string;
+  /**
+   * Added within version 1: the company's logo (its SHA-256, `image/png` or `image/jpeg`,
+   * and its size in pixels), or null for none. The file is at `/logo/<sha256>.<png|jpg>`.
+   */
+  logo: { sha256: string; contentType: string; width: number; height: number } | null;
 }
 
 /**

@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
-import { createDepartment, deleteDepartment, renameDepartment } from "@/server/services/admin-departments";
+import { createDepartment, deleteDepartment, renameDepartment, setDepartmentManager } from "@/server/services/admin-departments";
+import { formatCount } from "@/lib/format";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -11,6 +12,7 @@ const MESSAGES = {
   already_exists: "There's already a department with that name.",
   not_found: "That department doesn't exist any more.",
   invalid_input: `Department names are 1 to ${DEPARTMENT_NAME_MAX_LENGTH} characters.`,
+  invalid_manager: "Pick someone who's active in the company.",
 };
 
 const nameField = formFields.text(DEPARTMENT_NAME_MAX_LENGTH * 2);
@@ -49,6 +51,20 @@ export async function deleteDepartmentAction(_prev: FormState, formData: FormDat
     async (ctx, actor, { id }) => {
       await deleteDepartment(ctx, actor, id);
       return "Deleted.";
+    },
+    MESSAGES,
+  );
+}
+
+export async function setDepartmentManagerAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return adminAction(
+    "department_manager",
+    formData,
+    z.object({ id: formFields.id, managerId: formFields.optionalId }),
+    async (ctx, actor, { id, managerId }) => {
+      const result = await setDepartmentManager(ctx, actor, id, managerId);
+      const moved = result.requestsReassigned > 0 ? ` ${formatCount(result.requestsReassigned, "waiting request", "waiting requests")} moved to the new approver.` : "";
+      return `Saved.${moved}`;
     },
     MESSAGES,
   );

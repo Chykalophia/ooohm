@@ -216,7 +216,7 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 
 | Type | Payload |
 | --- | --- |
-| `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
+| `department.created`, `.renamed`, `.deleted`, `.manager_changed` | `departmentId, name, managerId, actorId, actor`. `managerId` (the department's optional manager, who approves for its people without a manager of their own) and `department.manager_changed` were added within version 1. |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
 | `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId, actor`. `deletionGrace`, `managersSeeDetails`, `theme`, `accentColor`, `corners`, `requestStyle` and `layout` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, `accentColor` is `#rrggbb` or null, `requestStyle` is `form` or `sentence`, and `layout` is `standard`, `tonal`, `grouped`, `compact` or `legible`. New theme, corner, request-style and layout keys may appear. |

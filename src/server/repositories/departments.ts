@@ -1,10 +1,12 @@
-import { and, asc, count, eq, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { departments, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 
-export type DepartmentRow = { id: string; name: string };
+export type DepartmentRow = { id: string; name: string; managerId: string | null };
 
-const fields = { id: departments.id, name: departments.name };
+const fields = { id: departments.id, name: departments.name, managerId: departments.managerId };
+const manager = alias(user, "manager");
 
 /** The company's departments by name, ignoring case (every department list and picker uses this order). */
 export async function listDepartments(ex: Executor, companyId: string) {
@@ -15,15 +17,29 @@ export async function listDepartments(ex: Executor, companyId: string) {
     .orderBy(asc(sql`lower(${departments.name})`), asc(departments.id));
 }
 
-/** The company's departments by name, each with how many people (active or not) are in it. One query. */
+/**
+ * The company's departments by name, each with how many people (active or not) are in
+ * it and its manager's name and email (for a label), if it has one. One query.
+ */
 export async function listDepartmentsWithCounts(ex: Executor, companyId: string) {
   return ex
-    .select({ ...fields, members: count(user.id) })
+    .select({ ...fields, managerName: manager.name, managerEmail: manager.email, members: count(user.id) })
     .from(departments)
     .leftJoin(user, eq(user.departmentId, departments.id))
+    .leftJoin(manager, eq(manager.id, departments.managerId))
     .where(eq(departments.companyId, companyId))
-    .groupBy(departments.id)
+    .groupBy(departments.id, manager.id)
     .orderBy(asc(sql`lower(${departments.name})`), asc(departments.id));
+}
+
+/** Each of `departmentIds` (of the company) that has a manager, mapped to that manager's id. */
+export async function findDepartmentManagerIds(ex: Executor, companyId: string, departmentIds: readonly string[]) {
+  if (departmentIds.length === 0) return new Map<string, string>();
+  const rows = await ex
+    .select({ id: departments.id, managerId: departments.managerId })
+    .from(departments)
+    .where(and(eq(departments.companyId, companyId), inArray(departments.id, [...departmentIds])));
+  return new Map(rows.flatMap((r) => (r.managerId ? [[r.id, r.managerId] as const] : [])));
 }
 
 export async function findDepartment(ex: Executor, companyId: string, id: string): Promise<DepartmentRow | undefined> {
@@ -72,6 +88,15 @@ export async function renameDepartment(tx: Transaction, companyId: string, id: s
   const [row] = await tx
     .update(departments)
     .set({ name })
+    .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
+    .returning(fields);
+  return row;
+}
+
+export async function setDepartmentManagerRow(tx: Transaction, companyId: string, id: string, managerId: string | null): Promise<DepartmentRow> {
+  const [row] = await tx
+    .update(departments)
+    .set({ managerId })
     .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
     .returning(fields);
   return row;

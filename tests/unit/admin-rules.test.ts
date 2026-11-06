@@ -169,6 +169,7 @@ test("reassignment never self-approves: a self-approver's request goes to their 
   const approver = reassignApprover(rule, {
     requester: { id: "r", role: "employee", canSelfApprove: true, managerId: "m" },
     manager: { id: "m", isActive: true, createdAt: at("2026-01-01") },
+    departmentManager: null,
     admins: [],
   });
   assert.equal(approver, "m");
@@ -181,11 +182,11 @@ test("reassignment falls back to the longest-standing other admin, then the requ
   ];
   const requester = { id: "r", role: "employee", canSelfApprove: false, managerId: "gone" } as const;
   const inactiveManager = { id: "gone", isActive: false, createdAt: at("2025-01-01") };
-  assert.equal(reassignApprover(rule, { requester, manager: inactiveManager, admins }), "a1");
+  assert.equal(reassignApprover(rule, { requester, manager: inactiveManager, departmentManager: null, admins }), "a1");
   assert.equal(
-    reassignApprover(rule, { requester: { ...requester, id: "a1", role: "admin" }, manager: inactiveManager, admins: [admins[1]] }),
+    reassignApprover(rule, { requester: { ...requester, id: "a1", role: "admin" }, manager: inactiveManager, departmentManager: null, admins: [admins[1]] }),
     "a1",
     "an admin with no other admin left decides their own",
   );
-  assert.equal(reassignApprover(rule, { requester, manager: inactiveManager, admins: [] }), null);
+  assert.equal(reassignApprover(rule, { requester, manager: inactiveManager, departmentManager: null, admins: [] }), null);
 });

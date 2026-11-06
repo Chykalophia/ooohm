@@ -28,12 +28,12 @@ const AHEAD_DAYS = 365;
  *   department, manager, and their approved and pending leave from
  *   {@link RECENT_DAYS} days ago to {@link AHEAD_DAYS} days ahead (only leave that costs
  *   a working day, as on the calendar).
- * - The person, admins, and their manager while the company allows it
+ * - The person, admins, and their manager or department's manager while the company allows it
  *   ({@link canSeeLeaveDetails}) also get `details`: this year's balances, and each
  *   request's days, note and approver's reason. For anyone else those are never read
  *   past the query, so they never leave the service.
  *
- * - An admin, or the person's direct manager ({@link canAddLeaveFor}), also gets
+ * - An admin, or the person's direct or department manager ({@link canAddLeaveFor}), also gets
  *   `addLeave`: what the form to add time off for them needs (`addLeaveFor`).
  *
  * Inactive and deleted people are not on Team, so they are `not_found` here too.
@@ -50,12 +50,13 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
   const today = todayInTimeZone(company.timezone, now);
   const from = fromEpochDay(toEpochDay(today) - RECENT_DAYS);
   const to = fromEpochDay(toEpochDay(today) + AHEAD_DAYS);
-  const showDetails = canSeeLeaveDetails(actor, { ...person, companyId: actor.companyId }, company.managersSeeDetails);
+  const department = person.departmentId ? await findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined;
+  const owned = { id: person.id, companyId: actor.companyId, managerId: person.managerId, departmentManagerId: department?.managerId ?? null };
+  const showDetails = canSeeLeaveDetails(actor, owned, company.managersSeeDetails);
   const year = yearInTimeZone(company.timezone, now);
-  const canAdd = canAddLeaveFor(actor, { ...person, companyId: actor.companyId });
+  const canAdd = canAddLeaveFor(actor, owned);
 
-  const [department, manager, holidays, leave, balances, addLeave] = await Promise.all([
-    person.departmentId ? findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined,
+  const [manager, holidays, leave, balances, addLeave] = await Promise.all([
     person.managerId ? findPerson(ctx.db, actor.companyId, person.managerId) : undefined,
     listHolidays(ctx.db, actor.companyId, from, to),
     listPersonLeave(ctx.db, actor.companyId, person.id, from, to),

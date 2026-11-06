@@ -63,7 +63,7 @@ prints an "SQLite is an experimental feature" warning on some versions; the `pnp
 | Leave: `status` | `new` → pending, `approved` → approved, `rejected` → declined, `canceled` → cancelled, `pended revoke` → **approved** (TimeOff still counts it; listed in the warnings). The person can cancel it in OOOhm if it ends this year or later; approved leave of a past year cannot be cancelled by anyone, so an admin corrects that year with a balance adjustment instead. |
 | Leave: dates and day parts | Requests with the same dates. OOOhm half days are single-day requests, so a leave from Monday afternoon to Wednesday morning becomes three: Monday (afternoon), Tuesday, Wednesday (morning). A leave that falls only on weekends and holidays is skipped. |
 | Leave: approver, comments, decided/created times | Decided leave keeps TimeOff's approver as the decider. **Pending** leave is routed by OOOhm's own rule in the imported organisation (the person's manager, else the longest-standing other admin), so the manager sees it in their inbox; TimeOff's stored approver stays in the audit row. The employee's comment becomes the note, the approver's comment the decision note. |
-| Department supervisors | Not imported: OOOhm has one approver per person (their manager, else an admin). The count is reported. |
+| Department supervisors | Not imported: OOOhm has one approver per person (their manager, else their department's manager, else an admin), and an admin can set a department's manager after the import. The count is reported. |
 
 Nobody gets a session, a password, an OAuth link or an email from the import. Active people sign in like any
 invited person whose link expired: they type their email on the sign-in page and get a magic link. Access stays

@@ -235,6 +235,7 @@ export const ADMIN_EVENT_TYPES = {
   departmentCreated: "department.created",
   departmentRenamed: "department.renamed",
   departmentDeleted: "department.deleted",
+  departmentManagerChanged: "department.manager_changed",
   leaveTypeCreated: "leave_type.created",
   leaveTypeUpdated: "leave_type.updated",
   leaveTypeArchived: "leave_type.archived",
@@ -305,6 +306,8 @@ export interface UserDeletionScheduleEventPayload extends PersonAttribution {
 export interface DepartmentEventPayload extends PersonAttribution {
   departmentId: string;
   name: string;
+  /** The department's manager (optional), who approves for its people without a manager of their own. */
+  managerId: string | null;
 }
 
 /** Version 1 payload of every `leave_type.*` event: the leave type after the change. */

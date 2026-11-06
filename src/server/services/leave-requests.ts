@@ -27,7 +27,8 @@ import {
 } from "@/server/repositories/leave-requests";
 import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findDepartment } from "@/server/repositories/departments";
-import { findMember, findPerson, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { findPerson, lockMember } from "@/server/repositories/users";
+import { loadApprovalContext } from "./approval-routing";
 import { approveLinkFor } from "./email-approval";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { alsoOffFor } from "./also-off";
@@ -103,12 +104,7 @@ export async function submitLeaveRequest(
     const assessment = await assessLeaveRequest(tx, actor, input);
     const { leaveType } = assessment;
 
-    const manager =
-      requester.managerId && requester.managerId !== requester.id
-        ? ((await findMember(tx, actor.companyId, requester.managerId)) ?? null)
-        : null;
-    const admins = await listActiveAdmins(tx, actor.companyId);
-    const decision = rule.resolve({ requester, manager, admins });
+    const decision = rule.resolve(await loadApprovalContext(tx, actor.companyId, requester));
 
     const created = await insertLeaveRequest(tx, {
       companyId: actor.companyId,

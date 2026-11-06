@@ -3,13 +3,14 @@ import { remainingAfter, type RequestCost } from "@/domain/allowance-policy";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { personLabel } from "@/domain/person";
-import { canAddLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { canAddLeaveFor, canSeeLeaveDetails, type PersonOwnership } from "@/domain/leave-permissions";
 import { assertValidRange, normalizeNote } from "@/domain/leave-request";
 import { assertTransition } from "@/domain/request-status";
 import type { Executor } from "@/db/types";
 import type { ServiceContext } from "@/server/context";
 import { insertRequestDays } from "@/server/repositories/balances";
 import { findCompany, shareLockCompany } from "@/server/repositories/companies";
+import { findDepartment } from "@/server/repositories/departments";
 import { countRecentRequests, insertLeaveRequest, type LeaveRequestRow, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
 import { findPerson, lockPerson, type PersonRow } from "@/server/repositories/users";
 import { assessLeaveRequest, draftRange, type LeaveDraft } from "./balances";
@@ -18,14 +19,23 @@ import { SUBMIT_LIMIT, SUBMIT_WINDOW_MINUTES, type SubmitLeaveInput } from "./le
 import { commitThenNotify, type Outgoing } from "./notify";
 
 /**
+ * The facts about `person` that decide who manages them ({@link PersonOwnership}):
+ * their manager, and their department's manager (one read, when they have a department).
+ */
+async function ownershipOf(ex: Executor, companyId: string, person: Pick<PersonRow, "id" | "managerId" | "departmentId">): Promise<PersonOwnership> {
+  const department = person.departmentId ? await findDepartment(ex, companyId, person.departmentId) : undefined;
+  return { id: person.id, companyId, managerId: person.managerId, departmentManagerId: department?.managerId ?? null };
+}
+
+/**
  * Who `actor` would add time off for, and whether they may see that person's balance:
- * the person must be active, and `actor` an admin or their direct manager
- * ({@link canAddLeaveFor}). Read with `person` from the caller's executor, so submit
+ * the person must be active, and `actor` an admin, their direct manager or their
+ * department's manager ({@link canAddLeaveFor}). Read with `person` from the caller's executor, so submit
  * checks under its lock.
  */
 async function checkAddFor(ex: Executor, actor: Actor, person: PersonRow | undefined) {
   if (!person?.isActive) throw new DomainError("not_found");
-  const owned = { id: person.id, companyId: actor.companyId, managerId: person.managerId };
+  const owned = await ownershipOf(ex, actor.companyId, person);
   if (!canAddLeaveFor(actor, owned)) throw new DomainError("forbidden");
   const company = await findCompany(ex, actor.companyId);
   if (!company) throw new DomainError("no_company");

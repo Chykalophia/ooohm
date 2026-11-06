@@ -90,7 +90,8 @@ import {
   upsertAllowances,
 } from "@/server/repositories/imports";
 import { insertLeaveType, type LeaveTypeRow, listAllLeaveTypes, updateLeaveType } from "@/server/repositories/leave-types";
-import { findMembers, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { findMembers, lockMember } from "@/server/repositories/users";
+import { loadApprovalContexts } from "./approval-routing";
 import { loadBalances } from "./balances";
 import { recarryMemberLeaveType } from "./rollover";
 
@@ -497,14 +498,10 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
   const pendingApprover = new Map<string, string | null>();
   const pendingRequesters = [...new Set(requestPlan.filter((r) => r.status === "pending").map((r) => idOf.get(r.personKey)!))];
   if (pendingRequesters.length > 0) {
-    const [requesters, admins] = await Promise.all([findMembers(tx, company.id, pendingRequesters), listActiveAdmins(tx, company.id)]);
-    const managerIds = [...new Set(requesters.flatMap((r) => (r.managerId && r.managerId !== r.id ? [r.managerId] : [])))];
-    const managers = new Map((await findMembers(tx, company.id, managerIds)).map((m) => [m.id, m]));
+    const requesters = await findMembers(tx, company.id, pendingRequesters);
+    const contexts = await loadApprovalContexts(tx, company.id, requesters);
     const rule = new ManagerApprovalRule();
-    for (const requester of requesters) {
-      const manager = requester.managerId ? (managers.get(requester.managerId) ?? null) : null;
-      pendingApprover.set(requester.id, reassignApprover(rule, { requester, manager, admins }));
-    }
+    for (const [requesterId, context] of contexts) pendingApprover.set(requesterId, reassignApprover(rule, context));
   }
   const requestRows = requestPlan.map((r) => {
     // Never "now" for history: submit's rate limit counts requests created in the last minutes.

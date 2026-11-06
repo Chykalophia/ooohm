@@ -211,6 +211,13 @@ export async function emailInUse(ex: Executor, email: string): Promise<boolean> 
   return row !== undefined;
 }
 
+/** Of `emails` (already lowercased), those any account, in any company, uses. */
+export async function emailsInUse(ex: Executor, emails: readonly string[]): Promise<Set<string>> {
+  if (emails.length === 0) return new Set();
+  const rows = await ex.select({ email: user.email }).from(user).where(inArray(user.email, [...emails]));
+  return new Set(rows.map((r) => r.email));
+}
+
 export async function insertPerson(
   tx: Transaction,
   values: {

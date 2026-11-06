@@ -67,7 +67,7 @@ export default async function CompanyPage() {
             label="Managers can see their team's balances and notes"
             name="managersSeeDetails"
             defaultChecked={company.managersSeeDetails}
-            hint="On a person's page (open it from Team), their manager sees what they have left and the notes on their requests. Turn it off and only the person and admins see those; everyone still sees who is off and when."
+            hint="On a person's page (open it from Team), their manager sees what they have left and the notes on their requests. Turn it off and only the person and admins see those; who is off and when still follows the setting above."
           />
         </ActionForm>
       </Card>

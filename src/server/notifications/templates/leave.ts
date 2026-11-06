@@ -14,20 +14,13 @@ import {
   MUTED,
   paragraph,
 } from "@/lib/email-layout";
-
-export { displayName, personLabel } from "@/domain/person";
-export { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent, escapeHtml } from "@/lib/email-layout";
+import type { EmailContent } from "./content";
 
 /**
  * Leave notification emails: calm plain text plus an HTML twin in the shared layout
- * (`@/lib/email-layout`), with the company's accent.
+ * (`@/lib/email-layout`), with the company's accent. Each kind supplies only its words
+ * ({@link LEAVE_COPY}); the layout, links and escaping are shared ({@link renderLeaveEmail}).
  */
-
-export interface EmailContent {
-  subject: string;
-  text: string;
-  html: string;
-}
 
 /** The request as it appears in an email. */
 export interface LeaveSummary {
@@ -102,76 +95,88 @@ function what(leave: LeaveSummary): { type: Segment; when: string } {
   };
 }
 
-function parts(email: LeaveEmail): Parts {
-  const { leave } = email;
-  const { type, when } = what(leave);
-  // Callers pass `personLabel`, which falls back to the email address; this is the last resort.
-  const requester = leave.requesterName || "Someone";
-  switch (email.kind) {
-    case "requested":
-      return {
-        // The name is one capped line (`displayName`), so it cannot add a header.
-        subject: `${requester} asked for ${formatDateSpan(leave.startDate, leave.endDate)}`,
-        lead: [{ text: `${requester} asked for ` }, type, { text: `, ${when}.` }],
-        quote: leave.note ?? undefined,
-        overlap: email.alsoOff ?? undefined,
-      };
-    case "approved":
-      return {
-        subject: "Your time off is approved",
-        lead: [{ text: "Your " }, type, { text: ` is approved, ${when}.` }],
-        extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined,
-      };
-    case "added":
-      return {
-        subject: "Time off was added for you",
-        lead: [{ text: `${email.addedByName || "Someone"} added your ` }, type, { text: `, ${when}. It's approved, so there's nothing you need to do.` }],
-        extra: leave.note ? { label: "Note", value: leave.note, quoted: true } : undefined,
-      };
-    case "rejected":
-      return {
-        subject: "Your time off request was declined",
-        lead: [{ text: "Your " }, type, { text: ` request was declined, ${when}.` }],
-        extra: email.reason ? { label: "Reason", value: email.reason, quoted: true } : undefined,
-      };
-    case "cancelled_requester":
-      return {
-        subject: "Your time off request was cancelled",
-        lead: [{ text: "Your " }, type, { text: ` request was cancelled, ${when}.` }],
-      };
-    case "cancelled_approver":
-      return {
-        subject: "A time off request was cancelled",
-        lead: [{ text: `${requester} cancelled their ` }, type, { text: `, ${when}. Nothing else is needed from you.` }],
-      };
-    case "recounted": {
-      const cause = formatRecountCause(email.cause);
-      const dates = formatLeaveDates(leave.startDate, leave.endDate, leave.dayPortion);
-      if (leave.days === 0) {
-        return {
-          subject: "Your time off was recounted",
-          lead: [
-            { text: `${cause}, so your ` },
-            type,
-            {
-              text: ` for ${dates} no longer takes any days, and nothing comes off your balance. You can cancel it in OOOhm if you don't need it.`,
-            },
-          ],
-        };
-      }
-      // Same total, days moved between years (a working-days change across New Year): only
-      // sent when that leaves a year over its balance.
-      const change =
-        leave.days === email.previousDays
-          ? `still takes ${formatDays(leave.days)}, but some of it now counts in a different year`
-          : `now takes ${formatDays(leave.days)} instead of ${formatDays(email.previousDays)}`;
+/** One leave email's kind, and the email of that kind. */
+export type LeaveKind = LeaveEmail["kind"];
+type LeaveEmailOf<K extends LeaveKind> = Extract<LeaveEmail, { kind: K }>;
+
+/** The request as one phrase, and the requester's name (or "Someone", the last resort). */
+interface Phrases {
+  type: Segment;
+  when: string;
+  requester: string;
+}
+
+/**
+ * What each kind says, given its email and the request's phrases. Adding a kind is one
+ * entry here and one in the {@link LeaveEmail} union; the layout never changes.
+ */
+const LEAVE_COPY: { [K in LeaveKind]: (email: LeaveEmailOf<K>, p: Phrases) => Parts } = {
+  requested: (email, { type, when, requester }) => ({
+    // The name is one capped line (`displayName`), so it cannot add a header.
+    subject: `${requester} asked for ${formatDateSpan(email.leave.startDate, email.leave.endDate)}`,
+    lead: [{ text: `${requester} asked for ` }, type, { text: `, ${when}.` }],
+    quote: email.leave.note ?? undefined,
+    overlap: email.alsoOff ?? undefined,
+  }),
+  approved: (email, { type, when }) => ({
+    subject: "Your time off is approved",
+    lead: [{ text: "Your " }, type, { text: ` is approved, ${when}.` }],
+    extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined,
+  }),
+  added: (email, { type, when }) => ({
+    subject: "Time off was added for you",
+    lead: [{ text: `${email.addedByName || "Someone"} added your ` }, type, { text: `, ${when}. It's approved, so there's nothing you need to do.` }],
+    extra: email.leave.note ? { label: "Note", value: email.leave.note, quoted: true } : undefined,
+  }),
+  rejected: (email, { type, when }) => ({
+    subject: "Your time off request was declined",
+    lead: [{ text: "Your " }, type, { text: ` request was declined, ${when}.` }],
+    extra: email.reason ? { label: "Reason", value: email.reason, quoted: true } : undefined,
+  }),
+  cancelled_requester: (_email, { type, when }) => ({
+    subject: "Your time off request was cancelled",
+    lead: [{ text: "Your " }, type, { text: ` request was cancelled, ${when}.` }],
+  }),
+  cancelled_approver: (_email, { type, when, requester }) => ({
+    subject: "A time off request was cancelled",
+    lead: [{ text: `${requester} cancelled their ` }, type, { text: `, ${when}. Nothing else is needed from you.` }],
+  }),
+  recounted: (email, { type }) => {
+    const { leave } = email;
+    const cause = formatRecountCause(email.cause);
+    const dates = formatLeaveDates(leave.startDate, leave.endDate, leave.dayPortion);
+    if (leave.days === 0) {
       return {
         subject: "Your time off was recounted",
-        lead: [{ text: `${cause}, so your ` }, type, { text: ` for ${dates} ${change}.` }],
-        extra: email.overdrawn ? { label: "Balance", value: `This leaves you ${email.overdrawn}.`, quoted: false } : undefined,
+        lead: [
+          { text: `${cause}, so your ` },
+          type,
+          {
+            text: ` for ${dates} no longer takes any days, and nothing comes off your balance. You can cancel it in OOOhm if you don't need it.`,
+          },
+        ],
       };
     }
-  }
+    // Same total, days moved between years (a working-days change across New Year): only
+    // sent when that leaves a year over its balance.
+    const change =
+      leave.days === email.previousDays
+        ? `still takes ${formatDays(leave.days)}, but some of it now counts in a different year`
+        : `now takes ${formatDays(leave.days)} instead of ${formatDays(email.previousDays)}`;
+    return {
+      subject: "Your time off was recounted",
+      lead: [{ text: `${cause}, so your ` }, type, { text: ` for ${dates} ${change}.` }],
+      extra: email.overdrawn ? { label: "Balance", value: `This leaves you ${email.overdrawn}.`, quoted: false } : undefined,
+    };
+  },
+};
+
+function parts(email: LeaveEmail): Parts {
+  const { type, when } = what(email.leave);
+  // Callers pass `personLabel`, which falls back to the email address; this is the last resort.
+  const requester = email.leave.requesterName || "Someone";
+  const copy = LEAVE_COPY[email.kind] as (email: LeaveEmail, p: Phrases) => Parts;
+  return copy(email, { type, when, requester });
 }
 
 /**

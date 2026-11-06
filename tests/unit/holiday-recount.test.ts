@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { applyCalendarChange, sameSplit } from "@/domain/leave-days";
 import { formatNoWorkingDays, formatRecountCause, formatRecountOutcome } from "@/lib/format";
-import { renderLeaveEmail } from "@/server/email/leave-emails";
+import { renderLeaveEmail } from "@/server/notifications/templates/leave";
 
 test("a calendar change moves each open year by its own difference, and leaves closed years alone", () => {
   // Dec 29, 2025 to Jan 2, 2026 stored as 3 + 2; Jan 1, 2026 becomes a holiday.

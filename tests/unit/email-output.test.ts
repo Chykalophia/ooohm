@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import { emailAccent } from "@/lib/email-layout";
 import { renderSignInEmail } from "@/lib/sign-in-email";
-import { renderInviteEmail } from "@/server/email/invite-email";
-import { type LeaveEmail, type LeaveSummary, renderLeaveEmail } from "@/server/email/leave-emails";
+import { renderInviteEmail } from "@/server/notifications/templates/invite";
+import { type LeaveEmail, type LeaveSummary, renderLeaveEmail } from "@/server/notifications/templates/leave";
 
 /**
  * Every email OOOhm sends, byte for byte, for a fixed set of inputs. It pins the

@@ -29,7 +29,7 @@ import {
 } from "@/server/repositories/holidays";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { type HolidayFact, type RecountOutcome, recountLeave } from "./leave-recount";
-import { commitThenSend, inTransaction } from "./notify";
+import { commitThenNotify, inTransaction } from "./notify";
 
 function payload(row: HolidayRow): Unattributed<HolidayEventPayload> {
   return { holidayId: row.id, date: row.date, name: row.name };
@@ -99,13 +99,13 @@ export async function addHoliday(
   assertYear(Number(input.date.slice(0, 4)));
   const name = normalizeHolidayName(input.name);
   try {
-    return await commitThenSend(ctx, async (tx) => {
+    return await commitThenNotify(ctx, actor.companyId, async (tx) => {
       await beginCalendarChange(tx, actor);
       const [row] = await insertHolidays(tx, actor.companyId, [{ date: input.date, name }]);
       if (!row) throw new DomainError("already_exists");
       await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, { before: null, after: row });
-      const { outcome, outgoing } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: [fact(row)], removed: [] });
-      return { result: { holiday: row, recount: outcome }, outgoing };
+      const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: [fact(row)], removed: [] });
+      return { result: { holiday: row, recount: outcome }, notify };
     });
   } catch (err) {
     if (isUniqueViolation(err)) throw new DomainError("already_exists");
@@ -128,12 +128,12 @@ export async function addUsFederalHolidays(
 ): Promise<{ added: HolidayRow[]; recount: RecountOutcome }> {
   assertCanAdminister(actor);
   assertYear(year);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     await beginCalendarChange(tx, actor);
     const added = await insertHolidays(tx, actor.companyId, usFederalHolidays(year));
     for (const row of added) await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, { before: null, after: row });
-    const { outcome, outgoing } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: added.map(fact), removed: [] });
-    return { result: { added, recount: outcome }, outgoing };
+    const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: added.map(fact), removed: [] });
+    return { result: { added, recount: outcome }, notify };
   });
 }
 
@@ -163,12 +163,12 @@ export async function renameHoliday(ctx: ServiceContext, actor: Actor, id: strin
 export async function deleteHoliday(ctx: ServiceContext, actor: Actor, id: string): Promise<RecountOutcome> {
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     await beginCalendarChange(tx, actor);
     const before = await deleteHolidayRow(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");
     await record(tx, actor, ADMIN_EVENT_TYPES.holidayDeleted, { before, after: null });
-    const { outcome, outgoing } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: [], removed: [fact(before)] });
-    return { result: outcome, outgoing };
+    const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: [], removed: [fact(before)] });
+    return { result: outcome, notify };
   });
 }

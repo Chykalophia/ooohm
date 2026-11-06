@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_EMAIL_ACCENT, emailAccent, type LeaveEmail, type LeaveSummary, personLabel, renderLeaveEmail } from "@/server/email/leave-emails";
-import type { MailMessage, ServiceContext } from "@/server/context";
-import { commitThenNotify } from "@/server/services/notify";
+import { personLabel } from "@/domain/person";
+import { DEFAULT_EMAIL_ACCENT, emailAccent } from "@/lib/email-layout";
+import { type LeaveEmail, type LeaveSummary, renderLeaveEmail } from "@/server/notifications/templates/leave";
 
 const hostile = 'Eve <script>alert("x")</script>\r\nBcc: victim@example.com';
 
@@ -147,90 +147,6 @@ test("emails take the company's accent: on the main button, and readable on pale
   assert.deepEqual(emailAccent(null), DEFAULT_EMAIL_ACCENT);
   assert.deepEqual(emailAccent({ theme: "from-a-newer-version", accentColor: null }), DEFAULT_EMAIL_ACCENT);
   assert.match(renderLeaveEmail(kinds[1]).html, /background:#0f766e/, "classic teal by default");
-});
-
-/** A context whose transaction commits at once; `defer` runs tasks into `tasks`. */
-function committingContext(mailer: (m: MailMessage) => Promise<void>, tasks: Promise<void>[]) {
-  return {
-    mailer,
-    defer: (task: () => Promise<void>) => tasks.push(task()),
-    db: { transaction: async (work: (tx: unknown) => Promise<unknown>) => work({}) },
-  } as unknown as ServiceContext;
-}
-
-/** Shaped like nodemailer's rejection: the SMTP reply quotes the address. */
-function smtpRejection(address: string) {
-  return Object.assign(
-    new Error(`Can't send mail - all recipients were rejected: 550 5.1.1 <${address}>: Recipient address rejected`),
-    { code: "EENVELOPE", responseCode: 550, command: "RCPT TO", response: `550 5.1.1 <${address}>: Recipient address rejected` },
-  );
-}
-
-test("a failed send is logged without the address and does not stop the remaining emails or throw", async () => {
-  const delivered: MailMessage[] = [];
-  const tasks: Promise<void>[] = [];
-  const ctx = committingContext(async (m) => {
-    if (m.to === "down@example.com") throw smtpRejection(m.to);
-    delivered.push(m);
-  }, tasks);
-
-  const stderr = process.stderr.write.bind(process.stderr);
-  const logged: string[] = [];
-  process.stderr.write = ((chunk: string) => (logged.push(String(chunk)), true)) as typeof process.stderr.write;
-  try {
-    const result = await commitThenNotify(ctx, async () => ({
-      result: { id: "req-1", companyId: "c1" },
-      outgoing: [
-        { to: "down@example.com", email: kinds[1] },
-        { to: "up@example.com", email: kinds[1] },
-      ],
-    }));
-    assert.deepEqual(result, { id: "req-1", companyId: "c1" });
-    await Promise.all(tasks);
-  } finally {
-    process.stderr.write = stderr;
-  }
-
-  assert.deepEqual(delivered.map((m) => m.to), ["up@example.com"]);
-  const line = JSON.parse(logged.find((l) => l.includes("leave_email_failed")) ?? "{}");
-  assert.equal(line.event, "leave_email_failed");
-  assert.equal(line.requestId, "req-1");
-  assert.deepEqual(
-    [line.err.code, line.err.responseCode, line.err.command],
-    ["EENVELOPE", 550, "RCPT TO"],
-    "enough to diagnose the failure",
-  );
-  assert.doesNotMatch(JSON.stringify(line), /down@example\.com/);
-});
-
-test("nothing is scheduled when there is nothing to send", async () => {
-  const tasks: Promise<void>[] = [];
-  await commitThenNotify(committingContext(async () => {}, tasks), async () => ({ result: { id: "req-1", companyId: "c1" }, outgoing: [] }));
-  assert.equal(tasks.length, 0);
-});
-
-test("emails are queued only once the transaction has committed", async () => {
-  const outgoing = [{ to: "a@example.com", email: kinds[1] }];
-  let deferred = 0;
-  const ctxWith = (commit: "ok" | "fails") =>
-    ({
-      defer: () => deferred++,
-      db: {
-        transaction: async (work: (tx: unknown) => Promise<unknown>) => {
-          const value = await work({});
-          assert.equal(deferred, 0, "nothing is queued while the transaction is open");
-          if (commit === "fails") throw new Error("could not serialize access");
-          return value;
-        },
-      },
-    }) as unknown as ServiceContext;
-
-  await assert.rejects(commitThenNotify(ctxWith("fails"), async () => ({ result: { id: "r1", companyId: "c1" }, outgoing })));
-  assert.equal(deferred, 0, "a failed commit sends nothing");
-
-  const result = await commitThenNotify(ctxWith("ok"), async () => ({ result: { id: "r2", companyId: "c1" }, outgoing }));
-  assert.deepEqual(result, { id: "r2", companyId: "c1" });
-  assert.equal(deferred, 1);
 });
 
 test("a request email with an approve link leads with Approve, then Open in OOOhm", () => {

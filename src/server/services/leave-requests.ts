@@ -32,7 +32,7 @@ import { approveLinkFor } from "./email-approval";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { alsoOffFor } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
-import { commitThenNotify, type Outgoing } from "./notify";
+import { commitThenNotify, type Notification } from "./notify";
 
 /** What a person fills in to ask for time off. */
 export interface SubmitLeaveInput extends LeaveDraft {
@@ -88,7 +88,7 @@ export async function submitLeaveRequest(
   const note = normalizeNote(input.note);
   if (!isUuid(input.leaveTypeId)) throw new DomainError("leave_type_unavailable");
 
-  return commitThenNotify(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     // Shared with other submits, exclusive with a holiday or working-days change, which
     // recounts submitted requests: a request is never counted with a calendar that is
     // being replaced. Taken before the member lock, the order every service locks in.
@@ -140,10 +140,14 @@ export async function submitLeaveRequest(
     const me = contacts.get(actor.id);
     const approver = contacts.get(decision.approverId);
     const leave = summarize(final, me, leaveType.name);
-    const mail: Outgoing[] = [];
+    const mail: Notification[] = [];
     if (decision.kind === "auto_approve") {
       if (me) {
-        mail.push({ to: me.email, email: { kind: "approved", recipientName: me.name, leave, reason: null, link: `${ctx.appUrl}/` } });
+        mail.push({
+          type: "leave.approved",
+          to: me.email,
+          data: { requestId: final.id, recipientName: me.name, leave, reason: null, link: `${ctx.appUrl}/` },
+        });
       }
     } else if (approver && approver.id !== actor.id) {
       // Who else is off, scoped to the requester's department as on the Approvals page.
@@ -152,9 +156,10 @@ export async function submitLeaveRequest(
       const request = { ...final, userId: actor.id, departmentId: department?.id ?? null, departmentName: department?.name ?? null };
       const alsoOff = (await alsoOffFor(tx, actor.companyId, [request])).get(final.id)?.line ?? null;
       mail.push({
+        type: "leave.requested",
         to: approver.email,
-        email: {
-          kind: "requested",
+        data: {
+          requestId: final.id,
           recipientName: approver.name,
           leave,
           alsoOff,
@@ -163,7 +168,7 @@ export async function submitLeaveRequest(
         },
       });
     }
-    return { result: final, outgoing: mail };
+    return { result: final, notify: mail };
   });
 }
 
@@ -182,7 +187,7 @@ export async function submitLeaveRequest(
 export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requestId: string): Promise<LeaveRequestRow> {
   if (!isUuid(requestId)) throw new DomainError("not_found");
 
-  return commitThenNotify(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     const before = await lockLeaveRequest(tx, actor.companyId, requestId);
     if (!before) throw new DomainError("not_found");
     if (!canCancel(actor, before)) throw new DomainError("forbidden");
@@ -202,21 +207,23 @@ export async function cancelLeaveRequest(ctx: ServiceContext, actor: Actor, requ
     const leaveType = await findLeaveType(tx, actor.companyId, after.leaveTypeId);
     const requester = contacts.get(after.userId);
     const leave = summarize(after, requester, leaveType?.name ?? "Time off");
-    const mail: Outgoing[] = [];
+    const mail: Notification[] = [];
     if (requester) {
       mail.push({
+        type: "leave.cancelled_requester",
         to: requester.email,
-        email: { kind: "cancelled_requester", recipientName: requester.name, leave, link: `${ctx.appUrl}/` },
+        data: { requestId: after.id, recipientName: requester.name, leave, link: `${ctx.appUrl}/` },
       });
     }
     const approver = after.approverId ? contacts.get(after.approverId) : undefined;
     if (approver && approver.id !== actor.id) {
       mail.push({
+        type: "leave.cancelled_approver",
         to: approver.email,
-        email: { kind: "cancelled_approver", recipientName: approver.name, leave, link: `${ctx.appUrl}/approvals` },
+        data: { requestId: after.id, recipientName: approver.name, leave, link: `${ctx.appUrl}/approvals` },
       });
     }
-    return { result: after, outgoing: mail };
+    return { result: after, notify: mail };
   });
 }
 

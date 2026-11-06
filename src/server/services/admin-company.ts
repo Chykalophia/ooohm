@@ -15,7 +15,7 @@ import type { ServiceContext } from "@/server/context";
 import { type CompanyRow, findCompany, lockCompany, updateCompany } from "@/server/repositories/companies";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "./leave-recount";
-import { commitThenSend, inTransaction } from "./notify";
+import { commitThenNotify, inTransaction } from "./notify";
 
 function snapshot(row: CompanyRow) {
   return {
@@ -93,16 +93,16 @@ export async function updateCompanySettings(
   input: CompanySettingsInput,
 ): Promise<{ company: CompanyRow; recount: RecountOutcome }> {
   assertCanAdminister(actor);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     const { before, after, changed } = await changeCompany(tx, actor, (b) => ({
       deletionGrace: b.deletionGrace,
       managersSeeDetails: b.managersSeeDetails,
       ...normalizeCompanySettings(input, b.timezone),
     }));
     const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);
-    if (!changed || !workingDaysChanged) return { result: { company: after, recount: NOTHING_RECOUNTED }, outgoing: [] };
-    const { outcome, outgoing } = await recountLeave(tx, ctx, actor, { kind: "working_days", previous: before.workingDays });
-    return { result: { company: after, recount: outcome }, outgoing };
+    if (!changed || !workingDaysChanged) return { result: { company: after, recount: NOTHING_RECOUNTED }, notify: [] };
+    const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "working_days", previous: before.workingDays });
+    return { result: { company: after, recount: outcome }, notify };
   });
 }
 

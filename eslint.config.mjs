@@ -67,7 +67,7 @@ const layers = [
     paths: [...next, pool, { name: "@/lib/env", message: "Repositories take everything they need as arguments." }],
     patterns: [
       upward("Repositories never import presentation."),
-      { group: ["@/server/services/*", "@/server/email/*", "@/server/runtime", "@/lib/auth"], message: "Repositories sit below services." },
+      { group: ["@/server/services/*", "@/server/notifications/*", "@/server/notifications/**", "@/server/runtime", "@/lib/auth"], message: "Repositories sit below services." },
       nextSub,
       relative,
     ],
@@ -75,7 +75,7 @@ const layers = [
   {
     // Email templates and the ServiceContext type sit beside services and are pure: no
     // database, configuration, session or framework.
-    files: ["src/server/email/**/*.ts", "src/server/context.ts"],
+    files: ["src/server/notifications/templates/**/*.ts", "src/server/context.ts"],
     paths: [
       ...next,
       pool,
@@ -85,6 +85,27 @@ const layers = [
       { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
     ],
     patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowServices("Templates and the context type sit below services.")],
+  },
+  {
+    // The notifications module: the catalog of email types and how they are sent after
+    // commit. Services call it through `commitThenNotify`; it reads the company's accent
+    // through a repository, but never opens a transaction or calls a use case.
+    files: ["src/server/notifications/*.ts"],
+    paths: [
+      ...next,
+      pool,
+      { name: "@/db/schema", message: "Queries belong in src/server/repositories." },
+      { name: "@/lib/env", message: "Configuration reaches it through the ServiceContext." },
+      { name: "@/lib/auth", message: "Notifications resolve nothing from the session." },
+      { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
+    ],
+    patterns: [
+      drizzle,
+      nextSub,
+      relative,
+      upward("Nothing in src/server imports presentation."),
+      { group: ["@/server/services/*"], message: "Services call notifications, never the reverse." },
+    ],
   },
   {
     // The adapter seam sits beside services, like the context type: adapters see envelopes

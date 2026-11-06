@@ -27,6 +27,17 @@ export default async function SubscriptionsPage() {
       title="Calendar subscriptions"
       description="See time off in Google Calendar, Apple Calendar or Outlook. Each calendar gets a private link: anyone who has it can see that calendar."
     >
+      {/* First, in a box of its own: most people come here not knowing how a calendar link works. */}
+      <Section title="How to add the link to your calendar" size="sm" className="space-y-2 rounded-2xl border border-border p-4 text-sm text-muted sm:p-5">
+        <p>Create a link below, copy it, then paste it into your calendar app:</p>
+        <ul className="space-y-1">
+          <li>Google Calendar: Other calendars, then +, then From URL.</li>
+          <li>Apple Calendar: File, then New Calendar Subscription.</li>
+          <li>Outlook: Add calendar, then Subscribe from web.</li>
+        </ul>
+        <p>Google checks for changes on its own schedule, which can take up to a day.</p>
+      </Section>
+
       <FeedCard kind="personal" title="Your time off" description="Your approved and pending requests." status={statusOf(feeds.personal)} />
       <FeedCard
         kind="team"
@@ -35,14 +46,6 @@ export default async function SubscriptionsPage() {
         status={statusOf(feeds.team)}
       />
 
-      <Section title="Adding a link" size="sm" className="space-y-2 text-sm text-muted">
-        <ul className="space-y-1">
-          <li>Google Calendar: Other calendars, then +, then From URL.</li>
-          <li>Apple Calendar: File, then New Calendar Subscription.</li>
-          <li>Outlook: Add calendar, then Subscribe from web.</li>
-        </ul>
-        <p>Google checks for changes on its own schedule, which can take up to a day.</p>
-      </Section>
     </AppPage>
   );
 }

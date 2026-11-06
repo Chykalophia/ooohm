@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { AgendaItem } from "@/domain/calendar";
+import { type AgendaItem, yearHasHolidays } from "@/domain/calendar";
 import { formatLeaveDates, formatMonth } from "@/lib/format";
 import { getMonthCalendar, getYearCalendar } from "@/server/services/calendar";
 import { AppPage } from "@/components/layout/app-page";
@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/leave/status-badge";
 import { MonthNav, YearNav } from "@/components/navigation/month-nav";
 import { Item, ItemList } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
-import { cx, focusRing, quietLink } from "@/components/ui/styles";
+import { cx, focusRing, quietLink, textLink } from "@/components/ui/styles";
 import { monthParamSchema, readParam, yearParamSchema } from "@/app/_lib/calendar-input";
 import { requireMemberPage } from "@/app/_lib/page-context";
 import { MonthGrid } from "./month-grid";
@@ -102,6 +102,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       >
         <section aria-labelledby={HEADING_ID} className="space-y-4">
           <YearNav nav={nav} href={(y) => `/calendar?view=year&year=${y}`} headingId={HEADING_ID} />
+          {!yearHasHolidays(months) && <NoHolidaysNote year={nav.year} admin={page.nav.admin} />}
           <YearGrid months={months} />
         </section>
         <SubscribeLink />
@@ -141,6 +142,25 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
 
       <SubscribeLink />
     </AppPage>
+  );
+}
+
+/**
+ * Holidays are added a year at a time (Admin → Holidays), so a year nobody has filled in
+ * yet shows none. Says so, rather than leaving people to think they were lost.
+ */
+function NoHolidaysNote({ year, admin }: { year: number; admin: boolean }) {
+  return (
+    <p className="text-sm text-muted">
+      No company holidays have been added for {year} yet.{" "}
+      {admin ? (
+        <Link href={`/admin/holidays?year=${year}`} className={cx(textLink, "font-medium text-accent-ink")}>
+          Add {year}&apos;s holidays
+        </Link>
+      ) : (
+        "An admin adds them in Admin, Holidays."
+      )}
+    </p>
   );
 }
 

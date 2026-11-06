@@ -39,6 +39,14 @@ export function fieldClass(size: FieldSize = "md"): string {
 
 export const field = fieldClass("md");
 
+/** A select's right padding: a field's plus 4px, so the browser's chevron doesn't crowd the edge. */
+const SELECT_END: Record<FieldSize, string> = { md: "pr-4", sm: "pr-3.5" };
+
+/** The classes of a select: {@link fieldClass} with room for its chevron. */
+export function selectClass(size: FieldSize = "md"): string {
+  return cx(fieldClass(size), SELECT_END[size]);
+}
+
 /**
  * A checkbox or radio drawn by the browser, in the accent ink: the fill accent of the
  * light themes (Marigold, Saffron) is about 2:1 on white, under the 3:1 a checked state needs.

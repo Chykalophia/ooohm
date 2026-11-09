@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { APPROVAL_MODES, readApprovalMode } from "@/domain/approval-rule";
 import { ALLOWANCE_POLICY_LABELS, APPROVAL_MODE_LABELS, COMPANY_NAME_MAX_LENGTH, ISO_WEEKDAYS } from "@/domain/company-settings";
+import { COLLEAGUE_VISIBILITY, COLLEAGUE_VISIBILITY_LABELS, readColleagueVisibility } from "@/domain/calendar-visibility";
 import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
 import { getCompanySettings } from "@/server/services/admin-company";
 import { AdminShell } from "@/app/admin/admin-shell";
@@ -75,11 +76,18 @@ export default async function CompanyPage() {
             defaultChecked={company.deletionGrace}
             hint="When you delete someone and remove everything about them, they're scheduled instead, and you can undo it until the day it runs. Deletes that keep records never wait."
           />
+          <SelectField
+            label="People can see the time off of"
+            name="colleagueVisibility"
+            defaultValue={readColleagueVisibility(company.colleagueVisibility)}
+            options={COLLEAGUE_VISIBILITY.map((v) => ({ value: v, label: COLLEAGUE_VISIBILITY_LABELS[v] }))}
+            hint="Applies to Who's out, the calendar, people's pages and calendar links. Their team is their manager, the others who report to that manager, and anyone who reports to them. Admins and managers always see everyone."
+          />
           <CheckboxField
             label="Managers can see their team's balances and notes"
             name="managersSeeDetails"
             defaultChecked={company.managersSeeDetails}
-            hint="On a person's page (open it from Team), their manager sees what they have left and the notes on their requests. Turn it off and only the person and admins see those; everyone still sees who is off and when."
+            hint="On a person's page (open it from Team), their manager sees what they have left and the notes on their requests. Turn it off and only the person and admins see those; who is off and when still follows the setting above."
           />
         </ActionForm>
       </Card>

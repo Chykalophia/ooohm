@@ -1,6 +1,6 @@
 /**
  * Admin use cases for the company's own settings: name, time zone, working days, the
- * allowance policy, whether time off needs approval, the deletion grace option and the appearance (theme, accent, corners). v1 runs one company per deployment;
+ * allowance policy, whether time off needs approval, the deletion grace option, what people see of each other's time off and the appearance (theme, accent, corners). v1 runs one company per deployment;
  * the company is always the actor's.
  */
 import type { Transaction } from "@/db/types";
@@ -27,6 +27,7 @@ function snapshot(row: CompanyRow) {
     deletionGrace: row.deletionGrace,
     managersSeeDetails: row.managersSeeDetails,
     approvalMode: readApprovalMode(row.approvalMode),
+    colleagueVisibility: row.colleagueVisibility,
     ...readAppearance(row),
   };
 }
@@ -101,6 +102,7 @@ export async function updateCompanySettings(
       deletionGrace: b.deletionGrace,
       managersSeeDetails: b.managersSeeDetails,
       approvalMode: readApprovalMode(b.approvalMode),
+      colleagueVisibility: b.colleagueVisibility,
       ...normalizeCompanySettings(input, b.timezone),
     }));
     const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);

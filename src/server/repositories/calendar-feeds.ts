@@ -20,6 +20,9 @@ export async function findLiveFeedByHash(ex: Executor, tokenHash: string) {
       lastUsedAt: calendarFeedTokens.lastUsedAt,
       companyName: companies.name,
       timezone: companies.timezone,
+      ownerRole: user.role,
+      ownerManagerId: user.managerId,
+      colleagueVisibility: companies.colleagueVisibility,
     })
     .from(calendarFeedTokens)
     .innerJoin(user, eq(user.id, calendarFeedTokens.userId))

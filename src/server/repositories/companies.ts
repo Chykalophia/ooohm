@@ -11,6 +11,7 @@ const companyFields = {
   deletionGrace: companies.deletionGrace,
   managersSeeDetails: companies.managersSeeDetails,
   approvalMode: companies.approvalMode,
+  colleagueVisibility: companies.colleagueVisibility,
   theme: companies.theme,
   accentColor: companies.accentColor,
   corners: companies.corners,
@@ -30,6 +31,8 @@ export type CompanyRow = {
   managersSeeDetails: boolean;
   /** Raw stored approval mode; read it through `readApprovalMode`. */
   approvalMode: string;
+  /** What employees see of colleagues' time off; read it through `readColleagueVisibility`. */
+  colleagueVisibility: string;
   /** Raw stored appearance; read it through `readAppearance`. */
   theme: string;
   accentColor: string | null;
@@ -80,6 +83,7 @@ export async function updateCompany(
     deletionGrace?: boolean;
     managersSeeDetails?: boolean;
     approvalMode?: string;
+    colleagueVisibility?: string;
     theme?: string;
     accentColor?: string | null;
     corners?: string;

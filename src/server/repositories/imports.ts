@@ -74,6 +74,7 @@ export async function insertCompany(
     deletionGrace: companies.deletionGrace,
     managersSeeDetails: companies.managersSeeDetails,
     approvalMode: companies.approvalMode,
+    colleagueVisibility: companies.colleagueVisibility,
     theme: companies.theme,
     accentColor: companies.accentColor,
     corners: companies.corners,

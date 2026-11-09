@@ -359,6 +359,8 @@ export interface CompanyEventPayload extends PersonAttribution {
    * and nobody when there is neither). New values may appear.
    */
   approvalMode: string;
+  /** Added within version 1: what employees see of colleagues' time off: `everyone`, `team` or `self`. */
+  colleagueVisibility: string;
   /** Added within version 1: the theme key everyone sees, e.g. `classic` or `cobalt`. */
   theme: string;
   /** Added within version 1: `#rrggbb` replacing the theme's accent, or null. */

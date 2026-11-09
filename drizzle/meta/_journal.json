@@ -162,6 +162,13 @@
       "when": 1794188987595,
       "tag": "0022_approval_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794189102295,
+      "tag": "0023_colleague_visibility",
+      "breakpoints": true
     }
   ]
 }

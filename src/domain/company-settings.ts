@@ -5,6 +5,7 @@
  */
 import { ALLOWANCE_POLICY_KEYS } from "./allowance-policy";
 import { type ApprovalMode, isApprovalMode } from "./approval-rule";
+import { type ColleagueVisibility, isColleagueVisibility } from "./calendar-visibility";
 import { DomainError } from "./errors";
 import { oneLine } from "./text";
 
@@ -41,6 +42,8 @@ export interface CompanySettingsInput {
   managersSeeDetails?: boolean;
   /** `required` or `heads_up` ({@link ApprovalMode}). Left as it is when absent. */
   approvalMode?: string;
+  /** What employees see of colleagues' time off (`COLLEAGUE_VISIBILITY`). Left as it is when absent. */
+  colleagueVisibility?: string;
 }
 
 export interface CompanySettings {
@@ -55,6 +58,7 @@ export interface CompanySettings {
   managersSeeDetails?: boolean;
   /** Present only when the input set it. */
   approvalMode?: ApprovalMode;
+  colleagueVisibility?: ColleagueVisibility;
 }
 
 /**
@@ -65,7 +69,7 @@ export interface CompanySettings {
  *   saving other settings never fails on it; choosing a new zone must pass the check.
  * @throws DomainError `invalid_input`: blank or long name, unknown time zone, no
  *   working day or one outside 1 to 7, an allowance policy nobody registered, or an
- *   unknown approval mode.
+ *   unknown approval mode or colleague visibility.
  */
 export function normalizeCompanySettings(input: CompanySettingsInput, currentTimezone?: string): CompanySettings {
   const name = oneLine(input.name);
@@ -86,6 +90,10 @@ export function normalizeCompanySettings(input: CompanySettingsInput, currentTim
   if (input.approvalMode !== undefined) {
     if (!isApprovalMode(input.approvalMode)) throw new DomainError("invalid_input", "Unknown approval setting.", { field: "approvalMode" });
     out.approvalMode = input.approvalMode;
+  }
+  if (input.colleagueVisibility !== undefined) {
+    if (!isColleagueVisibility(input.colleagueVisibility)) throw new DomainError("invalid_input", "Unknown choice for who sees colleagues' time off.");
+    out.colleagueVisibility = input.colleagueVisibility;
   }
   return out;
 }

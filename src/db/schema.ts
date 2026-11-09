@@ -84,6 +84,8 @@ export const companies = pgTable("companies", {
    * approver) or `heads_up` (booked as it is sent; whoever would have approved it is told).
    */
   approvalMode: text("approval_mode").notNull().default("required"),
+  /** `COLLEAGUE_VISIBILITY` in src/domain/calendar-visibility.ts: what employees see of colleagues' time off. */
+  colleagueVisibility: text("colleague_visibility").notNull().default("everyone"),
   /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
   theme: text("theme").notNull().default(DEFAULT_THEME),
   /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */

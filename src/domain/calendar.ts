@@ -205,6 +205,16 @@ export function buildAgenda<E extends CalendarEntry>(
 }
 
 /**
+ * The month's agenda narrowed to one day of its grid: the leave the grid shows on that
+ * day and its holiday, in the agenda's order. Built from the day's own entries, so a
+ * tapped day on the phone's small month always lists what that day shows.
+ */
+export function agendaForDay<E extends CalendarEntry>(agenda: readonly AgendaItem<E>[], day: CalendarDay<E>): AgendaItem<E>[] {
+  const ids = new Set(day.entries.map((e) => e.id));
+  return agenda.filter((item) => (item.kind === "holiday" ? item.date === day.date : ids.has(item.entry.id)));
+}
+
+/**
  * True when a year's months (each with its {@link buildAgenda}) show at least one
  * company holiday. Agendas hold only their own month's holidays, so the days of last
  * December or next January on the grid's edges never count.

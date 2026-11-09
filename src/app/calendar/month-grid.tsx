@@ -37,7 +37,7 @@ function dayStyle(day: CalendarDay<CalendarViewEntry>, selected: boolean): { cel
 }
 
 /** What a screen reader hears for a day: its date, then anything on it. */
-function dayLabel(day: CalendarDay<CalendarViewEntry>): string {
+export function dayLabel(day: CalendarDay<CalendarViewEntry>): string {
   const parts = [formatLongDate(day.date)];
   if (day.isToday) parts.push("today");
   if (day.holiday) parts.push(`${day.holiday}, company holiday`);
@@ -60,7 +60,7 @@ function ordered(a: string, b: string): Range {
  * the dates, the live day count and a Request button. With a keyboard, arrow keys move
  * between days, Enter or Space picks one (and then a second), and Shift with an arrow
  * stretches the pick.
- * Phones get the agenda instead; the form on Home works everywhere.
+ * Phones get a small month and a list instead (`PhoneMonth`); the form on Home works everywhere.
  */
 export function MonthGrid({
   weeks,

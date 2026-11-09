@@ -89,3 +89,14 @@ describe("date picker grid", () => {
     assert.equal(localToday(new Date(2027, 0, 1, 0, 0)), "2027-01-01");
   });
 });
+
+test("regression: focus clamps at the first and last supported days", async () => {
+  const { moveFocus, pickerGrid } = await import("@/components/forms/date-picker-grid");
+  assert.equal(moveFocus("9999-12-31", "ArrowRight"), "9999-12-31");
+  assert.equal(moveFocus("9999-12-30", "ArrowDown"), "9999-12-31");
+  assert.equal(moveFocus("9999-12-15", "PageDown"), "9999-12-31");
+  assert.equal(moveFocus("0100-01-01", "ArrowLeft"), "0100-01-01");
+  const grid = pickerGrid("9999-12");
+  assert.equal(grid.length, 42);
+  assert.equal(grid[41].date, "9999-12-31");
+});

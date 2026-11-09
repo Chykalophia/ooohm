@@ -8,11 +8,20 @@ import { addMonths, monthBounds, monthGridBounds, monthOf, type YearMonth } from
 /** Six weeks, always, so the popup keeps its height from month to month. */
 export const PICKER_DAYS = 42;
 
+/** The first and last days a picker can reach (Date.UTC reads years 0-99 as 19xx, so the floor is year 100). */
+export const MIN_DATE: CalendarDate = "0100-01-01";
+export const MAX_DATE: CalendarDate = "9999-12-31";
+
+function clampDay(epochDay: number): number {
+  return Math.min(Math.max(epochDay, toEpochDay(MIN_DATE)), toEpochDay(MAX_DATE));
+}
+
 export type PickerDay = { date: CalendarDate; inMonth: boolean };
 
 /** The 42 days the popup shows for `month`: Monday-first weeks from the week holding the 1st. */
 export function pickerGrid(month: YearMonth): PickerDay[] {
-  const start = toEpochDay(monthGridBounds(month).start);
+  // Near the last supported day the grid slides back so it never shows a five-digit year.
+  const start = Math.min(toEpochDay(monthGridBounds(month).start), toEpochDay(MAX_DATE) - (PICKER_DAYS - 1));
   return Array.from({ length: PICKER_DAYS }, (_, i) => {
     const date = fromEpochDay(start + i);
     return { date, inMonth: monthOf(date) === month };
@@ -47,20 +56,25 @@ export function addMonthsClamped(date: CalendarDate, count: number): CalendarDat
 
 /** Where focus goes from `date` on `key`. `shift` turns PageUp/PageDown into a year. */
 export function moveFocus(date: CalendarDate, key: GridKey, shift = false): CalendarDate {
+  const moved = moveUnclamped(date, key, shift);
+  return moved < MIN_DATE ? MIN_DATE : moved > MAX_DATE || moved.length > 10 ? MAX_DATE : moved;
+}
+
+function moveUnclamped(date: CalendarDate, key: GridKey, shift: boolean): CalendarDate {
   const day = toEpochDay(date);
   switch (key) {
     case "ArrowLeft":
-      return fromEpochDay(day - 1);
+      return fromEpochDay(clampDay(day - 1));
     case "ArrowRight":
-      return fromEpochDay(day + 1);
+      return fromEpochDay(clampDay(day + 1));
     case "ArrowUp":
-      return fromEpochDay(day - 7);
+      return fromEpochDay(clampDay(day - 7));
     case "ArrowDown":
-      return fromEpochDay(day + 7);
+      return fromEpochDay(clampDay(day + 7));
     case "Home":
-      return fromEpochDay(day - (isoWeekday(date) - 1));
+      return fromEpochDay(clampDay(day - (isoWeekday(date) - 1)));
     case "End":
-      return fromEpochDay(day + (7 - isoWeekday(date)));
+      return fromEpochDay(clampDay(day + (7 - isoWeekday(date))));
     case "PageUp":
       return addMonthsClamped(date, shift ? -12 : -1);
     case "PageDown":

@@ -404,7 +404,12 @@ body,
   background-color: #ffffff;
 }
 
-:is(button, a).bg-accent {
+/*
+ * A filled accent button is the screen's main action, so themes and layouts shape it.
+ * A date picker's selected day (components/forms/date-picker.tsx) is filled the same
+ * way but is not an action: it keeps the size and corners of the grid around it.
+ */
+:is(button, a).bg-accent:not([role="gridcell"]) {
   border-radius: var(--button-radius);
   box-shadow: var(--button-shadow);
 }
@@ -446,7 +451,7 @@ body,
   /* Grey text on the tint keeps 4.5:1. */
   --muted: var(--muted-strong);
 }
-[data-layout="tonal"] :is(button, a).bg-accent {
+[data-layout="tonal"] :is(button, a).bg-accent:not([role="gridcell"]) {
   min-height: 3.25rem;
   padding-inline: 1.75rem;
   border-radius: 9999px;

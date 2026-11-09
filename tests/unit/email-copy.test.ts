@@ -54,7 +54,7 @@ test("typed values and the copy itself are escaped, and the subject stays one li
     { subject: "{{requester}} <b>{{leave_type}}</b>", message: "<a href='evil'>{{requester}}</a> {{leave_type}}" },
   );
   assert.doesNotMatch(out.subject, /[\r\n]/);
-  assert.doesNotMatch(out.html, /<script|<a href='evil'|<i>PTO/);
+  assert.doesNotMatch(out.html, /<script|<a href='evil'|<i>PTO/i);
   assert.match(out.html, /&lt;a href=&#39;evil&#39;&gt;/);
 });
 

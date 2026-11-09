@@ -408,6 +408,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
       managersSeeDetails: true,
       approvalMode: "required",
       colleagueVisibility: "everyone",
+      departmentScoping: false,
       theme: "classic",
       accentColor: null,
       corners: "theme",

@@ -3,8 +3,11 @@
  * teammate's page and the team calendar link. This is the one place the rule lives;
  * every reader asks {@link calendarScopeFor} and filters by the scope it returns
  * ({@link canSeeOnCalendar} here, `scopeCondition` in the calendar repository in SQL).
- * A new kind of scope (departments, say) is a new {@link CalendarScope} case handled
- * in those two places.
+ * A new kind of scope is a new {@link CalendarScope} case handled in those two places.
+ *
+ * Department scoping (`companies.department_scoping`, off by default) narrows it
+ * further for everyone but admins: managers and employees who could see everyone see
+ * only their departments instead ({@link calendarScopeFor}).
  */
 import type { Role } from "./actor";
 
@@ -42,41 +45,90 @@ export const COLLEAGUE_VISIBILITY_LABELS: Readonly<Record<ColleagueVisibility, s
  * - `team`: the viewer, their manager, the others who report to that manager, and the
  *   viewer's own direct reports. With no manager, only the viewer and their reports:
  *   having no manager does not make the other top-level people a team.
+ * - `departments`: the viewer, their direct reports, and everyone in `departmentIds`
+ *   (their own department and the ones they manage). With none, the viewer and their
+ *   reports.
  * - `self`: only the viewer.
  */
 export type CalendarScope =
   | { kind: "everyone" }
-  | { kind: "team"; viewerId: string; managerId: string | null }
+  | { kind: "departments"; viewerId: string; departmentIds: readonly string[] }
+  | {
+      kind: "team";
+      viewerId: string;
+      managerId: string | null;
+      /**
+       * Set when the team filter narrows a `departments` scope: then the viewer's manager
+       * and the people who share them show only when they are in one of these
+       * departments, so the filter never reaches past the departments.
+       */
+      departmentIds?: readonly string[];
+    }
   | { kind: "self"; viewerId: string };
 
-/** Who is looking: read fresh from the database, so a new manager or role applies at once. */
+/** Who is looking: read fresh from the database, so a new manager, role or department applies at once. */
 export interface CalendarViewer {
   id: string;
   role: Role;
   managerId: string | null;
+  /** Needed only under department scoping; absent reads as none. */
+  departmentId?: string | null;
+  /** The departments the viewer manages (`departments.manager_id`); absent reads as none. */
+  managedDepartmentIds?: readonly string[];
 }
 
-/** The scope `viewer` gets under the company's setting. Admins and managers see everyone. */
-export function calendarScopeFor(viewer: CalendarViewer, company: { colleagueVisibility: string }): CalendarScope {
-  if (viewer.role === "admin" || viewer.role === "manager") return { kind: "everyone" };
+/** The company settings a scope depends on. */
+export interface CalendarScopeSettings {
+  colleagueVisibility: string;
+  /** Off when absent. */
+  departmentScoping?: boolean;
+}
+
+/**
+ * The scope `viewer` gets under the company's settings. Admins always see everyone.
+ * Managers see everyone, or with department scoping on, their departments. Employees
+ * get the colleague visibility setting; with department scoping on, `everyone` becomes
+ * their departments, while `team` and `self` already stay within the reporting line.
+ */
+export function calendarScopeFor(viewer: CalendarViewer, company: CalendarScopeSettings): CalendarScope {
+  if (viewer.role === "admin") return { kind: "everyone" };
+  const wide: CalendarScope = company.departmentScoping === true ? departmentsScope(viewer) : { kind: "everyone" };
+  if (viewer.role === "manager") return wide;
   const visibility = readColleagueVisibility(company.colleagueVisibility);
-  if (visibility === "everyone") return { kind: "everyone" };
+  if (visibility === "everyone") return wide;
   if (visibility === "team") return { kind: "team", viewerId: viewer.id, managerId: viewer.managerId };
   return { kind: "self", viewerId: viewer.id };
 }
 
+function departmentsScope(viewer: CalendarViewer): CalendarScope {
+  const ids = new Set(viewer.managedDepartmentIds ?? []);
+  if (viewer.departmentId) ids.add(viewer.departmentId);
+  return { kind: "departments", viewerId: viewer.id, departmentIds: [...ids].sort() };
+}
+
 /** Whether `person` (a member of the viewer's company) is within `scope`. */
-export function canSeeOnCalendar(scope: CalendarScope, person: { id: string; managerId: string | null }): boolean {
+export function canSeeOnCalendar(
+  scope: CalendarScope,
+  person: { id: string; managerId: string | null; departmentId?: string | null },
+): boolean {
   switch (scope.kind) {
     case "everyone":
       return true;
+    case "departments":
+      return (
+        person.id === scope.viewerId ||
+        person.managerId === scope.viewerId ||
+        (person.departmentId != null && scope.departmentIds.includes(person.departmentId))
+      );
     case "self":
       return person.id === scope.viewerId;
     case "team":
       return (
         person.id === scope.viewerId ||
         person.managerId === scope.viewerId ||
-        (scope.managerId !== null && (person.id === scope.managerId || person.managerId === scope.managerId))
+        (scope.managerId !== null &&
+          (person.id === scope.managerId || person.managerId === scope.managerId) &&
+          (scope.departmentIds === undefined || (person.departmentId != null && scope.departmentIds.includes(person.departmentId))))
       );
   }
 }
@@ -91,9 +143,18 @@ export const CALENDAR_FILTER_LABELS: Readonly<Record<CalendarFilter, string>> = 
   everyone: "Everyone",
 };
 
+/**
+ * How a filter reads for a scope: under department scoping, `everyone` is as far as the
+ * viewer sees, their department (or departments).
+ */
+export function calendarFilterLabel(filter: CalendarFilter, scope: CalendarScope): string {
+  if (filter === "everyone" && scope.kind === "departments") return scope.departmentIds.length > 1 ? "My departments" : "My department";
+  return CALENDAR_FILTER_LABELS[filter];
+}
+
 /** The filters a scope allows, narrowest first. Only `me` means there is nothing to toggle. */
 export function calendarFiltersFor(scope: CalendarScope): CalendarFilter[] {
-  if (scope.kind === "everyone") return ["me", "team", "everyone"];
+  if (scope.kind === "everyone" || scope.kind === "departments") return ["me", "team", "everyone"];
   if (scope.kind === "team") return ["me", "team"];
   return ["me"];
 }
@@ -110,6 +171,9 @@ export function narrowCalendarScope(
   const allowed = calendarFiltersFor(scope);
   const filter = allowed.find((f) => f === requested) ?? "me";
   if (filter === "everyone") return { filter, scope };
-  if (filter === "team") return { filter, scope: { kind: "team", viewerId: viewer.id, managerId: viewer.managerId } };
+  if (filter === "team") {
+    const team: CalendarScope = { kind: "team", viewerId: viewer.id, managerId: viewer.managerId };
+    return { filter, scope: scope.kind === "departments" ? { ...team, departmentIds: scope.departmentIds } : team };
+  }
   return { filter, scope: { kind: "self", viewerId: viewer.id } };
 }

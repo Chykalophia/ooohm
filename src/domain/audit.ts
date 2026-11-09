@@ -160,6 +160,7 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   timezone: "Time zone",
   workingDays: "Working days",
   allowancePolicy: "Allowance policy",
+  departmentScoping: "Keep people to their departments",
   sessionsRevoked: "Sessions ended",
   feedsRevoked: "Calendar links turned off",
   requestsReassigned: "Requests reassigned",

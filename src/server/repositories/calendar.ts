@@ -1,4 +1,4 @@
-import { and, asc, between, eq, gte, inArray, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, between, eq, gte, inArray, lte, or, type SQL, sql } from "drizzle-orm";
 import { companies, departments, holidays, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 import type { CalendarScope } from "@/domain/calendar-visibility";
@@ -9,6 +9,7 @@ const settingsFields = {
   workingDays: companies.workingDays,
   allowancePolicy: companies.allowancePolicy,
   approvalMode: companies.approvalMode,
+  departmentScoping: companies.departmentScoping,
 };
 
 export async function findCompanySettings(ex: Executor, companyId: string) {
@@ -24,7 +25,13 @@ export async function findCompanySettings(ex: Executor, companyId: string) {
  */
 export async function findCalendarViewer(ex: Executor, companyId: string, userId: string) {
   const [row] = await ex
-    .select({ ...settingsFields, colleagueVisibility: companies.colleagueVisibility, managerId: user.managerId })
+    .select({
+      ...settingsFields,
+      colleagueVisibility: companies.colleagueVisibility,
+      role: user.role,
+      managerId: user.managerId,
+      departmentId: user.departmentId,
+    })
     .from(companies)
     .leftJoin(user, and(eq(user.id, userId), eq(user.companyId, companies.id)))
     .where(eq(companies.id, companyId));
@@ -41,13 +48,27 @@ export function scopeCondition(scope: CalendarScope): SQL | undefined {
       return undefined;
     case "self":
       return eq(user.id, scope.viewerId);
+    case "departments":
+      return or(
+        eq(user.id, scope.viewerId),
+        eq(user.managerId, scope.viewerId),
+        ...(scope.departmentIds.length === 0 ? [] : [inArray(user.departmentId, [...scope.departmentIds])]),
+      );
     case "team":
       return or(
         eq(user.id, scope.viewerId),
         eq(user.managerId, scope.viewerId),
-        ...(scope.managerId === null ? [] : [eq(user.id, scope.managerId), eq(user.managerId, scope.managerId)]),
+        ...(scope.managerId === null ? [] : [teamAroundManager(scope.managerId, scope.departmentIds)]),
       );
   }
+}
+
+/** The viewer's manager and those who share them, kept to `departmentIds` when given. */
+function teamAroundManager(managerId: string, departmentIds: readonly string[] | undefined): SQL | undefined {
+  const around = or(eq(user.id, managerId), eq(user.managerId, managerId));
+  if (departmentIds === undefined) return around;
+  if (departmentIds.length === 0) return sql`false`;
+  return and(around, inArray(user.departmentId, [...departmentIds]));
 }
 
 /** Every company with its calendar settings, for jobs that run across all of them. */
@@ -146,6 +167,7 @@ export async function listTeamEntries(
       ...entryFields,
       personName: user.name,
       personEmail: user.email,
+      managerId: user.managerId,
       departmentId: user.departmentId,
       departmentName: departments.name,
     })

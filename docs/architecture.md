@@ -287,7 +287,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings, appearance or logo saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, approvalMode, colleagueVisibility, theme, accentColor, corners, requestStyle, layout, logo, actorId` |
+| `company.updated` | Company settings, appearance or logo saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, approvalMode, colleagueVisibility, departmentScoping, theme, accentColor, corners, requestStyle, layout, logo, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -784,14 +784,25 @@ CRON_TZ=America/Chicago
 - `/calendar/subscriptions`: the two feeds (below), linked from both pages.
 
 **Whose time off a person sees.** One rule, in `domain/calendar-visibility.ts`: `calendarScopeFor(viewer,
-company)` returns a `CalendarScope` (`everyone`, `team` or `self`), and every reader filters by it: Who's out,
-the calendar's filters, `/team/[id]` (a 404 outside it) and the team calendar link (its owner's scope, read on
-every fetch). The SQL form is `scopeCondition` in `repositories/calendar.ts`, which `listTeamEntries` takes;
+company)` returns a `CalendarScope` (`everyone`, `departments`, `team` or `self`), loaded by `scopeOf` /
+`loadCalendarScope` (`services/calendar-scope.ts`), and every reader filters by it: Who's out, the calendar's
+filters, `/team/[id]` (a 404 outside it) and the team calendar link (its owner's scope, read on every fetch). The SQL form is `scopeCondition` in `repositories/calendar.ts`, which `listTeamEntries` takes;
 `canSeeOnCalendar` is the same rule for one person. Admins and managers see everyone. Employees see what
 **Admin → Company → People can see the time off of** allows (`companies.colleague_visibility`): everyone (the
 default), their team (themself, their manager, the others who report to that manager, and their own direct
 reports; with no manager, only themself and their reports), or only their own. An unknown stored value reads as
-`self`. Approvers' "also off" lines are not filtered. A new kind of scope is a new `CalendarScope` case handled in
+`self`.
+
+**Department scoping** (Admin → Company → Keep people to their own departments, `companies.department_scoping`,
+off by default) narrows that for everyone but admins: managers, and employees who could see everyone, get the
+`departments` scope instead, which is themself, their direct reports wherever they sit, and everyone in their own
+department and the departments they manage (`departments.manager_id`; one more query, only when the setting is on).
+Someone in no department sees themself and their reports. `team` and `self` stay as they are. Under it the
+calendar's Everyone pill reads "My department(s)", My team keeps only the people inside those departments, and
+Who's out offers only those departments. Approvers' "also off" lines (the approvals inbox and request emails)
+are filtered by their reader's scope only while it is on; otherwise they name anyone in the requester's
+department, or anyone at all, as before. Reports are unaffected: managers already see only their direct reports
+there. A new kind of scope is a new `CalendarScope` case handled in
 `canSeeOnCalendar` and `scopeCondition`.
 
 The month view of `/calendar` shows the person's own leave by default; `?show=team` or `?show=everyone` add

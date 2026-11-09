@@ -44,6 +44,8 @@ export interface CompanySettingsInput {
   approvalMode?: string;
   /** What employees see of colleagues' time off (`COLLEAGUE_VISIBILITY`). Left as it is when absent. */
   colleagueVisibility?: string;
+  /** Limit everyone but admins to their departments. Left as it is when absent. */
+  departmentScoping?: boolean;
 }
 
 export interface CompanySettings {
@@ -59,6 +61,8 @@ export interface CompanySettings {
   /** Present only when the input set it. */
   approvalMode?: ApprovalMode;
   colleagueVisibility?: ColleagueVisibility;
+  /** Present only when the input set it. */
+  departmentScoping?: boolean;
 }
 
 /**
@@ -95,6 +99,7 @@ export function normalizeCompanySettings(input: CompanySettingsInput, currentTim
     if (!isColleagueVisibility(input.colleagueVisibility)) throw new DomainError("invalid_input", "Unknown choice for who sees colleagues' time off.");
     out.colleagueVisibility = input.colleagueVisibility;
   }
+  if (input.departmentScoping !== undefined) out.departmentScoping = input.departmentScoping === true;
   return out;
 }
 

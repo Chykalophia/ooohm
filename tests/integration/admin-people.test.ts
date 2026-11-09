@@ -5,7 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { INVITE_SUBJECT } from "@/server/email/invite-email";
+import { INVITE_SUBJECT } from "@/server/notifications/templates/invite";
 import {
   deactivatePerson,
   getPersonDetail,

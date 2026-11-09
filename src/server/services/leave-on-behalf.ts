@@ -15,7 +15,7 @@ import { findPerson, lockPerson, type PersonRow } from "@/server/repositories/us
 import { assessLeaveRequest, draftRange, type LeaveDraft } from "./balances";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { SUBMIT_LIMIT, SUBMIT_WINDOW_MINUTES, type SubmitLeaveInput } from "./leave-requests";
-import { commitThenNotify, type Outgoing } from "./notify";
+import { commitThenNotify, type Notification } from "./notify";
 
 /**
  * Who `actor` would add time off for, and whether they may see that person's balance:
@@ -99,7 +99,7 @@ export async function addLeaveFor(
   if (!isUuid(userId)) throw new DomainError("not_found");
   if (!isUuid(input.leaveTypeId)) throw new DomainError("leave_type_unavailable");
 
-  return commitThenNotify(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     // The order submit locks in: company (shared), then the member the leave is for.
     await shareLockCompany(tx, actor.companyId);
     const person = await lockPerson(tx, actor.companyId, userId);
@@ -135,12 +135,13 @@ export async function addLeaveFor(
     const contacts = await activeContacts(tx, actor.companyId, [subject.id, actor.id]);
     const them = contacts.get(subject.id);
     const me = contacts.get(actor.id);
-    const mail: Outgoing[] = [];
+    const mail: Notification[] = [];
     if (them) {
       mail.push({
+        type: "leave.added",
         to: them.email,
-        email: {
-          kind: "added",
+        data: {
+          requestId: approved.id,
           recipientName: them.name,
           leave: summarize(approved, them, assessment.leaveType.name),
           addedByName: me ? personLabel(me) : "",
@@ -148,6 +149,6 @@ export async function addLeaveFor(
         },
       });
     }
-    return { result: { ...approved, personName: personLabel(subject) }, outgoing: mail };
+    return { result: { ...approved, personName: personLabel(subject) }, notify: mail };
   });
 }

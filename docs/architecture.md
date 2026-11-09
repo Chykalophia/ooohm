@@ -9,9 +9,10 @@ TypeScript that can be tested without a browser, a server or a database.
 Dependencies point downward only. A layer never imports from one above it. `pnpm lint` enforces this table
 with per-directory `no-restricted-imports` rules in `eslint.config.mjs`; change both together. Those rules match
 import specifiers, so imports across directories use the `@/` alias and a parent-relative (`../`) import is a
-lint error everywhere under `src/`. `src/server/email/**` (templates) and `src/server/context.ts` (the
+lint error everywhere under `src/`. `src/server/notifications/templates/**` (email templates) and `src/server/context.ts` (the
 `ServiceContext` type) sit just below services: no Next.js, database, schema, Drizzle, `env`, `auth`, services or
-repositories. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
+repositories. The rest of `src/server/notifications` (the catalog of email types and the after-commit sender) sits
+beside services: it may read through repositories (the company accent) but never calls a service. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
 one-time imports, M7: they read another system's files into domain records and never touch OOOhm's database)
 follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
 `scripts/*.mts` (migrate, seed, rollover, the outbox worker, the TimeOff import) are composition roots for
@@ -22,7 +23,7 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 | --- | --- | --- | --- |
 | Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | services, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
 | Shared UI | `src/components/**` | Reusable components and class recipes that render what a page passes in | domain types and pure functions, `lib` (not `env`, `db`, `auth`); never `src/app` or `src/server` |
-| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/email`, `lib` (not `env`, `db`, `auth`) |
+| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/notifications`, `lib` (not `env`, `db`, `auth`) |
 | Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
 | Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
 | Infrastructure | `src/lib/**`, `src/db/**` | Env, logging, mail transport, auth, formatting, schema, the connection pool | `domain` (pure functions and types, e.g. `toActor` for `requireActor`) |
@@ -332,12 +333,28 @@ time zone (`todayInTimeZone`).
 
 ### Email
 
-Notification emails (`src/server/email/leave-emails.ts`) have fixed subjects. Names, notes and reasons go in
-the body only (HTML-escaped there), never in a header; names are also collapsed to one line of at most 100
-characters. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
+Every email a change sends goes through one module, `src/server/notifications`:
+
+- `catalog.ts` lists each notification type (`leave.requested`, `leave.approved`, …, `invite`) as a
+  `NotificationType`: how to build its email from its data, and what to log if that fails.
+- `templates/` holds the pure renderers (`leave.ts`, `invite.ts`) on the shared layout in `src/lib/email-layout.ts`.
+  The leave emails share one layout; each kind supplies only its words (`LEAVE_COPY`).
+- `send.ts` sends after commit: it reads the company's accent once (`accent.ts`), builds each email, and isolates
+  each send.
+
+A service's `work` callback returns `{ result, notify }` to `commitThenNotify(ctx, companyId, work)`, which returns
+`result` once the change commits; each notification is `{ type, to, data }`. A service never renders or sends an email itself. To add an email, write its template, add a catalog
+entry, and return it from the service. The sign-in link someone asks for on the sign-in page is the one email outside
+the module: Better Auth sends it (`src/lib/auth.ts`, template in `src/lib/sign-in-email.ts`), outside any change.
+`tests/unit/email-output.test.ts` pins every email's output; update its snapshot only for a deliberate change.
+
+Notification emails have fixed subjects, except the request email's, which names the requester and the dates.
+Notes and reasons go in the body only (HTML-escaped there), never in a header; names are collapsed to one line of
+at most 100 characters, so the one that reaches a subject cannot add a header. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
 (`renameSelf`), which normalizes it and records it as their own `user.updated`, since a name reaches approvers'
 inboxes and emails. Sends run after commit (`after()` in the app), each in
-its own try/catch; failures are logged as `leave_email_failed` with the request id and email kind, never the
+its own try/catch; failures are logged as the type's failure event (`leave_email_failed` with the request id and email kind, or
+`invite_email_failed` with the person's id), never the
 address, and never fail the user's action.
 
 ## Leave requests (M2)
@@ -1530,7 +1547,7 @@ Who calls it is `OOOHM_BACKGROUND` (`src/lib/background-mode.ts`):
 
 - `worker` (the default; compose sets it): `scripts/worker.mts` runs each step in its own loop.
 - `inline` (the default on Vercel and in embedded mode): **after a transaction that wrote outbox events commits**,
-  the services' after-commit seam (`inTransaction` and `commitThenSend` in `src/server/services/notify.ts`, which every
+  the services' after-commit seam (`inTransaction` and `commitThenNotify` in `src/server/services/notify.ts`, which every
   service the app calls goes through to record a change) calls `ctx.defer(ctx.wake)`. `recordChange` marks the transaction that wrote an event,
   so a refused or rolled-back change, or a read, wakes nothing. In the app `defer` is `after()`, so the tick runs after
   the response and Vercel keeps the function alive for it (`waitUntil`); it never blocks or fails the request, and an

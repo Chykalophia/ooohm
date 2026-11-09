@@ -1,6 +1,6 @@
 import { displayName } from "@/domain/person";
 import { buttons, DEFAULT_EMAIL_ACCENT, type EmailAccent, emailDocument, escapeHtml, heading, link, paragraph } from "@/lib/email-layout";
-import type { EmailContent } from "./leave-emails";
+import type { EmailContent } from "./content";
 
 /**
  * The invite an admin's "Invite" or "Resend invite" sends: who added the person, and a

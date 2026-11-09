@@ -231,6 +231,7 @@ export function DatePicker({
         <span
           ref={popup}
           role="dialog"
+          data-date-picker
           aria-modal="true"
           aria-label={`Choose ${label.toLowerCase()}`}
           onKeyDown={onDialogKey}

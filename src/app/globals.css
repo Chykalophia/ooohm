@@ -395,6 +395,14 @@ body,
 [data-ui="frost"] .bg-surface {
   backdrop-filter: blur(var(--surface-blur));
 }
+/*
+ * The date picker's popup sits inside a card that already blurs, and a blur inside a
+ * blur only sees that card, so the page behind would read straight through the glass.
+ * It floats over other content, so it is solid.
+ */
+[data-ui="frost"] [data-date-picker] {
+  background-color: #ffffff;
+}
 
 :is(button, a).bg-accent {
   border-radius: var(--button-radius);
@@ -536,6 +544,17 @@ body,
 [data-layout="legible"] label:has(> :is(input[type="radio"], input[type="checkbox"])) {
   min-height: 3rem;
   align-items: center;
+}
+/*
+ * The date picker (components/forms/date-picker.tsx): seven 3rem days plus its 1rem
+ * padding each side, so every day gets the 48px target. Where the screen is narrower
+ * than that (phones), a day fills its column instead of growing past it.
+ */
+[data-layout="legible"] [data-date-picker] {
+  width: min(23rem, calc(100vw - 2rem));
+}
+[data-layout="legible"] [data-date-picker] [role="gridcell"] {
+  min-height: 0;
 }
 [data-layout="legible"] :focus-visible {
   outline: 3px solid var(--foreground) !important;

@@ -149,7 +149,7 @@ function SentenceFields({
 
 /** A date inside the sentence, shown in words ("Mon, Nov 23"), picked from a themed calendar. */
 function DateToken(props: { name: string; label: string; value: string; min?: string; onChange: (value: string) => void }) {
-  return <DatePicker {...props} className={token} />;
+  return <DatePicker {...props} className={cx(token, focusRing)} />;
 }
 
 function Caret() {

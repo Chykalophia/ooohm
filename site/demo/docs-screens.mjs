@@ -346,16 +346,19 @@ const browser = await chromium.launch();
 try {
   for (const [name, shot] of Object.entries(SHOTS)) {
     if (wanted.length && !wanted.includes(name)) continue;
-    setCompany("theme", "classic");
-    for (const [column, value] of Object.entries(shot.company ?? {})) setCompany(column, value);
-    const options = { viewport: shot.size ?? DESKTOP, deviceScaleFactor: 2, colorScheme: "light" };
-    const ctx = shot.as ? await signedInContext(browser, `${shot.as}@example.com`, options) : await browser.newContext(options);
-    if (shot.calm) await ctx.addInitScript((css) => addEventListener("DOMContentLoaded", () => { const s = document.createElement("style"); s.textContent = css; document.head.append(s); }), CALM);
-    const page = await ctx.newPage();
     try {
-      await shot.run(page);
+      setCompany("theme", "classic");
+      for (const [column, value] of Object.entries(shot.company ?? {})) setCompany(column, value);
+      const options = { viewport: shot.size ?? DESKTOP, deviceScaleFactor: 2, colorScheme: "light" };
+      const ctx = shot.as ? await signedInContext(browser, `${shot.as}@example.com`, options) : await browser.newContext(options);
+      try {
+        if (shot.calm) await ctx.addInitScript((css) => addEventListener("DOMContentLoaded", () => { const s = document.createElement("style"); s.textContent = css; document.head.append(s); }), CALM);
+        await shot.run(await ctx.newPage());
+      } finally {
+        await ctx.close();
+      }
     } finally {
-      await ctx.close();
+      // Put the company back even when sign-in or setup fails.
       const back = JSON.parse(original);
       for (const [column, value] of Object.entries(back)) setCompany(column, value);
     }

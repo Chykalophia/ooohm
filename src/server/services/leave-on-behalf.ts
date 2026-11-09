@@ -1,5 +1,5 @@
 import type { Actor } from "@/domain/actor";
-import { remainingAfter, type RequestCost } from "@/domain/allowance-policy";
+import { remainingAfter, resolveAllowancePolicy, type RequestCost } from "@/domain/allowance-policy";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { personLabel } from "@/domain/person";
@@ -13,12 +13,13 @@ import { insertRequestDays } from "@/server/repositories/balances";
 import { findCompany, shareLockCompany } from "@/server/repositories/companies";
 import { findDepartment } from "@/server/repositories/departments";
 import { countRecentRequests, findLeaveRequest, insertLeaveRequest, lockLeaveRequest, type LeaveRequestRow, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
-import { findLeaveType } from "@/server/repositories/leave-types";
+import { findLeaveTypeForAdmin } from "@/server/repositories/leave-types";
 import { findPerson, lockPerson, type PersonRow } from "@/server/repositories/users";
 import { assessLeaveRequest, draftRange, type LeaveDraft } from "./balances";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { SUBMIT_LIMIT, SUBMIT_WINDOW_MINUTES, type SubmitLeaveInput } from "./leave-requests";
 import { commitThenNotify, type Notification } from "./notify";
+import { recarryMemberLeaveType } from "./rollover";
 
 /**
  * The facts about `person` that decide who manages them ({@link PersonOwnership}):
@@ -176,7 +177,8 @@ export async function addLeaveFor(
  * The request becomes `cancelled`, with the reason in `decision_note`, and is recorded as
  * `cancelled` by the one removing it, so the audit log and the outbox name who did it and
  * why (the audit row's `before` keeps the approver's earlier note). Its days are back in
- * the person's balance. The person is emailed. To change the dates, remove it and add
+ * the person's balance (leave that began last year re-carries last year's unused days at
+ * once). The person is emailed. To change the dates, remove it and add
  * the right ones ({@link addLeaveFor}).
  *
  * @throws DomainError `invalid_input` (no reason, or one over the note limit), `not_found`,
@@ -202,7 +204,8 @@ export async function removeLeaveFor(ctx: ServiceContext, actor: Actor, requestI
     if (!before || before.userId !== person.id) throw new DomainError("not_found");
     const company = await findCompany(tx, actor.companyId);
     if (!company) throw new DomainError("no_company");
-    assertRemovableOn(before, todayInTimeZone(company.timezone, ctx.now()));
+    const today = todayInTimeZone(company.timezone, ctx.now());
+    assertRemovableOn(before, today);
 
     const after = await updateStatusIfCurrent(
       tx,
@@ -212,10 +215,25 @@ export async function removeLeaveFor(ctx: ServiceContext, actor: Actor, requestI
     if (!after) throw new DomainError("conflict");
     await recordLeaveChange(tx, { event: "cancelled", before, after, source: actor.source });
 
+    // Leave that began last year gives last year's days back too: re-carry them into this
+    // year now, as the rollover would, rather than at its next nightly run.
+    const leaveType = await findLeaveTypeForAdmin(tx, actor.companyId, after.leaveTypeId);
+    const currentYear = Number(today.slice(0, 4));
+    if (leaveType && person.isActive && Number(before.startDate.slice(0, 4)) < currentYear) {
+      await recarryMemberLeaveType(tx, {
+        companyId: actor.companyId,
+        timezone: company.timezone,
+        policy: resolveAllowancePolicy(company.allowancePolicy),
+        member: person,
+        leaveType,
+        closingYear: currentYear - 1,
+        source: actor.source,
+      });
+    }
+
     const contacts = await activeContacts(tx, actor.companyId, [after.userId, actor.id]);
     const them = contacts.get(after.userId);
     const me = contacts.get(actor.id);
-    const leaveType = await findLeaveType(tx, actor.companyId, after.leaveTypeId);
     const mail: Notification[] = [];
     if (them) {
       mail.push({

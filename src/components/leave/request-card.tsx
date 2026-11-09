@@ -45,13 +45,14 @@ export function RequestCard({
 }) {
   const dates = formatLeaveDates(r.startDate, r.endDate, r.dayPortion);
   // Time off that won't happen sits back in grey, its colour dot too, so it never reads as booked.
-  // `!`: the Tonal layout tints every bordered card, and grey has to win there too.
+  // `!`: the Tonal layout tints every bordered card, and grey has to win there too. On the page's
+  // own ground, the border stays (Tonal and Grouped hide card borders), so the card keeps its edge.
   const away = isSettledAway(r.status);
   return (
     <li
       className={cx(
-        "group relative rounded-2xl border border-border p-4 transition duration-150",
-        away ? "!bg-background text-muted [&_[data-swatch]]:opacity-50 [&_[data-swatch]]:grayscale" : "bg-surface",
+        "group relative rounded-2xl border p-4 transition duration-150",
+        away ? "!border-border !bg-background text-muted [&_[data-swatch]]:opacity-50 [&_[data-swatch]]:grayscale" : "border-border bg-surface",
         "hover:border-foreground/25 hover:shadow-md motion-safe:hover:-translate-y-0.5",
       )}
     >

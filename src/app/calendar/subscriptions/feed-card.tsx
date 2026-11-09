@@ -45,6 +45,7 @@ function NewLink({ url, links }: { url: string; links: AddToCalendarLinks }) {
             Outlook<span className="sr-only"> (opens in a new tab)</span>
           </a>
         </div>
+        <p className="text-sm text-muted">Google Calendar adds a subscription on a computer only, not in its phone app.</p>
       </div>
       <div className="space-y-2">
         <CopyField label="Or copy the link" value={url} copyLabel="Copy link" selectedText="The link is selected." />

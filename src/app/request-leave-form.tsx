@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { PendingLabel } from "@/components/ui/ooo-dots";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
 import { type FormState, IDLE, nextFormKey } from "@/components/forms/form-state";
+import { DateField } from "@/components/forms/date-field";
 import { FormStatus } from "@/components/forms/form-status";
 import { useFormAction } from "@/components/forms/use-form-action";
 import { ADD_LEAVE_FORM_ID, REQUEST_FORM_ID } from "@/components/layout/anchors";
-import { ChoiceChip, Fieldset, SelectField, TextAreaField, TextField } from "@/components/ui/fields";
+import { ChoiceChip, Fieldset, SelectField, TextAreaField } from "@/components/ui/fields";
 import { Section } from "@/components/ui/section";
 import { cx, errorText, primaryButton } from "@/components/ui/styles";
 import type { LeavePreviewResponse } from "./_lib/leave-input";
@@ -197,16 +198,8 @@ function Fields({
           onChange={(e) => setLeaveTypeId(e.target.value)}
           options={leaveTypes.map((t) => ({ value: t.id, label: t.name }))}
         />
-        <TextField label="From" type="date" name="startDate" required value={startDate} onChange={(e) => changeStart(e.target.value)} />
-        <TextField
-          label="To"
-          type="date"
-          name="endDate"
-          required
-          min={startDate}
-          value={endDate}
-          onChange={(e) => changeEnd(e.target.value)}
-        />
+        <DateField label="From" pickerLabel="First day" name="startDate" value={startDate} onChange={changeStart} />
+        <DateField label="To" pickerLabel="Last day" name="endDate" min={startDate} value={endDate} onChange={changeEnd} />
       </div>
 
       <Fieldset legend="How much of the day" hint={singleDay ? undefined : "Half days are for a single date."} className="space-y-1.5">

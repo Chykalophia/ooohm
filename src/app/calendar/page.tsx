@@ -103,7 +103,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       >
         <section aria-labelledby={HEADING_ID} className="space-y-4">
           <YearNav nav={nav} href={(y) => `/calendar?view=year&year=${y}`} headingId={HEADING_ID} />
-          {!yearHasHolidays(months) && <NoHolidaysNote year={nav.year} admin={page.nav.admin} />}
+          {!yearHasHolidays(months) && isHolidayYear(nav.year) && <NoHolidaysNote year={nav.year} admin={page.nav.admin} />}
           <YearGrid months={months} />
         </section>
         <SubscribeLink />
@@ -148,14 +148,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
 
 /**
  * Holidays are added a year at a time (Admin → Holidays), so a year nobody has filled in
- * yet shows none. Says so, rather than leaving people to think they were lost.
+ * yet shows none. Says so, rather than leaving people to think they were lost. Only for
+ * the years Admin → Holidays opens (2000 to 2100): no one can add another year's.
  */
 function NoHolidaysNote({ year, admin }: { year: number; admin: boolean }) {
   return (
     <p className="text-sm text-muted">
       No company holidays have been added for {year} yet.{" "}
-      {/* Admin → Holidays only opens 2000 to 2100; another year would land on this one. */}
-      {admin && isHolidayYear(year) ? (
+      {admin ? (
         <Link href={`/admin/holidays?year=${year}`} className={cx(textLink, "font-medium text-accent-ink")}>
           Add {year}&apos;s holidays
         </Link>

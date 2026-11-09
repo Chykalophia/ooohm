@@ -5,9 +5,10 @@ import * as schema from "@/db/schema";
 import { isDomainError } from "@/domain/errors";
 import { cancelLeaveRequest, getDashboard } from "@/server/services/leave-requests";
 import { addLeaveFor, previewLeaveFor, removeLeaveFor } from "@/server/services/leave-on-behalf";
+import { runYearRollover } from "@/server/services/rollover";
 import { getTeamMember } from "@/server/services/team-member";
 import { rejectsWith } from "./assertions";
-import { addLeaveType, auditFor, eventsFor, requestsOf, seedCompany } from "./fixtures";
+import { addLeaveType, allowancesOf, auditFor, companyAudit, eventsFor, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 // Dates: 2026-11-02 is a Monday; 2026-11-26 (Thu) is the seeded holiday.
@@ -244,6 +245,29 @@ describe("leave requests: added for someone by a manager or admin", { skip }, ()
       const req = await pastLeaveOf(co);
       await t.db.update(schema.user).set({ managerId: boss.id }).where(eq(schema.user.id, ana.id));
       await rejectsWith(removeLeaveFor(ctx, mo, req.id, "no longer mine"), "forbidden");
+    });
+
+    test("removing leave that began last year re-carries last year's unused days at once", async () => {
+      const co = await seedCompany(t.db, {
+        mo: { role: "manager" },
+        ana: { managerKey: "mo", createdAt: "2025-01-01T00:00:00Z" },
+      });
+      const { mo, ana } = co.people;
+      const vac = await addLeaveType(t.db, co.companyId, { code: "VAC", defaultAllowanceDays: 10, carryoverEnabled: true, carryoverMaxDays: 20 });
+      await setAllowance(t.db, { userId: ana.id, leaveTypeId: vac, year: 2026, days: 10 });
+      // Mon Dec 28 2026 to Tue Jan 5 2027: four days in 2026 and three in 2027 (no holidays seeded here).
+      const december = createTestContext(t.db, { now: new Date("2026-12-14T12:00:00Z") });
+      const req = await addLeaveFor(december, mo, ana.id, { leaveTypeId: vac, startDate: "2026-12-28", endDate: "2027-01-05", dayPortion: "full" });
+      await december.settle();
+      const january = createTestContext(t.db, { now: new Date("2027-01-04T12:00:00Z") });
+      await runYearRollover(january, 2026);
+      const carried = async () => (await allowancesOf(t.db, ana.id)).find((r) => r.leaveTypeId === vac && r.year === 2027)?.carriedOverDays;
+      assert.equal(await carried(), 6, "10 less the four December days");
+
+      await removeLeaveFor(january, mo, req.id, "Entered by mistake");
+      assert.equal(await carried(), 10, "the December days carry without waiting for the nightly run");
+      const carry = (await companyAudit(t.db, co.companyId, "allowance.carried_over")).at(-1);
+      assert.deepEqual([carry?.actorKind, carry?.actorId], ["user", mo.id], "the re-carry names the manager who removed it");
     });
   });
 });

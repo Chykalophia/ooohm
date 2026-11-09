@@ -41,6 +41,7 @@ const leaveCases: Record<string, LeaveEmail> = {
   headsUp: { kind: "heads_up", recipientName: "Mo", leave: leave({ note: "Family visit" }), alsoOff: "Aisha Khan is off then too.", link: "https://x/calendar" },
   added: { kind: "added", recipientName: "Ana", leave: leave({ note: "Feel better" }), addedByName: "Mo Reyes", link: "https://x/" },
   addedUnnamed: { kind: "added", recipientName: "Ana", leave: leave(), addedByName: " ", link: "https://x/" },
+  removed: { kind: "removed", recipientName: "Ana", leave: leave(), removedByName: "Mo Reyes", reason: "Booked twice", link: "https://x/requests" },
   rejected: { kind: "rejected", recipientName: "Ana", leave: leave(), reason: "Launch week", link: "https://x/" },
   rejectedHostile: { kind: "rejected", recipientName: hostile, leave: leave({ requesterName: hostile }), reason: hostile, link: "https://x/" },
   cancelledRequester: { kind: "cancelled_requester", recipientName: "Ana", leave: leave(), link: "https://x/" },

@@ -23,7 +23,7 @@ test("appearance: known themes and corners pass, the accent is normalized or cle
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: "  ", corners: "theme" }).accentColor, null);
   assert.equal(normalizeAppearance({ theme: "plum", accentColor: null, corners: "theme" }).accentColor, null);
   assert.equal(
-    normalizeAppearance({ theme: "classic", accentColor: "#0F766E", corners: "theme" }).accentColor,
+    normalizeAppearance({ theme: "classic", accentColor: "#115E59", corners: "theme" }).accentColor,
     null,
     "the theme's own accent is no custom accent, so Classic keeps dark mode",
   );

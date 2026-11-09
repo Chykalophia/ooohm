@@ -67,6 +67,16 @@ export type LeaveEmail =
       addedByName: string;
       link: string;
     }
+  | {
+      kind: "removed";
+      recipientName: string;
+      leave: LeaveSummary;
+      /** The manager or admin who removed the recipient's time off, to correct the record. */
+      removedByName: string;
+      /** Why, as they gave it (required). */
+      reason: string;
+      link: string;
+    }
   | { kind: "rejected"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
   | { kind: "cancelled_requester"; recipientName: string; leave: LeaveSummary; link: string }
   | { kind: "cancelled_approver"; recipientName: string; leave: LeaveSummary; link: string }
@@ -148,6 +158,15 @@ export const LEAVE_KINDS: { [K in LeaveKind]: LeaveKindSpec<K> } = {
     values: (email) => ({ added_by: email.addedByName || "Someone" }),
     details: (email) => ({ extra: email.leave.note ? { label: "Note", value: email.leave.note, quoted: true } : undefined }),
   },
+  removed: {
+    defaults: {
+      subject: "Time off was removed for you",
+      message: "{{removed_by}} removed your {{leave_type}}, {{dates}}: {{days}}. Those days are back in your balance.",
+    },
+    variables: [{ name: "removed_by", description: "The name of the manager or admin who removed it" }],
+    values: (email) => ({ removed_by: email.removedByName || "Someone" }),
+    details: (email) => ({ extra: { label: "Reason", value: email.reason, quoted: true } }),
+  },
   rejected: {
     defaults: { subject: "Your time off request was declined", message: "Your {{leave_type}} request was declined, {{dates}}: {{days}}." },
     details: (email) => ({ extra: email.reason ? { label: "Reason", value: email.reason, quoted: true } : undefined }),
@@ -224,6 +243,7 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
     recipientName: displayName(input.recipientName),
     leave: { ...input.leave, requesterName: displayName(input.leave.requesterName) },
     ...(input.kind === "added" ? { addedByName: displayName(input.addedByName) } : {}),
+    ...(input.kind === "removed" ? { removedByName: displayName(input.removedByName) } : {}),
   } as LeaveEmail;
   const { link } = email;
   const spec = LEAVE_KINDS[email.kind] as LeaveKindSpec<LeaveKind>;

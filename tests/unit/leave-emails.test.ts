@@ -133,7 +133,7 @@ test("half days say which half", () => {
 test("emails take the company's accent: on the main button, and readable on pale accents", () => {
   const out = renderLeaveEmail({ ...kinds[0], approveLink: "https://x/approve/t" } as LeaveEmail, emailAccent({ theme: "cobalt", accentColor: null }));
   assert.match(out.html, /background:#2546d0;color:#ffffff[^"]*">Approve<\/a>/);
-  assert.doesNotMatch(out.html, /#0f766e/, "no classic teal left over");
+  assert.doesNotMatch(out.html, /#115e59/, "no classic teal left over");
 
   const custom = renderLeaveEmail(kinds[1], emailAccent({ theme: "classic", accentColor: "#C026D3" }));
   assert.match(custom.html, /background:#c026d3/);
@@ -146,7 +146,7 @@ test("emails take the company's accent: on the main button, and readable on pale
 
   assert.deepEqual(emailAccent(null), DEFAULT_EMAIL_ACCENT);
   assert.deepEqual(emailAccent({ theme: "from-a-newer-version", accentColor: null }), DEFAULT_EMAIL_ACCENT);
-  assert.match(renderLeaveEmail(kinds[1]).html, /background:#0f766e/, "classic teal by default");
+  assert.match(renderLeaveEmail(kinds[1]).html, /background:#115e59/, "classic teal by default");
 });
 
 test("a request email with an approve link leads with Approve, then Open in OOOhm", () => {
@@ -156,7 +156,7 @@ test("a request email with an approve link leads with Approve, then Open in OOOh
   assert.ok(out.html.indexOf(">Approve</a>") < out.html.indexOf(">Open in OOOhm</a>"));
   assert.match(out.html, /To decline, open the request in OOOhm/);
   assert.match(out.text, /To decline, open the request in OOOhm/, "the plain text says it too");
-  assert.match(out.html, /<td bgcolor="#0f766e"[^>]*><a href="https:\/\/x\/approve\/abc\.def"/, "Outlook-safe: the cell carries the fill");
+  assert.match(out.html, /<td bgcolor="#115e59"[^>]*><a href="https:\/\/x\/approve\/abc\.def"/, "Outlook-safe: the cell carries the fill");
   const without = renderLeaveEmail({ kind: "requested", recipientName: "Jo", leave: leave(), link: "https://x/approvals" });
   assert.doesNotMatch(without.text, /Approve:/);
   assert.match(without.text, /Review in OOOhm: https:\/\/x\/approvals/);

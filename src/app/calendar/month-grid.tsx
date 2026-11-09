@@ -6,7 +6,7 @@ import type { CalendarDay, CalendarViewEntry } from "@/domain/calendar";
 import { formatLeaveDates, formatLongDate } from "@/lib/format";
 import { IDLE } from "@/components/forms/form-state";
 import { LeaveChip } from "@/components/leave/leave-chip";
-import { cx, fieldClass, subtleButton } from "@/components/ui/styles";
+import { cx, selectClass, subtleButton } from "@/components/ui/styles";
 import { type LeaveTypeOption, LeavePreviewLine, SubmitRow, useLeavePreview, useRequestAction } from "@/app/request-leave-form";
 
 const WEEKDAYS = [
@@ -150,6 +150,16 @@ export function MonthGrid({
 
   return (
     <div className="space-y-4">
+      {/*
+        Above the month, so people read how it works before they try it. It never changes
+        while days are picked, so the grid never moves under the pointer; "Sent" news goes
+        under the month instead.
+      */}
+      {canRequest && (
+        <p className="text-sm text-muted">
+          Drag across days, or pick a first and a last day, to ask for time off. With a keyboard, use the arrow keys and Enter, or Shift with an arrow to stretch.
+        </p>
+      )}
       {/* A grid, not a plain table: screen readers then pass the arrow keys to it (focus
           mode) instead of reading the page with them, so moving between days works. */}
       <table role="grid" className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-2xl border border-border">
@@ -262,13 +272,10 @@ export function MonthGrid({
         </tbody>
       </table>
 
+      {/* Kept in place while empty, so screen readers hear "Sent" when it arrives. */}
       {canRequest && !range && (
-        <p aria-live="polite" className="text-sm">
-          {state.status === "success" ? (
-            <span className="text-accent-ink">{state.message}</span>
-          ) : (
-            <span className="text-muted">Drag across days, or pick a first and a last day, to ask for time off. With a keyboard, use the arrow keys and Enter, or Shift with an arrow to stretch.</span>
-          )}
+        <p aria-live="polite" className="text-sm text-accent-ink empty:sr-only">
+          {state.status === "success" ? state.message : null}
         </p>
       )}
       {canRequest && range && (
@@ -332,7 +339,7 @@ function RequestFromRange({
             required
             value={leaveTypeId}
             onChange={(e) => setLeaveTypeId(e.target.value)}
-            className={cx(fieldClass("sm"), "w-auto")}
+            className={cx(selectClass("sm"), "w-auto")}
           >
             {leaveTypes.map((t) => (
               <option key={t.id} value={t.id}>

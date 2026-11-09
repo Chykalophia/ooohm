@@ -39,6 +39,11 @@ export type DomainErrorCode =
    * cancelled by anyone; a past year is corrected with a balance adjustment instead.
    */
   | "past_year_closed"
+  /**
+   * Approved leave of this year that is over (its last day has passed) cannot be
+   * cancelled by its requester; their manager or an admin can remove it to correct it.
+   */
+  | "leave_taken"
   /** The record changed underneath the caller (e.g. a concurrent decision won). */
   | "conflict"
   /** The actor did this too often in a short window; they can retry later. */

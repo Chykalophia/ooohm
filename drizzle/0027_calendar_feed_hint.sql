@@ -1,0 +1,2 @@
+ALTER TABLE "calendar_feed_tokens" ADD COLUMN "token_hint" text;--> statement-breakpoint
+ALTER TABLE "calendar_feed_tokens" ADD CONSTRAINT "calendar_feed_tokens_hint_format" CHECK ("calendar_feed_tokens"."token_hint" is null or "calendar_feed_tokens"."token_hint" ~ '^[A-Za-z0-9_-]{4}$');

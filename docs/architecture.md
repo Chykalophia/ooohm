@@ -459,7 +459,17 @@ refuses with `past_year_closed` and the dashboard shows no Cancel button (`getDa
 request). That leave was taken and its year's balance is settled and carried over, so a past year is corrected with
 an admin's balance adjustment for that year instead. A request spanning New Year counts by its end date: Dec 29 to
 Jan 2 can still be cancelled in the new year, since part of it is in the open year (cancelling it gives back the
-days of both years). A pending request from a past year can still be withdrawn: it was never granted. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
+days of both years). A pending request from a past year can still be withdrawn: it was never granted.
+
+Approved leave of the open year that is **over** (its last day is before today, in the company's time zone:
+`isLeaveOver`) can't be cancelled by its requester either; the service refuses with `leave_taken`, and
+`cancellable` is false. It was taken, so cancelling it would quietly hand the days back. A correction is for their
+direct manager or an admin (`canCorrectLeaveFor`, the same people who may add leave for them): `removeLeaveFor`
+(the **Remove** action on the person's Team page, which for them also lists this year's leave from before its
+60 days) cancels approved leave that isn't from a closed year, past or future (`canRemoveOn`), with a required reason stored in `decision_note`. It is recorded as `leave_request.cancelled` and
+`leave.cancelled` by the one removing it, so the audit log names who and why (its `before` keeps the approver's
+earlier note), and the person is emailed (`removed`). To change dates, remove the leave and add the right ones. A
+closed year's leave still can't be removed. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
 optional reason (max 500 characters) stored in `decision_note`. Every status change is a compare-and-set
 (`UPDATE ... WHERE status = <expected>`), so of two concurrent decisions exactly one wins and the other gets
 `conflict`.
@@ -832,20 +842,28 @@ address (`personLabel`).
 
 ### Feed tokens
 
-`calendar_feed_tokens (id, company_id, user_id, kind personal|team, token_hash, created_at, last_used_at,
-revoked_at)`, migration `0005`.
+`calendar_feed_tokens (id, company_id, user_id, kind personal|team, token_hash, token_hint, created_at,
+last_used_at, revoked_at)`, migration `0005` (`token_hint`: `0021`).
 
 - A token is 32 random bytes in base64url (43 characters), from `src/lib/feed-token.ts`. Only its SHA-256 (hex,
   `CHECK`ed) is stored, under a unique index; the lookup is one index probe on the hash. A plain hash suffices
   because the input is 256 random bits, not a password.
-- The link is shown once, in the server action's response, and never again: OOOhm keeps no copy. The page then
-  shows only when the feed was created and last fetched.
-- "Get a new link" revokes the live link and issues a new one in one transaction; "Turn off" sets `revoked_at`.
+- The link is shown once, in the server action's response, and never again: OOOhm keeps no copy it could read
+  back. Storing the link reversibly so it could be shown twice was considered and refused: a leaked database or
+  backup would then hold every live calendar link, and calendar apps fetch without signing in, so a leak would go
+  unnoticed. The page shows when the feed was created and last fetched, and its last 4 characters
+  (`token_hint`, `CHECK`ed; null for links made before `0021`), so people can tell which link a calendar holds.
+  The other 39 characters (234 random bits) stay secret.
+- With the new link, the page offers one-tap subscribe links (`addToCalendarLinks`, `src/domain/calendar-feed.ts`):
+  Google (`calendar.google.com/calendar/r?cid=webcal://…`), Apple (`webcal://…`) and Outlook on the web
+  (`outlook.office.com/calendar/0/addfromweb?url=…`). Each hands the link to that calendar service, as
+  subscribing does anyway.
+- "Lost it? Replace the link" revokes the live link and issues a new one in one transaction; "Turn off" sets `revoked_at`.
   Both run under the person's member lock, and a partial unique index (`user_id, kind` where `revoked_at is
   null`) backs it up, so one person never has two live links of a kind. Each change writes `audit_log` and
   `events_outbox` rows in the same transaction.
 - Listing, regenerating and turning off match the person and kind, not the person's current company, like the
-  unique index. A link issued before a company move is listed, revoked by "Get a new link" or "Turn off", and its
+  unique index. A link issued before a company move is listed, revoked by "Lost it? Replace the link" or "Turn off", and its
   revoke is recorded under the company it was issued in. Otherwise it would block a new link (unique index) and
   come back to life if the person moved back. v1 has no way to move people between companies (one
   company per deployment); if one is added, it should revoke their live feeds in the same transaction.

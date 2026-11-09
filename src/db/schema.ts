@@ -516,8 +516,9 @@ export const leaveRequestDays = pgTable(
 export const calendarFeedKindEnum = pgEnum("calendar_feed_kind", ["personal", "team"]);
 
 /**
- * Revocable ICS feed links. The token itself is never stored: only its SHA-256 (hex),
- * so a leaked database cannot be turned back into working links. A person has at most
+ * Revocable ICS feed links. The token itself is never stored: only its SHA-256 (hex)
+ * and its last 4 characters (`token_hint`), so a leaked database cannot be turned back
+ * into working links. A person has at most
  * one live (unrevoked) link per kind.
  */
 export const calendarFeedTokens = pgTable(
@@ -532,6 +533,12 @@ export const calendarFeedTokens = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     kind: calendarFeedKindEnum("kind").notNull(),
     tokenHash: text("token_hash").notNull(),
+    /**
+     * The token's last 4 characters, shown to its owner so they can tell which link a
+     * calendar holds. Not enough to rebuild or guess the link. Null for links issued
+     * before it was kept.
+     */
+    tokenHint: text("token_hint"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     /** Last time a calendar app fetched the feed; updated at most hourly. */
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
@@ -541,6 +548,7 @@ export const calendarFeedTokens = pgTable(
     uniqueIndex("calendar_feed_tokens_hash_uq").on(t.tokenHash),
     uniqueIndex("calendar_feed_tokens_live_uq").on(t.userId, t.kind).where(sql`${t.revokedAt} is null`),
     check("calendar_feed_tokens_hash_format", sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`),
+    check("calendar_feed_tokens_hint_format", sql`${t.tokenHint} is null or ${t.tokenHint} ~ '^[A-Za-z0-9_-]{4}$'`),
   ],
 );
 

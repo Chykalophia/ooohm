@@ -190,6 +190,13 @@
       "when": 1794189492703,
       "tag": "0026_company_logo",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794189648606,
+      "tag": "0027_calendar_feed_hint",
+      "breakpoints": true
     }
   ]
 }

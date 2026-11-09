@@ -36,8 +36,9 @@ test("approved leave that ended before this year is closed; the year turns on th
 });
 
 test("a request spanning New Year counts by its end date: cancellable while any of it is in the open year", () => {
-  // Mon Dec 29 2025 to Fri Jan 2 2026, cancelled in 2026: allowed, since part is in 2026.
-  assert.equal(canCancelOn({ status: "approved", endDate: "2026-01-02" }, "2026-03-01"), true);
+  // Mon Dec 29 2025 to Fri Jan 2 2026, cancelled on Jan 1 2026: allowed, since part is in 2026 and not over.
+  assert.equal(canCancelOn({ status: "approved", endDate: "2026-01-02" }, "2026-01-01"), true);
+  assert.equal(isClosedYearLeave({ status: "approved", endDate: "2026-01-02" }, "2026-03-01"), false, "not closed, only over");
   // The same request a year later: all of it is in closed years.
   assert.equal(canCancelOn({ status: "approved", endDate: "2026-01-02" }, "2027-01-01"), false);
 });
@@ -53,5 +54,5 @@ test("only approved leave is closed: a pending request from a past year can stil
 test("cancelling closed-year leave throws past_year_closed; a finished request still throws invalid_transition", () => {
   assert.throws(() => assertCancellableOn({ status: "approved", endDate: "2025-05-02" }, "2026-11-01"), (e) => isDomainError(e, "past_year_closed"));
   assert.throws(() => assertCancellableOn({ status: "cancelled", endDate: "2025-05-02" }, "2026-11-01"), (e) => isDomainError(e, "invalid_transition"));
-  assert.doesNotThrow(() => assertCancellableOn({ status: "approved", endDate: "2026-05-02" }, "2026-11-01"));
+  assert.doesNotThrow(() => assertCancellableOn({ status: "approved", endDate: "2026-12-02" }, "2026-11-01"));
 });

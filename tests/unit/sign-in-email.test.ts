@@ -11,7 +11,7 @@ test("the sign-in email carries the link in both parts, escaped in HTML", () => 
   assert.ok(email.text.includes(url));
   assert.ok(email.text.includes("expires in 15 minutes"));
   assert.ok(email.html.includes('href="https://ooohm.team/api/auth/magic-link/verify?token=abc&amp;callbackURL=%2F"'));
-  assert.match(email.html, /bgcolor="#0f766e"/, "classic teal by default");
+  assert.match(email.html, /bgcolor="#115e59"/, "classic teal by default");
 });
 
 test("the sign-in button takes the company's accent", () => {

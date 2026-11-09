@@ -98,6 +98,7 @@ test("the catalog names every email the app sends", () => {
     "leave.heads_up",
     "leave.recounted",
     "leave.rejected",
+    "leave.removed",
     "leave.requested",
   ]);
 });

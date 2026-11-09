@@ -204,6 +204,15 @@ export function buildAgenda<E extends CalendarEntry>(
   return [...holidays, ...leave].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
+/**
+ * True when a year's months (each with its {@link buildAgenda}) show at least one
+ * company holiday. Agendas hold only their own month's holidays, so the days of last
+ * December or next January on the grid's edges never count.
+ */
+export function yearHasHolidays(months: readonly { agenda: readonly AgendaItem[] }[]): boolean {
+  return months.some((m) => m.agenda.some((item) => item.kind === "holiday"));
+}
+
 export interface PersonOut {
   userId: string;
   personName: string;

@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { cx, field, type FieldSize, fieldClass, nativeCheck } from "./styles";
+import { cx, field, type FieldSize, fieldClass, nativeCheck, selectClass } from "./styles";
 
 /**
  * Labelled form fields. Plain markup with no client state, so a server page can render
@@ -112,7 +112,7 @@ export function SelectField({
       size={size}
       describedBy={select["aria-describedby"]}
       control={({ id, describedBy }) => (
-        <select {...select} id={id} aria-describedby={describedBy} className={fieldClass(size)}>
+        <select {...select} id={id} aria-describedby={describedBy} className={selectClass(size)}>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}

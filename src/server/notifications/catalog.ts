@@ -87,6 +87,11 @@ export const NOTIFICATION_TYPES = {
     recipientName: "Ana Ruiz",
     addedByName: "Mo Reyes",
   }),
+  "leave.removed": leave("removed", "Removed for someone", "To the person, when a manager or admin removes their time off to correct the record.", {
+    recipientName: "Ana Ruiz",
+    removedByName: "Mo Reyes",
+    reason: "Booked twice by mistake.",
+  }),
   "leave.cancelled_requester": leave("cancelled_requester", "Cancelled (to the person)", "To the person, when they cancel their time off.", {
     recipientName: "Ana Ruiz",
   }),

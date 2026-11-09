@@ -12,7 +12,7 @@ import {
 } from "@/domain/events";
 import { serializeCalendar } from "@/domain/ics";
 import { todayInTimeZone } from "@/lib/dates";
-import { feedPath, generateFeedToken, isFeedTokenShape } from "@/lib/feed-token";
+import { feedPath, feedTokenHint, generateFeedToken, isFeedTokenShape } from "@/lib/feed-token";
 import { hashToken } from "@/lib/token-hash";
 import type { ServiceContext } from "@/server/context";
 import type { Transaction } from "@/db/types";
@@ -37,6 +37,8 @@ import { inTransaction } from "./notify";
 export interface FeedSummary {
   createdAt: Date;
   lastUsedAt: Date | null;
+  /** The link's last 4 characters, to tell it apart in a calendar app; null for older links. */
+  hint: string | null;
 }
 
 /** The audited view of a feed: never its hash, which would be a step towards the link. */
@@ -84,7 +86,7 @@ export async function listCalendarFeeds(
   if (!settings) throw new DomainError("no_company");
   const summary = (kind: FeedKind) => {
     const row = rows.find((r) => r.kind === kind);
-    return row ? { createdAt: row.createdAt, lastUsedAt: row.lastUsedAt } : null;
+    return row ? { createdAt: row.createdAt, lastUsedAt: row.lastUsedAt, hint: row.tokenHint } : null;
   };
   return { timezone: settings.timezone, feeds: { personal: summary("personal"), team: summary("team") } };
 }
@@ -116,7 +118,7 @@ export async function shouldSuggestCalendarFeed(ctx: ServiceContext, actor: Acto
  * working the moment the new one exists. That includes a live link issued while the
  * person was in another company; its revoke is recorded under that company.
  *
- * Only the token's SHA-256 is stored. Every revoke and the issue write `audit_log` and
+ * Only the token's SHA-256 and its last 4 characters (the hint) are stored. Every revoke and the issue write `audit_log` and
  * `events_outbox` rows (`calendar_feed.revoked` with reason `regenerated`, then
  * `calendar_feed.issued`) in the same transaction; neither carries the token.
  *
@@ -133,9 +135,10 @@ export async function issueCalendarFeed(ctx: ServiceContext, actor: Actor, kind:
       await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, source: actor.source, reason: "regenerated" });
     }
     const token = generateFeedToken();
-    const row = await insertFeed(tx, { companyId: actor.companyId, userId: actor.id, kind, tokenHash: hashToken(token), createdAt: now });
+    const tokenHint = feedTokenHint(token);
+    const row = await insertFeed(tx, { companyId: actor.companyId, userId: actor.id, kind, tokenHash: hashToken(token), tokenHint, createdAt: now });
     await recordFeedChange(tx, { event: "issued", before: null, after: row, source: actor.source, reason: null });
-    return { token, url: `${ctx.appUrl}${feedPath(token)}`, feed: { createdAt: row.createdAt, lastUsedAt: null } };
+    return { token, url: `${ctx.appUrl}${feedPath(token)}`, feed: { createdAt: row.createdAt, lastUsedAt: null, hint: tokenHint } };
   });
 }
 

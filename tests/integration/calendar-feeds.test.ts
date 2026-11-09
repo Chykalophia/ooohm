@@ -90,8 +90,9 @@ describe("calendar feeds", { skip }, () => {
     const rows = await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.userId, ana.id));
     assert.equal(rows.length, 1);
     assert.deepEqual(
-      { kind: rows[0].kind, hash: rows[0].tokenHash, companyId: rows[0].companyId, revokedAt: rows[0].revokedAt, lastUsedAt: rows[0].lastUsedAt },
-      { kind: "personal", hash: sha256(issued.token), companyId: co.companyId, revokedAt: null, lastUsedAt: null },
+      { kind: rows[0].kind, hash: rows[0].tokenHash, hint: rows[0].tokenHint, companyId: rows[0].companyId, revokedAt: rows[0].revokedAt, lastUsedAt: rows[0].lastUsedAt },
+      // The last 4 characters, so the owner can tell which link a calendar holds; never the rest.
+      { kind: "personal", hash: sha256(issued.token), hint: issued.token.slice(-4), companyId: co.companyId, revokedAt: null, lastUsedAt: null },
     );
 
     // The token appears nowhere in the database: not in any table's text.
@@ -116,7 +117,8 @@ describe("calendar feeds", { skip }, () => {
     assert.ok(!JSON.stringify([audit, events]).includes(rows[0].tokenHash), "nor its hash");
 
     const { feeds } = await listCalendarFeeds(ctx, ana);
-    assert.deepEqual(feeds, { personal: { createdAt: rows[0].createdAt, lastUsedAt: null }, team: null });
+    assert.deepEqual(feeds, { personal: { createdAt: rows[0].createdAt, lastUsedAt: null, hint: issued.token.slice(-4) }, team: null });
+    assert.deepEqual(issued.feed, { createdAt: rows[0].createdAt, lastUsedAt: null, hint: issued.token.slice(-4) });
   });
 
   test("a personal feed: my approved and pending leave in the window, valid ICS, nothing of anyone else's", async () => {
@@ -344,7 +346,7 @@ describe("calendar feeds", { skip }, () => {
     assert.equal(await renderCalendarFeed(ctx, old.token), null, "dead while he is elsewhere");
 
     const listed = await listCalendarFeeds(ctx, benInB);
-    assert.deepEqual(listed.feeds.team, { createdAt: oldRow.createdAt, lastUsedAt: null }, "he can see the old link");
+    assert.deepEqual(listed.feeds.team, { createdAt: oldRow.createdAt, lastUsedAt: null, hint: old.token.slice(-4) }, "he can see the old link");
 
     const fresh = await issueCalendarFeed(ctx, benInB, "team");
     assert.ok(await renderCalendarFeed(ctx, fresh.token), "a new link in the new company works");

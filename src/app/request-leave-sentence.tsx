@@ -1,11 +1,10 @@
 "use client";
 
-import { useRef } from "react";
 import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
-import { formatShortDay } from "@/lib/format";
 import { REQUEST_FORM_ID } from "@/components/layout/anchors";
 import { Section } from "@/components/ui/section";
 import { ChipSelect } from "@/components/ui/chip-select";
+import { DatePicker } from "@/components/forms/date-picker";
 import { cx, fieldClass, focusRing } from "@/components/ui/styles";
 import { type LeaveTypeOption, LeavePreviewLine, type Portion, SubmitRow, useLeaveDraft, useRequestAction } from "./request-leave-form";
 
@@ -43,13 +42,13 @@ export function RequestLeaveSentence({
  * keeps it a chip in the sentence's loose lines instead of a tall box crowding them.
  */
 const token = cx(
-  "relative mx-0.5 inline-block max-w-full rounded-lg bg-accent/10 px-2 py-0.5 leading-[1.3] whitespace-nowrap text-accent-ink",
+  "relative mx-0.5 inline-block max-w-full rounded-lg bg-accent/10 px-2 py-0.5 leading-[1.3] text-accent-ink sm:whitespace-nowrap",
   "shadow-[inset_0_-2px_0_color-mix(in_srgb,var(--accent)_40%,transparent)] transition-shadow",
   "hover:shadow-[inset_0_-2px_0_var(--accent)] has-[:focus-visible]:shadow-[inset_0_-2px_0_var(--accent)]",
   "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-ink",
+  // When the token is the control itself (a date): the same underline while focused or open.
+  "focus-visible:shadow-[inset_0_-2px_0_var(--accent)] aria-expanded:shadow-[inset_0_-2px_0_var(--accent)]",
 );
-/** The native control fills its token and stays invisible, so the sentence reads as text. */
-const overlay = "absolute inset-0 h-full w-full cursor-pointer opacity-0";
 
 const PORTION_WORDS: Record<Portion, string> = {
   full: "all day",
@@ -148,55 +147,9 @@ function SentenceFields({
   );
 }
 
-/**
- * A date inside the sentence, shown in words ("Mon, Nov 23"). The real date input sits
- * over it, invisible: a click or Enter opens the browser's own date picker, and typing
- * still works for keyboard and screen reader users.
- */
-function DateToken({
-  name,
-  label,
-  value,
-  min,
-  onChange,
-}: {
-  name: string;
-  label: string;
-  value: string;
-  min?: string;
-  onChange: (value: string) => void;
-}) {
-  const input = useRef<HTMLInputElement>(null);
-  const open = () => {
-    try {
-      input.current?.showPicker();
-    } catch {
-      // Older browsers: the focused input still takes typed dates.
-    }
-  };
-  return (
-    <span className={token}>
-      {value ? formatShortDay(value) : "pick a date"}
-      <input
-        ref={input}
-        type="date"
-        name={name}
-        required
-        aria-label={label}
-        min={min}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onClick={open}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            open();
-          }
-        }}
-        className={overlay}
-      />
-    </span>
-  );
+/** A date inside the sentence, shown in words ("Mon, Nov 23"), picked from a themed calendar. */
+function DateToken(props: { name: string; label: string; value: string; min?: string; onChange: (value: string) => void }) {
+  return <DatePicker {...props} className={token} />;
 }
 
 function Caret() {

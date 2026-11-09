@@ -52,9 +52,15 @@ export async function GET(request: NextRequest): Promise<Response> {
   const forUserId = request.nextUrl.searchParams.get("for");
   const ctx = serviceContext();
   // A department over its coverage limit only ever warns: the warning follows the cost.
+  // It is advisory, so a failed lookup keeps the cost line rather than failing the preview.
   const withCoverage = async (message: string, userId: string) => {
-    const coverage = await draftCoverage(ctx.db, actor.companyId, userId, parsed.data);
-    return coverage ? `${message} ${coverage}` : message;
+    try {
+      const coverage = await draftCoverage(ctx.db, actor.companyId, userId, parsed.data);
+      return coverage ? `${message} ${coverage}` : message;
+    } catch (err) {
+      log.error({ err }, "leave_preview_coverage_failed");
+      return message;
+    }
   };
   try {
     if (forUserId) {

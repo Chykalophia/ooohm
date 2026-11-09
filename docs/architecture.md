@@ -761,7 +761,10 @@ CRON_TZ=America/Chicago
   days are one tab stop: arrow keys move, Enter or Space picks a day (a second one stretches the pick to it), Shift with an arrow stretches it,
   and Escape clears it. Each day is a button filling its cell behind the content; its leave chips sit above
   it and stay links to their requests, so a click on a chip opens the request and a drag across chips still
-  stretches the pick. Phones keep the agenda; Home's form works everywhere.
+  stretches the pick. Phones get a small month above the agenda instead (`phone-month.tsx`), drawn like a
+  month of the year view (`mini-day.tsx`): each day is a button, and tapping one narrows the agenda to what
+  that day shows (`agendaForDay`, from the day's own entries); tapping it again or "Whole month" brings the
+  month back. Home's form works everywhere.
 - `/calendar?view=year&year=YYYY`: the person's whole year as twelve small months (`getYearCalendar`, three
   queries). Approved leave fills a day in its type's colour, pending leave outlines it, company holidays are
   outlined in ink and today is filled in ink (leave wins over both; today on leave gets an ink ring). The

@@ -4,7 +4,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { CalendarDate } from "@/domain/calendar-date";
 import { monthOf } from "@/domain/calendar";
 import { formatShortDay } from "@/lib/format";
-import { cx, errorText, focusRing } from "@/components/ui/styles";
+import { cx, errorText, focusRing, surface } from "@/components/ui/styles";
 import {
   initialFocus,
   isGridKey,
@@ -237,7 +237,8 @@ export function DatePicker({
           style={{ fontFamily: "var(--app-font)" }}
           className={cx(
             "absolute top-full z-30 mt-2.5 block w-[min(20rem,calc(100vw-2rem))] max-sm:w-[calc(100vw-2rem)]",
-            "rounded-2xl border border-border bg-surface p-4 pb-3 shadow-lg max-sm:p-3 max-sm:pb-2",
+            surface,
+            "p-4 pb-3 shadow-lg max-sm:p-3 max-sm:pb-2",
             "text-left text-base leading-normal font-normal tracking-normal whitespace-normal text-foreground",
           )}
         >
@@ -250,7 +251,6 @@ export function DatePicker({
               id={`${id}-typed`}
               value={typed}
               onChange={(e) => onType(e.target.value)}
-              inputMode="numeric"
               placeholder="YYYY-MM-DD"
               autoComplete="off"
               spellCheck={false}

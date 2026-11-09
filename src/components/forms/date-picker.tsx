@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { CalendarDate } from "@/domain/calendar-date";
+import { type CalendarDate, utcMs } from "@/domain/calendar-date";
 import { monthOf } from "@/domain/calendar";
 import { formatShortDay } from "@/lib/format";
 import { cx, errorText, focusRing } from "@/components/ui/styles";
@@ -18,12 +18,12 @@ const monthFormat = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "
 
 function longDay(date: CalendarDate): string {
   const [y, m, d] = date.split("-").map(Number);
-  return longFormat.format(new Date(Date.UTC(y, m - 1, d)));
+  return longFormat.format(new Date(utcMs(y, m - 1, d)));
 }
 
 function monthName(month: string): string {
   const [y, m] = month.split("-").map(Number);
-  return monthFormat.format(new Date(Date.UTC(y, m - 1, 1)));
+  return monthFormat.format(new Date(utcMs(y, m - 1, 1)));
 }
 
 const WEEKDAYS = [

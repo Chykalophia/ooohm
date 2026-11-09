@@ -244,6 +244,8 @@ export const ADMIN_EVENT_TYPES = {
   holidayRenamed: "holiday.renamed",
   holidayDeleted: "holiday.deleted",
   companyUpdated: "company.updated",
+  emailTemplateUpdated: "email_template.updated",
+  emailTemplateReset: "email_template.reset",
 } as const;
 export type AdminEventType = (typeof ADMIN_EVENT_TYPES)[keyof typeof ADMIN_EVENT_TYPES];
 
@@ -327,6 +329,17 @@ export interface HolidayEventPayload extends PersonAttribution {
   holidayId: string;
   date: CalendarDate;
   name: string;
+}
+
+/**
+ * Version 1 payload of `email_template.updated` and `.reset`: a company's own words for
+ * one email after the change (both null after a reset). `notificationType` names the
+ * email, such as `leave.requested` or `invite`; new ones may appear.
+ */
+export interface EmailTemplateEventPayload extends PersonAttribution {
+  notificationType: string;
+  subject: string | null;
+  message: string | null;
 }
 
 /** Version 1 payload of `company.updated`: the settings after the change. */

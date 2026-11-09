@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
   addMonths,
+  agendaForDay,
   buildAgenda,
   buildMonthGrid,
   type CalendarEntry,
@@ -148,6 +149,25 @@ describe("agenda", () => {
       items.map((i) => (i.kind === "holiday" ? `holiday ${i.name}` : `leave ${i.entry.id}`)),
       [`leave ${fromOctober.id}`, "holiday Thanksgiving", `leave ${inside.id}`],
     );
+  });
+
+  test("one day of it lists what the grid shows that day: its leave and its holiday, never a weekend in between", () => {
+    const input = {
+      month: "2026-11" as const,
+      today: "2026-11-01",
+      workingDays: [1, 2, 3, 4, 5],
+      holidays: [{ date: "2026-11-26", name: "Thanksgiving" }],
+      entries: [entry("2026-11-05", "2026-11-09"), entry("2026-11-09"), entry("2026-11-25", "2026-11-27")],
+    };
+    const [fiveToNine, ninth, thanksgivingWeek] = input.entries;
+    const agenda = buildAgenda(input);
+    const day = (date: string) => buildMonthGrid(input).flat().find((d) => d.date === date)!;
+    const on = (date: string) => agendaForDay(agenda, day(date)).map((i) => (i.kind === "holiday" ? i.name : i.entry.id));
+    assert.deepEqual(on("2026-11-09"), [fiveToNine.id, ninth.id]);
+    assert.deepEqual(on("2026-11-07"), [], "a Saturday inside leave costs nothing, so it lists nothing");
+    assert.deepEqual(on("2026-11-26"), ["Thanksgiving"], "leave never counts on a holiday");
+    assert.deepEqual(on("2026-11-27"), [thanksgivingWeek.id]);
+    assert.deepEqual(on("2026-11-12"), []);
   });
 });
 

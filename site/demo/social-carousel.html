@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OOOhm on LinkedIn: carousel (composition)</title>
+<!-- Eight 4:5 slides for a LinkedIn document post. render-carousel.mjs prints them to one PDF and PNGs. -->
+<link rel="stylesheet" href="social/social.css">
+<style>
+  @page { size: 1080px 1350px; margin: 0; }
+  html, body { height: auto; overflow: visible; }
+  .slide { position: relative; width: 1080px; height: 1350px; overflow: hidden; background: var(--bg); break-after: page; }
+  .slide:last-of-type { break-after: auto; }
+  .num { position: absolute; right: 72px; bottom: 60px; font-size: 24px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .brand { position: absolute; left: 72px; bottom: 56px; display: flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 600; letter-spacing: -0.03em; }
+  .brand svg { width: 36px; height: 36px; }
+  .brand .o { color: var(--accent); } .brand .hm { color: var(--muted); font-weight: 400; }
+  .sub { position: absolute; left: 72px; right: 72px; font-size: 34px; line-height: 1.4; color: var(--body); text-wrap: pretty; }
+  .slide .frame { top: 400px; }
+  .slide .frame img { display: block; width: 100%; }
+
+  .cover h1 { position: absolute; left: 72px; right: 72px; top: 300px; font-size: 96px; line-height: 1.02; letter-spacing: -0.045em; font-weight: 600; text-wrap: balance; }
+  .cover h1 .a { color: var(--accent); }
+  .cover .pills { position: absolute; left: 72px; top: 820px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .cover .pills span { font-size: 30px; color: var(--accent); background: var(--soft); box-shadow: inset 0 0 0 1.5px var(--line); border-radius: 999px; padding: 10px 24px; font-weight: 500; }
+  .cover .logo { position: absolute; left: 72px; top: 130px; justify-content: flex-start; font-size: 64px; gap: 16px; }
+  .cover .logo svg { width: 68px; height: 68px; }
+  .swipe { position: absolute; right: 72px; bottom: 56px; font-size: 30px; color: var(--accent); font-weight: 500; }
+
+  .bubbles { position: absolute; left: 72px; right: 72px; top: 420px; display: grid; gap: 18px; }
+  .bubble { justify-self: start; font-size: 36px; color: var(--body); background: #efedea; border-radius: 28px 28px 28px 8px; padding: 18px 30px; }
+  .bubble.r { justify-self: end; border-radius: 28px 28px 8px 28px; background: #e7e5e4; }
+  .sheet { position: absolute; left: 72px; right: 72px; top: 760px; background: #fff; border: 1.5px solid var(--border); border-radius: 18px; overflow: hidden; font-size: 28px; color: var(--body); rotate: -1.5deg; }
+  .sheet .name { padding: 14px 22px; border-bottom: 1.5px solid var(--border); background: #fbfbfa; font: 400 22px/1.2 "JetBrains Mono", monospace; color: var(--muted); }
+  .sheet table { width: 100%; border-collapse: collapse; }
+  .sheet td { border-right: 1.5px solid var(--border); border-bottom: 1.5px solid var(--border); padding: 10px 18px; height: 56px; }
+  .sheet td:last-child { border-right: 0; } .sheet tr:last-child td { border-bottom: 0; }
+  .sheet .q { color: #b45309; } .sheet .x { text-decoration: line-through; color: var(--muted); }
+
+  .themes { position: absolute; left: 72px; right: 72px; top: 470px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .themes figure { margin: 0; }
+  .themes img { display: block; width: 100%; border-radius: 12px; border: 1.5px solid var(--border); }
+  .themes figcaption { margin-top: 8px; font-size: 20px; color: var(--muted); }
+
+  .hosts { position: absolute; left: 72px; right: 72px; top: 470px; list-style: none; padding: 0; display: grid; gap: 22px; }
+  .hosts li { background: #fff; border: 1.5px solid var(--border); border-radius: 20px; padding: 28px 32px; }
+  .hosts h3 { font-size: 40px; letter-spacing: -0.025em; font-weight: 600; }
+  .hosts p { margin-top: 8px; font-size: 27px; color: var(--body); line-height: 1.35; }
+  .hosts code { display: inline-block; margin-top: 16px; font: 400 23px/1 "JetBrains Mono", monospace; background: var(--bg); border: 1.5px solid var(--border); border-radius: 9px; padding: 10px 14px; color: var(--ink); }
+
+  .last h1 { position: absolute; left: 72px; right: 72px; top: 260px; font-size: 200px; font-weight: 600; letter-spacing: -0.05em; line-height: 1; }
+  .last h1 .a { color: var(--accent); }
+  .last .sub { top: 520px; }
+  .last .cta { position: absolute; left: 72px; top: 900px; font-size: 48px; font-weight: 600; color: var(--accent); }
+  .last .links { position: absolute; left: 72px; top: 980px; font-size: 32px; color: var(--body); line-height: 1.5; }
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><symbol id="mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f766e"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5" fill="none" stroke="#fff" stroke-width="3.1" stroke-linejoin="round"/></g></symbol></svg>
+
+  <section class="slide cover">
+    <div class="logo"><svg><use href="#mark"/></svg><span><span class="o">OOO</span><span class="hm">hm</span></span></div>
+    <h1>Time off for small agencies, <span class="a">without the spreadsheet.</span></h1>
+    <div class="pills"><span>Free</span><span>Source-available</span><span>Self-hosted</span></div>
+    <p class="swipe">Swipe →</p>
+  </section>
+
+  <section class="slide">
+    <h1 class="head">Right now it’s <span class="a">a group chat and a spreadsheet.</span></h1>
+    <div class="bubbles">
+      <p class="bubble">can I take Friday off?</p>
+      <p class="bubble r">is anyone else out that week?</p>
+      <p class="bubble">wait, how many days do I have left?</p>
+    </div>
+    <div class="sheet">
+      <p class="name">pto-tracker-FINAL-v3 (2).xlsx</p>
+      <table>
+        <tr><td>Priya</td><td class="x">Dec 21–23</td><td class="q">??</td></tr>
+        <tr><td>Jonas</td><td>Fri off</td><td class="q">ask Maya</td></tr>
+        <tr><td>Ana</td><td>6 left?</td><td class="q">#REF!</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h1 class="head">Ask in <span class="a">one sentence.</span></h1>
+    <p class="sub" style="top: 250px">OOOhm counts the working days as you pick them, and shows what you’ll have left.</p>
+    <div class="frame"><div class="bar"><i></i><i></i><i></i></div><img src="../media/ask.jpg" alt=""></div>
+  </section>
+
+  <section class="slide">
+    <h1 class="head">Approve <span class="a">from the email.</span></h1>
+    <p class="sub" style="top: 250px">The manager sees who else is out, and one tap approves it. No sign-in needed.</p>
+    <div class="frame" style="width: 940px"><img src="social/email-request.png" alt=""></div>
+  </section>
+
+  <section class="slide">
+    <h1 class="head">See who’s out, <span class="a">and when.</span></h1>
+    <p class="sub" style="top: 250px">Weekends and company holidays never count. Thanksgiving week is three days.</p>
+    <div class="frame"><div class="bar"><i></i><i></i><i></i></div><img src="../media/calendar.jpg" alt=""></div>
+  </section>
+
+  <section class="slide">
+    <h1 class="head">It looks good, <span class="a">and fits how you work.</span></h1>
+    <p class="sub" style="top: 250px">Your leave types, allowances, holidays and approvers. Nine themes for the whole company.</p>
+    <div class="themes" id="themes"></div>
+  </section>
+
+  <section class="slide">
+    <h1 class="head">Host it <span class="a">your way.</span></h1>
+    <p class="sub" style="top: 250px">Your data stays in your own Postgres.</p>
+    <ul class="hosts">
+      <li><h3>Docker Compose</h3><p>Database, app, worker and a mail catcher, migrations on start.</p><code>docker compose up</code></li>
+      <li><h3>Any Postgres 15+, or Vercel</h3><p>Your own server, Neon, Supabase or RDS.</p></li>
+      <li><h3>One machine, no database server</h3><p>Embedded Postgres, for a small team on a small box.</p><code>pnpm build &amp;&amp; pnpm start:embedded</code></li>
+    </ul>
+  </section>
+
+  <section class="slide last">
+    <h1>Free<span class="a">.</span></h1>
+    <p class="sub">Source-available under FSL-1.1-ALv2: read it, change it, run it for your company. We built it at Chykalophia for our own team first, and we’re still building.</p>
+    <p class="cta">Link in the first comment</p>
+    <p class="links" id="links"></p>
+  </section>
+
+<script>
+  const URL_TEXT = new URLSearchParams(location.search).get("url") || "ooohm.team";
+  document.getElementById("links").replaceChildren(URL_TEXT, document.createElement("br"), "github.com/Chykalophia/ooohm");
+  const THEMES = [["classic", "Classic"], ["cobalt", "Cobalt"], ["marigold", "Ink & Marigold"], ["saffron", "Saffron"], ["graphite", "Graphite"], ["plum", "Plum"], ["signal", "Signal"], ["forest", "Forest"], ["frost", "Frost"]];
+  document.getElementById("themes").innerHTML = THEMES.map(([id, name]) => `<figure><img src="../media/themes/${id}.jpg" alt=""><figcaption>${name}</figcaption></figure>`).join("");
+  const slides = [...document.querySelectorAll(".slide")];
+  slides.forEach((s, i) => {
+    if (i > 0) s.insertAdjacentHTML("beforeend", `<p class="brand"><svg><use href="#mark"/></svg><span><span class="o">OOO</span><span class="hm">hm</span></span></p><p class="num">${i + 1} / ${slides.length}</p>`);
+  });
+  window.ready = Promise.all([...document.images].map((i) => i.decode()));
+</script>
+</body>
+</html>

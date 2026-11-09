@@ -47,8 +47,8 @@ async function uniqueName<T>(work: () => Promise<T>): Promise<T> {
 }
 
 /**
- * The company's departments by name, with how many people (active or not) are in each
- * and who manages it (`managerId`, and `managerName` for its label), if anyone.
+ * The company's departments by name, with how many active people are in each (`members`)
+ * and how many people point at it at all (`assigned`, deactivated included), and who manages it (`managerId`, and `managerName` for its label), if anyone.
  *
  * @throws DomainError `forbidden` for a non-admin.
  */

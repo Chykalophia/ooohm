@@ -8,6 +8,8 @@ export type DepartmentRow = { id: string; name: string; managerId: string | null
 
 const fields = { id: departments.id, name: departments.name, managerId: departments.managerId, maxOff: departments.maxOff };
 const manager = alias(user, "manager");
+/** Active people among the joined `user` rows (deactivated and deleted people are never active). */
+const activeCount = sql<number>`count(${user.id}) filter (where ${user.isActive})`.mapWith(Number);
 
 /** The company's departments by name, ignoring case (every department list and picker uses this order). */
 export async function listDepartments(ex: Executor, companyId: string) {
@@ -19,12 +21,14 @@ export async function listDepartments(ex: Executor, companyId: string) {
 }
 
 /**
- * The company's departments by name, each with how many people (active or not) are in
- * it and its manager's name and email (for a label), if it has one. One query.
+ * The company's departments by name, each with its manager's name and email (for a label),
+ * if it has one, and two head counts: `members`, its active people (what the page shows),
+ * and `assigned`, everyone still pointing at it, deactivated included (what keeps it from
+ * being deleted). One query.
  */
 export async function listDepartmentsWithCounts(ex: Executor, companyId: string) {
   return ex
-    .select({ ...fields, managerName: manager.name, managerEmail: manager.email, members: count(user.id) })
+    .select({ ...fields, managerName: manager.name, managerEmail: manager.email, members: activeCount, assigned: count(user.id) })
     .from(departments)
     .leftJoin(user, eq(user.departmentId, departments.id))
     .leftJoin(manager, eq(manager.id, departments.managerId))

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { MAX_OFF_LIMIT } from "@/domain/coverage";
 import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
 import { formatCount } from "@/lib/format";
@@ -10,7 +11,7 @@ import { SelectField, TextField } from "@/components/ui/fields";
 import { ActionForm } from "@/components/forms/action-form";
 import { InlineAction } from "@/components/forms/inline-action";
 import { Reveal } from "@/components/forms/reveal";
-import { outlineButton } from "@/components/ui/styles";
+import { outlineButton, textLink } from "@/components/ui/styles";
 import {
   createDepartmentAction,
   deleteDepartmentAction,
@@ -102,7 +103,7 @@ export default async function DepartmentsPage() {
                     <TextField label={`New name for ${d.name}`} name="name" required maxLength={DEPARTMENT_NAME_MAX_LENGTH} defaultValue={d.name} />
                   </ActionForm>
                 </Reveal>
-                {d.members === 0 ? (
+                {d.assigned === 0 ? (
                   <InlineAction
                     action={deleteDepartmentAction}
                     fields={{ id: d.id }}
@@ -114,7 +115,17 @@ export default async function DepartmentsPage() {
                     confirmLabel="Yes, delete"
                   />
                 ) : (
-                  <p className="text-sm text-muted">To delete it, move its people to another department first.</p>
+                  <p className="text-sm text-muted">
+                    To delete it, move its {d.members === 0 ? "deactivated " : ""}people to another department first.
+                    {d.members < d.assigned && (
+                      <>
+                        {" "}
+                        <Link href={`/admin/people?department=${d.id}&inactive=1`} className={textLink}>
+                          See {d.members === 0 ? "them" : formatCount(d.assigned - d.members, "deactivated person", "deactivated people")}
+                        </Link>
+                      </>
+                    )}
+                  </p>
                 )}
               </div>
             </Item>

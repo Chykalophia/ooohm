@@ -9,6 +9,7 @@ import { requireActor } from "@/lib/auth";
 import type { ServiceContext } from "@/server/context";
 import { serviceContext } from "@/server/runtime";
 import { getApprovalNav } from "@/server/services/approvals";
+import { getCompanyLogo } from "@/server/services/appearance";
 import type { HeaderNav } from "@/components/layout/app-header";
 
 /** A signed-in member of a company, ready to render a page, with their colour mode. */
@@ -21,7 +22,7 @@ export type CompanylessPage = { actor: null; nav: HeaderNav };
  * The entry point of every signed-in page outside the admin area: the session (or a
  * redirect to sign-in), the service context, and what the header needs.
  *
- * The header's approvals count starts loading here and is read by the header, so it
+ * The header's approvals count and the company's logo start loading here and is read by the header, so it
  * runs alongside the page's own queries rather than before them.
  */
 export async function requireMemberPage(): Promise<MemberPage | CompanylessPage> {
@@ -37,7 +38,9 @@ function memberPage(actor: Actor, userName: string, colorMode: ColorMode): Membe
   // The page may bail out (a 404) before the header awaits this; mark the rejection as
   // handled so it isn't reported as unhandled. The header still sees it.
   approvals.catch(() => {});
-  return { actor, ctx, nav: { userName, approvals, member: true, admin: canAdminister(actor), reports: canViewReports(actor) }, colorMode };
+  // Never rejects: an unreadable logo shows the OOOhm mark.
+  const logo = getCompanyLogo(ctx, actor.companyId);
+  return { actor, ctx, nav: { userName, approvals, member: true, admin: canAdminister(actor), reports: canViewReports(actor), logo }, colorMode };
 }
 
 /**

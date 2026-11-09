@@ -1,11 +1,13 @@
 /**
  * Admin use cases for the company's own settings: name, time zone, working days, the
- * allowance policy, whether time off needs approval, the deletion grace option, what people see of each other's time off and the appearance (theme, accent, corners). v1 runs one company per deployment;
+ * allowance policy, whether time off needs approval, the deletion grace option, what people see of each other's time off and the appearance (theme, accent, corners, logo). v1 runs one company per deployment;
  * the company is always the actor's.
  */
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
+import { createHash } from "node:crypto";
 import { type AppearanceInput, normalizeAppearance, readAppearance } from "@/domain/appearance";
+import { readLogoImage, readStoredLogo } from "@/domain/company-logo";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { ALLOWANCE_POLICY_KEYS } from "@/domain/allowance-policy";
 import { readApprovalMode } from "@/domain/approval-rule";
@@ -29,6 +31,7 @@ function snapshot(row: CompanyRow) {
     approvalMode: readApprovalMode(row.approvalMode),
     colleagueVisibility: row.colleagueVisibility,
     ...readAppearance(row),
+    logo: readStoredLogo(row),
   };
 }
 
@@ -123,4 +126,45 @@ export async function updateCompanySettings(
 export async function updateCompanyAppearance(ctx: ServiceContext, actor: Actor, input: AppearanceInput): Promise<CompanyRow> {
   assertCanAdminister(actor);
   return inTransaction(ctx, async (tx) => (await changeCompany(tx, actor, () => normalizeAppearance(input))).after);
+}
+
+/**
+ * Sets the company's logo, shown instead of the OOOhm mark in the header, on the
+ * sign-in page and at the top of emails. The file is judged by its bytes
+ * ({@link readLogoImage}), and only after the actor is known to be an admin.
+ *
+ * @returns The company after the change (unchanged, with nothing recorded, for the same file).
+ * @throws DomainError `forbidden`, `no_company`, or `invalid_input` (not a PNG or JPEG within the limits).
+ */
+export async function updateCompanyLogo(ctx: ServiceContext, actor: Actor, bytes: Uint8Array): Promise<CompanyRow> {
+  assertCanAdminister(actor);
+  return inTransaction(ctx, async (tx) => {
+    const result = await changeCompany(tx, actor, () => {
+      const image = readLogoImage(bytes);
+      return {
+        logo: bytes,
+        logoSha256: createHash("sha256").update(bytes).digest("hex"),
+        logoType: image.contentType,
+        logoWidth: image.width,
+        logoHeight: image.height,
+      };
+    });
+    return result.after;
+  });
+}
+
+/**
+ * Removes the company's logo, bytes and all, so the OOOhm mark shows again. Emails
+ * already sent lose their image and show the company's name instead.
+ *
+ * @returns The company after the change (unchanged, with nothing recorded, when it had no logo).
+ * @throws DomainError `forbidden` or `no_company`.
+ */
+export async function removeCompanyLogo(ctx: ServiceContext, actor: Actor): Promise<CompanyRow> {
+  assertCanAdminister(actor);
+  return inTransaction(
+    ctx,
+    async (tx) =>
+      (await changeCompany(tx, actor, () => ({ logo: null, logoSha256: null, logoType: null, logoWidth: null, logoHeight: null }))).after,
+  );
 }

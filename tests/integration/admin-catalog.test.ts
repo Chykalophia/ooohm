@@ -413,6 +413,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
       corners: "theme",
       requestStyle: "form",
       layout: "standard",
+      logo: null,
     });
     const [event] = await companyEvents(t.db, co.companyId, "company.");
     assert.equal((event.payload as { companyId: string }).companyId, co.companyId);

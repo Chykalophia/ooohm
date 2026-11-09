@@ -156,7 +156,7 @@ describe("reports", { skip }, () => {
     let queries = 0;
     const db = t.withLogger({ logQuery: () => void queries++ });
     await getLeaveReport(createTestContext(db), co.people.boss, {});
-    assert.equal(queries, 8, "company, departments, leave types, people; then leave, holidays, and the two balance reads");
+    assert.equal(queries, 9, "company, departments, leave types, people; then leave, holidays, and the three balance reads (allowances, booked days, allowance defaults)");
     queries = 0;
     await t.db.update(schema.companies).set({ managersSeeDetails: false }).where(eq(schema.companies.id, co.companyId));
     await getLeaveReport(createTestContext(db), co.people.mo, {});

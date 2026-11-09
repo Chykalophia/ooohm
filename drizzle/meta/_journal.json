@@ -183,6 +183,13 @@
       "when": 1794189385996,
       "tag": "0025_allowance_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794189492703,
+      "tag": "0026_company_logo",
+      "breakpoints": true
     }
   ]
 }

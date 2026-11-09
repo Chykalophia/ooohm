@@ -287,7 +287,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, approvalMode, colleagueVisibility, theme, accentColor, corners, requestStyle, layout, actorId` |
+| `company.updated` | Company settings, appearance or logo saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, approvalMode, colleagueVisibility, theme, accentColor, corners, requestStyle, layout, logo, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -1119,7 +1119,18 @@ the root layout puts on `<html>` as `data-layout` (left off for `standard`). Eac
 carry: it changes spacing, shape, type size, surface treatment and navigation, never content or actions. Colours
 stay derived from the theme (a tinted card or ground, a darker grey for text on it), so an admin can try one on the
 whole company and switch back.
-`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle` and `layout`.
+`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle`, `layout` and `logo`.
+
+The same page sets the company's logo (`updateCompanyLogo`, `removeCompanyLogo`). The file is judged by its bytes,
+never its name or claimed type (`readLogoImage`, `src/domain/company-logo.ts`): PNG or JPEG only, up to 512 KB and 4096
+pixels a side. SVG is refused because it can carry script and Outlook draws neither SVG nor WebP. The bytes live on the
+company row (`companies.logo`, with its SHA-256, type and size beside it; a check keeps the five set or cleared together),
+so no file store is needed on any host. `GET /logo/<sha256>.<png|jpg>` serves it publicly, like the favicon, because the
+sign-in page and emails show it before anyone signs in. The URL names the content, so a hit is cached for a year, and
+it is sent with its own `Content-Type`, `nosniff` (so a browser never guesses another type) and `Content-Security-Policy: default-src 'none'` (so even opened directly it can load or run nothing). The header and sign-in page show it instead of the OOOhm logo
+(`getCompanyLogo` and `getDeploymentLogo`, which never fail a page), and every email puts it at the top at its absolute
+URL (`emailAccent` with `appUrl`), sized with attributes so Outlook keeps its shape. A change is a `company.updated` event
+whose `logo` describes the file.
 
 ### Audit log viewer
 

@@ -5,7 +5,8 @@ import { type JumpItem, JumpMenu } from "@/components/navigation/jump-menu";
 import { SteadyLabel } from "@/components/ui/steady-label";
 import { buttonClass, cx, focusRing } from "@/components/ui/styles";
 import { AccountMenu } from "./account-menu";
-import { Logo } from "./logo";
+import type { LogoRef } from "@/domain/company-logo";
+import { BrandLogo } from "./logo";
 
 /** Which header link marks the page. "requests" (Your requests) is reached from the account menu, so no link is marked. */
 export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "reports" | "admin" | "account" | "requests";
@@ -24,6 +25,8 @@ export type HeaderNav = {
   admin: boolean;
   /** True for admins and managers: shows the Reports link. */
   reports: boolean;
+  /** The company's logo, shown instead of the OOOhm logo; null or absent for none. Unresolved while it loads, like `approvals`. */
+  logo?: LogoRef | null | Promise<LogoRef | null>;
 };
 
 const ADMIN_JUMPS: JumpItem[] = [
@@ -93,13 +96,14 @@ export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSec
   // `use` rather than `await`, so the header stays an ordinary component: it renders
   // from a server page today and could from a client one.
   const approvals = nav.approvals instanceof Promise ? use(nav.approvals) : nav.approvals;
+  const logo = nav.logo instanceof Promise ? use(nav.logo) : (nav.logo ?? null);
   const showApprovals = approvals !== null && (approvals.visible || current === "approvals");
   const jumps = jumpsFor(nav, showApprovals);
   return (
     <header className="app-header mb-10 flex flex-wrap items-center justify-between gap-4">
       {jumps.length > 0 && <JumpMenu items={jumps} />}
       <Link href="/" className={cx("rounded-md", focusRing)}>
-        <Logo />
+        <BrandLogo logo={logo} />
       </Link>
       <nav aria-label="Main" className="app-nav flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         {nav.member && (

@@ -91,7 +91,7 @@ export async function getLeaveReport(ctx: ServiceContext, actor: Actor, query: L
   const [rows, holidays, balanceOf] = await Promise.all([
     listReportRequestDays(ctx.db, actor.companyId, userIds, years),
     listHolidayDates(ctx.db, actor.companyId, `${year - 1}-01-01`, `${year}-12-31`),
-    showsBalances ? loadBalances(ctx.db, { allowancePolicy: company.allowancePolicy, leaveTypes: types, userIds, years: [year] }) : null,
+    showsBalances ? loadBalances(ctx.db, { companyId: actor.companyId, allowancePolicy: company.allowancePolicy, leaveTypes: types, userIds, years: [year] }) : null,
   ]);
   const requests = toReportRequests(rows);
 

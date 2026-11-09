@@ -12,6 +12,8 @@ import { resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as s from "../../src/db/schema";
 import { nonEmptyEnv } from "../../src/lib/integration-env";
+import { usFederalHolidays } from "../../src/domain/holidays";
+import { splitLeaveDaysByYear } from "../../src/domain/leave-days";
 import { isLocalDatabase } from "./local-db.mjs";
 
 if (!isLocalDatabase(process.env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");
@@ -53,7 +55,12 @@ for (const [name, dept] of people) {
 for (const id of Object.values(ids)) {
   for (const t of Object.values(types)) {
     if (t.defaultAllowanceDays === null) continue;
-    await db.insert(s.allowances).values({ userId: id, leaveTypeId: t.id, year: YEAR, days: t.defaultAllowanceDays }).onConflictDoNothing();
+    // PTO at 20 days, so a year of history plus what is booked ahead stays within it.
+    const days = t.code === "PTO" ? Math.max(20, t.defaultAllowanceDays) : t.defaultAllowanceDays;
+    await db
+      .insert(s.allowances)
+      .values({ userId: id, leaveTypeId: t.id, year: YEAR, days })
+      .onConflictDoUpdate({ target: [s.allowances.userId, s.allowances.leaveTypeId, s.allowances.year], set: { days } });
   }
 }
 
@@ -83,6 +90,52 @@ const reqs: Req[] = [
   ["Lena Park", "PTO", "2026-10-19", "2026-10-21", 3, "approved"],
   ["Jonas Berg", "SICK", "2026-10-27", "2026-10-27", 1, "approved"],
 ];
+// History for the Reports screen: four earlier years and this year up to October, all
+// approved, from a fixed seed so every run draws the same charts. Summer and December
+// are busiest, and time off grows over the years (not every year: 2023 dips).
+function seeded(seed: number) {
+  return () => ((seed = (seed * 1664525 + 1013904223) % 2 ** 32) / 2 ** 32);
+}
+const MONTH_WEIGHT = [5, 4, 6, 6, 7, 9, 12, 11, 6, 7, 6, 10];
+const history: { who: string; code: string; start: string; end: string; created: Date; hours: number }[] = [];
+const random = seeded(7);
+const everyone = Object.keys(ids);
+for (const year of [2022, 2023, 2024, 2025, 2026]) {
+  const lastMonth = year === YEAR ? 9 : 12;
+  for (const who of everyone) {
+    // This year's history stops short, so with the requests above nobody goes over their allowance.
+    const trips = year === YEAR ? 4 + Math.floor(random() * 2) : 4 + Math.floor(random() * 3) + (year - 2022 > 1 ? 1 : 0);
+    for (let n = 0; n < trips; n++) {
+      // Pick a month by weight, then a Monday-ish start and a 1 to 5 day span.
+      let pick = random() * MONTH_WEIGHT.slice(0, lastMonth).reduce((a, b) => a + b, 0);
+      let month = 0;
+      while (pick > MONTH_WEIGHT[month]) pick -= MONTH_WEIGHT[month++];
+      const day = 1 + Math.floor(random() * 22);
+      const span = random() < 0.25 ? 0 : Math.floor(random() * 5);
+      const start = new Date(Date.UTC(year, month, day));
+      const end = new Date(Date.UTC(year, month, day + span));
+      const sick = random() < 0.18;
+      history.push({
+        who,
+        code: sick ? "SICK" : "PTO",
+        start: start.toISOString().slice(0, 10),
+        end: end.toISOString().slice(0, 10),
+        created: new Date(start.getTime() - (sick ? 0 : 20) * 86_400_000),
+        hours: 1 + Math.floor(random() * 30),
+      });
+    }
+  }
+}
+// Earlier years get their US federal holidays, so history never charges a holiday.
+for (const year of [2022, 2023, 2024, 2025]) {
+  for (const h of usFederalHolidays(year)) await db.insert(s.holidays).values({ companyId: company.id, date: h.date, name: h.name }).onConflictDoNothing();
+}
+const holidayDates = [...holidays.map(([date]) => date), ...[2022, 2023, 2024, 2025].flatMap((y) => usFederalHolidays(y).map((h) => h.date))];
+// Nobody has two requests on the same day: history skips what would overlap the story's
+// requests or an earlier generated one.
+const taken = new Map<string, [string, string][]>(Object.keys(ids).map((who) => [who, reqs.filter((r) => r[0] === who).map((r) => [r[2], r[3]] as [string, string])]));
+const overlaps = (who: string, start: string, end: string) => (taken.get(who) ?? []).some(([a, b]) => start <= b && end >= a);
+
 // Every run starts the story over: the recordings change requests as they go. One
 // transaction, so a failure leaves the previous requests in place rather than none.
 await db.transaction(async (tx) => {
@@ -94,6 +147,19 @@ await db.transaction(async (tx) => {
       dayPortion: portion ?? "full", note, status, approverId: maya.id, decidedAt: decided ? new Date("2026-10-30T15:00:00Z") : null,
     }).returning();
     await tx.insert(s.leaveRequestDays).values({ requestId: r.id, year: YEAR, days });
+  }
+  for (const h of history) {
+    if (overlaps(h.who, h.start, h.end)) continue;
+    taken.get(h.who)?.push([h.start, h.end]);
+    const split = splitLeaveDaysByYear({ startDate: h.start, endDate: h.end, dayPortion: "full" }, { workingDays: [1, 2, 3, 4, 5], holidays: holidayDates });
+    const days = split.reduce((sum, y) => sum + y.days, 0);
+    if (days === 0) continue;
+    const [r] = await tx.insert(s.leaveRequests).values({
+      companyId: company.id, userId: ids[h.who], leaveTypeId: types[h.code].id, startDate: h.start, endDate: h.end, days,
+      status: "approved", approverId: maya.id, createdAt: h.created,
+      decidedAt: new Date(h.created.getTime() + h.hours * 3_600_000),
+    }).returning();
+    await tx.insert(s.leaveRequestDays).values(split.map((y) => ({ requestId: r.id, ...y })));
   }
 });
 

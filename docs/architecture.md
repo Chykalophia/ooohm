@@ -904,6 +904,41 @@ revoked_at)`, migration `0005`.
 Google Calendar only subscribes to a publicly reachable `https` URL and refreshes on its own schedule (often
 several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
 
+## Reports
+
+`/reports` (`getLeaveReport`, `src/server/services/reports.ts`; the rules are pure functions in
+`src/domain/reports.ts`) shows how much time off was taken in a year, for admins and managers only
+(`canViewReports`): anyone else gets the 404 page, and the header shows the **Reports** link only to them.
+
+- **Scope** (`reportScopeFor`): an admin sees the whole company; a manager sees the people who report to them
+  directly. Department pills narrow either; an id that is not a department of the company means everyone.
+  People are counted by their department today, not the one they were in when they took the leave.
+- **What it shows, for one year** (`?year=YYYY`, else this year): days off, days per active person, days
+  waiting for approval and the median time from request to an approver's decision (self-approved requests and
+  ones decided as they were made, such as leave added for someone, are left out); twelve stacked columns by
+  leave type, with a tick at the year before's total for the same month, and months after today's lighter
+  (booked, not yet taken); a running total through the year as a line over last year's (`runningTotal`,
+  dashed where booked ahead); five years of totals; days by leave type, by department (per active person),
+  request counts by status, and a table of people. Inactive people appear only with leave in the year.
+- **Days come from each request's stored split** (`leave_request_days`), the same numbers balances use, never
+  a recount. Only spreading a year's days over its months uses the calendar (`allocateYearToMonths`): when a
+  closed year kept its days after a later holiday change, the stored days are shared out in proportion, so the
+  months always add up to the year.
+- **Privacy.** Days taken are not private (the team calendar shows who is off and when), so every report
+  shows them. **Days left** follows the team member page's rule (`canSeeReportBalances`): admins always,
+  managers while **Managers can see their team's balances and notes** is on. Notes and decision notes are
+  never selected.
+- **CSV.** `GET /reports/export` (same query) downloads the people table with a column per leave type
+  (`reportCsv`). Like the person export, it refuses a request `Sec-Fetch-Site` marks as from another site (anything but
+  `same-origin` or `none`); a browser too old to send the header is let through, and the session still decides who is asking.
+- **Queries.** Eight whatever the amount of leave, six without balances: company, departments, leave types
+  and the people in scope in parallel; then their leave over the five years, two years of holidays and the
+  two balance reads. `tests/integration/reports.test.ts` pins both counts.
+- **Charts** are server-rendered HTML in `src/components/charts/` (`MonthColumns`, `YearColumns`, `BarList`,
+  `StatTile`; `RunningTotalLines` is an inline SVG stretched to its box, with HTML hover zones and dots), coloured with leave type colours and theme tokens only, with a 2px gap between stacked
+  segments and a tooltip on hover. They are hidden from screen readers; the same numbers are in text, a
+  "Show as a table" disclosure and the people table.
+
 ## Admin (M5)
 
 v1 runs one company per deployment. Every admin use case lives in `src/server/services/admin-*.ts` (people,

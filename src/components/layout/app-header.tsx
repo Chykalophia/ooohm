@@ -8,7 +8,7 @@ import { AccountMenu } from "./account-menu";
 import { Logo } from "./logo";
 
 /** Which header link marks the page. "requests" (Your requests) is reached from the account menu, so no link is marked. */
-export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "admin" | "account" | "requests";
+export type HeaderSection = "home" | "calendar" | "team" | "approvals" | "reports" | "admin" | "account" | "requests";
 
 /** Whether to show the Approvals link, and how many requests wait there. */
 export type ApprovalNav = { visible: boolean; pending: number };
@@ -22,6 +22,8 @@ export type HeaderNav = {
   member: boolean;
   /** True for admins: shows the Admin link. */
   admin: boolean;
+  /** True for admins and managers: shows the Reports link. */
+  reports: boolean;
 };
 
 const ADMIN_JUMPS: JumpItem[] = [
@@ -52,6 +54,7 @@ function jumpsFor(nav: HeaderNav, approvals: boolean): JumpItem[] {
           { href: "/approvals?view=settled", label: "Approvals · Settled" },
         ]
       : []),
+    ...(nav.reports ? [{ href: "/reports", label: "Reports" }] : []),
     { href: "/account", label: "Account" },
     ...(nav.admin ? ADMIN_JUMPS : []),
   ];
@@ -73,8 +76,8 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
 /**
  * Shared top bar for signed-in pages. Calendar and Team are always there for members
  * of a company; the Approvals link appears only when it is useful (and always on the
- * Approvals page itself, even after its last request is decided), and Admin only for
- * admins (the admin pages and services check the role again themselves).
+ * Approvals page itself, even after its last request is decided), Reports for admins
+ * and managers, and Admin only for admins (the admin pages and services check the role again themselves).
  *
  * "Request time off" is on every page but the dashboard, where the form itself is, so
  * nobody has to know the logo leads to it. It is an accent outline, so each page's own
@@ -119,6 +122,11 @@ export function AppHeader({ nav, current }: { nav: HeaderNav; current: HeaderSec
                 <span className="sr-only"> waiting</span>
               </span>
             )}
+          </NavLink>
+        )}
+        {nav.reports && (
+          <NavLink href="/reports" active={current === "reports"}>
+            Reports
           </NavLink>
         )}
         {nav.admin && (

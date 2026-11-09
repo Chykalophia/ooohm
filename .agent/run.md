@@ -31,3 +31,4 @@ Code Review: REVIEW CLEAN -> cklph Build v3 / Break 1 (Codex)
 Break 1 (red team): RED-TEAM CLEAR (typed hostile input, all supported month grids, year boundaries, existing attack regressions; no new issue reproduced) -> cklph Build v3 / Break 2 (Gemini)
 Break 2 (Gemini): RED-TEAM FINDINGS -> cklph Build v3 / Fix 2
 Fix 2: TASK COMPLETE (Dec 9999 grid slides back whole weeks: Monday-first + four-digit years; 9999-12-27..31 not shown in grid, reachable by typing/keyboard; older regression assertion updated; 440 unit pass) -> cklph Build v3 / Verify
+Verify: VERIFIED (440 unit, 89/89 browser, attack files unchanged, domain diff empty; draft PR #91) -> cklph Build v3 / Done

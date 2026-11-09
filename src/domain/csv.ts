@@ -1,6 +1,8 @@
 /**
- * CSV writing (RFC 4180) for downloads that open in a spreadsheet. Pure.
+ * CSV (RFC 4180): writing downloads that open in a spreadsheet, and reading uploads. Pure.
  */
+
+import { DomainError } from "./errors";
 
 export type CsvCell = string | number | boolean | null | undefined;
 
@@ -23,4 +25,74 @@ export function csvCell(value: CsvCell): string {
 /** A whole CSV document: a header row, then each row, lines ending in CRLF. */
 export function toCsv(header: readonly string[], rows: readonly (readonly CsvCell[])[]): string {
   return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
+/**
+ * Reads a CSV document (RFC 4180, as spreadsheets save it) into rows of cells. Cells are
+ * returned as written, untrimmed. Lines may end in CRLF, LF or a lone CR; a leading byte
+ * order mark and one trailing line break are dropped.
+ *
+ * @throws DomainError `invalid_input` when a quoted cell is never closed or has text after
+ *   its closing quote, or a quote appears in the middle of an unquoted cell.
+ */
+export function parseCsv(text: string): string[][] {
+  const source = text.startsWith("﻿") ? text.slice(1) : text;
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  // Whether the current cell was opened by a quote, so `""` alone still counts as a cell.
+  let wasQuoted = false;
+  let i = 0;
+  const endRow = () => {
+    row.push(cell);
+    rows.push(row);
+    row = [];
+    cell = "";
+    wasQuoted = false;
+  };
+  while (i < source.length) {
+    const ch = source[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (source[i + 1] === '"') {
+          cell += '"';
+          i += 2;
+          continue;
+        }
+        quoted = false;
+        // Only spaces may sit between a closing quote and the next delimiter; anything
+        // else means the file is not the CSV it looks like, so refuse it rather than guess.
+        i++;
+        while (source[i] === " " || source[i] === "\t") i++;
+        if (i < source.length && source[i] !== "," && source[i] !== "\r" && source[i] !== "\n") {
+          throw new DomainError("invalid_input", "A quoted cell in the file has text after its closing quote.");
+        }
+        continue;
+      } else {
+        cell += ch;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      // A quote opens a cell (spaces before it are dropped); anywhere else the file is
+      // not the CSV it looks like (`Ann "A, B"` would split at the comma), so refuse it.
+      if (cell.trim() !== "") throw new DomainError("invalid_input", "A cell in the file has a quote in the middle. Put the whole cell in quotes.");
+      cell = "";
+      quoted = true;
+      wasQuoted = true;
+    } else if (ch === ",") {
+      row.push(cell);
+      cell = "";
+      wasQuoted = false;
+    } else if (ch === "\r" || ch === "\n") {
+      endRow();
+      if (ch === "\r" && source[i + 1] === "\n") i++;
+    } else cell += ch;
+    i++;
+  }
+  if (quoted) throw new DomainError("invalid_input", "A quoted cell in the file is never closed.");
+  if (cell !== "" || wasQuoted || row.length > 0) endRow();
+  return rows;
 }

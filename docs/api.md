@@ -143,7 +143,8 @@ Ids are strings. Every payload says who or what made the change in two fields:
   `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`,
   `holiday_change`, `working_days_change`, `email_link` (added within version 1: an approver who approved from
   the request email's Approve link), `first_install` (added within version 1: the first admin, creating themself
-  and the default leave types through the web setup), and `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`).
+  and the default leave types through the web setup), `people_import` (added within version 1: an admin adding people
+  and departments from a CSV file; each person is a `user.created` event), and `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`).
   Expect more; treat an unknown one as opaque.
 - **`actorId`** is kept for compatibility: the person, when there is one (`actor.id`), or `null` for a `system`
   change. Prefer `actor`.
@@ -177,7 +178,7 @@ row after the change).
 
 | Type | When |
 | --- | --- |
-| `user.created` | An admin invites someone, or an adapter's sync adds them |
+| `user.created` | An admin invites someone or adds them from a CSV file (`via` `people_import`), or an adapter's sync adds them |
 | `user.updated` | Name, department, manager, role or self-approval changed. Usually by an admin; a person can also change their own name, and is then the actor |
 | `user.deactivated`, `user.reactivated` | |
 | `user.invite_resent` | An admin sent a new sign-in link |

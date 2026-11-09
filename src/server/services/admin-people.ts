@@ -65,7 +65,6 @@ import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { cancelScheduledScrubIn } from "./admin-people-deletion";
 import { type BalanceSummary, loadAllowanceDefaults, summarizeBalances } from "./balances";
 import { revokeFeedsOnDeactivation } from "./calendar-feeds";
-import { activeContacts, recordReassignment, summarize } from "./leave-changes";
 import { commitThenNotify, type Notification } from "./notify";
 
 /** Most invites (new or resent) one admin may send per {@link INVITE_WINDOW_MINUTES}. */

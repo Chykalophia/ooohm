@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { DomainError } from "@/domain/errors";
 import { defaultLeaveTypes, normalizeInstall } from "@/domain/install";
 import { setupTokenMatches } from "@/lib/setup-token";
 
@@ -31,11 +32,12 @@ test("setup input is trimmed and lowercased, and refused when it can't be used",
     normalizeInstall({ companyName: "  Chykalophia  ", timezone: " UTC ", adminName: " Peter  K ", adminEmail: " Peter@X.com " }),
     { companyName: "Chykalophia", timezone: "UTC", adminName: "Peter K", adminEmail: "peter@x.com" },
   );
-  for (const bad of [
-    { companyName: "", timezone: "UTC", adminName: "P", adminEmail: "p@x.com" },
-    { companyName: "C", timezone: "Nowhere/Here", adminName: "P", adminEmail: "p@x.com" },
-    { companyName: "C", timezone: "UTC", adminName: "P", adminEmail: "p@" },
-  ]) {
-    assert.throws(() => normalizeInstall(bad), /./);
+  // Each refusal names the field it's about, so the setup form can mark it.
+  for (const [bad, field] of [
+    [{ companyName: "", timezone: "UTC", adminName: "P", adminEmail: "p@x.com" }, "companyName"],
+    [{ companyName: "C", timezone: "Nowhere/Here", adminName: "P", adminEmail: "p@x.com" }, "timezone"],
+    [{ companyName: "C", timezone: "UTC", adminName: "P", adminEmail: "p@" }, "email"],
+  ] as const) {
+    assert.throws(() => normalizeInstall(bad), (err: unknown) => err instanceof DomainError && err.code === "invalid_input" && !!err.details && "field" in err.details && err.details.field === field);
   }
 });

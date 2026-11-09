@@ -140,7 +140,9 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
 
   return (
     <div className="space-y-4">
-      <table className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-2xl border border-border">
+      {/* A grid, not a plain table: screen readers then pass the arrow keys to it (focus
+          mode) instead of reading the page with them, so moving between days works. */}
+      <table role="grid" className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-2xl border border-border">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
@@ -227,7 +229,9 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                         </span>
                       )}
                       {day.entries.length > 0 && (
-                        <ul className="space-y-1">
+                        // Arrow keys on a chip move between days too, so they keep working
+                        // in the grid wherever Tab has put focus.
+                        <ul className="space-y-1" onKeyDown={(e) => onKeyDown(e, day.date)}>
                           {day.entries.map((entry) => (
                             <li key={entry.id} className="pointer-events-auto">
                               <LeaveChip entry={entry} href={`/requests/${entry.id}`} />

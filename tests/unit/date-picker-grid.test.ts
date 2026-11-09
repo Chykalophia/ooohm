@@ -99,7 +99,8 @@ test("regression: focus clamps at the first and last supported days", async () =
   assert.equal(moveFocus("0100-01-01", "ArrowLeft"), "0100-01-01");
   const grid = pickerGrid("9999-12");
   assert.equal(grid.length, 42);
-  assert.equal(grid[41].date, "9999-12-31");
+  assert.ok(grid.every((c) => c.date.length === 10 && c.date <= "9999-12-31"));
+  assert.ok(grid.some((c) => c.date === "9999-12-26" && c.inMonth));
 });
 
 describe("date picker agrees with the shared validator (isCalendarDate)", () => {

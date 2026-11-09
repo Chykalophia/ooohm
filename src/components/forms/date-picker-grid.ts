@@ -45,9 +45,13 @@ export type PickerDay = { date: CalendarDate; inMonth: boolean };
 
 /** The 42 days the popup shows for `month`: Monday-first weeks from the week holding the 1st. */
 export function pickerGrid(month: YearMonth): PickerDay[] {
-  // Near the last supported day the grid slides back so it never shows a five-digit year.
+  // Monday-first and four-digit years, both. Near the last supported day the grid slides back
+  // whole weeks until it ends on or before MAX_DATE, so 9999-12's grid stops at Sunday the 26th:
+  // the last five days are reached by typing or the keyboard (an accepted edge, year 9999).
   const first = pickerEpochDay(`${month}-01`);
-  const start = Math.min(first - (weekday(`${month}-01`) - 1), pickerEpochDay(MAX_DATE) - (PICKER_DAYS - 1));
+  const latest = pickerEpochDay(MAX_DATE) - (PICKER_DAYS - 1);
+  const latestMonday = latest - (weekday(fromEpochDay(latest)) - 1);
+  const start = Math.min(first - (weekday(`${month}-01`) - 1), latestMonday);
   return Array.from({ length: PICKER_DAYS }, (_, i) => {
     const date = fromEpochDay(start + i);
     return { date, inMonth: monthOf(date) === month };

@@ -65,3 +65,7 @@ There were no critical or high findings (`.agent/review.md`). Medium AC6 320px o
 3. The 320px phone overflow from review is now measured as fixed (page 320px wide, popup open), and both red-team attack tests are untouched and pass.
 4. One gap: a red-team fix changed shared date validation, so the server now also accepts years 0001–0099; the spec said not to touch validation without asking.
 5. Recommended: move that fix into the picker's own helper and leave server validation as on `main` (a small Build pass); then it's ready to merge.
+
+## PR status
+
+Not opened. `git push -u origin feature/review-date-picker-t-352` failed with "could not read Username for 'https://github.com'", and `gh` is not authenticated in this environment. The branch is committed locally; it needs a push and a draft PR whose body is the summary above.

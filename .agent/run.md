@@ -13,3 +13,4 @@ Verify: SKIPPED (halted upstream)
 Challenge: TASK QUESTIONS -> cklph Get Answers v3 / Research
 Research: ROUND 1 -> cklph Build v3 / Challenge
 Challenge: TASK READY -> cklph Build v3 / Spec + Plan
+Spec + Plan: DESIGN NEEDED -> cklph Design Preview v3 / Mockups

@@ -20,7 +20,8 @@ import {
 } from "@/server/repositories/leave-requests";
 import { findCompanySettings } from "@/server/repositories/calendar";
 import { findLeaveType } from "@/server/repositories/leave-types";
-import { findMember, listActiveAdmins } from "@/server/repositories/users";
+import { findMember } from "@/server/repositories/users";
+import { loadApprovalContext } from "./approval-routing";
 import { alsoOffFor } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify } from "./notify";
@@ -58,14 +59,13 @@ function scopeFor(actor: Actor): InboxScope {
 
 /**
  * Who the approval rule (minus self-approval) picks for `requesterId`'s pending
- * requests now, read inside `tx`: three reads at most.
+ * requests now, read inside `tx`: five reads at most. Also who is told when someone
+ * cancels heads-up time off.
  */
-async function currentApprover(tx: Transaction, companyId: string, requesterId: string): Promise<string | null> {
-  const [requester, admins] = await Promise.all([findMember(tx, companyId, requesterId), listActiveAdmins(tx, companyId)]);
+export async function currentApprover(tx: Transaction, companyId: string, requesterId: string): Promise<string | null> {
+  const requester = await findMember(tx, companyId, requesterId);
   if (!requester) return null;
-  const manager =
-    requester.managerId && requester.managerId !== requester.id ? ((await findMember(tx, companyId, requester.managerId)) ?? null) : null;
-  return reassignApprover(new ManagerApprovalRule(), { requester, manager, admins });
+  return reassignApprover(new ManagerApprovalRule(), await loadApprovalContext(tx, companyId, requester));
 }
 
 /**
@@ -88,7 +88,7 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
   if (input.decision !== "approve" && input.decision !== "reject") throw new DomainError("invalid_input");
   const to = input.decision === "approve" ? "approved" : "rejected";
 
-  return commitThenNotify(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     const before = await lockLeaveRequest(tx, actor.companyId, input.requestId);
     if (!before) throw new DomainError("not_found");
     const byAssignment = decidesByAssignment(actor, before);
@@ -113,12 +113,12 @@ export async function decideLeaveRequest(ctx: ServiceContext, actor: Actor, inpu
 
     const contacts = await activeContacts(tx, actor.companyId, [after.userId]);
     const requester = contacts.get(after.userId);
-    if (!requester) return { result: after, outgoing: [] };
+    if (!requester) return { result: after, notify: [] };
     const leaveType = await findLeaveType(tx, actor.companyId, after.leaveTypeId);
     const leave = summarize(after, requester, leaveType?.name ?? "Time off");
-    const link = `${ctx.appUrl}/`;
-    const email = { kind: to, recipientName: requester.name, leave, reason, link } as const;
-    return { result: after, outgoing: [{ to: requester.email, email }] };
+    const data = { requestId: after.id, recipientName: requester.name, leave, reason, link: `${ctx.appUrl}/` };
+    const type = to === "approved" ? "leave.approved" : "leave.rejected";
+    return { result: after, notify: [{ type, to: requester.email, data }] };
   });
 }
 

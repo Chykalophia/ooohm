@@ -39,6 +39,12 @@ test("admin event names are a public contract", () => {
     "department.created",
     "department.renamed",
     "department.deleted",
+    "department.manager_changed",
+    "level.created",
+    "level.renamed",
+    "level.deleted",
+    "allowance_rule.set",
+    "allowance_rule.removed",
     "leave_type.created",
     "leave_type.updated",
     "leave_type.archived",
@@ -48,6 +54,8 @@ test("admin event names are a public contract", () => {
     "holiday.renamed",
     "holiday.deleted",
     "company.updated",
+    "email_template.updated",
+    "email_template.reset",
   ]);
 });
 

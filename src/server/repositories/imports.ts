@@ -10,7 +10,7 @@ import type { Executor, Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import type { ChangeSource } from "@/domain/change-source";
 import { type AuditEntry, sourceColumns } from "./change-log";
-import type { CompanyRow } from "./companies";
+import { type CompanyRow, companyFields } from "./companies";
 
 /** Rows per insert statement: well under Postgres's 65,535 bind parameters for the widest table here. */
 const CHUNK = 500;
@@ -65,20 +65,7 @@ export async function insertCompany(
   tx: Transaction,
   values: { name: string; timezone: string; workingDays: number[] },
 ): Promise<CompanyRow> {
-  const [row] = await tx.insert(companies).values(values).returning({
-    id: companies.id,
-    name: companies.name,
-    timezone: companies.timezone,
-    workingDays: companies.workingDays,
-    allowancePolicy: companies.allowancePolicy,
-    deletionGrace: companies.deletionGrace,
-    managersSeeDetails: companies.managersSeeDetails,
-    theme: companies.theme,
-    accentColor: companies.accentColor,
-    corners: companies.corners,
-    requestStyle: companies.requestStyle,
-    layout: companies.layout,
-  });
+  const [row] = await tx.insert(companies).values(values).returning(companyFields);
   return row;
 }
 

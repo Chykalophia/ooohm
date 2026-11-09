@@ -45,6 +45,11 @@ export const CHANGE_PROCESSES = {
    * who created themself and the company's default leave types through it.
    */
   firstInstall: "first_install",
+  /**
+   * Adding people from a CSV file on Admin → People → Import. An admin uploads the file,
+   * so it is only ever a `via`: that admin, through the import.
+   */
+  peopleImport: "people_import",
 } as const;
 
 const ADAPTER_SYNC_PREFIX = "adapter_sync:";
@@ -174,6 +179,8 @@ function processLabel(process: string, names: ChangeSourceNames, scheduled: bool
       return "the email Approve link";
     case CHANGE_PROCESSES.firstInstall:
       return "first-time setup";
+    case CHANGE_PROCESSES.peopleImport:
+      return "CSV import";
     case UNKNOWN_PROCESS:
       return "unknown process";
     default:

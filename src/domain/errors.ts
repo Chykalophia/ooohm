@@ -39,6 +39,11 @@ export type DomainErrorCode =
    * cancelled by anyone; a past year is corrected with a balance adjustment instead.
    */
   | "past_year_closed"
+  /**
+   * Approved leave of this year that is over (its last day has passed) cannot be
+   * cancelled by its requester; their manager or an admin can remove it to correct it.
+   */
+  | "leave_taken"
   /** The record changed underneath the caller (e.g. a concurrent decision won). */
   | "conflict"
   /** The actor did this too often in a short window; they can retry later. */
@@ -66,6 +71,8 @@ export type DomainErrorCode =
   | "manager_cycle"
   /** A department still has people in it, so deleting it would silently move them. */
   | "department_not_empty"
+  /** A level still has people at it, so deleting it would silently move them. */
+  | "level_not_empty"
   /** Admins cannot deactivate their own account; another admin has to. */
   | "self_change_not_allowed"
   /** A webhook URL is not `https://` (and plain `http://` is not allowed here). */

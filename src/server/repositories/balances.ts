@@ -1,4 +1,4 @@
-import { and, eq, inArray, lt, max, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lt, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { allowances, leaveRequestDays, leaveRequests } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
@@ -153,5 +153,30 @@ export async function writeAllowanceOverride(
       set: { days: values.days, adjustmentDays: values.adjustmentDays },
     })
     .returning();
+  return row;
+}
+
+/** The allowance rows of `userIds` for `fromYear` and later, optionally of some leave types only, locked until commit. */
+export async function lockAllowancesFrom(
+  tx: Transaction,
+  scope: { userIds: readonly string[]; fromYear: number; leaveTypeIds?: readonly string[] },
+): Promise<AllowanceRow[]> {
+  if (scope.userIds.length === 0 || scope.leaveTypeIds?.length === 0) return [];
+  return tx
+    .select()
+    .from(allowances)
+    .where(
+      and(
+        inArray(allowances.userId, [...scope.userIds]),
+        gte(allowances.year, scope.fromYear),
+        scope.leaveTypeIds ? inArray(allowances.leaveTypeId, [...scope.leaveTypeIds]) : undefined,
+      ),
+    )
+    .orderBy(asc(allowances.userId), asc(allowances.leaveTypeId), asc(allowances.year))
+    .for("update");
+}
+
+export async function setAllowanceDays(tx: Transaction, id: string, days: number): Promise<AllowanceRow> {
+  const [row] = await tx.update(allowances).set({ days }).where(eq(allowances.id, id)).returning();
   return row;
 }

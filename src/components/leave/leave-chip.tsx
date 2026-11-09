@@ -11,11 +11,12 @@ import { cx, focusRing } from "@/components/ui/styles";
  * feeds: "PTO", "PTO (AM)", "PTO (pending)".
  *
  * @param href Where the chip leads (the request's own page, for the person's own
- *   leave): it becomes a link that lifts its shadow and outline on hover.
+ *   leave, or a colleague's page): it becomes a link that lifts its shadow and outline on hover.
+ * @param personName Whose leave it is, for a colleague's: "Ana: PTO", as in the team feed.
  */
-export function LeaveChip({ entry, href }: { entry: CalendarEntry; href?: string }) {
+export function LeaveChip({ entry, href, personName }: { entry: CalendarEntry; href?: string; personName?: string }) {
   const color = normalizeHexColor(entry.leaveTypeColor);
-  const label = feedEventSummary(entry);
+  const label = feedEventSummary(entry, personName);
   const pending = entry.status === "pending";
   const className = cx(
     "block min-h-6 rounded-md px-1.5 py-1 text-xs leading-snug font-medium break-words",
@@ -24,20 +25,24 @@ export function LeaveChip({ entry, href }: { entry: CalendarEntry; href?: string
     href && focusRing,
   );
   const style = pending ? { borderColor: color } : { backgroundColor: color, color: readableTextColor(color) };
-  const content = (
-    <>
-      {label}
-      <span className="sr-only">{`, ${entry.leaveTypeName}, ${pending ? "waiting for approval" : "approved"}`}</span>
-    </>
-  );
+  const spoken = `${label}, ${entry.leaveTypeName}, ${pending ? "waiting for approval" : "approved"}`;
   const title = `${entry.leaveTypeName}${pending ? ", waiting for approval" : ""}`;
+  // A link takes its whole name from aria-label: hidden text inside it is read as a line
+  // of its own, starting with a comma.
   return href ? (
-    <Link href={href} title={`${title}: open the request`} className={className} style={style}>
-      {content}
+    <Link
+      href={href}
+      title={personName ? `${personName}, ${title}: open their page` : `${title}: open the request`}
+      aria-label={spoken}
+      className={className}
+      style={style}
+    >
+      {label}
     </Link>
   ) : (
     <span title={title} className={className} style={style}>
-      {content}
+      {label}
+      <span className="sr-only">{spoken.slice(label.length)}</span>
     </span>
   );
 }

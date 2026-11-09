@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { formatAddedFor, formatSubmitted } from "@/lib/format";
-import { addLeaveFor } from "@/server/services/leave-on-behalf";
+import { addLeaveFor, removeLeaveFor } from "@/server/services/leave-on-behalf";
 import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-requests";
 import type { FormState } from "@/components/forms/form-state";
 import { leaveRequestSchema, readDraftFields } from "./_lib/leave-input";
@@ -15,7 +15,7 @@ export async function requestLeaveAction(_prev: FormState, formData: FormData): 
   const fields = { ...readDraftFields(formData), note: formData.get("note") ?? undefined };
   return runFormAction("leave_request_submit", fields, leaveRequestSchema, async (ctx, actor, input) => {
     const request = await submitLeaveRequest(ctx, actor, input);
-    return formatSubmitted({ ...request, approved: request.status === "approved" });
+    return formatSubmitted({ ...request, approved: request.status === "approved", headsUp: request.headsUp });
   });
 }
 
@@ -44,4 +44,15 @@ export async function addLeaveForAction(_prev: FormState, formData: FormData): P
     },
     { messages: addForMessages },
   );
+}
+
+const removeForSchema = z.object({ requestId: formFields.id, reason: z.string() });
+
+/** A teammate's page: a manager or admin removes their approved time off to correct the record, with a reason. */
+export async function removeLeaveForAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const fields = { requestId: formData.get("requestId") ?? "", reason: formData.get("reason") ?? "" };
+  return runFormAction("leave_remove_for", fields, removeForSchema, async (ctx, actor, { requestId, reason }) => {
+    await removeLeaveFor(ctx, actor, requestId, reason);
+    return "Removed. They've been emailed, and the days are back in their balance.";
+  });
 }

@@ -55,27 +55,44 @@ export interface PersonOwnership {
   id: string;
   companyId: string;
   managerId: string | null;
+  /** The manager of the person's department, when it has one. */
+  departmentManagerId: string | null;
+}
+
+/** Whether `actor` manages `person`: their direct manager, or their department's manager. */
+function manages(actor: Actor, person: PersonOwnership): boolean {
+  return person.managerId === actor.id || person.departmentManagerId === actor.id;
 }
 
 /**
  * Whether `actor` may see `person`'s private leave details (balances, the notes on their
  * requests and their approver's reasons) on the team member page: the person themself,
- * an admin of their company, or their direct manager while the company allows it
- * (`companies.managers_see_details`). Everyone else in the company sees only what the
+ * an admin of their company, or their direct manager or their department's manager
+ * while the company allows it (`companies.managers_see_details`). Everyone else in the company sees only what the
  * team calendar shows: who is off and when.
  */
 export function canSeeLeaveDetails(actor: Actor, person: PersonOwnership, managersSeeDetails: boolean): boolean {
   if (person.companyId !== actor.companyId) return false;
   if (person.id === actor.id || isAdmin(actor)) return true;
-  return managersSeeDetails && person.managerId === actor.id;
+  return managersSeeDetails && manages(actor, person);
 }
 
 /**
  * Whether `actor` may add time off for `person`, approved as it is added: an admin of
- * their company, or their direct manager. Never for oneself: one's own time off goes
+ * their company, their direct manager, or their department's manager. Never for oneself: one's own time off goes
  * through the request form and its approver like everyone else's.
  */
 export function canAddLeaveFor(actor: Actor, person: PersonOwnership): boolean {
   if (person.companyId !== actor.companyId || person.id === actor.id) return false;
-  return isAdmin(actor) || person.managerId === actor.id;
+  return isAdmin(actor) || manages(actor, person);
+}
+
+/**
+ * Whether `actor` may correct `person`'s time off, removing approved leave that was
+ * recorded wrongly (past leave included): the same people who may add it for them
+ * ({@link canAddLeaveFor}), an admin of their company, their direct manager or their department's manager. Never
+ * for oneself.
+ */
+export function canCorrectLeaveFor(actor: Actor, person: PersonOwnership): boolean {
+  return canAddLeaveFor(actor, person);
 }

@@ -21,6 +21,8 @@ export interface ApprovalContext {
   requester: ApprovalRequester;
   /** The requester's manager when set and in the same company; `null` otherwise. */
   manager: ApprovalCandidate | null;
+  /** The manager of the requester's department, when it has one; `null` otherwise. */
+  departmentManager: ApprovalCandidate | null;
   /** Admins of the requester's company. Inactive entries are ignored. */
   admins: readonly ApprovalCandidate[];
 }
@@ -32,7 +34,15 @@ export interface ApprovalContext {
  * - `route`: stays pending until `approverId` (or a company admin) decides it.
  */
 export type ApprovalDecision =
-  | { kind: "auto_approve"; approverId: string }
+  | {
+      kind: "auto_approve";
+      approverId: string;
+      /**
+       * Someone to tell about the booked time off, without asking them anything
+       * (heads-up mode), or `null` when there is nobody. Absent: nobody is told.
+       */
+      informId?: string | null;
+    }
   | { kind: "route"; approverId: string };
 
 /**
@@ -45,22 +55,48 @@ export interface ApprovalRule {
 }
 
 /**
+ * How a company treats time off, chosen by an admin for everyone (Admin → Company):
+ *
+ * - `required`: people ask, and an approver decides ({@link ManagerApprovalRule}).
+ * - `heads_up`: people tell. Time off is booked as it is sent, and the person who would
+ *   have decided it is told instead ({@link HeadsUpApprovalRule}).
+ *
+ * Stored on the company, which is the tenant every rule is scoped to, so it moves with
+ * the company should several share one deployment.
+ */
+export const APPROVAL_MODES = ["required", "heads_up"] as const;
+export type ApprovalMode = (typeof APPROVAL_MODES)[number];
+export const DEFAULT_APPROVAL_MODE: ApprovalMode = "required";
+
+export function isApprovalMode(value: string): value is ApprovalMode {
+  return (APPROVAL_MODES as readonly string[]).includes(value);
+}
+
+/** A stored mode, read safely: anything unknown asks for approval, the cautious default. */
+export function readApprovalMode(value: string): ApprovalMode {
+  return isApprovalMode(value) ? value : DEFAULT_APPROVAL_MODE;
+}
+
+/**
  * v1 approval policy, in order:
  *
  * 1. `can_self_approve` → approved immediately, decided by the requester.
  * 2. An active manager → routed to the manager.
- * 3. Otherwise an active admin other than the requester → the longest-standing one
+ * 3. Otherwise the active manager of their department, when it has one and it is not
+ *    the requester → routed to them. Department managers are optional; a person's own
+ *    manager always comes first, so this only fills the gap for people without one.
+ * 4. Otherwise an active admin other than the requester → the longest-standing one
  *    (oldest `createdAt`, then lowest id), so routing is deterministic.
- * 4. Otherwise, if the requester is an admin → routed to themself, so a company's
+ * 5. Otherwise, if the requester is an admin → routed to themself, so a company's
  *    only admin can still take time off.
- * 5. Otherwise → `no_approver`.
+ * 6. Otherwise → `no_approver`.
  */
 export class ManagerApprovalRule implements ApprovalRule {
-  resolve({ requester, manager, admins }: ApprovalContext): ApprovalDecision {
+  resolve({ requester, manager, departmentManager, admins }: ApprovalContext): ApprovalDecision {
     if (requester.canSelfApprove) return { kind: "auto_approve", approverId: requester.id };
 
-    if (manager && manager.isActive && manager.id !== requester.id) {
-      return { kind: "route", approverId: manager.id };
+    for (const candidate of [manager, departmentManager]) {
+      if (candidate && candidate.isActive && candidate.id !== requester.id) return { kind: "route", approverId: candidate.id };
     }
 
     const [fallback] = admins
@@ -75,16 +111,39 @@ export class ManagerApprovalRule implements ApprovalRule {
 }
 
 /**
+ * Heads-up time off: nothing waits for a decision. Every request is approved as it is
+ * sent, recorded as decided by the requester (nobody else decided it), and the person
+ * {@link ManagerApprovalRule} would have routed it to is told (`informId`): the
+ * requester's active manager, else the longest-standing other active admin. With
+ * nobody to tell (or only the requester themself), `informId` is `null` and the time
+ * off is booked all the same: turning approval off never blocks anyone.
+ */
+export class HeadsUpApprovalRule implements ApprovalRule {
+  constructor(private readonly routing: ApprovalRule = new ManagerApprovalRule()) {}
+
+  resolve(context: ApprovalContext): ApprovalDecision {
+    const told = reassignApprover(this.routing, context);
+    return { kind: "auto_approve", approverId: context.requester.id, informId: told === context.requester.id ? null : told };
+  }
+}
+
+/** The rule for a company's {@link ApprovalMode}. */
+export function approvalRuleFor(mode: ApprovalMode): ApprovalRule {
+  return mode === "heads_up" ? new HeadsUpApprovalRule() : new ManagerApprovalRule();
+}
+
+/**
  * Who should decide an already-submitted pending request now, by the same rule that
  * routed it, minus self-approval: the request was submitted as someone else's
  * decision, so it is never approved by this. In order: the requester's active
- * manager, the longest-standing other active admin, the requester themself when they
+ * manager, their department's active manager, the longest-standing other active admin, the requester themself when they
  * are an admin, else `null`, which leaves the request with no assigned approver
  * (every admin still sees it in their inbox).
  *
  * Used to re-route pending requests when an admin change moves the right to decide
  * them (the approver is deactivated or demoted from admin, the requester's manager
- * changes, or someone who can take an admin's self-routed request is invited as admin,
+ * changes, the requester moves department, their department's manager changes, or
+ * someone who can take an admin's self-routed request is invited as admin,
  * promoted to admin or reactivated), and at
  * decision time to check that a stored assignment still holds (`canDecide`).
  *

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OOOhm on LinkedIn: ask and approve (composition)</title>
+<!-- 4:5 LinkedIn cut, about 38 s: asking in one sentence, approving from the email, then in the app. -->
+<link rel="stylesheet" href="social/social.css">
+<style>
+  #f-ask { top: 330px; }
+  #f-mail { top: 330px; width: 940px; }
+  #f-mail .from { padding: 18px 26px; border-bottom: 1.5px solid var(--border); font-size: 24px; color: var(--body); }
+  #f-mail .from b { color: var(--ink); font-weight: 600; }
+  #f-mail .from span { display: block; color: var(--muted); font-size: 20px; margin-top: 4px; }
+  #f-approve { top: 330px; }
+  .cursor { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(15,118,110,.28); border: 4px solid var(--accent); box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 6px 16px rgba(28,25,23,.25); translate: -50% -50%; opacity: 0; }
+  .done { position: absolute; left: 50%; top: 1056px; translate: -50% 0; font-size: 32px; font-weight: 600; color: var(--accent); background: var(--soft); box-shadow: inset 0 0 0 1.5px var(--line); border-radius: 999px; padding: 10px 26px; opacity: 0; white-space: nowrap; }
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><symbol id="mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f766e"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5" fill="none" stroke="#fff" stroke-width="3.1" stroke-linejoin="round"/></g></symbol></svg>
+
+  <section class="scene" id="s-ask">
+    <h1 class="head" id="h-ask">Ask for time off in one sentence. <span class="a">Get a yes from the email.</span></h1>
+    <div class="frame" id="f-ask"><div class="bar"><i></i><i></i><i></i></div><img id="clip-ask" alt=""></div>
+  </section>
+
+  <section class="scene" id="s-mail">
+    <h1 class="head">Your manager gets this.</h1>
+    <div class="frame" id="f-mail">
+      <p class="from"><b>OOOhm</b> · Lena Park asked for time off<span>to: Maya Chen, the approver</span></p>
+      <img src="social/email-request.png" alt="">
+    </div>
+    <div class="cursor" id="cursor"></div>
+    <p class="done" id="done">Approved. No sign-in needed.</p>
+  </section>
+
+  <section class="scene" id="s-approve">
+    <h1 class="head">Or in the app, <span class="a">with the whole picture.</span></h1>
+    <div class="frame" id="f-approve"><div class="bar"><i></i><i></i><i></i></div><img id="clip-approve" alt=""></div>
+  </section>
+
+  <section class="scene center end" id="s-end">
+    <div>
+      <div class="logo"><svg><use href="#mark"/></svg><span><span class="o">OOO</span><span class="hm">hm</span></span></div>
+      <p class="tag">Time off for small teams.</p>
+      <div class="facts"><span>Free</span><span>Source-available</span><span>Self-hosted</span></div>
+      <p class="cta">Link in the first comment</p>
+      <p class="gh" id="gh"></p>
+    </div>
+  </section>
+
+  <p class="caption" id="caption"></p>
+
+<script src="social/social.js"></script>
+<script>
+  window.SIZE = { w: 1080, h: 1350 };
+  window.CLIPS = ["ask", "approve"];
+  window.DURATION = 38;
+  window.POSTER = 0;
+  window.CAPTIONS = [
+    { at: 0, end: 3.2, text: "This is the whole job of asking for time off." },
+    { at: 3.3, end: 7.5, text: "Pick the type and the days, right in the sentence." },
+    { at: 7.6, end: 11.9, text: "It counts working days only, and shows what you’ll have left." },
+    { at: 12.0, end: 15.8, text: "One click sends it to your manager." },
+    { at: 16.3, end: 19.6, text: "They get an email that says who else is out those days." },
+    { at: 19.7, end: 23.0, text: "One tap approves it. No sign‑in, no back‑and‑forth." },
+    { at: 23.4, end: 27.3, text: "Or they approve in the app, with the team’s days in view." },
+    { at: 27.4, end: 30.8, text: "Every decision is logged, with who made it." },
+    { at: 31.3, end: 37.7, text: "OOOhm is free and source-available. The link is in the first comment." },
+  ];
+  $("gh").textContent = `${URL_TEXT} · github.com/Chykalophia/ooohm`;
+
+  window.seek = async function seek(t) {
+    // Ask: on screen from the first frame, so the post's thumbnail is the hook.
+    $("s-ask").style.opacity = shown(t, 0, 16.2);
+    await drawClip($("clip-ask"), "ask", 1.5, 1.4, Math.min(t, 16.2));
+
+    // The email, then a tap on Approve. The cursor lands on the button in the email image.
+    $("s-mail").style.opacity = shown(t, 15.9, 23.3);
+    const fm = ramp(t, 15.9, 16.5, out);
+    $("f-mail").style.transform = `translateY(${30 * (1 - fm)}px)`;
+    const c = $("cursor");
+    const k = ramp(t, 18.6, 19.8, ease);
+    const r = $("f-mail").querySelector("img").getBoundingClientRect();
+    const bx = r.left + r.width * 165 / 1160, by = r.top + r.height * 444 / 660;
+    c.style.left = `${880 - (880 - bx) * k}px`;
+    c.style.top = `${1150 - (1150 - by) * k}px`;
+    c.style.opacity = ramp(t, 18.4, 18.7) * (1 - ramp(t, 21.0, 21.3));
+    const press = t > 19.9 && t < 20.15;
+    c.style.scale = press ? "0.75" : "1";
+    set($("done"), ramp(t, 20.2, 20.6, out), 12 * (1 - ramp(t, 20.2, 20.6, out)));
+
+    // Approve in the app.
+    $("s-approve").style.opacity = shown(t, 23.0, 31.1);
+    if (t >= 22.9 && t < 31.2) await drawClip($("clip-approve"), "approve", 0.6, 1.15, t - 23.0);
+
+    // End card.
+    $("s-end").style.opacity = ramp(t, 30.9, 31.4);
+    $("s-end").firstElementChild.style.transform = `translateY(${16 * (1 - ramp(t, 30.9, 31.6))}px)`;
+
+    drawCaption(t);
+  };
+  window.ready = readyAll();
+</script>
+</body>
+</html>

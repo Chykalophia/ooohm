@@ -143,7 +143,8 @@ Ids are strings. Every payload says who or what made the change in two fields:
   `via` and `process` are stable identifiers: `year_rollover`, `retention`, `timeoff_import`, `scheduled_scrub`,
   `holiday_change`, `working_days_change`, `email_link` (added within version 1: an approver who approved from
   the request email's Approve link), `first_install` (added within version 1: the first admin, creating themself
-  and the default leave types through the web setup), and `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`).
+  and the default leave types through the web setup), `people_import` (added within version 1: an admin adding people
+  and departments from a CSV file; each person is a `user.created` event), and `adapter_sync:<adapterId>` (a scheduled sync when it is a `process`).
   Expect more; treat an unknown one as opaque.
 - **`actorId`** is kept for compatibility: the person, when there is one (`actor.id`), or `null` for a `system`
   change. Prefer `actor`.
@@ -156,9 +157,9 @@ For example, the year rollover's `balance.adjusted` carries `"actorId": null, "a
 | Type | When |
 | --- | --- |
 | `leave.requested` | A request is submitted (also for self-approved ones, and for time off a manager or admin adds for someone, each followed by `leave.approved`; the actor is whoever submitted or added it) |
-| `leave.approved` | An approver or admin approves, or a request is self-approved |
+| `leave.approved` | An approver or admin approves, or a request is self-approved (including every request people send themselves while the company has approval turned off; the actor is then the requester) |
 | `leave.rejected` | An approver or admin declines |
-| `leave.cancelled` | The requester cancels a pending or approved request. Approved leave that ended before the current year (in the company's time zone) cannot be cancelled, so no `leave.cancelled` follows for it. |
+| `leave.cancelled` | The requester cancels a pending request, or approved leave that isn't over yet; or their manager or an admin removes approved leave of the current year (past days included) to correct the record. The actor says which: for a removal it is the manager or admin, not the requester. Approved leave that ended before the current year (in the company's time zone) cannot be cancelled or removed, so no `leave.cancelled` follows for it. |
 | `leave.reassigned` | A pending request moves to another approver (adds `previousApproverId`, `approverId`) |
 | `leave.recounted` | A pending or approved request's days changed because an admin added or deleted a company holiday on its dates, or changed the working days: its total, or only how its days split between years (then `days` equals `previousDays`). `days` is the new count (it can be `0` when the request now falls entirely on holidays or non-working days; the request is kept, never cancelled); adds `previousDays`. Only the current and later years are recounted. The actor is the admin, with `via` `holiday_change` or `working_days_change`. Endpoints subscribe to event types explicitly, so an integration that mirrors leave days should add this one |
 
@@ -168,7 +169,7 @@ Payload: `requestId, userId, leaveTypeId, startDate, endDate, dayPortion ("full"
 
 | Type | When |
 | --- | --- |
-| `balance.adjusted` | An allowance row changed: `reason` is `carryover` or `allowance_created` (year rollover), `admin_edit` (an admin), or `sync` (an adapter) |
+| `balance.adjusted` | An allowance row changed: `reason` is `carryover` or `allowance_created` (year rollover), `admin_edit` (an admin), `sync` (an adapter), or `allowance_rule` (an allowance rule, or the person's department or level, changed a row that was following the default; added within version 1) |
 
 Payload: `allowanceId, userId, leaveTypeId, year, days, carriedOverDays, adjustmentDays, reason, actorId, actor` (the
 row after the change).
@@ -177,12 +178,12 @@ row after the change).
 
 | Type | When |
 | --- | --- |
-| `user.created` | An admin invites someone, or an adapter's sync adds them |
-| `user.updated` | Name, department, manager, role or self-approval changed. Usually by an admin; a person can also change their own name, and is then the actor |
+| `user.created` | An admin invites someone or adds them from a CSV file (`via` `people_import`), or an adapter's sync adds them |
+| `user.updated` | Name, department, level, manager, role or self-approval changed. Usually by an admin; a person can also change their own name, and is then the actor |
 | `user.deactivated`, `user.reactivated` | |
 | `user.invite_resent` | An admin sent a new sign-in link |
 
-Payload: `userId, email, name, role, departmentId, managerId, canSelfApprove, isActive, actorId, actor` (the person
+Payload: `userId, email, name, role, departmentId, levelId, managerId, canSelfApprove, isActive, actorId, actor` (`levelId` added within version 1) (the person
 after the change). It never holds a session, token or sign-in link.
 
 **Deleting people** (added in M8)
@@ -216,10 +217,13 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 
 | Type | Payload |
 | --- | --- |
-| `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
+| `department.created`, `.renamed`, `.deleted`, `.manager_changed` | `departmentId, name, managerId, actorId, actor`. `managerId` (the department's optional manager, who approves for its people whose own manager is missing or inactive) and `department.manager_changed` were added within version 1. `actorId` is `null` on a `department.manager_changed` sent when a scheduled scrub deletes the manager. |
+| `level.created`, `.renamed`, `.deleted` | `levelId, name, actorId, actor`. Levels (Intern, Senior) were added within version 1. |
+| `allowance_rule.set`, `.removed` | `ruleId, leaveTypeId, departmentId, levelId, days, actorId, actor`: a yearly allowance of one leave type for a department, a level or both (at least one is set). Added within version 1. The allowance rows it moves each send `balance.adjusted` with `reason: "allowance_rule"`. |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
-| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId, actor`. `deletionGrace`, `managersSeeDetails`, `theme`, `accentColor`, `corners`, `requestStyle` and `layout` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, `accentColor` is `#rrggbb` or null, `requestStyle` is `form` or `sentence`, and `layout` is `standard`, `tonal`, `grouped`, `compact` or `legible`. New theme, corner, request-style and layout keys may appear. |
+| `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, approvalMode, colleagueVisibility, theme, accentColor, corners, requestStyle, layout, logo, actorId, actor`. `deletionGrace`, `managersSeeDetails`, `approvalMode`, `colleagueVisibility`, `theme`, `accentColor`, `corners`, `requestStyle`, `layout` and `logo` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, `approvalMode` is `required` or `heads_up` (time off is booked without approval; new values may appear), `accentColor` is `#rrggbb` or null, `requestStyle` is `form` or `sentence`, and `layout` is `standard`, `tonal`, `grouped`, `compact` or `legible`. `logo` is null or `{ sha256, contentType, width, height }` (`contentType` is `image/png` or `image/jpeg`; the file is at `/logo/<sha256>.png` or `.jpg` on the app's URL). New theme, corner, request-style and layout keys may appear. |
+| `email_template.updated`, `.reset` | `notificationType, subject, message, actorId, actor`: a company's own words for one email (Admin → Emails), after the change. `notificationType` is `leave.requested`, `leave.approved`, `leave.rejected`, `leave.booked`, `leave.heads_up`, `leave.added`, `leave.cancelled_requester`, `leave.cancelled_approver`, `leave.recounted` or `invite`; new ones may appear. `subject` and `message` hold `{{variable}}` placeholders, and null means the email's default (both null after `.reset`). Added within version 1. |
 
 **Calendar links**
 

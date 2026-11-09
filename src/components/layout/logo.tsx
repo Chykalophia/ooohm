@@ -1,3 +1,4 @@
+import type { LogoRef } from "@/domain/company-logo";
 import { OHM_OFFSET, OHM_PATH, OHM_SCALE, OHM_STROKE_WIDTH } from "@/lib/brand-mark";
 
 /** The Ω mark on its accent tile, the same drawing as the favicon. Sized by the text around it. */
@@ -31,6 +32,34 @@ export function Logo({ className = "" }: { className?: string }) {
         <span className="text-accent-ink">OOO</span>
         <span className="text-muted font-normal">hm</span>
       </span>
+    </span>
+  );
+}
+
+/**
+ * The company's own logo, sized by the text around it like {@link Logo}: 1.6em high (32px
+ * in the header), its shape kept, never wider than 6em (120px). Its alt text is the company's name.
+ */
+export function CompanyLogo({ logo, className = "" }: { logo: LogoRef; className?: string }) {
+  return (
+    // A plain <img>: the file is already small, served from its own cached route, and has to work in every theme.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={logo.src}
+      alt={logo.alt}
+      width={logo.width}
+      height={logo.height}
+      className={`block h-[1.6em] w-auto max-w-[6em] object-contain ${className}`}
+    />
+  );
+}
+
+/** The company's logo when an admin set one, otherwise the OOOhm logo. */
+export function BrandLogo({ logo, className = "" }: { logo: LogoRef | null; className?: string }) {
+  if (!logo) return <Logo className={className} />;
+  return (
+    <span className={`inline-flex items-center text-xl ${className}`}>
+      <CompanyLogo logo={logo} />
     </span>
   );
 }

@@ -69,9 +69,9 @@
   --foreground: light-dark(#1c1917, #f5f5f4);
   --muted: light-dark(#78716c, #a8a29e);
   --border: light-dark(#e7e5e4, #292524);
-  --accent: light-dark(#0f766e, #2dd4bf);
+  --accent: light-dark(#115e59, #2dd4bf);
   --accent-foreground: light-dark(#ffffff, #042f2e);
-  --accent-ink: light-dark(#0f766e, #2dd4bf);
+  --accent-ink: light-dark(#115e59, #2dd4bf);
   --app-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --display-font: var(--app-font);
   --radius-sm: 0.25rem;

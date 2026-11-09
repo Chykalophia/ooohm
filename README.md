@@ -12,6 +12,7 @@ OOOhm is a calm, modern leave tracker for small teams. Employees can request tim
 - Leave requests (full or half day) with manager approval, and optional self-approval for specific people
 - Balances per leave type: a yearly allowance that resets Jan 1, with optional carryover
 - A who's-out calendar plus personal and team ICS feeds for Google Calendar
+- Reports for admins and managers: days off by month against last year, five years of totals, by leave type, department and person, with a CSV download
 - Per-company working days and public holidays
 - Admin screens, an audit log, and an import tool for TimeOff.Management
 - Deactivating people, and deleting them for good (a full scrub, or keeping their records), with a CSV export first
@@ -105,10 +106,13 @@ an adjustment instead. See [docs/architecture.md](docs/architecture.md#year-roll
 
 ### Calendar subscriptions
 
-Anyone can add their own time off, or everyone's ("who's out"), to a calendar app. In OOOhm, open
-**Calendar**, then **Add your time off to Google Calendar, Apple Calendar or Outlook**, and create a link. Copy it
-straight away: OOOhm stores only a hash of it, so it is shown once. Anyone with the link can see that calendar;
-**Get a new link** or **Turn off** there kills the old one at once.
+Anyone can add everyone's time off ("who's out", their own included), or only their own, to a calendar app. In
+OOOhm, open **Calendar**, then **Add your time off to Google Calendar, Apple Calendar or Outlook**, and create a
+link. Add it with the **Google Calendar**, **Apple Calendar** or **Outlook** button, or copy it, straight away:
+OOOhm stores only a hash of it and its last 4 characters, so it is shown once. The page then says the link is on
+and, for links made from this version on, which one it is ("ending in abcd"); an older link gets its hint once
+replaced. Anyone with the link can see that calendar; **Lost it? Replace the link**
+or **Turn off** there kills the old one at once.
 
 - **Google Calendar** (web): next to **Other calendars**, click **+**, then **From URL**, paste the link and click
   **Add calendar**. Google fetches it on its own schedule, so changes can take several hours to show, up to about

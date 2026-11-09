@@ -2,7 +2,8 @@ import { asc, eq } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 
-const companyFields = {
+/** The columns of a {@link CompanyRow}; never the logo's bytes. */
+export const companyFields = {
   id: companies.id,
   name: companies.name,
   timezone: companies.timezone,
@@ -10,11 +11,17 @@ const companyFields = {
   allowancePolicy: companies.allowancePolicy,
   deletionGrace: companies.deletionGrace,
   managersSeeDetails: companies.managersSeeDetails,
+  approvalMode: companies.approvalMode,
+  colleagueVisibility: companies.colleagueVisibility,
   theme: companies.theme,
   accentColor: companies.accentColor,
   corners: companies.corners,
   requestStyle: companies.requestStyle,
   layout: companies.layout,
+  logoSha256: companies.logoSha256,
+  logoType: companies.logoType,
+  logoWidth: companies.logoWidth,
+  logoHeight: companies.logoHeight,
 };
 
 export type CompanyRow = {
@@ -27,12 +34,21 @@ export type CompanyRow = {
   deletionGrace: boolean;
   /** Managers see their direct reports' balances and notes on the team member page. */
   managersSeeDetails: boolean;
+  /** Raw stored approval mode; read it through `readApprovalMode`. */
+  approvalMode: string;
+  /** What employees see of colleagues' time off; read it through `readColleagueVisibility`. */
+  colleagueVisibility: string;
   /** Raw stored appearance; read it through `readAppearance`. */
   theme: string;
   accentColor: string | null;
   corners: string;
   requestStyle: string;
   layout: string;
+  /** Describe the logo, whose bytes are read only by {@link findLogoFile}; read them through `readStoredLogo`. */
+  logoSha256: string | null;
+  logoType: string | null;
+  logoWidth: number | null;
+  logoHeight: number | null;
 };
 
 export async function findCompany(ex: Executor, companyId: string): Promise<CompanyRow | undefined> {
@@ -76,14 +92,50 @@ export async function updateCompany(
     allowancePolicy?: string;
     deletionGrace?: boolean;
     managersSeeDetails?: boolean;
+    approvalMode?: string;
+    colleagueVisibility?: string;
     theme?: string;
     accentColor?: string | null;
     corners?: string;
     requestStyle?: string;
     layout?: string;
+    /** Set with the four columns that describe it, or all five null. */
+    logo?: Uint8Array | null;
+    logoSha256?: string | null;
+    logoType?: string | null;
+    logoWidth?: number | null;
+    logoHeight?: number | null;
   },
 ): Promise<CompanyRow> {
   const [row] = await tx.update(companies).set(set).where(eq(companies.id, companyId)).returning(companyFields);
+  return row;
+}
+
+/** A stored logo's bytes and type, found by the SHA-256 that names it. */
+export async function findLogoFile(ex: Executor, sha256: string): Promise<{ bytes: Uint8Array; contentType: string } | undefined> {
+  const [row] = await ex
+    .select({ bytes: companies.logo, contentType: companies.logoType })
+    .from(companies)
+    .where(eq(companies.logoSha256, sha256))
+    .limit(1);
+  return row?.bytes && row.contentType ? { bytes: row.bytes, contentType: row.contentType } : undefined;
+}
+
+/** The deployment's company (the oldest, as in {@link findDeploymentAppearance}): its name and logo description. */
+export async function findDeploymentBrand(
+  ex: Executor,
+): Promise<Pick<CompanyRow, "name" | "logoSha256" | "logoType" | "logoWidth" | "logoHeight"> | undefined> {
+  const [row] = await ex
+    .select({
+      name: companies.name,
+      logoSha256: companies.logoSha256,
+      logoType: companies.logoType,
+      logoWidth: companies.logoWidth,
+      logoHeight: companies.logoHeight,
+    })
+    .from(companies)
+    .orderBy(asc(companies.createdAt), asc(companies.id))
+    .limit(1);
   return row;
 }
 

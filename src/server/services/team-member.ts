@@ -1,11 +1,13 @@
 import type { Actor } from "@/domain/actor";
 import { isEmptyBalance } from "@/domain/allowance-policy";
 import { entriesCostingDaysIn } from "@/domain/calendar";
+import { calendarScopeFor, canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/domain/leave-days";
-import { canAddLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { canAddLeaveFor, canCorrectLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { canRemoveOn } from "@/domain/request-status";
 import { teamLabel } from "@/domain/person";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
@@ -28,45 +30,64 @@ const AHEAD_DAYS = 365;
  *   department, manager, and their approved and pending leave from
  *   {@link RECENT_DAYS} days ago to {@link AHEAD_DAYS} days ahead (only leave that costs
  *   a working day, as on the calendar).
- * - The person, admins, and their manager while the company allows it
+ * - The person, admins, and their manager or department's manager while the company allows it
  *   ({@link canSeeLeaveDetails}) also get `details`: this year's balances, and each
  *   request's days, note and approver's reason. For anyone else those are never read
  *   past the query, so they never leave the service.
  *
- * - An admin, or the person's direct manager ({@link canAddLeaveFor}), also gets
- *   `addLeave`: what the form to add time off for them needs (`addLeaveFor`).
+ * - An admin, or the person's direct or department manager ({@link canAddLeaveFor}), also gets
+ *   `addLeave`: what the form to add time off for them needs (`addLeaveFor`), and each
+ *   approved entry of the open year is `removable` by them (`removeLeaveFor`). They also
+ *   get `earlier`: this year's leave from before the recent window.
  *
- * Inactive and deleted people are not on Team, so they are `not_found` here too.
+ * Inactive and deleted people are not on Team, so they are `not_found` here too, as is
+ * anyone outside the people the actor may see (`calendarScopeFor`).
  *
  * @throws DomainError `not_found`, `no_company`.
  */
 export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: string) {
   if (!isUuid(userId)) throw new DomainError("not_found");
-  const [company, person] = await Promise.all([findCompany(ctx.db, actor.companyId), findPerson(ctx.db, actor.companyId, userId)]);
+  const [company, person, viewer] = await Promise.all([
+    findCompany(ctx.db, actor.companyId),
+    findPerson(ctx.db, actor.companyId, userId),
+    userId === actor.id ? undefined : findPerson(ctx.db, actor.companyId, actor.id),
+  ]);
   if (!company) throw new DomainError("no_company");
   if (!person?.isActive) throw new DomainError("not_found");
+  const scope = calendarScopeFor({ id: actor.id, role: actor.role, managerId: userId === actor.id ? person.managerId : (viewer?.managerId ?? null) }, company);
+  if (!canSeeOnCalendar(scope, person)) throw new DomainError("not_found");
 
   const now = ctx.now();
   const today = todayInTimeZone(company.timezone, now);
   const from = fromEpochDay(toEpochDay(today) - RECENT_DAYS);
   const to = fromEpochDay(toEpochDay(today) + AHEAD_DAYS);
-  const showDetails = canSeeLeaveDetails(actor, { ...person, companyId: actor.companyId }, company.managersSeeDetails);
-  const year = yearInTimeZone(company.timezone, now);
-  const canAdd = canAddLeaveFor(actor, { ...person, companyId: actor.companyId });
-
-  const [department, manager, holidays, leave, balances, addLeave] = await Promise.all([
+  // Who manages them (their manager, or their department's) decides the details, the add form and corrections.
+  const [department, manager] = await Promise.all([
     person.departmentId ? findDepartment(ctx.db, actor.companyId, person.departmentId) : undefined,
     person.managerId ? findPerson(ctx.db, actor.companyId, person.managerId) : undefined,
-    listHolidays(ctx.db, actor.companyId, from, to),
-    listPersonLeave(ctx.db, actor.companyId, person.id, from, to),
+  ]);
+  const owned = { id: person.id, companyId: actor.companyId, managerId: person.managerId, departmentManagerId: department?.managerId ?? null };
+  const showDetails = canSeeLeaveDetails(actor, owned, company.managersSeeDetails);
+  const year = yearInTimeZone(company.timezone, now);
+  const canAdd = canAddLeaveFor(actor, owned);
+  const canCorrect = canCorrectLeaveFor(actor, owned);
+  // Someone who may correct the person's leave also sees this year's from before the recent window.
+  const yearStart = `${year}-01-01`;
+  const readFrom = canCorrect && yearStart < from ? yearStart : from;
+
+  const [holidays, leave, balances, addLeave] = await Promise.all([
+    listHolidays(ctx.db, actor.companyId, readFrom, to),
+    listPersonLeave(ctx.db, actor.companyId, person.id, readFrom, to),
     showDetails ? personBalances(ctx, actor, person, company.allowancePolicy, year) : null,
     canAdd ? addLeaveForm(ctx, actor, today, company.workingDays) : null,
   ]);
 
-  const shown = entriesCostingDaysIn(leave, { first: from, last: to, workingDays: company.workingDays, holidays });
+  const shown = entriesCostingDaysIn(leave, { first: readFrom, last: to, workingDays: company.workingDays, holidays });
   const entries = shown.map(({ days, note, decisionNote, ...entry }) => ({
     ...entry,
     details: showDetails ? { days, note, decisionNote } : null,
+    /** Whether the viewer may remove it to correct the record (`removeLeaveFor`): their manager or an admin, for approved leave of the open year. */
+    removable: canCorrect && canRemoveOn(entry, today),
   }));
   return {
     person: {
@@ -79,8 +100,15 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
     /** Leave that ends today or later, earliest first. */
     upcoming: entries.filter((e) => e.endDate >= today),
     /** Leave that ended in the last {@link RECENT_DAYS} days, latest first. */
-    recent: entries.filter((e) => e.endDate < today).reverse(),
+    recent: entries.filter((e) => e.endDate < today && e.endDate >= from).reverse(),
+    /**
+     * For their manager or an admin only (`[]` for anyone else): this year's leave that ended
+     * before the recent window, latest first, so it can still be corrected.
+     */
+    earlier: entries.filter((e) => e.endDate < from).reverse(),
     recentDays: RECENT_DAYS,
+    /** The company's current year, which `earlier` covers. */
+    year,
     /**
      * This year's balances, for those allowed to see them (types with nothing allotted
      * and nothing booked left out, as on Home); `null` otherwise, or when the policy is unknown.
@@ -108,7 +136,7 @@ async function addLeaveForm(ctx: ServiceContext, actor: Actor, today: string, wo
 /** The person's balances for `year`, or `null` (logged) when the company's allowance policy is unknown. */
 async function personBalances(ctx: ServiceContext, actor: Actor, person: { id: string }, allowancePolicy: string, year: number) {
   const types = await listLeaveTypesWithAllowance(ctx.db, actor.companyId);
-  return summarizeBalances(ctx.db, person, { allowancePolicy, types, year }).catch((err: unknown) => {
+  return summarizeBalances(ctx.db, { id: person.id, companyId: actor.companyId }, { allowancePolicy, types, year }).catch((err: unknown) => {
     if (!isDomainError(err, "policy_unavailable")) throw err;
     log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");
     return null;

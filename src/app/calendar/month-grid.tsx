@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
-import type { CalendarDay } from "@/domain/calendar";
+import type { CalendarDay, CalendarViewEntry } from "@/domain/calendar";
 import { formatLeaveDates, formatLongDate } from "@/lib/format";
 import { IDLE } from "@/components/forms/form-state";
 import { LeaveChip } from "@/components/leave/leave-chip";
-import { cx, fieldClass, subtleButton } from "@/components/ui/styles";
+import { cx, selectClass, subtleButton } from "@/components/ui/styles";
 import { type LeaveTypeOption, LeavePreviewLine, SubmitRow, useLeavePreview, useRequestAction } from "@/app/request-leave-form";
 
 const WEEKDAYS = [
@@ -28,7 +28,7 @@ const OFF_DAY = "bg-background bg-[repeating-linear-gradient(135deg,var(--color-
  * contrast), so the three never look alike. A selected day takes a light accent tint over any of them,
  * and in forced colours (which drop the tint) an outline in the system highlight.
  */
-function dayStyle(day: CalendarDay, selected: boolean): { cell: string; number: string } {
+function dayStyle(day: CalendarDay<CalendarViewEntry>, selected: boolean): { cell: string; number: string } {
   const number = !day.inMonth ? "text-muted" : !day.isWorkingDay || day.holiday !== null ? "text-muted" : "text-foreground";
   if (selected) return { cell: "bg-accent/15 forced-colors:outline-2 forced-colors:-outline-offset-2 forced-colors:outline-[Highlight]", number };
   if (!day.inMonth) return { cell: "bg-transparent", number };
@@ -37,12 +37,14 @@ function dayStyle(day: CalendarDay, selected: boolean): { cell: string; number: 
 }
 
 /** What a screen reader hears for a day: its date, then anything on it. */
-function dayLabel(day: CalendarDay): string {
+function dayLabel(day: CalendarDay<CalendarViewEntry>): string {
   const parts = [formatLongDate(day.date)];
   if (day.isToday) parts.push("today");
   if (day.holiday) parts.push(`${day.holiday}, company holiday`);
   else if (!day.isWorkingDay) parts.push("not a working day");
-  for (const e of day.entries) parts.push(`${e.leaveTypeName}${e.status === "pending" ? ", waiting for approval" : ""}`);
+  for (const e of day.entries) {
+    parts.push(`${e.isMine ? "" : `${e.personName}: `}${e.leaveTypeName}${e.status === "pending" ? ", waiting for approval" : ""}`);
+  }
   return parts.join(", ");
 }
 
@@ -60,7 +62,15 @@ function ordered(a: string, b: string): Range {
  * stretches the pick.
  * Phones get the agenda instead; the form on Home works everywhere.
  */
-export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[][]; caption: string; leaveTypes: LeaveTypeOption[] }) {
+export function MonthGrid({
+  weeks,
+  caption,
+  leaveTypes,
+}: {
+  weeks: CalendarDay<CalendarViewEntry>[][];
+  caption: string;
+  leaveTypes: LeaveTypeOption[];
+}) {
   const days = weeks.flat();
   const [anchor, setAnchor] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
@@ -140,7 +150,19 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
 
   return (
     <div className="space-y-4">
-      <table className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-2xl border border-border">
+      {/*
+        Above the month, so people read how it works before they try it. It never changes
+        while days are picked, so the grid never moves under the pointer; "Sent" news goes
+        under the month instead.
+      */}
+      {canRequest && (
+        <p className="text-sm text-muted">
+          Drag across days, or pick a first and a last day, to ask for time off. With a keyboard, use the arrow keys and Enter, or Shift with an arrow to stretch.
+        </p>
+      )}
+      {/* A grid, not a plain table: screen readers then pass the arrow keys to it (focus
+          mode) instead of reading the page with them, so moving between days works. */}
+      <table role="grid" className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-2xl border border-border">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
@@ -227,10 +249,16 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
                         </span>
                       )}
                       {day.entries.length > 0 && (
-                        <ul className="space-y-1">
+                        // Arrow keys on a chip move between days too, so they keep working
+                        // in the grid wherever Tab has put focus.
+                        <ul className="space-y-1" onKeyDown={(e) => onKeyDown(e, day.date)}>
                           {day.entries.map((entry) => (
                             <li key={entry.id} className="pointer-events-auto">
-                              <LeaveChip entry={entry} href={`/requests/${entry.id}`} />
+                              {entry.isMine ? (
+                                <LeaveChip entry={entry} href={`/requests/${entry.id}`} />
+                              ) : (
+                                <LeaveChip entry={entry} personName={entry.personName} href={`/team/${entry.userId}`} />
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -244,13 +272,10 @@ export function MonthGrid({ weeks, caption, leaveTypes }: { weeks: CalendarDay[]
         </tbody>
       </table>
 
+      {/* Kept in place while empty, so screen readers hear "Sent" when it arrives. */}
       {canRequest && !range && (
-        <p aria-live="polite" className="text-sm">
-          {state.status === "success" ? (
-            <span className="text-accent-ink">{state.message}</span>
-          ) : (
-            <span className="text-muted">Drag across days, or pick a first and a last day, to ask for time off. With a keyboard, use the arrow keys and Enter, or Shift with an arrow to stretch.</span>
-          )}
+        <p aria-live="polite" className="text-sm text-accent-ink empty:sr-only">
+          {state.status === "success" ? state.message : null}
         </p>
       )}
       {canRequest && range && (
@@ -314,7 +339,7 @@ function RequestFromRange({
             required
             value={leaveTypeId}
             onChange={(e) => setLeaveTypeId(e.target.value)}
-            className={cx(fieldClass("sm"), "w-auto")}
+            className={cx(selectClass("sm"), "w-auto")}
           >
             {leaveTypes.map((t) => (
               <option key={t.id} value={t.id}>

@@ -1,6 +1,7 @@
 import type { CalendarDate } from "./calendar-date";
 import type { FeedKind } from "./calendar-feed";
 import type { Role } from "./actor";
+import type { LogoType } from "./company-logo";
 import type { ChangeProcess, ChangeSource, PersonChangeSource } from "./change-source";
 import type { DayPortion, LeaveStatus } from "./leave-request";
 
@@ -129,7 +130,11 @@ export const BALANCE_EVENT_TYPES = {
  * - `sync`: an integration adapter's inbound sync set the year's `days` (and
  *   `adjustmentDays`, when it sent one). Same columns as `admin_edit`.
  */
-export type BalanceChangeReason = "carryover" | "allowance_created" | "admin_edit" | "sync";
+/**
+ * Why an allowance row changed. `allowance_rule`: the row was following its person's
+ * default and an allowance rule (or the person's department or level) changed it.
+ */
+export type BalanceChangeReason = "carryover" | "allowance_created" | "admin_edit" | "sync" | "allowance_rule";
 
 /**
  * Version 1 payload of `balance.adjusted`: the allowance row after the change. The year
@@ -153,6 +158,7 @@ export const ALLOWANCE_AUDIT_ACTIONS: Readonly<Record<BalanceChangeReason, strin
   allowance_created: "allowance.created",
   admin_edit: "allowance.edited",
   sync: "allowance.synced",
+  allowance_rule: "allowance.rule_applied",
 };
 
 /** Calendar feed event types written to `events_outbox`. Public contract; never rename one. */
@@ -191,7 +197,8 @@ export function calendarFeedAuditAction(event: keyof typeof CALENDAR_FEED_EVENT_
 /**
  * `leave.reassigned`: a pending request moved to another approver because an admin
  * changed who may decide it: its approver was deactivated or demoted from admin, the
- * requester's manager changed, or someone was invited as admin, promoted to admin or
+ * requester's manager or department changed, their department's manager changed, or
+ * someone was invited as admin, promoted to admin or
  * reactivated who can now take a request an admin had routed to themself. The actor is
  * always the admin who made that change. Public contract; never rename it.
  */
@@ -235,6 +242,12 @@ export const ADMIN_EVENT_TYPES = {
   departmentCreated: "department.created",
   departmentRenamed: "department.renamed",
   departmentDeleted: "department.deleted",
+  departmentManagerChanged: "department.manager_changed",
+  levelCreated: "level.created",
+  levelRenamed: "level.renamed",
+  levelDeleted: "level.deleted",
+  allowanceRuleSet: "allowance_rule.set",
+  allowanceRuleRemoved: "allowance_rule.removed",
   leaveTypeCreated: "leave_type.created",
   leaveTypeUpdated: "leave_type.updated",
   leaveTypeArchived: "leave_type.archived",
@@ -244,6 +257,8 @@ export const ADMIN_EVENT_TYPES = {
   holidayRenamed: "holiday.renamed",
   holidayDeleted: "holiday.deleted",
   companyUpdated: "company.updated",
+  emailTemplateUpdated: "email_template.updated",
+  emailTemplateReset: "email_template.reset",
 } as const;
 export type AdminEventType = (typeof ADMIN_EVENT_TYPES)[keyof typeof ADMIN_EVENT_TYPES];
 
@@ -261,6 +276,8 @@ export interface UserEventPayload extends Attribution {
   name: string;
   role: Role;
   departmentId: string | null;
+  /** Their level (for allowance rules), added within version 1. */
+  levelId: string | null;
   managerId: string | null;
   canSelfApprove: boolean;
   isActive: boolean;
@@ -301,10 +318,38 @@ export interface UserDeletionScheduleEventPayload extends PersonAttribution {
   scheduledFor: string;
 }
 
-/** Version 1 payload of every `department.*` event: the department after the change (before, when deleted). */
-export interface DepartmentEventPayload extends PersonAttribution {
+/**
+ * Version 1 payload of every `department.*` event: the department after the change
+ * (before, when deleted). Made by a person, except `department.manager_changed` when a
+ * scheduled scrub deletes the department's manager (`actorId` is then `null`).
+ */
+export interface DepartmentEventPayload extends Attribution {
   departmentId: string;
   name: string;
+  /**
+   * Added within version 1: the department's optional manager, who approves for its
+   * people whose own manager is missing or inactive.
+   */
+  managerId: string | null;
+}
+
+/** Version 1 payload of every `level.*` event: the level after the change (before, when deleted). */
+export interface LevelEventPayload extends PersonAttribution {
+  levelId: string;
+  name: string;
+}
+
+/**
+ * Version 1 payload of `allowance_rule.set` and `.removed`: the rule after the change
+ * (before, when removed). People's allowance rows it moves each get `balance.adjusted`
+ * (`reason: "allowance_rule"`).
+ */
+export interface AllowanceRuleEventPayload extends PersonAttribution {
+  ruleId: string;
+  leaveTypeId: string;
+  departmentId: string | null;
+  levelId: string | null;
+  days: number;
 }
 
 /** Version 1 payload of every `leave_type.*` event: the leave type after the change. */
@@ -329,6 +374,17 @@ export interface HolidayEventPayload extends PersonAttribution {
   name: string;
 }
 
+/**
+ * Version 1 payload of `email_template.updated` and `.reset`: a company's own words for
+ * one email after the change (both null after a reset). `notificationType` names the
+ * email, such as `leave.requested` or `invite`; new ones may appear.
+ */
+export interface EmailTemplateEventPayload extends PersonAttribution {
+  notificationType: string;
+  subject: string | null;
+  message: string | null;
+}
+
 /** Version 1 payload of `company.updated`: the settings after the change. */
 export interface CompanyEventPayload extends PersonAttribution {
   companyId: string;
@@ -340,6 +396,14 @@ export interface CompanyEventPayload extends PersonAttribution {
   deletionGrace: boolean;
   /** Added within version 1: managers see their direct reports' balances and request notes. */
   managersSeeDetails: boolean;
+  /**
+   * Added within version 1: `required` (time off waits for an approver) or `heads_up`
+   * (booked as it is sent; the person's active manager, else the fallback admin, is told,
+   * and nobody when there is neither). New values may appear.
+   */
+  approvalMode: string;
+  /** Added within version 1: what employees see of colleagues' time off: `everyone`, `team` or `self`. */
+  colleagueVisibility: string;
   /** Added within version 1: the theme key everyone sees, e.g. `classic` or `cobalt`. */
   theme: string;
   /** Added within version 1: `#rrggbb` replacing the theme's accent, or null. */
@@ -350,6 +414,11 @@ export interface CompanyEventPayload extends PersonAttribution {
   requestStyle: string;
   /** Added within version 1: the layout trial, `standard`, `tonal`, `grouped`, `compact` or `legible`. */
   layout: string;
+  /**
+   * Added within version 1: the company's logo (its SHA-256, `image/png` or `image/jpeg`,
+   * and its size in pixels), or null for none. The file is at `/logo/<sha256>.<png|jpg>`.
+   */
+  logo: { sha256: string; contentType: LogoType; width: number; height: number } | null;
 }
 
 /**

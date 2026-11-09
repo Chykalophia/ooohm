@@ -39,16 +39,14 @@ import { personLabel } from "@/domain/person";
 import { yearInTimeZone } from "@/lib/dates";
 import { formatDays, type RecountCause } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";
-import { renderLeaveEmail } from "@/server/email/leave-emails";
 import { listAllowances, listRequestDays, replaceRequestDays, sumBookedDays } from "@/server/repositories/balances";
 import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
 import { type LeaveRequestRow, lockActiveRequestsOnDates, updateRequestDays } from "@/server/repositories/leave-requests";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findContacts } from "@/server/repositories/users";
-import { allowanceYearsFor, balanceInputs } from "./balances";
+import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "./balances";
 import { recordRecount, summarize } from "./leave-changes";
-import { emailAccentFor } from "./email-accent";
-import type { DeferredEmail } from "./notify";
+import type { Notification } from "./notify";
 
 /** A company holiday as a recount describes it. */
 export interface HolidayFact {
@@ -91,7 +89,7 @@ export const NOTHING_RECOUNTED: RecountOutcome = { recounted: 0, nowFree: 0, ove
  * Recounts the company's pending and approved requests touched by `change`, inside `tx`
  * (see the module docblock for the rules).
  *
- * @returns What changed, and the emails to send once `tx` commits (pass them to `commitThenSend`).
+ * @returns What changed, and the emails to send once `tx` commits (pass them to `commitThenNotify`).
  * @throws DomainError `no_company`, or `policy_unavailable` when the company's
  *   allowance policy is unknown.
  */
@@ -100,7 +98,7 @@ export async function recountLeave(
   ctx: ServiceContext,
   actor: Actor,
   change: CalendarChange,
-): Promise<{ outcome: RecountOutcome; outgoing: DeferredEmail[] }> {
+): Promise<{ outcome: RecountOutcome; notify: Notification[] }> {
   const settings = await findCompanySettings(tx, actor.companyId);
   if (!settings) throw new DomainError("no_company");
   const policy = resolveAllowancePolicy(settings.allowancePolicy);
@@ -109,9 +107,9 @@ export async function recountLeave(
 
   // Holiday changes touch only requests on those dates (in open years); working days touch every open request.
   const dates = change.kind === "holidays" ? [...change.added, ...change.removed].map((h) => h.date).filter((d) => d >= openFrom) : null;
-  if (dates?.length === 0) return { outcome: NOTHING_RECOUNTED, outgoing: [] };
+  if (dates?.length === 0) return { outcome: NOTHING_RECOUNTED, notify: [] };
   const touched = await lockActiveRequestsOnDates(tx, actor.companyId, dates ?? { from: openFrom });
-  if (touched.length === 0) return { outcome: NOTHING_RECOUNTED, outgoing: [] };
+  if (touched.length === 0) return { outcome: NOTHING_RECOUNTED, notify: [] };
 
   const window = {
     from: touched.reduce((min, r) => (r.startDate < min ? r.startDate : min), touched[0].startDate),
@@ -136,17 +134,16 @@ export async function recountLeave(
     await recordRecount(tx, { before: row, after, source });
     changed.push({ before: row, after, grew: next.filter((y) => y.days > (kept.find((k) => k.year === y.year)?.days ?? 0)) });
   }
-  if (changed.length === 0) return { outcome: NOTHING_RECOUNTED, outgoing: [] };
+  if (changed.length === 0) return { outcome: NOTHING_RECOUNTED, notify: [] };
 
   const typeById = new Map(types.map((t) => [t.id, t]));
   // Everyone affected, for names; only active people are emailed.
   const people = new Map(
     (await findContacts(tx, actor.companyId, [...new Set(changed.map((c) => c.after.userId))])).map((p) => [p.id, p]),
   );
-  const overdrawn = await findOverdrawn(tx, policy, typeById, changed, people);
+  const overdrawn = await findOverdrawn(tx, actor.companyId, policy, typeById, changed, people);
 
-  const outgoing: DeferredEmail[] = [];
-  const accent = emailAccentFor(ctx, actor.companyId);
+  const notify: Notification[] = [];
   for (const { before, after, grew } of changed) {
     const person = people.get(after.userId);
     if (!person?.isActive) continue;
@@ -159,26 +156,24 @@ export async function recountLeave(
     // A move between years alone (same total) changes no one's plans, unless it leaves
     // them over a balance: then they hear it, as the admin does.
     if (after.days === before.days && overs.length === 0) continue;
-    const email = {
-      kind: "recounted" as const,
-      recipientName: person.name,
-      leave: summarize(after, person, typeName),
-      previousDays: before.days,
-      cause: causeFor(change, after),
-      overdrawn: overs.length > 0 ? overs.map((o) => `${formatDays(o.over)} over your ${typeName} balance for ${o.year}`).join(" and ") : null,
-      link: `${ctx.appUrl}/`,
-    };
-    outgoing.push({
+    notify.push({
+      type: "leave.recounted",
       to: person.email,
-      build: async () => renderLeaveEmail(email, await accent()),
-      failureEvent: "leave_email_failed",
-      logFields: { requestId: after.id, kind: email.kind },
+      data: {
+        requestId: after.id,
+        recipientName: person.name,
+        leave: summarize(after, person, typeName),
+        previousDays: before.days,
+        cause: causeFor(change, after),
+        overdrawn: overs.length > 0 ? overs.map((o) => `${formatDays(o.over)} over your ${typeName} balance for ${o.year}`).join(" and ") : null,
+        link: `${ctx.appUrl}/`,
+      },
     });
   }
 
   return {
     outcome: { recounted: changed.length, nowFree: changed.filter((c) => c.after.days === 0).length, overdrawn },
-    outgoing,
+    notify,
   };
 }
 
@@ -204,10 +199,12 @@ function causeFor(change: CalendarChange, request: { startDate: string; endDate:
 
 /**
  * The tracked balances, among the years a recount charged more, that are now below
- * zero. Two queries (allowance rows and booked days) for all of them.
+ * zero. Four queries at most (allowance rows, booked days, allowance rules and
+ * where the people sit) for all of them.
  */
 async function findOverdrawn(
   tx: Transaction,
+  companyId: string,
   policy: AllowancePolicy,
   typeById: Map<string, Awaited<ReturnType<typeof listLeaveTypesWithAllowance>>[number]>,
   changed: readonly { after: LeaveRequestRow; grew: readonly YearDays[] }[],
@@ -224,11 +221,12 @@ async function findOverdrawn(
     leaveTypeIds: [...new Set(all.map((k) => k.leaveTypeId))],
   };
   const years = [...new Set(all.map((k) => k.year))];
-  const [allowanceRows, bookedRows] = await Promise.all([
+  const [allowanceRows, bookedRows, defaults] = await Promise.all([
     listAllowances(tx, { ...scope, years: allowanceYearsFor(years) }),
     sumBookedDays(tx, { ...scope, years }),
+    loadAllowanceDefaults(tx, companyId, scope.userIds),
   ]);
-  const inputs = balanceInputs(allowanceRows, bookedRows);
+  const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
 
   const overdrawn: OverdrawnBalance[] = [];
   for (const { userId, leaveTypeId, year } of all) {

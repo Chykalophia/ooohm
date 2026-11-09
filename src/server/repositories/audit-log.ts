@@ -1,4 +1,4 @@
-import { and, count, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
+import { and, count, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { apiKeys, auditLog, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
@@ -108,10 +108,13 @@ export async function listAuditPage(ex: Executor, q: AuditQuery, limit: number) 
 /**
  * How many audit rows with one of `actions` the actor wrote in the company in the last
  * `minutes`, on the database clock that stamps them. Served by `audit_log_company_actor_idx`.
+ *
+ * @param where.via Only rows made through this process; `null` for rows made directly
+ *   (no `via`). Absent counts both.
  */
 export async function countRecentActions(
   ex: Executor,
-  where: { companyId: string; actorId: string; actions: readonly string[] },
+  where: { companyId: string; actorId: string; actions: readonly string[]; via?: string | null },
   minutes: number,
 ): Promise<number> {
   const [row] = await ex
@@ -122,6 +125,7 @@ export async function countRecentActions(
         eq(auditLog.companyId, where.companyId),
         eq(auditLog.actorId, where.actorId),
         inArray(auditLog.action, [...where.actions]),
+        where.via === undefined ? undefined : where.via === null ? isNull(auditLog.actorVia) : eq(auditLog.actorVia, where.via),
         gt(auditLog.createdAt, sql`now() - make_interval(mins => ${minutes})`),
       ),
     );

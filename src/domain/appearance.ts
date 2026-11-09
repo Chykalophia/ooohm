@@ -15,7 +15,7 @@ export interface ThemeInfo {
 
 /** The themes an admin can pick, in the order the picker shows them. `classic` is the default. */
 export const THEMES = {
-  classic: { label: "Classic", description: "Calm deep teal. The original look, with dark mode.", accent: "#0f766e" },
+  classic: { label: "Classic", description: "Calm deep teal. The original look, with dark mode.", accent: "#115e59" },
   cobalt: { label: "Cobalt", description: "Precise and modern: hairline borders and cobalt blue.", accent: "#2546d0" },
   marigold: { label: "Ink & Marigold", description: "Navy ink with a warm marigold accent.", accent: "#f2a900" },
   saffron: { label: "Saffron", description: "Friendly and tactile, with rounded controls.", accent: "#ff9f1c" },

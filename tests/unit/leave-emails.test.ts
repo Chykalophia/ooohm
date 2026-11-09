@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_EMAIL_ACCENT, emailAccent, type LeaveEmail, type LeaveSummary, personLabel, renderLeaveEmail } from "@/server/email/leave-emails";
-import type { MailMessage, ServiceContext } from "@/server/context";
-import { commitThenNotify } from "@/server/services/notify";
+import { personLabel } from "@/domain/person";
+import { DEFAULT_EMAIL_ACCENT, emailAccent } from "@/lib/email-layout";
+import { type LeaveEmail, type LeaveSummary, renderLeaveEmail } from "@/server/notifications/templates/leave";
 
 const hostile = 'Eve <script>alert("x")</script>\r\nBcc: victim@example.com';
 
@@ -133,7 +133,7 @@ test("half days say which half", () => {
 test("emails take the company's accent: on the main button, and readable on pale accents", () => {
   const out = renderLeaveEmail({ ...kinds[0], approveLink: "https://x/approve/t" } as LeaveEmail, emailAccent({ theme: "cobalt", accentColor: null }));
   assert.match(out.html, /background:#2546d0;color:#ffffff[^"]*">Approve<\/a>/);
-  assert.doesNotMatch(out.html, /#0f766e/, "no classic teal left over");
+  assert.doesNotMatch(out.html, /#115e59/, "no classic teal left over");
 
   const custom = renderLeaveEmail(kinds[1], emailAccent({ theme: "classic", accentColor: "#C026D3" }));
   assert.match(custom.html, /background:#c026d3/);
@@ -146,91 +146,7 @@ test("emails take the company's accent: on the main button, and readable on pale
 
   assert.deepEqual(emailAccent(null), DEFAULT_EMAIL_ACCENT);
   assert.deepEqual(emailAccent({ theme: "from-a-newer-version", accentColor: null }), DEFAULT_EMAIL_ACCENT);
-  assert.match(renderLeaveEmail(kinds[1]).html, /background:#0f766e/, "classic teal by default");
-});
-
-/** A context whose transaction commits at once; `defer` runs tasks into `tasks`. */
-function committingContext(mailer: (m: MailMessage) => Promise<void>, tasks: Promise<void>[]) {
-  return {
-    mailer,
-    defer: (task: () => Promise<void>) => tasks.push(task()),
-    db: { transaction: async (work: (tx: unknown) => Promise<unknown>) => work({}) },
-  } as unknown as ServiceContext;
-}
-
-/** Shaped like nodemailer's rejection: the SMTP reply quotes the address. */
-function smtpRejection(address: string) {
-  return Object.assign(
-    new Error(`Can't send mail - all recipients were rejected: 550 5.1.1 <${address}>: Recipient address rejected`),
-    { code: "EENVELOPE", responseCode: 550, command: "RCPT TO", response: `550 5.1.1 <${address}>: Recipient address rejected` },
-  );
-}
-
-test("a failed send is logged without the address and does not stop the remaining emails or throw", async () => {
-  const delivered: MailMessage[] = [];
-  const tasks: Promise<void>[] = [];
-  const ctx = committingContext(async (m) => {
-    if (m.to === "down@example.com") throw smtpRejection(m.to);
-    delivered.push(m);
-  }, tasks);
-
-  const stderr = process.stderr.write.bind(process.stderr);
-  const logged: string[] = [];
-  process.stderr.write = ((chunk: string) => (logged.push(String(chunk)), true)) as typeof process.stderr.write;
-  try {
-    const result = await commitThenNotify(ctx, async () => ({
-      result: { id: "req-1", companyId: "c1" },
-      outgoing: [
-        { to: "down@example.com", email: kinds[1] },
-        { to: "up@example.com", email: kinds[1] },
-      ],
-    }));
-    assert.deepEqual(result, { id: "req-1", companyId: "c1" });
-    await Promise.all(tasks);
-  } finally {
-    process.stderr.write = stderr;
-  }
-
-  assert.deepEqual(delivered.map((m) => m.to), ["up@example.com"]);
-  const line = JSON.parse(logged.find((l) => l.includes("leave_email_failed")) ?? "{}");
-  assert.equal(line.event, "leave_email_failed");
-  assert.equal(line.requestId, "req-1");
-  assert.deepEqual(
-    [line.err.code, line.err.responseCode, line.err.command],
-    ["EENVELOPE", 550, "RCPT TO"],
-    "enough to diagnose the failure",
-  );
-  assert.doesNotMatch(JSON.stringify(line), /down@example\.com/);
-});
-
-test("nothing is scheduled when there is nothing to send", async () => {
-  const tasks: Promise<void>[] = [];
-  await commitThenNotify(committingContext(async () => {}, tasks), async () => ({ result: { id: "req-1", companyId: "c1" }, outgoing: [] }));
-  assert.equal(tasks.length, 0);
-});
-
-test("emails are queued only once the transaction has committed", async () => {
-  const outgoing = [{ to: "a@example.com", email: kinds[1] }];
-  let deferred = 0;
-  const ctxWith = (commit: "ok" | "fails") =>
-    ({
-      defer: () => deferred++,
-      db: {
-        transaction: async (work: (tx: unknown) => Promise<unknown>) => {
-          const value = await work({});
-          assert.equal(deferred, 0, "nothing is queued while the transaction is open");
-          if (commit === "fails") throw new Error("could not serialize access");
-          return value;
-        },
-      },
-    }) as unknown as ServiceContext;
-
-  await assert.rejects(commitThenNotify(ctxWith("fails"), async () => ({ result: { id: "r1", companyId: "c1" }, outgoing })));
-  assert.equal(deferred, 0, "a failed commit sends nothing");
-
-  const result = await commitThenNotify(ctxWith("ok"), async () => ({ result: { id: "r2", companyId: "c1" }, outgoing }));
-  assert.deepEqual(result, { id: "r2", companyId: "c1" });
-  assert.equal(deferred, 1);
+  assert.match(renderLeaveEmail(kinds[1]).html, /background:#115e59/, "classic teal by default");
 });
 
 test("a request email with an approve link leads with Approve, then Open in OOOhm", () => {
@@ -240,7 +156,7 @@ test("a request email with an approve link leads with Approve, then Open in OOOh
   assert.ok(out.html.indexOf(">Approve</a>") < out.html.indexOf(">Open in OOOhm</a>"));
   assert.match(out.html, /To decline, open the request in OOOhm/);
   assert.match(out.text, /To decline, open the request in OOOhm/, "the plain text says it too");
-  assert.match(out.html, /<td bgcolor="#0f766e"[^>]*><a href="https:\/\/x\/approve\/abc\.def"/, "Outlook-safe: the cell carries the fill");
+  assert.match(out.html, /<td bgcolor="#115e59"[^>]*><a href="https:\/\/x\/approve\/abc\.def"/, "Outlook-safe: the cell carries the fill");
   const without = renderLeaveEmail({ kind: "requested", recipientName: "Jo", leave: leave(), link: "https://x/approvals" });
   assert.doesNotMatch(without.text, /Approve:/);
   assert.match(without.text, /Review in OOOhm: https:\/\/x\/approvals/);
@@ -254,4 +170,31 @@ test("time off added for someone says who added it, that it's approved, and the 
   const unnamed = renderLeaveEmail({ kind: "added", recipientName: "Ana", leave: leave(), addedByName: " ", link: "https://x/" });
   assert.match(unnamed.text, /^Someone added your PTO/);
   assert.doesNotMatch(unnamed.text, /Note:/);
+});
+
+test("heads-up time off: the requester hears it's booked, their manager is told without being asked", () => {
+  const booked = renderLeaveEmail({ kind: "booked", recipientName: "Ana", leave: leave(), link: "https://x/" });
+  assert.equal(booked.subject, "Your time off is booked");
+  assert.match(booked.text, /^Your PTO is booked, Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\. Enjoy it\.\n/);
+  assert.doesNotMatch(booked.text, /approv/i);
+
+  const told = renderLeaveEmail({
+    kind: "heads_up",
+    recipientName: "Sam",
+    leave: leave({ requesterName: "Lena Park", note: "Visiting my parents" }),
+    alsoOff: "Aisha Khan is off then too.",
+    link: "https://x/calendar",
+  });
+  assert.equal(told.subject, "Lena Park is off Nov 2 to Nov 6");
+  assert.match(
+    told.text,
+    /^Lena Park is taking PTO, Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\. It's booked, so there's nothing you need to do\.\n\n“Visiting my parents”\n\nAisha Khan is off then too\.\n/,
+  );
+  assert.match(told.text, /Open in OOOhm: https:\/\/x\/calendar/);
+  assert.doesNotMatch(told.text, /Approve|Review/);
+
+  const hostileName = renderLeaveEmail({ kind: "heads_up", recipientName: hostile, leave: leave({ requesterName: hostile, note: hostile }), link: "https://x/" });
+  assert.doesNotMatch(hostileName.subject, /[\r\n]/);
+  assert.doesNotMatch(hostileName.html, /<script\b/i);
+  assert.match(hostileName.html, /&lt;script&gt;/);
 });

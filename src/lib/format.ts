@@ -87,13 +87,16 @@ export function formatRequestCost(cost: RequestCost, person?: string): string {
  */
 export function formatSubmitted(request: {
   approved: boolean;
+  /** Approval is turned off for the company: the time off was booked, not approved. */
+  headsUp?: boolean;
   startDate: string;
   endDate: string;
   dayPortion: "full" | "am" | "pm";
   days: number;
 }): string {
   const what = `${formatLeaveDates(request.startDate, request.endDate, request.dayPortion)} (${formatDays(request.days)})`;
-  return request.approved ? `Approved: ${what}. Enjoy your time off.` : `Sent for approval: ${what}.`;
+  if (!request.approved) return `Sent for approval: ${what}.`;
+  return `${request.headsUp ? "Booked" : "Approved"}: ${what}. Enjoy your time off.`;
 }
 
 /**
@@ -325,4 +328,11 @@ export function formatTypicalWait(hours: number): string {
   if (hours < 24) return `usually decides within ${Math.ceil(hours)} hours`;
   const days = Math.ceil(hours / 24);
   return days === 1 ? "usually decides within a day" : `usually decides within ${days} days`;
+}
+
+/** A wait, rounded up: "under an hour", "5 hours", "1 day", "3 days". */
+export function formatWait(hours: number): string {
+  if (hours < 1) return "under an hour";
+  if (hours < 24) return formatCount(Math.ceil(hours), "hour", "hours");
+  return formatCount(Math.ceil(hours / 24), "day", "days");
 }

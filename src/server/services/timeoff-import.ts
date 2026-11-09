@@ -21,7 +21,7 @@
  *   magic link; inactive ones cannot. An email that belongs to another company is left
  *   out and reported. The import must leave the company with an active admin.
  * - **Approvals follow OOOhm's rule.** Imported pending requests are routed as OOOhm
- *   would route them now (the requester's manager, else an admin), not to TimeOff's
+ *   would route them now (the requester's manager, else their department's manager, else an admin), not to TimeOff's
  *   stored approver, which stays in the audit row; decided requests keep their decider.
  * - **Audited, announced once.** Every imported row writes an `audit_log` row
  *   (`import.*` actions, `after.source: "import:timeoff"`) in the transaction.
@@ -90,7 +90,8 @@ import {
   upsertAllowances,
 } from "@/server/repositories/imports";
 import { insertLeaveType, type LeaveTypeRow, listAllLeaveTypes, updateLeaveType } from "@/server/repositories/leave-types";
-import { findMembers, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { findMembers, lockMember } from "@/server/repositories/users";
+import { loadApprovalContexts } from "./approval-routing";
 import { loadBalances } from "./balances";
 import { recarryMemberLeaveType } from "./rollover";
 
@@ -493,18 +494,14 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
   // Leave requests
   const requestPlan = plan.requests.filter((r) => !excluded.has(r.personKey));
   // Pending requests go to whoever OOOhm's approval rule picks in the imported org (the
-  // manager, else an admin), not TimeOff's stored approver; decided ones keep TimeOff's decider.
+  // manager, else their department's manager, else an admin), not TimeOff's stored approver; decided ones keep TimeOff's decider.
   const pendingApprover = new Map<string, string | null>();
   const pendingRequesters = [...new Set(requestPlan.filter((r) => r.status === "pending").map((r) => idOf.get(r.personKey)!))];
   if (pendingRequesters.length > 0) {
-    const [requesters, admins] = await Promise.all([findMembers(tx, company.id, pendingRequesters), listActiveAdmins(tx, company.id)]);
-    const managerIds = [...new Set(requesters.flatMap((r) => (r.managerId && r.managerId !== r.id ? [r.managerId] : [])))];
-    const managers = new Map((await findMembers(tx, company.id, managerIds)).map((m) => [m.id, m]));
+    const requesters = await findMembers(tx, company.id, pendingRequesters);
+    const contexts = await loadApprovalContexts(tx, company.id, requesters);
     const rule = new ManagerApprovalRule();
-    for (const requester of requesters) {
-      const manager = requester.managerId ? (managers.get(requester.managerId) ?? null) : null;
-      pendingApprover.set(requester.id, reassignApprover(rule, { requester, manager, admins }));
-    }
+    for (const [requesterId, context] of contexts) pendingApprover.set(requesterId, reassignApprover(rule, context));
   }
   const requestRows = requestPlan.map((r) => {
     // Never "now" for history: submit's rate limit counts requests created in the last minutes.
@@ -592,6 +589,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
 
   // Reconciliation
   const reconciliation = await reconcile(tx, {
+    companyId: company.id,
     plan,
     excluded,
     people: new Map(people.map((p) => [p.key, { id: idOf.get(p.key)!, email: p.email, name: p.name }])),
@@ -761,6 +759,7 @@ function allowanceSnapshot(r: AllowanceSnapshotInput) {
 async function reconcile(
   tx: Transaction,
   job: {
+    companyId: string;
     plan: ImportPlan;
     excluded: ReadonlySet<number>;
     people: ReadonlyMap<number, { id: string; email: string; name: string }>;
@@ -774,6 +773,7 @@ async function reconcile(
   const empty = { currentYear: job.currentYear, rows: [], mismatches: [], currentYearMismatches: 0 };
   if (!job.poolRow || expected.length === 0) return empty;
   const balanceOf = await loadBalances(tx, {
+    companyId: job.companyId,
     allowancePolicy: job.allowancePolicy,
     leaveTypes: [job.poolRow],
     userIds: [...new Set(expected.map((e) => job.people.get(e.personKey)!.id))],

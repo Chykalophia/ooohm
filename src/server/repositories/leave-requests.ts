@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, eq, getTableColumns, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { auditLog, departments, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
@@ -123,6 +123,16 @@ export async function listPendingRequestsOf(ex: Executor, companyId: string, use
     .select()
     .from(leaveRequests)
     .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId), eq(leaveRequests.status, "pending")))
+    .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
+}
+
+/** Pending requests from anyone in the department (active or not), oldest first. */
+export async function listPendingRequestsInDepartment(ex: Executor, companyId: string, departmentId: string): Promise<LeaveRequestRow[]> {
+  return ex
+    .select(getTableColumns(leaveRequests))
+    .from(leaveRequests)
+    .innerJoin(user, eq(user.id, leaveRequests.userId))
+    .where(and(eq(leaveRequests.companyId, companyId), eq(user.departmentId, departmentId), eq(leaveRequests.status, "pending")))
     .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
 }
 

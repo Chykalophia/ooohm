@@ -24,6 +24,7 @@ import { type CsvCell, toCsv } from "@/domain/csv";
 import { DomainError } from "@/domain/errors";
 import {
   ADMIN_EVENT_TYPES,
+  type DepartmentEventPayload,
   RECORDS_EXPORTED_AUDIT_ACTION,
   type Unattributed,
   type UserDeletedPayload,
@@ -95,6 +96,7 @@ import {
   withdrawPendingRequestsOf,
   writeTombstone,
 } from "@/server/repositories/person-deletion";
+import { clearDepartmentsManagedBy } from "@/server/repositories/departments";
 import { findPerson, listActiveAdmins, lockPerson, type PersonRow } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { listAuditEntriesAbout } from "./audit-log";
@@ -315,6 +317,28 @@ async function executeDeletion(
   // The rules refuse anyone who still manages people; this only keeps a race from
   // leaving someone reporting to a tombstone.
   await clearManagerOf(tx, companyId, person.id);
+  // A department manager is kept through deactivation (approvals skip them), but a
+  // tombstone managing a department would still be named on it, so it is cleared here.
+  // Nobody is re-routed: an inactive manager already approves nothing.
+  for (const department of await clearDepartmentsManagedBy(tx, companyId, person.id)) {
+    await recordChange(tx, {
+      source,
+      audit: {
+        companyId,
+        action: ADMIN_EVENT_TYPES.departmentManagerChanged,
+        entityType: "department",
+        entityId: department.id,
+        subjectUserId: null,
+        before: { managerId: person.id },
+        after: { managerId: null },
+      },
+      event: {
+        companyId,
+        type: ADMIN_EVENT_TYPES.departmentManagerChanged,
+        payload: { departmentId: department.id, name: department.name, managerId: null } satisfies Unattributed<DepartmentEventPayload>,
+      },
+    });
+  }
 
   let leaveRequestsDeleted = 0;
   let allowancesDeleted = 0;
@@ -619,7 +643,7 @@ export async function exportPersonRecords(ctx: ServiceContext, actor: Actor, use
   }));
 
   if (years.length > 0 && types.length > 0) {
-    const balanceOf = await loadBalances(ctx.db, { allowancePolicy: company.allowancePolicy, leaveTypes: types, userIds: [person.id], years }).catch(
+    const balanceOf = await loadBalances(ctx.db, { companyId: actor.companyId, allowancePolicy: company.allowancePolicy, leaveTypes: types, userIds: [person.id], years }).catch(
       (err: unknown) => {
         log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");
         return null;

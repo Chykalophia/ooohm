@@ -79,9 +79,9 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.deepEqual(
       (await companyEvents(t.db, co.companyId)).map((e) => [e.type, e.payload]),
       [
-        ["department.created", { departmentId: ops.id, name: "Ops", actorId: boss.id, actor: { type: "user", id: boss.id } }],
-        ["department.renamed", { departmentId: ops.id, name: "Operations", actorId: boss.id, actor: { type: "user", id: boss.id } }],
-        ["department.deleted", { departmentId: ops.id, name: "Operations", actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.created", { departmentId: ops.id, name: "Ops", managerId: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.renamed", { departmentId: ops.id, name: "Operations", managerId: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.deleted", { departmentId: ops.id, name: "Operations", managerId: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
       ],
     );
   });
@@ -406,11 +406,14 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
       allowancePolicy: "annual_calendar_year",
       deletionGrace: false,
       managersSeeDetails: true,
+      approvalMode: "required",
+      colleagueVisibility: "everyone",
       theme: "classic",
       accentColor: null,
       corners: "theme",
       requestStyle: "form",
       layout: "standard",
+      logo: null,
     });
     const [event] = await companyEvents(t.db, co.companyId, "company.");
     assert.equal((event.payload as { companyId: string }).companyId, co.companyId);

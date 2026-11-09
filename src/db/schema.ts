@@ -4,6 +4,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   index,
   integer,
@@ -14,12 +15,20 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { DEFAULT_THEME } from "@/domain/appearance";
 import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
 import { COLOR_MODES, DEFAULT_COLOR_MODE } from "@/domain/color-mode";
+
+/** Raw bytes. Both drivers hand back a `Uint8Array` (postgres.js a `Buffer`, which is one). */
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+  toDriver: (value) => Buffer.from(value.buffer, value.byteOffset, value.byteLength),
+  fromDriver: (value) => new Uint8Array(value.buffer, value.byteOffset, value.byteLength),
+});
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -79,6 +88,13 @@ export const companies = pgTable("companies", {
   deletionGrace: boolean("deletion_grace").notNull().default(false),
   /** Managers see their direct reports' balances and request notes on the team member page. */
   managersSeeDetails: boolean("managers_see_details").notNull().default(true),
+  /**
+   * `APPROVAL_MODES` in src/domain/approval-rule.ts: `required` (time off waits for an
+   * approver) or `heads_up` (booked as it is sent; whoever would have approved it is told).
+   */
+  approvalMode: text("approval_mode").notNull().default("required"),
+  /** `COLLEAGUE_VISIBILITY` in src/domain/calendar-visibility.ts: what employees see of colleagues' time off. */
+  colleagueVisibility: text("colleague_visibility").notNull().default("everyone"),
   /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
   theme: text("theme").notNull().default(DEFAULT_THEME),
   /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */
@@ -89,8 +105,21 @@ export const companies = pgTable("companies", {
   requestStyle: text("request_style").notNull().default("form"),
   /** `LAYOUTS` in src/domain/appearance.ts: the layout trial the whole company sees. */
   layout: text("layout").notNull().default("standard"),
+  /**
+   * The company's logo file (PNG or JPEG, see src/domain/company-logo.ts), or null for the
+   * OOOhm mark. The four columns after it describe it and are set and cleared with it.
+   */
+  logo: bytea("logo"),
+  /** SHA-256 (hex) of `logo`: names it in its URL, `/logo/<sha256>.<ext>`. */
+  logoSha256: text("logo_sha256"),
+  logoType: text("logo_type"),
+  logoWidth: integer("logo_width"),
+  logoHeight: integer("logo_height"),
   ...timestamps,
-});
+}, (t) => [
+  // A logo and its description are set and cleared together.
+  check("companies_logo_complete", sql`num_nulls(${t.logo}, ${t.logoSha256}, ${t.logoType}, ${t.logoWidth}, ${t.logoHeight}) in (0, 5)`),
+]);
 
 export const departments = pgTable(
   "departments",
@@ -100,10 +129,58 @@ export const departments = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    /**
+     * Optional. Approves requests from the department's people whose own manager is
+     * missing or inactive, and is treated like a manager for its people's leave details and for
+     * adding time off for them.
+     */
+    managerId: text("manager_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
     ...timestamps,
   },
-  // Names are unique per company ignoring case, so "Sales" and "sales" can never both exist.
-  (t) => [uniqueIndex("departments_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`)],
+  (t) => [
+    // Names are unique per company ignoring case, so "Sales" and "sales" can never both exist.
+    uniqueIndex("departments_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`),
+    index("departments_manager_idx").on(t.managerId),
+  ],
+);
+
+/**
+ * A company's own words for one email (Admin → Emails): its subject and message, with
+ * `{{variable}}` placeholders. `type` is a notification type (`leave.requested`, `invite`).
+ * A null field uses the email's default; a row with neither is deleted instead.
+ */
+export const emailTemplates = pgTable(
+  "email_templates",
+  {
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    subject: text("subject"),
+    message: text("message"),
+    ...timestamps,
+  },
+  (t) => [
+    primaryKey({ columns: [t.companyId, t.type] }),
+    check("email_templates_some_copy", sql`${t.subject} is not null or ${t.message} is not null`),
+  ],
+);
+
+/**
+ * Levels people can be placed at (Intern, Senior), so allowance rules can give them
+ * more or less time off. Optional: a company without levels never sees them.
+ */
+export const levels = pgTable(
+  "levels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("levels_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`)],
 );
 
 // Auth (Better Auth core tables + OOOhm user fields)
@@ -122,6 +199,7 @@ export const user = pgTable(
       onDelete: "set null",
     }),
     managerId: text("manager_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
+    levelId: uuid("level_id").references(() => levels.id, { onDelete: "set null" }),
     role: roleEnum("role").notNull().default("employee"),
     /** When true, this user's own requests are approved automatically. */
     canSelfApprove: boolean("can_self_approve").notNull().default(false),
@@ -312,6 +390,35 @@ export const allowances = pgTable(
   ],
 );
 
+/**
+ * A yearly allowance of one leave type for a department, a level, or both, replacing
+ * the type's default for the people it matches (the most specific rule wins; see
+ * `@/domain/allowance-rules`). A person's own allowance row still wins over it.
+ */
+export const allowanceRules = pgTable(
+  "allowance_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    leaveTypeId: uuid("leave_type_id")
+      .notNull()
+      .references(() => leaveTypes.id, { onDelete: "cascade" }),
+    departmentId: uuid("department_id").references(() => departments.id, { onDelete: "cascade" }),
+    levelId: uuid("level_id").references(() => levels.id, { onDelete: "cascade" }),
+    days: numeric("days", { precision: 5, scale: 1, mode: "number" }).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    // One rule per type and target; "no department" and "no level" count as values.
+    unique("allowance_rules_target_uq").on(t.leaveTypeId, t.departmentId, t.levelId).nullsNotDistinct(),
+    index("allowance_rules_company_idx").on(t.companyId),
+    check("allowance_rules_target", sql`${t.departmentId} is not null or ${t.levelId} is not null`),
+    check("allowance_rules_days_nonneg", sql`${t.days} >= 0`),
+  ],
+);
+
 export const holidays = pgTable(
   "holidays",
   {
@@ -409,8 +516,9 @@ export const leaveRequestDays = pgTable(
 export const calendarFeedKindEnum = pgEnum("calendar_feed_kind", ["personal", "team"]);
 
 /**
- * Revocable ICS feed links. The token itself is never stored: only its SHA-256 (hex),
- * so a leaked database cannot be turned back into working links. A person has at most
+ * Revocable ICS feed links. The token itself is never stored: only its SHA-256 (hex)
+ * and its last 4 characters (`token_hint`), so a leaked database cannot be turned back
+ * into working links. A person has at most
  * one live (unrevoked) link per kind.
  */
 export const calendarFeedTokens = pgTable(
@@ -425,6 +533,12 @@ export const calendarFeedTokens = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     kind: calendarFeedKindEnum("kind").notNull(),
     tokenHash: text("token_hash").notNull(),
+    /**
+     * The token's last 4 characters, shown to its owner so they can tell which link a
+     * calendar holds. Not enough to rebuild or guess the link. Null for links issued
+     * before it was kept.
+     */
+    tokenHint: text("token_hint"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     /** Last time a calendar app fetched the feed; updated at most hourly. */
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
@@ -434,6 +548,7 @@ export const calendarFeedTokens = pgTable(
     uniqueIndex("calendar_feed_tokens_hash_uq").on(t.tokenHash),
     uniqueIndex("calendar_feed_tokens_live_uq").on(t.userId, t.kind).where(sql`${t.revokedAt} is null`),
     check("calendar_feed_tokens_hash_format", sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`),
+    check("calendar_feed_tokens_hint_format", sql`${t.tokenHint} is null or ${t.tokenHint} ~ '^[A-Za-z0-9_-]{4}$'`),
   ],
 );
 

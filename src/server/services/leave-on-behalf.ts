@@ -1,31 +1,44 @@
 import type { Actor } from "@/domain/actor";
-import { remainingAfter, type RequestCost } from "@/domain/allowance-policy";
+import { remainingAfter, resolveAllowancePolicy, type RequestCost } from "@/domain/allowance-policy";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { personLabel } from "@/domain/person";
-import { canAddLeaveFor, canSeeLeaveDetails } from "@/domain/leave-permissions";
+import { canAddLeaveFor, canCorrectLeaveFor, canSeeLeaveDetails, type PersonOwnership } from "@/domain/leave-permissions";
 import { assertValidRange, normalizeNote } from "@/domain/leave-request";
-import { assertTransition } from "@/domain/request-status";
+import { assertRemovableOn, assertTransition } from "@/domain/request-status";
+import { todayInTimeZone } from "@/lib/dates";
 import type { Executor } from "@/db/types";
 import type { ServiceContext } from "@/server/context";
 import { insertRequestDays } from "@/server/repositories/balances";
 import { findCompany, shareLockCompany } from "@/server/repositories/companies";
-import { countRecentRequests, insertLeaveRequest, type LeaveRequestRow, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
+import { findDepartment } from "@/server/repositories/departments";
+import { countRecentRequests, findLeaveRequest, insertLeaveRequest, lockLeaveRequest, type LeaveRequestRow, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
+import { findLeaveTypeForAdmin } from "@/server/repositories/leave-types";
 import { findPerson, lockPerson, type PersonRow } from "@/server/repositories/users";
 import { assessLeaveRequest, draftRange, type LeaveDraft } from "./balances";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { SUBMIT_LIMIT, SUBMIT_WINDOW_MINUTES, type SubmitLeaveInput } from "./leave-requests";
-import { commitThenNotify, type Outgoing } from "./notify";
+import { commitThenNotify, type Notification } from "./notify";
+import { recarryMemberLeaveType } from "./rollover";
+
+/**
+ * The facts about `person` that decide who manages them ({@link PersonOwnership}):
+ * their manager, and their department's manager (one read, when they have a department).
+ */
+async function ownershipOf(ex: Executor, companyId: string, person: Pick<PersonRow, "id" | "managerId" | "departmentId">): Promise<PersonOwnership> {
+  const department = person.departmentId ? await findDepartment(ex, companyId, person.departmentId) : undefined;
+  return { id: person.id, companyId, managerId: person.managerId, departmentManagerId: department?.managerId ?? null };
+}
 
 /**
  * Who `actor` would add time off for, and whether they may see that person's balance:
- * the person must be active, and `actor` an admin or their direct manager
- * ({@link canAddLeaveFor}). Read with `person` from the caller's executor, so submit
+ * the person must be active, and `actor` an admin, their direct manager or their
+ * department's manager ({@link canAddLeaveFor}). Read with `person` from the caller's executor, so submit
  * checks under its lock.
  */
 async function checkAddFor(ex: Executor, actor: Actor, person: PersonRow | undefined) {
   if (!person?.isActive) throw new DomainError("not_found");
-  const owned = { id: person.id, companyId: actor.companyId, managerId: person.managerId };
+  const owned = await ownershipOf(ex, actor.companyId, person);
   if (!canAddLeaveFor(actor, owned)) throw new DomainError("forbidden");
   const company = await findCompany(ex, actor.companyId);
   if (!company) throw new DomainError("no_company");
@@ -72,7 +85,8 @@ export async function previewLeaveFor(
 
 /**
  * Adds time off for someone else, approved on the spot: an admin for anyone in their
- * company, or a manager for the people who report to them directly. For when the person
+ * company, or a manager for the people who report to them directly or whose department
+ * they manage. For when the person
  * can't or didn't ask themself (they called in sick, or the leave was agreed in person).
  *
  * Counted and checked exactly as the person's own request would be
@@ -85,8 +99,8 @@ export async function previewLeaveFor(
  *
  * @returns The stored request, `approved`, with `personName`: how a confirmation names them.
  * @throws DomainError as {@link assessLeaveRequest}, plus `not_found` (nobody active
- *   by that id in the company), `forbidden` (not an admin or their manager, or the
- *   actor themself) and `rate_limited` (as for the person's own submits).
+ *   by that id in the company), `forbidden` (not an admin, their manager or their
+ *   department's manager, or the actor themself) and `rate_limited` (as for the person's own submits).
  */
 export async function addLeaveFor(
   ctx: ServiceContext,
@@ -99,7 +113,7 @@ export async function addLeaveFor(
   if (!isUuid(userId)) throw new DomainError("not_found");
   if (!isUuid(input.leaveTypeId)) throw new DomainError("leave_type_unavailable");
 
-  return commitThenNotify(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     // The order submit locks in: company (shared), then the member the leave is for.
     await shareLockCompany(tx, actor.companyId);
     const person = await lockPerson(tx, actor.companyId, userId);
@@ -135,12 +149,13 @@ export async function addLeaveFor(
     const contacts = await activeContacts(tx, actor.companyId, [subject.id, actor.id]);
     const them = contacts.get(subject.id);
     const me = contacts.get(actor.id);
-    const mail: Outgoing[] = [];
+    const mail: Notification[] = [];
     if (them) {
       mail.push({
+        type: "leave.added",
         to: them.email,
-        email: {
-          kind: "added",
+        data: {
+          requestId: approved.id,
           recipientName: them.name,
           leave: summarize(approved, them, assessment.leaveType.name),
           addedByName: me ? personLabel(me) : "",
@@ -148,6 +163,93 @@ export async function addLeaveFor(
         },
       });
     }
-    return { result: { ...approved, personName: personLabel(subject) }, outgoing: mail };
+    return { result: { ...approved, personName: personLabel(subject) }, notify: mail };
   });
 }
+
+/**
+ * Removes someone's approved time off to correct the record: it was entered by mistake,
+ * twice, or they worked those days after all. Their direct manager or an admin may
+ * ({@link canCorrectLeaveFor}), for approved leave of the open year, past leave included
+ * (the person can no longer cancel that themself; see `isLeaveOver`). A closed year's
+ * leave is corrected with a balance adjustment instead.
+ *
+ * The request becomes `cancelled`, with the reason in `decision_note`, and is recorded as
+ * `cancelled` by the one removing it, so the audit log and the outbox name who did it and
+ * why (the audit row's `before` keeps the approver's earlier note). Its days are back in
+ * the person's balance (leave that began last year re-carries last year's unused days at
+ * once). The person is emailed. To change the dates, remove it and add
+ * the right ones ({@link addLeaveFor}).
+ *
+ * @throws DomainError `invalid_input` (no reason, or one over the note limit), `not_found`,
+ *   `forbidden` (not an admin or their manager, or their own leave), `invalid_transition`
+ *   (not approved), `past_year_closed`, or `conflict` when it changed concurrently.
+ */
+export async function removeLeaveFor(ctx: ServiceContext, actor: Actor, requestId: string, reason: string): Promise<LeaveRequestRow> {
+  const why = normalizeNote(reason, "reason");
+  if (!why) throw new DomainError("invalid_input", "Say why it's being removed.", { field: "reason" });
+  if (!isUuid(requestId)) throw new DomainError("not_found");
+
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
+    // Whose it is, unlocked; then the person, then the request: the order a manager change locks
+    // in (person, then their requests), so the two can never deadlock. The person stays locked,
+    // so an admin moving them to another manager can't land between the check and the change.
+    const owner = await findLeaveRequest(tx, actor.companyId, requestId);
+    if (!owner) throw new DomainError("not_found");
+    const person = await lockPerson(tx, actor.companyId, owner.userId);
+    if (!person || !canCorrectLeaveFor(actor, await ownershipOf(tx, actor.companyId, person))) {
+      throw new DomainError("forbidden");
+    }
+    const before = await lockLeaveRequest(tx, actor.companyId, requestId);
+    if (!before || before.userId !== person.id) throw new DomainError("not_found");
+    const company = await findCompany(tx, actor.companyId);
+    if (!company) throw new DomainError("no_company");
+    const today = todayInTimeZone(company.timezone, ctx.now());
+    assertRemovableOn(before, today);
+
+    const after = await updateStatusIfCurrent(
+      tx,
+      { companyId: actor.companyId, id: before.id, from: before.status },
+      { status: "cancelled", decisionNote: why },
+    );
+    if (!after) throw new DomainError("conflict");
+    await recordLeaveChange(tx, { event: "cancelled", before, after, source: actor.source });
+
+    // Leave that began last year gives last year's days back too: re-carry them into this
+    // year now, as the rollover would, rather than at its next nightly run.
+    const leaveType = await findLeaveTypeForAdmin(tx, actor.companyId, after.leaveTypeId);
+    const currentYear = Number(today.slice(0, 4));
+    if (leaveType && person.isActive && Number(before.startDate.slice(0, 4)) < currentYear) {
+      await recarryMemberLeaveType(tx, {
+        companyId: actor.companyId,
+        timezone: company.timezone,
+        policy: resolveAllowancePolicy(company.allowancePolicy),
+        member: person,
+        leaveType,
+        closingYear: currentYear - 1,
+        source: actor.source,
+      });
+    }
+
+    const contacts = await activeContacts(tx, actor.companyId, [after.userId, actor.id]);
+    const them = contacts.get(after.userId);
+    const me = contacts.get(actor.id);
+    const mail: Notification[] = [];
+    if (them) {
+      mail.push({
+        type: "leave.removed",
+        to: them.email,
+        data: {
+          requestId: after.id,
+          recipientName: them.name,
+          leave: summarize(after, them, leaveType?.name ?? "Time off"),
+          removedByName: me ? personLabel(me) : "",
+          reason: why,
+          link: `${ctx.appUrl}/requests`,
+        },
+      });
+    }
+    return { result: after, notify: mail };
+  });
+}
+

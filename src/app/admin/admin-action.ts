@@ -54,3 +54,18 @@ export function adminRevealAction<S extends z.ZodType>(
     { who: "admin", messages },
   );
 }
+
+/**
+ * {@link adminAction} for an action whose result is its own state type (a preview, then
+ * an outcome), which the page renders itself; `work` returns that state. The page is not
+ * refreshed: the state carries what changed.
+ */
+export function adminStateAction<S extends z.ZodType, R extends { status: string }>(
+  event: string,
+  input: ActionInput,
+  schema: S,
+  work: ActionWork<S, R>,
+  messages: Partial<Record<DomainErrorCode, string>> = {},
+) {
+  return runStateAction(event, input, schema, work, { who: "admin", messages, refresh: false });
+}

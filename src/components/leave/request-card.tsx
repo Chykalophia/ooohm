@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatDays, formatLeaveDates, formatTypicalWait } from "@/lib/format";
 import { ColorLabel } from "@/components/ui/color-label";
 import { cx } from "@/components/ui/styles";
+import { isSettledAway } from "./request-tone";
 import { StatusBadge } from "./status-badge";
 
 /** What a request card shows: one of the person's own requests. */
@@ -26,7 +27,8 @@ export type RequestCardData = {
  * One of the person's own requests as a card that opens it (`href`, its own page): the
  * dates, type and days, the notes, and its status. The whole card is the link (its dates
  * are, stretched over it), so it lifts a little on hover and shows the focus ring around
- * itself; `action` (Cancel request) sits above the link and stays its own target.
+ * itself; `action` (Cancel request) sits above the link and stays its own target. A
+ * cancelled or declined request is drawn in grey.
  *
  * @param me The person looking: "with Ana" is left out when they decide their own.
  */
@@ -42,10 +44,15 @@ export function RequestCard({
   action?: React.ReactNode;
 }) {
   const dates = formatLeaveDates(r.startDate, r.endDate, r.dayPortion);
+  // Time off that won't happen sits back in grey, its colour dot too, so it never reads as booked.
+  // `!`: the Tonal layout tints every bordered card, and grey has to win there too. On the page's
+  // own ground, the border stays (Tonal and Grouped hide card borders), so the card keeps its edge.
+  const away = isSettledAway(r.status);
   return (
     <li
       className={cx(
-        "group relative rounded-2xl border border-border bg-surface p-4 transition duration-150",
+        "group relative rounded-2xl border p-4 transition duration-150",
+        away ? "!border-border !bg-background text-muted [&_[data-swatch]]:opacity-50 [&_[data-swatch]]:grayscale" : "border-border bg-surface",
         "hover:border-foreground/25 hover:shadow-md motion-safe:hover:-translate-y-0.5",
       )}
     >

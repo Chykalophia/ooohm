@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { FEED_KINDS } from "@/domain/calendar-feed";
+import { addToCalendarLinks, FEED_KINDS, FEED_SHORT_NAMES } from "@/domain/calendar-feed";
 import { issueCalendarFeed, revokeCalendarFeed } from "@/server/services/calendar-feeds";
 import { runStateAction } from "@/app/_lib/server-action";
 import type { FeedState } from "./feed-state";
@@ -25,7 +25,10 @@ export async function feedAction(_prev: FeedState, formData: FormData): Promise<
     formData,
     feedSchema,
     async (ctx, actor, { kind, intent }): Promise<FeedState> => {
-      if (intent === "issue") return { status: "issued", url: (await issueCalendarFeed(ctx, actor, kind)).url };
+      if (intent === "issue") {
+        const { url } = await issueCalendarFeed(ctx, actor, kind);
+        return { status: "issued", url, links: addToCalendarLinks(url, FEED_SHORT_NAMES[kind]) };
+      }
       await revokeCalendarFeed(ctx, actor, kind);
       return { status: "off" };
     },

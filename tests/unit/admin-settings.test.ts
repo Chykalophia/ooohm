@@ -46,6 +46,13 @@ test("company settings: name is required and trimmed, policy must be registered"
   throwsCode(() => normalizeCompanySettings({ ...settings, allowancePolicy: "accrual_monthly" }), "invalid_input");
 });
 
+test("company settings: approval is required or heads-up; left as it is when absent", () => {
+  assert.equal(normalizeCompanySettings({ ...settings, approvalMode: "heads_up" }).approvalMode, "heads_up");
+  assert.equal(normalizeCompanySettings({ ...settings, approvalMode: "required" }).approvalMode, "required");
+  assert.equal("approvalMode" in normalizeCompanySettings(settings), false);
+  throwsCode(() => normalizeCompanySettings({ ...settings, approvalMode: "notify" }), "invalid_input");
+});
+
 test("working days: at least one ISO weekday, deduplicated and sorted", () => {
   assert.deepEqual(normalizeWorkingDays([5, 1, 1, 3]), [1, 3, 5]);
   assert.deepEqual(normalizeWorkingDays([7]), [7]);

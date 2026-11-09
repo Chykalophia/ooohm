@@ -13,7 +13,6 @@ import { randomUUID } from "node:crypto";
 import type { Transaction } from "@/db/types";
 import type { Actor, Role } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
-import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type Unattributed, type UserEventPayload } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
@@ -33,27 +32,24 @@ import { personLabel } from "@/domain/person";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { renderInviteEmail } from "@/server/email/invite-email";
-import { renderLeaveEmail } from "@/server/email/leave-emails";
-import { emailAccentFor } from "./email-accent";
+import { rerouteApprovals } from "./approval-routing";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
 import { findDepartment, listDepartments } from "@/server/repositories/departments";
+import { findLevel, listLevels } from "@/server/repositories/levels";
+import { followDefaults } from "./admin-allowance-rules";
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { countLiveEndpoints } from "@/server/repositories/webhooks";
 import {
-  type LeaveRequestRow,
   listPendingAssignedTo,
   listPendingRequestsOf,
   listPendingSelfRouted,
-  reassignIfCurrent,
 } from "@/server/repositories/leave-requests";
-import { listAllLeaveTypes, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import {
   deleteSessionsOf,
   emailInUse,
-  findMembers,
   findPerson,
   insertPerson,
   listActiveAdmins,
@@ -65,13 +61,11 @@ import {
   type PersonRow,
   updatePerson as updatePersonRow,
 } from "@/server/repositories/users";
-import { approveLinkFor } from "./email-approval";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { cancelScheduledScrubIn } from "./admin-people-deletion";
-import { type BalanceSummary, summarizeBalances } from "./balances";
+import { type BalanceSummary, loadAllowanceDefaults, summarizeBalances } from "./balances";
 import { revokeFeedsOnDeactivation } from "./calendar-feeds";
-import { activeContacts, recordReassignment, summarize } from "./leave-changes";
-import { commitThenSend, type DeferredEmail } from "./notify";
+import { commitThenNotify, type Notification } from "./notify";
 
 /** Most invites (new or resent) one admin may send per {@link INVITE_WINDOW_MINUTES}. */
 export const INVITE_LIMIT = 30;
@@ -89,6 +83,8 @@ const PEOPLE_KEY = [textPart(500), textPart(320)] as const;
 export interface PersonInput {
   name: string;
   departmentId: string | null;
+  /** Their level, for allowance rules. Left out: unchanged (none for someone new). */
+  levelId?: string | null;
   managerId: string | null;
   role: string;
   canSelfApprove: boolean;
@@ -105,6 +101,7 @@ export function personSnapshot(p: PersonRow) {
     email: p.email,
     role: p.role,
     departmentId: p.departmentId,
+    levelId: p.levelId,
     managerId: p.managerId,
     canSelfApprove: p.canSelfApprove,
     isActive: p.isActive,
@@ -119,6 +116,7 @@ export function personPayload(p: PersonRow): Unattributed<UserEventPayload> {
     name: p.name,
     role: p.role,
     departmentId: p.departmentId,
+    levelId: p.levelId,
     managerId: p.managerId,
     canSelfApprove: p.canSelfApprove,
     isActive: p.isActive,
@@ -130,9 +128,17 @@ function lineMap(rows: readonly ({ id: string } & ReportingLine)[]): Map<string,
 }
 
 /** @throws DomainError `invalid_input` for a malformed field. */
-function normalizePersonInput(input: PersonInput): { name: string; role: Role; departmentId: string | null; managerId: string | null; canSelfApprove: boolean } {
+function normalizePersonInput(input: PersonInput): {
+  name: string;
+  role: Role;
+  departmentId: string | null;
+  levelId?: string | null;
+  managerId: string | null;
+  canSelfApprove: boolean;
+} {
   if (!isRole(input.role)) throw new DomainError("invalid_input", "Unknown role.");
   if (input.departmentId !== null && !isUuid(input.departmentId)) throw new DomainError("invalid_input", "Unknown department.");
+  if (input.levelId !== undefined && input.levelId !== null && !isUuid(input.levelId)) throw new DomainError("invalid_input", "Unknown level.");
   if (input.managerId !== null && (input.managerId.length === 0 || input.managerId.length > 100)) {
     throw new DomainError("invalid_input", "Unknown manager.");
   }
@@ -140,9 +146,15 @@ function normalizePersonInput(input: PersonInput): { name: string; role: Role; d
     name: normalizePersonName(input.name),
     role: input.role,
     departmentId: input.departmentId,
+    ...(input.levelId !== undefined && { levelId: input.levelId }),
     managerId: input.managerId,
     canSelfApprove: input.canSelfApprove === true,
   };
+}
+
+/** @throws DomainError `invalid_input` when the level is not one of the company's. */
+async function assertLevel(tx: Transaction, companyId: string, levelId: string | null | undefined): Promise<void> {
+  if (levelId && !(await findLevel(tx, companyId, levelId))) throw new DomainError("invalid_input", "Unknown level.");
 }
 
 /** @throws DomainError `invalid_input` when the department is not one of the company's. */
@@ -161,7 +173,8 @@ async function assertDepartment(tx: Transaction, companyId: string, departmentId
 async function assertUnderInviteLimit(tx: Transaction, actor: Actor): Promise<void> {
   const sent = await countRecentActions(
     tx,
-    { companyId: actor.companyId, actorId: actor.id, actions: [ADMIN_EVENT_TYPES.userCreated, ADMIN_EVENT_TYPES.userInviteResent] },
+    // People added by a CSV import have their own limit (`admin-people-import`).
+    { companyId: actor.companyId, actorId: actor.id, actions: [ADMIN_EVENT_TYPES.userCreated, ADMIN_EVENT_TYPES.userInviteResent], via: null },
     INVITE_WINDOW_MINUTES,
   );
   if (sent >= INVITE_LIMIT) throw new DomainError("rate_limited");
@@ -172,35 +185,23 @@ async function assertUnderInviteLimit(tx: Transaction, actor: Actor): Promise<vo
  * because the account it signs into must exist first. A failure (link or SMTP) is
  * logged as `invite_email_failed` with the person's id, never their address.
  */
-function inviteEmail(ctx: ServiceContext, companyId: string, person: PersonRow, inviterName: string, companyName: string): DeferredEmail {
-  const accent = emailAccentFor(ctx, companyId);
+export function inviteEmail(ctx: ServiceContext, person: PersonRow, inviterName: string, companyName: string): Notification {
   return {
+    type: "invite",
     to: person.email,
-    build: async () =>
-      renderInviteEmail(
-        {
-          recipientName: person.name,
-          inviterName,
-          companyName,
-          link: await ctx.issueSignInLink(person.email),
-          signInUrl: `${ctx.appUrl}/sign-in`,
-        },
-        await accent(),
-      ),
-    failureEvent: "invite_email_failed",
-    logFields: { userId: person.id },
+    data: { userId: person.id, recipientName: person.name, inviterName, companyName, signInUrl: `${ctx.appUrl}/sign-in` },
   };
 }
 
 /** Locks the company and checks the actor is still an active admin of it. */
-async function beginAdminChange(tx: Transaction, actor: Actor) {
+export async function beginAdminChange(tx: Transaction, actor: Actor) {
   const company = await lockCompany(tx, actor.companyId);
   if (!company) throw new DomainError("no_company");
   await assertActiveAdmin(tx, actor);
   return company;
 }
 
-async function inviterName(tx: Transaction, actor: Actor): Promise<string> {
+export async function inviterName(tx: Transaction, actor: Actor): Promise<string> {
   const me = await findPerson(tx, actor.companyId, actor.id);
   return me ? personLabel(me) : "";
 }
@@ -238,8 +239,9 @@ export async function listPeople(ctx: ServiceContext, actor: Actor, filter: Omit
  */
 export async function getPersonFormOptions(ctx: ServiceContext, actor: Actor, personId: string | null) {
   assertCanAdminister(actor);
-  const [departments, lines, names] = await Promise.all([
+  const [departments, levels, lines, names] = await Promise.all([
     listDepartments(ctx.db, actor.companyId),
+    listLevels(ctx.db, actor.companyId),
     listReportingLines(ctx.db, actor.companyId),
     listPeopleNames(ctx.db, actor.companyId),
   ]);
@@ -250,6 +252,8 @@ export async function getPersonFormOptions(ctx: ServiceContext, actor: Actor, pe
   const current = personId ? lines.find((l) => l.id === personId)?.managerId : null;
   return {
     departments,
+    /** Empty when the company uses no levels; the form then leaves the field out. */
+    levels,
     managers: names
       .filter((n) => allowed.has(n.id) || n.id === current)
       .map((n) => ({ id: n.id, label: n.isActive ? personLabel(n) : `${personLabel(n)} (deactivated)` })),
@@ -276,10 +280,12 @@ export async function getPersonDetail(ctx: ServiceContext, actor: Actor, userId:
   if (!person) throw new DomainError("not_found");
   if (!company) throw new DomainError("no_company");
   const balanceYear = year ?? yearInTimeZone(company.timezone, ctx.now());
-  const balances: BalanceSummary | null = await summarizeBalances(ctx.db, person, {
+  const defaults = await loadAllowanceDefaults(ctx.db, actor.companyId, [person.id]);
+  const balances: BalanceSummary | null = await summarizeBalances(ctx.db, { id: person.id, companyId: actor.companyId }, {
     allowancePolicy: company.allowancePolicy,
     types,
     year: balanceYear,
+    defaults,
   }).catch((err: unknown) => {
     if (!isDomainError(err, "policy_unavailable")) throw err;
     log.error({ err, companyId: actor.companyId }, "allowance_policy_unavailable");
@@ -292,8 +298,10 @@ export async function getPersonDetail(ctx: ServiceContext, actor: Actor, userId:
     /** Allowances of years before this one are closed; see `firstEditableAllowanceYear`. */
     firstEditableYear: firstEditableAllowanceYear(yearInTimeZone(company.timezone, ctx.now())),
     balances,
-    /** Each type's allowance settings, by id, for the allowance editor. */
-    leaveTypes: new Map(types.map((t) => [t.id, { countsAgainstAllowance: t.countsAgainstAllowance, defaultAllowanceDays: t.defaultAllowanceDays }])),
+    /** Each type's allowance settings, by id, for the allowance editor: the default is this person's (allowance rules applied). */
+    leaveTypes: new Map(
+      types.map((t) => [t.id, { countsAgainstAllowance: t.countsAgainstAllowance, defaultAllowanceDays: defaults(person.id, t) }]),
+    ),
   };
 }
 
@@ -315,11 +323,12 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
   const fields = normalizePersonInput(input);
 
   try {
-    return await commitThenSend(ctx, async (tx) => {
+    return await commitThenNotify(ctx, actor.companyId, async (tx) => {
       const company = await beginAdminChange(tx, actor);
       await assertUnderInviteLimit(tx, actor);
       if (await emailInUse(tx, email)) throw new DomainError("already_exists");
       await assertDepartment(tx, actor.companyId, fields.departmentId);
+      await assertLevel(tx, actor.companyId, fields.levelId);
       assertValidManager(null, fields.managerId, lineMap(await listReportingLines(tx, actor.companyId)));
 
       const person = await insertPerson(tx, { id: randomUUID(), companyId: actor.companyId, email, ...fields });
@@ -335,7 +344,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
       const rerouted = person.role === "admin" ? await rerouteApprovals(ctx, tx, actor, await listPendingSelfRouted(tx, actor.companyId)) : null;
       return {
         result: person,
-        outgoing: [inviteEmail(ctx, actor.companyId, person, await inviterName(tx, actor), company.name), ...(rerouted?.outgoing ?? [])],
+        notify: [inviteEmail(ctx, person, await inviterName(tx, actor), company.name), ...(rerouted?.notify ?? [])],
       };
     });
   } catch (err) {
@@ -353,7 +362,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
  */
 export async function resendInvite(ctx: ServiceContext, actor: Actor, userId: string): Promise<PersonRow> {
   assertCanAdminister(actor);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     const company = await beginAdminChange(tx, actor);
     const person = await findPerson(tx, actor.companyId, userId);
     if (!person) throw new DomainError("not_found");
@@ -368,7 +377,7 @@ export async function resendInvite(ctx: ServiceContext, actor: Actor, userId: st
       after: { email: person.email },
       payload: personPayload(person),
     });
-    return { result: person, outgoing: [inviteEmail(ctx, actor.companyId, person, await inviterName(tx, actor), company.name)] };
+    return { result: person, notify: [inviteEmail(ctx, person, await inviterName(tx, actor), company.name)] };
   });
 }
 
@@ -389,9 +398,9 @@ export interface PersonUpdateResult {
  *   rule (see {@link rerouteApprovals}); those whose requester they still manage stay.
  *   Their own pending requests are re-routed too: one they had routed to themself as
  *   the only admin moves to whoever the rule now picks.
- * - Changing someone's manager re-routes that person's own pending requests, so the
- *   new manager (or the admin fallback) gets them and the old manager loses them. That
- *   includes an admin's request routed to themself.
+ * - Changing someone's manager or department re-routes that person's own pending
+ *   requests, so the new manager (or department manager, or the admin fallback) gets
+ *   them and the old one loses them. That includes an admin's request routed to themself.
  * - Promoting someone to admin re-routes every request an admin had routed to themself
  *   for want of another admin.
  * Each moved request writes `leave_request.reassigned` / `leave.reassigned`, and its
@@ -404,11 +413,12 @@ export interface PersonUpdateResult {
 export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: string, input: PersonInput): Promise<PersonUpdateResult> {
   assertCanAdminister(actor);
   const fields = normalizePersonInput(input);
-  return commitThenSend(ctx, async (tx) => {
-    await beginAdminChange(tx, actor);
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
+    const company = await beginAdminChange(tx, actor);
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
     await assertDepartment(tx, actor.companyId, fields.departmentId);
+    await assertLevel(tx, actor.companyId, fields.levelId);
     if (fields.managerId !== before.managerId) {
       assertValidManager(before.id, fields.managerId, lineMap(await listReportingLines(tx, actor.companyId)));
     }
@@ -421,8 +431,18 @@ export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: st
     }
 
     const changed = (Object.keys(fields) as (keyof typeof fields)[]).filter((k) => fields[k] !== before[k]);
-    if (changed.length === 0) return { result: { person: before, requestsReassigned: 0 }, outgoing: [] };
+    if (changed.length === 0) return { result: { person: before, requestsReassigned: 0 }, notify: [] };
+    const placed = before.departmentId !== fields.departmentId || (fields.levelId !== undefined && before.levelId !== fields.levelId);
+    const defaultsBefore = placed ? await loadAllowanceDefaults(tx, actor.companyId, [before.id]) : null;
     const after = await updatePersonRow(tx, actor.companyId, before.id, fields);
+    if (defaultsBefore) {
+      await followDefaults(tx, actor, {
+        userIds: [after.id],
+        fromYear: yearInTimeZone(company.timezone, ctx.now()),
+        before: defaultsBefore,
+        after: await loadAllowanceDefaults(tx, actor.companyId, [after.id]),
+      });
+    }
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.userUpdated,
       entityType: "user",
@@ -436,11 +456,13 @@ export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: st
     const demoted = before.role === "admin" && after.role !== "admin";
     const affected = [
       ...(demoted ? await listPendingAssignedTo(tx, actor.companyId, after.id) : []),
-      ...(demoted || before.managerId !== after.managerId ? await listPendingRequestsOf(tx, actor.companyId, after.id) : []),
+      ...(demoted || before.managerId !== after.managerId || before.departmentId !== after.departmentId
+        ? await listPendingRequestsOf(tx, actor.companyId, after.id)
+        : []),
       ...(before.role !== "admin" && after.role === "admin" ? await listPendingSelfRouted(tx, actor.companyId) : []),
     ];
-    const { reassigned, outgoing } = await rerouteApprovals(ctx, tx, actor, affected);
-    return { result: { person: after, requestsReassigned: reassigned }, outgoing };
+    const { reassigned, notify } = await rerouteApprovals(ctx, tx, actor, affected);
+    return { result: { person: after, requestsReassigned: reassigned }, notify };
   });
 }
 
@@ -466,8 +488,8 @@ export interface DeactivationResult {
  * drop out of approvals, calendars and emails. Their own requests stay as they are.
  *
  * Pending requests they were assigned to approve move to whoever the approval rule
- * now picks for each requester (their active manager, else the longest-standing other
- * active admin; never self-approval), each with a `leave.reassigned` event and a
+ * now picks for each requester (their active manager, else their department's active
+ * manager, else the longest-standing other active admin; never self-approval), each with a `leave.reassigned` event and a
  * review email to the new approver after commit.
  *
  * API keys and webhook endpoints they created stay (they belong to the company); the
@@ -481,7 +503,7 @@ export interface DeactivationResult {
 export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId: string): Promise<DeactivationResult> {
   assertCanAdminister(actor);
   assertNotSelfDeactivation(actor.id, userId);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     await beginAdminChange(tx, actor);
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
@@ -490,7 +512,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
       liveWebhookEndpointsCreated: await countLiveEndpoints(tx, actor.companyId, before.id),
     });
     if (!before.isActive) {
-      return { result: { person: before, sessionsRevoked: 0, feedsRevoked: 0, requestsReassigned: 0, ...(await credentials()) }, outgoing: [] };
+      return { result: { person: before, sessionsRevoked: 0, feedsRevoked: 0, requestsReassigned: 0, ...(await credentials()) }, notify: [] };
     }
     const adminsBefore = await listActiveAdmins(tx, actor.companyId);
     assertKeepsAnActiveAdmin(
@@ -502,7 +524,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
     const after = await updatePersonRow(tx, actor.companyId, before.id, { isActive: false });
     const sessionsRevoked = await deleteSessionsOf(tx, before.id);
     const feedsRevoked = await revokeFeedsOnDeactivation(tx, before.id, actor.source, now);
-    const { reassigned, outgoing } = await rerouteApprovals(ctx, tx, actor, await listPendingAssignedTo(tx, actor.companyId, before.id));
+    const { reassigned, notify } = await rerouteApprovals(ctx, tx, actor, await listPendingAssignedTo(tx, actor.companyId, before.id));
 
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.userDeactivated,
@@ -513,76 +535,8 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
       after: { ...personSnapshot(after), sessionsRevoked, feedsRevoked, requestsReassigned: reassigned },
       payload: personPayload(after),
     });
-    return { result: { person: after, sessionsRevoked, feedsRevoked, requestsReassigned: reassigned, ...(await credentials()) }, outgoing };
+    return { result: { person: after, sessionsRevoked, feedsRevoked, requestsReassigned: reassigned, ...(await credentials()) }, notify };
   });
-}
-
-/**
- * Re-routes pending requests to the approver {@link reassignApprover} now picks for
- * each requester (read after the change that prompted it, inside `tx`): their active
- * manager, else the longest-standing other active admin, else the requester themself
- * when they are an admin; never self-approval. A request the rule would leave with the
- * approver it already has is left alone (so an only admin's request routed to themself
- * stays put); one nobody can take keeps no assigned approver, and every admin still
- * sees it in their inbox.
- *
- * Each move is compare-and-set on the request's current approver, writes
- * `leave_request.reassigned` and `leave.reassigned`, and queues a review email to the
- * new approver. Reads are batched (requesters, their managers, admins, contacts and
- * leave types: five queries at most, whatever the number of requests), so the caller's
- * company lock is held for one update and its audit rows per moved request.
- */
-async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Actor, requests: readonly LeaveRequestRow[]) {
-  const pending = [...new Map(requests.map((r) => [r.id, r])).values()];
-  if (pending.length === 0) return { reassigned: 0, outgoing: [] as DeferredEmail[] };
-  const requesters = new Map((await findMembers(tx, actor.companyId, [...new Set(pending.map((r) => r.userId))])).map((m) => [m.id, m]));
-  const managerIds = [...new Set([...requesters.values()].flatMap((r) => (r.managerId ? [r.managerId] : [])))];
-  const [managers, admins] = await Promise.all([
-    findMembers(tx, actor.companyId, managerIds).then((rows) => new Map(rows.map((m) => [m.id, m]))),
-    listActiveAdmins(tx, actor.companyId),
-  ]);
-  const rule = new ManagerApprovalRule();
-
-  const moves = pending.flatMap((request) => {
-    const requester = requesters.get(request.userId);
-    if (!requester) return [];
-    const manager = requester.managerId ? (managers.get(requester.managerId) ?? null) : null;
-    const approverId = reassignApprover(rule, { requester, manager, admins });
-    return approverId === request.approverId ? [] : [{ request, approverId }];
-  });
-  if (moves.length === 0) return { reassigned: 0, outgoing: [] as DeferredEmail[] };
-
-  const [contacts, leaveTypes] = await Promise.all([
-    activeContacts(tx, actor.companyId, moves.flatMap(({ request, approverId }) => [request.userId, approverId])),
-    listAllLeaveTypes(tx, actor.companyId).then((rows) => new Map(rows.map((t) => [t.id, t.name]))),
-  ]);
-  const outgoing: DeferredEmail[] = [];
-  const accent = emailAccentFor(ctx, actor.companyId);
-  let reassigned = 0;
-  for (const { request, approverId } of moves) {
-    const after = await reassignIfCurrent(tx, { companyId: actor.companyId, id: request.id, from: request.approverId }, approverId);
-    if (!after) continue;
-    await recordReassignment(tx, { before: request, after, source: actor.source });
-    reassigned++;
-
-    const approver = approverId && approverId !== request.userId ? contacts.get(approverId) : undefined;
-    if (!approver) continue;
-    const leave = summarize(after, contacts.get(request.userId), leaveTypes.get(after.leaveTypeId) ?? "Time off");
-    const email = {
-      kind: "requested",
-      recipientName: approver.name,
-      leave,
-      link: `${ctx.appUrl}/approvals`,
-      approveLink: approveLinkFor(ctx, after.id, approver.id),
-    } as const;
-    outgoing.push({
-      to: approver.email,
-      build: async () => renderLeaveEmail(email, await accent()),
-      failureEvent: "leave_email_failed",
-      logFields: { requestId: after.id, kind: email.kind },
-    });
-  }
-  return { reassigned, outgoing };
 }
 
 /**
@@ -600,11 +554,11 @@ async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Act
  */
 export async function reactivatePerson(ctx: ServiceContext, actor: Actor, userId: string): Promise<PersonRow> {
   assertCanAdminister(actor);
-  return commitThenSend(ctx, async (tx) => {
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
     await beginAdminChange(tx, actor);
     const before = await lockPerson(tx, actor.companyId, userId);
     if (!before) throw new DomainError("not_found");
-    if (before.isActive) return { result: before, outgoing: [] };
+    if (before.isActive) return { result: before, notify: [] };
     // Only a deactivated person can wait for a scrub, so coming back cancels it (audited).
     await cancelScheduledScrubIn(tx, actor, before);
     const after = await updatePersonRow(tx, actor.companyId, before.id, { isActive: true });
@@ -617,7 +571,7 @@ export async function reactivatePerson(ctx: ServiceContext, actor: Actor, userId
       after: personSnapshot(after),
       payload: personPayload(after),
     });
-    const { outgoing } = await rerouteApprovals(ctx, tx, actor, await listPendingSelfRouted(tx, actor.companyId));
-    return { result: after, outgoing };
+    const { notify } = await rerouteApprovals(ctx, tx, actor, await listPendingSelfRouted(tx, actor.companyId));
+    return { result: after, notify };
   });
 }

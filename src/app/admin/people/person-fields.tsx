@@ -8,14 +8,17 @@ const ROLE_OPTIONS = Object.entries(ROLE_LABEL).map(([value, label]) => ({ value
 /** The fields an admin sets about a person, shared by the invite and edit forms. */
 export function PersonFields({
   departments,
+  levels,
   managers,
   person,
 }: {
   departments: readonly { id: string; name: string }[];
+  /** The company's levels; the Level field shows only when there are any. */
+  levels: readonly { id: string; name: string }[];
   managers: readonly { id: string; label: string }[];
-  person?: { name: string; role: Role; departmentId: string | null; managerId: string | null; canSelfApprove: boolean };
+  person?: { name: string; role: Role; departmentId: string | null; levelId: string | null; managerId: string | null; canSelfApprove: boolean };
 }) {
-  const managerOptions = [{ value: "", label: "No manager (an admin approves)" }, ...managers.map((m) => ({ value: m.id, label: m.label }))];
+  const managerOptions = [{ value: "", label: "No manager (their department's manager or an admin approves)" }, ...managers.map((m) => ({ value: m.id, label: m.label }))];
   return (
     <>
       <TextField label="Name" name="name" required maxLength={PERSON_NAME_MAX_LENGTH} defaultValue={person?.name ?? ""} autoComplete="off" />
@@ -35,6 +38,16 @@ export function PersonFields({
           options={[{ value: "", label: "None" }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
         />
       </div>
+      {levels.length > 0 && (
+        <SelectField
+          label="Level"
+          name="levelId"
+          optional
+          defaultValue={person?.levelId ?? ""}
+          options={[{ value: "", label: "None" }, ...levels.map((l) => ({ value: l.id, label: l.name }))]}
+          hint="Allowance rules can give a level more or less time off."
+        />
+      )}
       <SelectField
         label="Manager"
         name="managerId"

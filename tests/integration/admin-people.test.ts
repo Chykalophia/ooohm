@@ -5,7 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { INVITE_SUBJECT } from "@/server/email/invite-email";
+import { INVITE_SUBJECT } from "@/server/notifications/templates/invite";
 import {
   deactivatePerson,
   getPersonDetail,
@@ -105,6 +105,7 @@ describe("admin: people", { skip }, () => {
       email: row.email,
       role: "manager",
       departmentId: dept.id,
+      levelId: null,
       managerId: co.people.mgr.id,
       canSelfApprove: true,
       isActive: true,
@@ -121,6 +122,7 @@ describe("admin: people", { skip }, () => {
             name: "New Person",
             role: "manager",
             departmentId: dept.id,
+            levelId: null,
             managerId: co.people.mgr.id,
             canSelfApprove: true,
             isActive: true,

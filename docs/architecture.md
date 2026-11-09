@@ -9,9 +9,10 @@ TypeScript that can be tested without a browser, a server or a database.
 Dependencies point downward only. A layer never imports from one above it. `pnpm lint` enforces this table
 with per-directory `no-restricted-imports` rules in `eslint.config.mjs`; change both together. Those rules match
 import specifiers, so imports across directories use the `@/` alias and a parent-relative (`../`) import is a
-lint error everywhere under `src/`. `src/server/email/**` (templates) and `src/server/context.ts` (the
+lint error everywhere under `src/`. `src/server/notifications/templates/**` (email templates) and `src/server/context.ts` (the
 `ServiceContext` type) sit just below services: no Next.js, database, schema, Drizzle, `env`, `auth`, services or
-repositories. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
+repositories. The rest of `src/server/notifications` (the catalog of email types and the after-commit sender) sits
+beside services: it may read through repositories (the company accent) but never calls a service. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
 one-time imports, M7: they read another system's files into domain records and never touch OOOhm's database)
 follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
 `scripts/*.mts` (migrate, seed, rollover, the outbox worker, the TimeOff import) are composition roots for
@@ -22,7 +23,7 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 | --- | --- | --- | --- |
 | Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | services, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
 | Shared UI | `src/components/**` | Reusable components and class recipes that render what a page passes in | domain types and pure functions, `lib` (not `env`, `db`, `auth`); never `src/app` or `src/server` |
-| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/email`, `lib` (not `env`, `db`, `auth`) |
+| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/notifications`, `lib` (not `env`, `db`, `auth`) |
 | Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
 | Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
 | Infrastructure | `src/lib/**`, `src/db/**` | Env, logging, mail transport, auth, formatting, schema, the connection pool | `domain` (pure functions and types, e.g. `toActor` for `requireActor`) |
@@ -186,7 +187,8 @@ Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-so
 | `system` | A process with no person behind it (`process`), optionally run for a person who asked for it ahead of time (`requestedBy`) | "System: year rollover", "System: scheduled Gusto sync", "System: scheduled deletion, requested by Peter Krzyzek" |
 
 `via` and `process` share one vocabulary of stable identifiers: `year_rollover`, `retention`, `adapter_sync:<adapterId>`,
-`timeoff_import` and `scheduled_scrub`. They are stored and published, so never rename one.
+`timeoff_import`, `scheduled_scrub`, `people_import` (an admin adding people and departments from a CSV file) and the others in
+`CHANGE_PROCESSES`. They are stored and published, so never rename one.
 `changeSourceLabel` (pure) turns a source into the label above.
 
 How sources are chosen, type-enforced so a new call site cannot leave one out (every recorder takes a required
@@ -285,7 +287,7 @@ scheduled scrub).
 | `department.created`, `.renamed`, `.deleted` | | `departmentId, name, actorId` (the name before, on `deleted`) |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId` |
 | `holiday.created`, `.renamed`, `.deleted` | | `holidayId, date, name, actorId` |
-| `company.updated` | Company settings or appearance saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, theme, accentColor, corners, requestStyle, layout, actorId` |
+| `company.updated` | Company settings, appearance or logo saved | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, approvalMode, colleagueVisibility, theme, accentColor, corners, requestStyle, layout, logo, actorId` |
 
 Two more events are not admin events: `LEAVE_REASSIGNED_EVENT_TYPE` (M5) and `LEAVE_RECOUNTED_EVENT_TYPE`, outside
 `ADMIN_EVENT_TYPES`; their audit `action` follows the leave request actions instead of the event type.
@@ -332,12 +334,51 @@ time zone (`todayInTimeZone`).
 
 ### Email
 
-Notification emails (`src/server/email/leave-emails.ts`) have fixed subjects. Names, notes and reasons go in
-the body only (HTML-escaped there), never in a header; names are also collapsed to one line of at most 100
-characters. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
+Every email a change sends goes through one module, `src/server/notifications`:
+
+- `catalog.ts` lists each notification type (`leave.requested`, `leave.approved`, …, `invite`) as a
+  `NotificationType`: how to build its email from its data, and what to log if that fails.
+- `templates/` holds the pure renderers (`leave.ts`, `invite.ts`) on the shared layout in `src/lib/email-layout.ts`.
+  The leave emails share one layout; each kind supplies only its words (`LEAVE_COPY`).
+- `send.ts` sends after commit: it reads the company's accent once (`accent.ts`), builds each email, and isolates
+  each send.
+
+A service's `work` callback returns `{ result, notify }` to `commitThenNotify(ctx, companyId, work)`, which returns
+`result` once the change commits; each notification is `{ type, to, data }`. A service never renders or sends an email itself. To add an email, write its template, add a catalog
+entry, and return it from the service. The sign-in link someone asks for on the sign-in page is the one email outside
+the module: Better Auth sends it (`src/lib/auth.ts`, template in `src/lib/sign-in-email.ts`), outside any change.
+`tests/unit/email-output.test.ts` pins every email's output; update its snapshot only for a deliberate change.
+
+**Admin → Emails** (`/admin/emails`, `src/server/services/admin-emails.ts`) lets an admin replace one email's subject
+and message with the company's own words. Each catalog type carries its editable copy (`EditableCopy`): a default
+subject and message written with `{{variable}}` placeholders, the variables it offers (`{{requester}}`, `{{dates}}`,
+`{{days}}`, …), and sample data for the editor's live preview. Rules (`src/domain/email-template.ts`):
+
+- Only the subject and the message change. The request's details (the note, who else is off, a decline reason), the
+  buttons, the links, the approve note and the layout stay as OOOhm sends them, so no wording can break an approve
+  link or drop the request's details. Which variables the subject and message name is the admin's choice.
+- Copy is checked on save: a variable the email does not have, a subject over 150 characters or a message over 2,000
+  is refused (`invalid_input` with the field). A blank field, or one typed exactly as the default, stores nothing.
+- Filling never makes markup: values and the copy itself are HTML-escaped, a value is never read as a template, and
+  the subject is filled onto one line (capped at 200 characters), so nothing typed can add a header.
+- The message's first paragraph leads the email (its heading); later paragraphs (after a blank line) follow the
+  request's details, before the buttons.
+- Copy lives in `email_templates` (one row per company and type). `send.ts` reads it once per change, after commit,
+  with the accent. If it cannot be read, the email goes out in its default words; a saved field that names a variable
+  the email no longer has goes out (and opens in the editor) as that field's default, and a subject that fills to
+  nothing goes out as the default subject.
+- Saving and resetting take the company lock. When the copy in force changes, they write an audit row
+  (`email_template.updated`, `email_template.reset`, before and after) and an outbox event of the same name
+  ([docs/api.md](api.md)); saving the same words again, or resetting an email already on its defaults, writes neither.
+
+By default, notification emails have fixed subjects, except the request email's, which names the requester and the
+dates; a company's own subject (above) is filled the same way. Notes and reasons go in the body only (HTML-escaped
+there), never in a header; names are collapsed to one line of at most 100 characters, so the one that reaches a
+subject cannot add a header. Better Auth's `/update-user` stays disabled: people change their own display name only on `/account`
 (`renameSelf`), which normalizes it and records it as their own `user.updated`, since a name reaches approvers'
 inboxes and emails. Sends run after commit (`after()` in the app), each in
-its own try/catch; failures are logged as `leave_email_failed` with the request id and email kind, never the
+its own try/catch; failures are logged as the type's failure event (`leave_email_failed` with the request id and email kind, or
+`invite_email_failed` with the person's id), never the
 address, and never fail the user's action.
 
 ## Leave requests (M2)
@@ -365,10 +406,22 @@ address, and never fail the user's action.
       half day on the same date do not overlap.
    4. Refuses (`insufficient_balance`) when a tracked leave type's balance cannot cover the request in any
       year it touches. See [Balances](#balances-m3).
-4. Resolves the approver with `ManagerApprovalRule` and stores `approver_id`.
+4. Resolves the approver with the company's rule (`approvalRuleFor(companies.approval_mode)`: `ManagerApprovalRule`,
+   or `HeadsUpApprovalRule` while approval is turned off) and stores `approver_id`.
 5. Inserts as `pending` with `days` = the total, stores the per-year split in `leave_request_days`, and records
    `leave.requested`. If the rule says self-approve, it immediately moves to `approved` (`decided_at` = now,
    approver = requester) and records `leave.approved`. Self-approved requests are held to the same balance.
+
+**Approval turned off (heads-up time off).** Admin → Company, "Time off approval": `Ask first` (`required`, the
+default) or `Just let us know` (`heads_up`, `companies.approval_mode`). Some teams treat time off as something
+people tell the company rather than ask for. With `heads_up`, every submit is approved on the spot, exactly as a
+self-approved one (`approver_id` = requester, both transitions by the requester, same balance check), and the
+person the manager rule would have routed it to (minus self-approval: the active manager, else the
+longest-standing other admin) gets a "heads-up" email instead of a review email. Nobody to tell never blocks a
+submit. Cancelling such time off emails that person too. Home's form reads "Book time off". The switch applies to
+requests sent from then on; pending ones stay with their approver. It is audited and carried on
+`company.updated` (`approvalMode`). The setting lives on the company, the tenant every rule is scoped to, so it
+moves with the company if one deployment ever hosts several.
 
 **Added for someone.** An admin (for anyone in the company) or a person's direct manager can add time off for
 them from their Team page (`addLeaveFor`, `src/server/services/leave-on-behalf.ts`; Admin → People links
@@ -380,7 +433,8 @@ balance (`managers_see_details` off) gets the cost but never what is left, in th
 
 ### Approval rule
 
-`ApprovalRule` (`src/domain/approval-rule.ts`) is pluggable; v1 ships `ManagerApprovalRule`:
+`ApprovalRule` (`src/domain/approval-rule.ts`) is pluggable; v1 ships `ManagerApprovalRule` (and
+`HeadsUpApprovalRule` for companies that turned approval off, above):
 
 1. `can_self_approve` → approved on submit.
 2. An active manager (other than the requester) → routed to the manager.
@@ -405,15 +459,25 @@ refuses with `past_year_closed` and the dashboard shows no Cancel button (`getDa
 request). That leave was taken and its year's balance is settled and carried over, so a past year is corrected with
 an admin's balance adjustment for that year instead. A request spanning New Year counts by its end date: Dec 29 to
 Jan 2 can still be cancelled in the new year, since part of it is in the open year (cancelling it gives back the
-days of both years). A pending request from a past year can still be withdrawn: it was never granted. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
+days of both years). A pending request from a past year can still be withdrawn: it was never granted.
+
+Approved leave of the open year that is **over** (its last day is before today, in the company's time zone:
+`isLeaveOver`) can't be cancelled by its requester either; the service refuses with `leave_taken`, and
+`cancellable` is false. It was taken, so cancelling it would quietly hand the days back. A correction is for their
+direct manager or an admin (`canCorrectLeaveFor`, the same people who may add leave for them): `removeLeaveFor`
+(the **Remove** action on the person's Team page, which for them also lists this year's leave from before its
+60 days) cancels approved leave that isn't from a closed year, past or future (`canRemoveOn`), with a required reason stored in `decision_note`. It is recorded as `leave_request.cancelled` and
+`leave.cancelled` by the one removing it, so the audit log names who and why (its `before` keeps the approver's
+earlier note), and the person is emailed (`removed`). To change dates, remove the leave and add the right ones. A
+closed year's leave still can't be removed. Any admin of the company, or the assigned approver, may approve or reject a pending request, with an
 optional reason (max 500 characters) stored in `decision_note`. Every status change is a compare-and-set
 (`UPDATE ... WHERE status = <expected>`), so of two concurrent decisions exactly one wins and the other gets
 `conflict`.
 
 **A stored assignment grants the right to decide only while it still matches the approval rule** (`canDecide`,
 `src/domain/leave-permissions.ts`). When the right rests on the assignment (a non-admin approver, or an admin
-deciding their own request routed to themself), `decideLeaveRequest` reads the requester, their manager and the
-active admins in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
+deciding their own request routed to themself), `decideLeaveRequest` reads the requester, their manager, their
+department's manager and the active admins (`loadApprovalContext`, `src/server/services/approval-routing.ts`) in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
 `forbidden` and the request is left to the admins, who see every pending request. Its compare-and-set then also
 requires `approver_id` to still be the actor, so it loses (`conflict`) to a concurrent re-route. This closes the
 window a submit leaves open: submit reads the manager and the admins without locking them (a shared lock on the
@@ -437,9 +501,10 @@ credential) otherwise. Adding a provider is one file implementing `MailTransport
 | --- | --- |
 | Requested (routed) | Approver (not when it is the requester), with who else is off then |
 | Requested (self-approved) | Requester gets "approved"; no review email |
+| Requested (approval turned off) | Requester gets "booked"; their manager (else the fallback admin) gets a heads-up, with who else is off then; no review email |
 | Approved | Requester, with the approver's note if they wrote one |
 | Rejected | Requester, with the reason |
-| Cancelled | Requester, plus the approver unless the approver is the person cancelling |
+| Cancelled | Requester, plus the approver unless the approver is the person cancelling; while approval is turned off, cancelling time off the person approved themself also tells their manager now (else the fallback admin) |
 | Recounted by a calendar change | Requester only, saying which holiday or the working days changed; not when only the year split moved |
 
 "Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`, sentences from `src/domain/overlap.ts`)
@@ -718,6 +783,22 @@ CRON_TZ=America/Chicago
   other companies' people are a 404.
 - `/calendar/subscriptions`: the two feeds (below), linked from both pages.
 
+**Whose time off a person sees.** One rule, in `domain/calendar-visibility.ts`: `calendarScopeFor(viewer,
+company)` returns a `CalendarScope` (`everyone`, `team` or `self`), and every reader filters by it: Who's out,
+the calendar's filters, `/team/[id]` (a 404 outside it) and the team calendar link (its owner's scope, read on
+every fetch). The SQL form is `scopeCondition` in `repositories/calendar.ts`, which `listTeamEntries` takes;
+`canSeeOnCalendar` is the same rule for one person. Admins and managers see everyone. Employees see what
+**Admin → Company → People can see the time off of** allows (`companies.colleague_visibility`): everyone (the
+default), their team (themself, their manager, the others who report to that manager, and their own direct
+reports; with no manager, only themself and their reports), or only their own. An unknown stored value reads as
+`self`. Approvers' "also off" lines are not filtered. A new kind of scope is a new `CalendarScope` case handled in
+`canSeeOnCalendar` and `scopeCondition`.
+
+The month view of `/calendar` shows the person's own leave by default; `?show=team` or `?show=everyone` add
+colleagues' leave as far as their scope allows (`narrowCalendarScope`: anything else falls back to just them).
+The filters are pills under the month links, shown only when there is more than one. A colleague's chip reads
+"Ana: PTO" and opens their page; only the person's own chips open requests. The year view stays personal.
+
 The header links Calendar and Team for every member of a company, and on every page but the dashboard a **Request
 time off** link to the dashboard's form (`/#request`, an accent outline, so each screen keeps one filled main
 action). The person's name opens their own options (`AccountMenu`, a disclosure rather than an ARIA menu: Escape,
@@ -749,7 +830,8 @@ functions in `src/domain/calendar.ts`.
 
 ### Privacy rule
 
-Every member may see who is out, when, and the leave type's name and colour. Nobody sees another person's request
+A member may see who is out, when, and the leave type's name and colour, for the people their calendar scope
+allows (`calendarScopeFor`, above: everyone, unless an admin narrows it for employees). Nobody sees another person's request
 note, decision note or balance on any calendar screen or feed. This is enforced by shape, not by filtering: every
 calendar view and both feeds are built from `CalendarEntry` (`src/domain/calendar.ts`), and the repository's
 calendar queries (`src/server/repositories/calendar.ts`) select only its fields. Notes are left out of the personal
@@ -760,20 +842,28 @@ address (`personLabel`).
 
 ### Feed tokens
 
-`calendar_feed_tokens (id, company_id, user_id, kind personal|team, token_hash, created_at, last_used_at,
-revoked_at)`, migration `0005`.
+`calendar_feed_tokens (id, company_id, user_id, kind personal|team, token_hash, token_hint, created_at,
+last_used_at, revoked_at)`, migration `0005` (`token_hint`: `0021`).
 
 - A token is 32 random bytes in base64url (43 characters), from `src/lib/feed-token.ts`. Only its SHA-256 (hex,
   `CHECK`ed) is stored, under a unique index; the lookup is one index probe on the hash. A plain hash suffices
   because the input is 256 random bits, not a password.
-- The link is shown once, in the server action's response, and never again: OOOhm keeps no copy. The page then
-  shows only when the feed was created and last fetched.
-- "Get a new link" revokes the live link and issues a new one in one transaction; "Turn off" sets `revoked_at`.
+- The link is shown once, in the server action's response, and never again: OOOhm keeps no copy it could read
+  back. Storing the link reversibly so it could be shown twice was considered and refused: a leaked database or
+  backup would then hold every live calendar link, and calendar apps fetch without signing in, so a leak would go
+  unnoticed. The page shows when the feed was created and last fetched, and its last 4 characters
+  (`token_hint`, `CHECK`ed; null for links made before `0021`), so people can tell which link a calendar holds.
+  The other 39 characters (234 random bits) stay secret.
+- With the new link, the page offers one-tap subscribe links (`addToCalendarLinks`, `src/domain/calendar-feed.ts`):
+  Google (`calendar.google.com/calendar/r?cid=webcal://…`), Apple (`webcal://…`) and Outlook on the web
+  (`outlook.office.com/calendar/0/addfromweb?url=…`). Each hands the link to that calendar service, as
+  subscribing does anyway.
+- "Lost it? Replace the link" revokes the live link and issues a new one in one transaction; "Turn off" sets `revoked_at`.
   Both run under the person's member lock, and a partial unique index (`user_id, kind` where `revoked_at is
   null`) backs it up, so one person never has two live links of a kind. Each change writes `audit_log` and
   `events_outbox` rows in the same transaction.
 - Listing, regenerating and turning off match the person and kind, not the person's current company, like the
-  unique index. A link issued before a company move is listed, revoked by "Get a new link" or "Turn off", and its
+  unique index. A link issued before a company move is listed, revoked by "Lost it? Replace the link" or "Turn off", and its
   revoke is recorded under the company it was issued in. Otherwise it would block a new link (unique index) and
   come back to life if the person moved back. v1 has no way to move people between companies (one
   company per deployment); if one is added, it should revoke their live feeds in the same transaction.
@@ -831,6 +921,41 @@ revoked_at)`, migration `0005`.
 
 Google Calendar only subscribes to a publicly reachable `https` URL and refreshes on its own schedule (often
 several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
+
+## Reports
+
+`/reports` (`getLeaveReport`, `src/server/services/reports.ts`; the rules are pure functions in
+`src/domain/reports.ts`) shows how much time off was taken in a year, for admins and managers only
+(`canViewReports`): anyone else gets the 404 page, and the header shows the **Reports** link only to them.
+
+- **Scope** (`reportScopeFor`): an admin sees the whole company; a manager sees the people who report to them
+  directly. Department pills narrow either; an id that is not a department of the company means everyone.
+  People are counted by their department today, not the one they were in when they took the leave.
+- **What it shows, for one year** (`?year=YYYY`, else this year): days off, days per active person, days
+  waiting for approval and the median time from request to an approver's decision (self-approved requests and
+  ones decided as they were made, such as leave added for someone, are left out); twelve stacked columns by
+  leave type, with a tick at the year before's total for the same month, and months after today's lighter
+  (booked, not yet taken); a running total through the year as a line over last year's (`runningTotal`,
+  dashed where booked ahead); five years of totals; days by leave type, by department (per active person),
+  request counts by status, and a table of people. Inactive people appear only with leave in the year.
+- **Days come from each request's stored split** (`leave_request_days`), the same numbers balances use, never
+  a recount. Only spreading a year's days over its months uses the calendar (`allocateYearToMonths`): when a
+  closed year kept its days after a later holiday change, the stored days are shared out in proportion, so the
+  months always add up to the year.
+- **Privacy.** Days taken are not private (the team calendar shows who is off and when), so every report
+  shows them. **Days left** follows the team member page's rule (`canSeeReportBalances`): admins always,
+  managers while **Managers can see their team's balances and notes** is on. Notes and decision notes are
+  never selected.
+- **CSV.** `GET /reports/export` (same query) downloads the people table with a column per leave type
+  (`reportCsv`). Like the person export, it refuses a request `Sec-Fetch-Site` marks as from another site (anything but
+  `same-origin` or `none`); a browser too old to send the header is let through, and the session still decides who is asking.
+- **Queries.** Eight whatever the amount of leave, six without balances: company, departments, leave types
+  and the people in scope in parallel; then their leave over the five years, two years of holidays and the
+  two balance reads. `tests/integration/reports.test.ts` pins both counts.
+- **Charts** are server-rendered HTML in `src/components/charts/` (`MonthColumns`, `YearColumns`, `BarList`,
+  `StatTile`; `RunningTotalLines` is an inline SVG stretched to its box, with HTML hover zones and dots), coloured with leave type colours and theme tokens only, with a 2px gap between stacked
+  segments and a tooltip on hover. They are hidden from screen readers; the same numbers are in text, a
+  "Show as a table" disclosure and the people table.
 
 ## Admin (M5)
 
@@ -1012,7 +1137,18 @@ the root layout puts on `<html>` as `data-layout` (left off for `standard`). Eac
 carry: it changes spacing, shape, type size, surface treatment and navigation, never content or actions. Colours
 stay derived from the theme (a tinted card or ground, a darker grey for text on it), so an admin can try one on the
 whole company and switch back.
-`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle` and `layout`.
+`company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle`, `layout` and `logo`.
+
+The same page sets the company's logo (`updateCompanyLogo`, `removeCompanyLogo`). The file is judged by its bytes,
+never its name or claimed type (`readLogoImage`, `src/domain/company-logo.ts`): PNG or JPEG only, up to 512 KB and 4096
+pixels a side. SVG is refused because it can carry script and Outlook draws neither SVG nor WebP. The bytes live on the
+company row (`companies.logo`, with its SHA-256, type and size beside it; a check keeps the five set or cleared together),
+so no file store is needed on any host. `GET /logo/<sha256>.<png|jpg>` serves it publicly, like the favicon, because the
+sign-in page and emails show it before anyone signs in. The URL names the content, so a hit is cached for a year, and
+it is sent with its own `Content-Type`, `nosniff` (so a browser never guesses another type) and `Content-Security-Policy: default-src 'none'` (so even opened directly it can load or run nothing). The header and sign-in page show it instead of the OOOhm logo
+(`getCompanyLogo` and `getDeploymentLogo`, which never fail a page), and every email puts it at the top at its absolute
+URL (`emailAccent` with `appUrl`), sized with attributes so Outlook keeps its shape. A change is a `company.updated` event
+whose `logo` describes the file.
 
 ### Audit log viewer
 
@@ -1530,7 +1666,7 @@ Who calls it is `OOOHM_BACKGROUND` (`src/lib/background-mode.ts`):
 
 - `worker` (the default; compose sets it): `scripts/worker.mts` runs each step in its own loop.
 - `inline` (the default on Vercel and in embedded mode): **after a transaction that wrote outbox events commits**,
-  the services' after-commit seam (`inTransaction` and `commitThenSend` in `src/server/services/notify.ts`, which every
+  the services' after-commit seam (`inTransaction` and `commitThenNotify` in `src/server/services/notify.ts`, which every
   service the app calls goes through to record a change) calls `ctx.defer(ctx.wake)`. `recordChange` marks the transaction that wrote an event,
   so a refused or rolled-back change, or a read, wakes nothing. In the app `defer` is `after()`, so the tick runs after
   the response and Vercel keeps the function alive for it (`waitUntil`); it never blocks or fails the request, and an

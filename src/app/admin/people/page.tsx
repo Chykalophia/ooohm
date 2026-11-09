@@ -10,7 +10,7 @@ import { requireAdminPage } from "@/app/_lib/page-context";
 import { Item, ItemList } from "@/components/ui/card";
 import { InlineAction } from "@/components/forms/inline-action";
 import { cancelDeletionAction } from "@/app/admin/people/actions";
-import { nativeCheck, primaryButton, textLink } from "@/components/ui/styles";
+import { nativeCheck, primaryButton, quietLink, textLink } from "@/components/ui/styles";
 import { SelectField, TextField } from "@/components/ui/fields";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { departmentParamSchema, readParam } from "@/app/_lib/calendar-input";
@@ -60,9 +60,14 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       title="People"
       description="Everyone who can sign in. Invite someone and they get an email with a sign-in link."
       action={
-        <Link href="/admin/people/new" className={primaryButton}>
-          Invite someone
-        </Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <Link href="/admin/people/import" className={quietLink}>
+            Import from CSV
+          </Link>
+          <Link href="/admin/people/new" className={primaryButton}>
+            Invite someone
+          </Link>
+        </div>
       }
     >
       {notice && (
@@ -97,7 +102,8 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                   <Link href={`/admin/people/${p.id}`} className={textLink}>
                     {p.name || p.email}
                   </Link>
-                  {!p.isActive && <span className="ml-2 text-sm font-normal text-muted">Deactivated</span>}
+                  {!p.isActive && " "}
+                  {!p.isActive && <span className="ml-1 text-sm font-normal text-muted">Deactivated</span>}
                 </p>
                 <p className="text-sm break-all text-muted">{p.email}</p>
                 {p.scrubScheduledAt && (

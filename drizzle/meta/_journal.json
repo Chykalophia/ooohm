@@ -148,6 +148,55 @@
       "when": 1793744819798,
       "tag": "0020_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793934215766,
+      "tag": "0021_email_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794188987595,
+      "tag": "0022_approval_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794189102295,
+      "tag": "0023_colleague_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794189280668,
+      "tag": "0024_department_managers",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794189385996,
+      "tag": "0025_allowance_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794189492703,
+      "tag": "0026_company_logo",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794189648606,
+      "tag": "0027_calendar_feed_hint",
+      "breakpoints": true
     }
   ]
 }

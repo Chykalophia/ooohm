@@ -48,7 +48,7 @@ export default async function LevelsPage() {
                     <TextField label={`New name for ${l.name}`} name="name" required maxLength={LEVEL_NAME_MAX_LENGTH} defaultValue={l.name} />
                   </ActionForm>
                 </Reveal>
-                {l.members === 0 ? (
+                {l.assigned === 0 ? (
                   <InlineAction
                     action={deleteLevelAction}
                     fields={{ id: l.id }}
@@ -60,7 +60,7 @@ export default async function LevelsPage() {
                     confirmLabel="Yes, delete"
                   />
                 ) : (
-                  <p className="text-sm text-muted">To delete it, move its people to another level first.</p>
+                  <p className="text-sm text-muted">To delete it, move its {l.members === 0 ? "deactivated " : ""}people to another level first.</p>
                 )}
               </div>
             </Item>

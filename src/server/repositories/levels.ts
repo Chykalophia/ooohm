@@ -6,10 +6,18 @@ export type LevelRow = { id: string; name: string };
 
 const fields = { id: levels.id, name: levels.name };
 
-/** The company's levels by name, each with how many people (active or not) are at it. One query. */
+/**
+ * The company's levels by name, each with two head counts: `members`, its active people
+ * (what the page shows), and `assigned`, everyone still at it, deactivated included (what
+ * keeps it from being deleted). One query.
+ */
 export async function listLevelsWithCounts(ex: Executor, companyId: string) {
   return ex
-    .select({ ...fields, members: count(user.id) })
+    .select({
+      ...fields,
+      members: sql<number>`count(${user.id}) filter (where ${user.isActive})`.mapWith(Number),
+      assigned: count(user.id),
+    })
     .from(levels)
     .leftJoin(user, eq(user.levelId, levels.id))
     .where(eq(levels.companyId, companyId))

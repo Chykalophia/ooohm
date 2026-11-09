@@ -106,6 +106,33 @@ NODE_PATH=$(npm root -g) node site/demo/render-carousel.mjs --out carousel.pdf  
 
 `social-selfhost.html` mirrors the setup in the root README and `docker-compose.yml`; keep them in step.
 
+## The product guide (/docs)
+
+`site/docs/` is the product guide: every screen, setting and email, with screenshots. The Markdown in
+the repository's `docs/guide/` is the source; `site/docs/*.html` are built from it, so the guide reads
+the same on GitHub and on the site. Screenshots live once, in `site/docs/images/`, and the Markdown
+points at them there.
+
+```bash
+node site/demo/build-docs.mjs           # after editing docs/guide/*.md; commit both
+node site/demo/build-docs.mjs --check   # fails if site/docs is out of date
+```
+
+The screenshots come from the real app with the demo data above, in the light Classic theme: desktop
+at 1000 px wide, phones at 390 px, all at 2x, saved as WebP. With the app running:
+
+```bash
+pnpm exec tsx --env-file=.env site/demo/demo-data.mts   # first: the shots decide two requests as they go
+node --env-file=.env site/demo/docs-screens.mjs          # every shot (or name some: approvals emails-sent)
+node site/demo/build-docs.mjs
+```
+
+`docs-screens.mjs` stages a few demo rows the guide needs (a Design coverage limit, an Engineering
+manager, Junior and Senior levels with a rule, an end-of-year shutdown), clears the demo company's audit
+log, and puts the company's settings back when it ends. The emails are rendered by `docs-emails.mts`
+from each type's own preview sample, the same one Admin → Emails shows. When a screen, a setting or an
+email changes, update its page in `docs/guide/`, retake its shot, and rebuild.
+
 ## Fonts
 
 Instrument Sans and JetBrains Mono, both under the SIL Open Font License 1.1, are served from `fonts/`

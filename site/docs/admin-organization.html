@@ -1,0 +1,88 @@
+<!doctype html>
+<!-- Built by site/demo/build-docs.mjs from docs/guide/admin-organization.md. Edit the Markdown, not this file. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Departments, levels and leave types · OOOhm guide</title>
+  <meta name="description" content="Department managers and coverage limits, levels, leave types, allowances by department or level, and carryover.">
+  <meta name="theme-color" content="#fafaf9">
+  <meta property="og:title" content="Departments, levels and leave types · OOOhm guide">
+  <meta property="og:description" content="Department managers and coverage limits, levels, leave types, allowances by department or level, and carryover.">
+  <meta property="og:image" content="https://ooohm.team/media/og.png">
+  <meta property="og:url" content="https://ooohm.team/docs/admin-organization.html">
+  <link rel="canonical" href="https://ooohm.team/docs/admin-organization.html">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="../fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="docs.css">
+</head>
+<body class="docs">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="docs-nav">
+    <div class="wrap docs-nav-row">
+      <a class="logo" href="../" aria-label="OOOhm home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg><span><b>OOO</b>hm</span></a>
+      <a class="docs-home" href="index.html">Guide</a>
+      <a class="btn btn-quiet nav-cta" href="https://github.com/Chykalophia/ooohm">GitHub</a>
+    </div>
+  </header>
+  <div class="wrap docs-grid">
+    <details class="side" data-side>
+      <summary>Contents</summary>
+      <nav aria-label="Guide"><p class="side-group">Overview</p><ul><li><a href="index.html">OOOhm guide</a></li></ul><p class="side-group">For everyone</p><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="asking-for-time-off.html">Asking for time off</a></li><li><a href="calendar.html">Calendar</a></li><li><a href="team.html">Who's out</a></li></ul><p class="side-group">For managers</p><ul><li><a href="approvals.html">Approvals</a></li><li><a href="reports.html">Reports</a></li></ul><p class="side-group">For admins</p><ul><li><a href="admin-people.html">People</a></li><li><a href="admin-organization.html" aria-current="page">Departments, levels and leave types</a></li><li><a href="admin-holidays.html">Holidays</a></li><li><a href="admin-company.html">Company settings</a></li><li><a href="admin-appearance.html">Appearance</a></li><li><a href="emails.html">Emails</a></li><li><a href="admin-audit-integrations.html">Audit log and integrations</a></li></ul></nav>
+    </details>
+    <main id="main" class="prose">
+<h1>Departments, levels and leave types</h1>
+<h2 id="departments"><a class="anchor" href="#departments">Departments</a></h2>
+<p>Admin → <strong>Departments</strong> groups people, so Who's out, the calendar and Reports can show one department at a time. <strong>Add department</strong> takes a name. Each department shows how many people are in it, its manager and its limit.</p>
+<figure><img src="images/admin-departments.webp" alt="Admin, Departments" width="1000" height="1012" loading="lazy" decoding="async"><figcaption>Admin, Departments</figcaption></figure>
+<div class="table"><table><thead><tr><th scope="col">Setting</th><th scope="col">What it does</th></tr></thead><tbody><tr><td><strong>Set a manager</strong></td><td>The department manager approves for people in it who have no active manager of their own. They also see those people's balances and notes like a manager, when the company lets managers see them.</td></tr><tr><td><strong>Set a limit</strong></td><td>Most people of the department off at once (see below). Blank means no limit.</td></tr><tr><td><strong>Rename</strong></td><td>Changes the name everywhere.</td></tr><tr><td><strong>Delete</strong></td><td>Only for an empty department: move its people to another department first.</td></tr></tbody></table></div>
+<h3 id="coverage-limits"><a class="anchor" href="#coverage-limits">Coverage limits</a></h3>
+<p>A limit is the most people of one department who should be off on the same day. Past it, the person asking sees a warning under their request, and their approver sees it in bold in the <a href="approvals.html#needs-you">approvals inbox</a>. Nothing is blocked.</p>
+<figure><img src="images/admin-department-limit.webp" alt="Setting a limit for Design" width="750" height="379" loading="lazy" decoding="async"><figcaption>Setting a limit for Design</figcaption></figure>
+<h3 id="department-scoping"><a class="anchor" href="#department-scoping">Department scoping</a></h3>
+<p>With <strong>Keep people to their own departments</strong> on (Admin → <a href="admin-company.html">Company</a>), managers and everyone else except admins only see their own department, the departments they manage, and the people who report to them. Off by default.</p>
+<h2 id="levels"><a class="anchor" href="#levels">Levels</a></h2>
+<p>Admin → <strong>Levels</strong> is optional. Place people at a level, like Junior or Senior, so a leave type can give them more or less time off. A level with nobody at it can be deleted; its allowance rules go with it.</p>
+<figure><img src="images/admin-levels.webp" alt="Admin, Levels" width="1000" height="799" loading="lazy" decoding="async"><figcaption>Admin, Levels</figcaption></figure>
+<h2 id="leave-types"><a class="anchor" href="#leave-types">Leave types</a></h2>
+<p>Admin → <strong>Leave types</strong> lists what people can ask for, in the order the request lists them. Drag a row by its handle to reorder; the first one is the request's default. Each row sums up the type: paid or unpaid, its yearly allowance, and whether days carry over.</p>
+<figure><img src="images/admin-leave-types.webp" alt="Admin, Leave types" width="1000" height="819" loading="lazy" decoding="async"><figcaption>Admin, Leave types</figcaption></figure>
+<p><strong>Archive</strong> takes a type off the request; past requests and balances keep it. Archived types are listed under <strong>Archived</strong>, with <strong>Restore</strong>. <strong>Add leave type</strong> opens the same form as editing one:</p>
+<figure><img src="images/admin-leave-type.webp" alt="Editing a leave type" width="1000" height="1390" loading="lazy" decoding="async"><figcaption>Editing a leave type</figcaption></figure>
+<div class="table"><table><thead><tr><th scope="col">Setting</th><th scope="col">What it does</th></tr></thead><tbody><tr><td><strong>Name</strong></td><td>What people see, like <em>PTO (Scheduled Time Off)</em>.</td></tr><tr><td><strong>Code</strong></td><td>A short label on calendars, like PTO: letters, digits, - or _.</td></tr><tr><td><strong>Colour</strong></td><td>Its colour on calendars, balances and reports. The <em>Aa</em> sample shows text on it stays readable.</td></tr><tr><td><strong>Paid</strong></td><td>Marks it paid or unpaid on the leave type list and in the API.</td></tr><tr><td><strong>Counts against an allowance</strong></td><td>Off means people can take as much as they need, and it's only tracked (for example, sick leave at some companies).</td></tr><tr><td><strong>Yearly allowance</strong></td><td>Days each person gets every year, unless you set theirs. Blank means you set people one by one.</td></tr><tr><td><strong>Carry unused days into next year</strong></td><td>Off by default. On, unused days move to next year when the year rolls over on January 1.</td></tr><tr><td><strong>Most days carried over</strong></td><td>A cap on carried days. Blank means no cap. Only used when carrying over is on.</td></tr></tbody></table></div>
+<p>Allowance changes apply to everyone's balance straight away. Every balance change is in the audit log.</p>
+<h3 id="allowance-by-department-or-level"><a class="anchor" href="#allowance-by-department-or-level">Allowance by department or level</a></h3>
+<p>Under a leave type's settings, rules give some people a different yearly allowance than the default: for example, 25 days of PTO for Senior. A rule can name a department, a level, or both.</p>
+<p>The most specific rule wins: a level in a department, then a level, then a department. People whose allowance you set by hand on their <a href="admin-people.html#allowances">allowances page</a> keep it.</p>
+      <nav class="pager" aria-label="Next and previous">
+        <a class="prev" href="admin-people.html"><span>Previous</span>People</a>
+        <a class="next" href="admin-holidays.html"><span>Next</span>Holidays</a>
+      </nav>
+      <p class="edit"><a href="https://github.com/Chykalophia/ooohm/blob/main/docs/guide/admin-organization.md" rel="noopener">This page on GitHub</a></p>
+    </main>
+    <nav class="toc" aria-label="On this page"><p class="side-group">On this page</p><ul><li><a href="#departments">Departments</a></li><li><a href="#levels">Levels</a></li><li><a href="#leave-types">Leave types</a></li></ul></nav>
+  </div>
+  <footer class="footer">
+    <div class="wrap footer-row">
+      <a class="logo" href="../" aria-label="OOOhm home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg><span><b>OOO</b>hm</span></a>
+      <nav aria-label="Footer" class="footer-links">
+        <a href="index.html">Guide</a>
+        <a href="https://github.com/Chykalophia/ooohm">GitHub</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/hosting.md">Hosting</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/api.md">API</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/LICENSE.md">License</a>
+      </nav>
+      <p class="fine">© 2026 Chykalophia Group, LLC. Source-available under FSL-1.1-ALv2.</p>
+    </div>
+  </footer>
+  <script>
+    // The contents stay open beside the page on wide screens and fold away on narrow ones.
+    const side = document.querySelector("[data-side]");
+    const wide = matchMedia("(min-width: 1001px)");
+    const fit = () => (side.open = wide.matches);
+    fit();
+    wide.addEventListener("change", fit);
+  </script>
+</body>
+</html>

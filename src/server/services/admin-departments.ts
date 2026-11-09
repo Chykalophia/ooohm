@@ -1,7 +1,7 @@
 /**
  * Admin use cases for departments. A department is a name people can be grouped by
- * (the team view filters on it); it has no manager of its own, since approvals follow
- * each person's manager.
+ * (the team view filters on it), with an optional manager: approvals follow each
+ * person's own manager, and fall back to their department's manager when they have none.
  */
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
@@ -9,6 +9,7 @@ import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type DepartmentEventPayload, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { normalizeDepartmentName } from "@/domain/people";
+import { personLabel } from "@/domain/person";
 import type { ServiceContext } from "@/server/context";
 import {
   type DepartmentRow,
@@ -18,14 +19,18 @@ import {
   listDepartmentsWithCounts,
   lockDepartment,
   renameDepartment as renameDepartmentRow,
+  setDepartmentManagerRow,
 } from "@/server/repositories/departments";
+import { lockCompany } from "@/server/repositories/companies";
 import { isUniqueViolation } from "@/server/repositories/errors";
-import { countDepartmentMembers } from "@/server/repositories/users";
+import { listPendingRequestsInDepartment } from "@/server/repositories/leave-requests";
+import { countDepartmentMembers, findMember, listPeopleNames } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { inTransaction } from "./notify";
+import { rerouteApprovals } from "./approval-routing";
+import { commitThenNotify, inTransaction } from "./notify";
 
 function payload(row: DepartmentRow): Unattributed<DepartmentEventPayload> {
-  return { departmentId: row.id, name: row.name };
+  return { departmentId: row.id, name: row.name, managerId: row.managerId };
 }
 
 /** Runs `work`, turning a unique-name race into `already_exists`. */
@@ -39,13 +44,29 @@ async function uniqueName<T>(work: () => Promise<T>): Promise<T> {
 }
 
 /**
- * The company's departments by name, with how many people (active or not) are in each.
+ * The company's departments by name, with how many people (active or not) are in each
+ * and who manages it (`managerId`, and `managerName` for its label), if anyone.
  *
  * @throws DomainError `forbidden` for a non-admin.
  */
 export async function listDepartmentsForAdmin(ctx: ServiceContext, actor: Actor) {
   assertCanAdminister(actor);
-  return listDepartmentsWithCounts(ctx.db, actor.companyId);
+  const rows = await listDepartmentsWithCounts(ctx.db, actor.companyId);
+  return rows.map(({ managerEmail, managerName, ...row }) => ({
+    ...row,
+    managerName: row.managerId ? personLabel({ name: managerName ?? "", email: managerEmail ?? "" }) : null,
+  }));
+}
+
+/**
+ * Who may manage a department, for its manager picker: every active member, by name.
+ *
+ * @throws DomainError `forbidden` for a non-admin.
+ */
+export async function listDepartmentManagerChoices(ctx: ServiceContext, actor: Actor) {
+  assertCanAdminister(actor);
+  const names = await listPeopleNames(ctx.db, actor.companyId);
+  return names.filter((n) => n.isActive).map((n) => ({ id: n.id, label: personLabel(n) }));
 }
 
 /**
@@ -128,5 +149,56 @@ export async function deleteDepartment(ctx: ServiceContext, actor: Actor, id: st
       after: null,
       payload: payload(before),
     });
+  });
+}
+
+/** What setting a department's manager did. */
+export interface DepartmentManagerResult extends DepartmentRow {
+  /** Pending requests from the department's people that now wait on someone else. */
+  requestsReassigned: number;
+}
+
+/**
+ * Sets (or, with `null`, clears) the department's manager: any active member of the
+ * company, whatever their role, since managing people is the reporting line and not
+ * the role. Setting the manager it already has changes and records nothing.
+ *
+ * The department manager approves for its people who have no active manager of their
+ * own, so the change re-routes the department's pending requests in the same
+ * transaction (see `rerouteApprovals`): a request the rule now gives to someone else
+ * moves, with its audit row, event and review email to the new approver after commit.
+ * Taken under the company lock, as every change that moves approvals is.
+ *
+ * @throws DomainError `forbidden`, `not_found`, or `invalid_manager` (not an active
+ *   member of the company).
+ */
+export async function setDepartmentManager(
+  ctx: ServiceContext,
+  actor: Actor,
+  id: string,
+  managerId: string | null,
+): Promise<DepartmentManagerResult> {
+  assertCanAdminister(actor);
+  if (!isUuid(id)) throw new DomainError("not_found");
+  return commitThenNotify(ctx, actor.companyId, async (tx) => {
+    if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
+    await assertActiveAdmin(tx, actor);
+    const before = await lockDepartment(tx, actor.companyId, id);
+    if (!before) throw new DomainError("not_found");
+    // Unchanged is fine even for a manager since deactivated, so a form saved as it was never fails.
+    if (before.managerId === managerId) return { result: { ...before, requestsReassigned: 0 }, notify: [] };
+    if (managerId !== null && !(await findMember(tx, actor.companyId, managerId))?.isActive) throw new DomainError("invalid_manager");
+
+    const after = await setDepartmentManagerRow(tx, actor.companyId, id, managerId);
+    await recordAdminChange(tx, actor, {
+      type: ADMIN_EVENT_TYPES.departmentManagerChanged,
+      entityType: "department",
+      entityId: id,
+      before: { managerId: before.managerId },
+      after: { managerId: after.managerId },
+      payload: payload(after),
+    });
+    const { reassigned, notify } = await rerouteApprovals(ctx, tx, actor, await listPendingRequestsInDepartment(tx, actor.companyId, id));
+    return { result: { ...after, requestsReassigned: reassigned }, notify };
   });
 }

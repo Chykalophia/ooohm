@@ -169,6 +169,13 @@
       "when": 1794189102295,
       "tag": "0023_colleague_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794189280668,
+      "tag": "0024_department_managers",
+      "breakpoints": true
     }
   ]
 }

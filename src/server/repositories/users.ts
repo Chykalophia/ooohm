@@ -12,6 +12,7 @@ const approvalFields = {
   role: user.role,
   canSelfApprove: user.canSelfApprove,
   managerId: user.managerId,
+  departmentId: user.departmentId,
   isActive: user.isActive,
   createdAt: user.createdAt,
 };

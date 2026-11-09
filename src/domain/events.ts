@@ -191,7 +191,8 @@ export function calendarFeedAuditAction(event: keyof typeof CALENDAR_FEED_EVENT_
 /**
  * `leave.reassigned`: a pending request moved to another approver because an admin
  * changed who may decide it: its approver was deactivated or demoted from admin, the
- * requester's manager changed, or someone was invited as admin, promoted to admin or
+ * requester's manager or department changed, their department's manager changed, or
+ * someone was invited as admin, promoted to admin or
  * reactivated who can now take a request an admin had routed to themself. The actor is
  * always the admin who made that change. Public contract; never rename it.
  */
@@ -235,6 +236,7 @@ export const ADMIN_EVENT_TYPES = {
   departmentCreated: "department.created",
   departmentRenamed: "department.renamed",
   departmentDeleted: "department.deleted",
+  departmentManagerChanged: "department.manager_changed",
   leaveTypeCreated: "leave_type.created",
   leaveTypeUpdated: "leave_type.updated",
   leaveTypeArchived: "leave_type.archived",
@@ -303,10 +305,19 @@ export interface UserDeletionScheduleEventPayload extends PersonAttribution {
   scheduledFor: string;
 }
 
-/** Version 1 payload of every `department.*` event: the department after the change (before, when deleted). */
-export interface DepartmentEventPayload extends PersonAttribution {
+/**
+ * Version 1 payload of every `department.*` event: the department after the change
+ * (before, when deleted). Made by a person, except `department.manager_changed` when a
+ * scheduled scrub deletes the department's manager (`actorId` is then `null`).
+ */
+export interface DepartmentEventPayload extends Attribution {
   departmentId: string;
   name: string;
+  /**
+   * Added within version 1: the department's optional manager, who approves for its
+   * people whose own manager is missing or inactive.
+   */
+  managerId: string | null;
 }
 
 /** Version 1 payload of every `leave_type.*` event: the leave type after the change. */

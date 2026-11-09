@@ -37,6 +37,7 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   [ADMIN_EVENT_TYPES.departmentCreated]: "Department created",
   [ADMIN_EVENT_TYPES.departmentRenamed]: "Department renamed",
   [ADMIN_EVENT_TYPES.departmentDeleted]: "Department deleted",
+  [ADMIN_EVENT_TYPES.departmentManagerChanged]: "Department manager changed",
   [ADMIN_EVENT_TYPES.leaveTypeCreated]: "Leave type created",
   [ADMIN_EVENT_TYPES.leaveTypeUpdated]: "Leave type edited",
   [ADMIN_EVENT_TYPES.leaveTypeArchived]: "Leave type archived",

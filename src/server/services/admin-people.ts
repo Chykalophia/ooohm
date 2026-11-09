@@ -13,7 +13,6 @@ import { randomUUID } from "node:crypto";
 import type { Transaction } from "@/db/types";
 import type { Actor, Role } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
-import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type Unattributed, type UserEventPayload } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
@@ -33,6 +32,7 @@ import { personLabel } from "@/domain/person";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
+import { rerouteApprovals } from "./approval-routing";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
@@ -40,17 +40,14 @@ import { findDepartment, listDepartments } from "@/server/repositories/departmen
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { countLiveEndpoints } from "@/server/repositories/webhooks";
 import {
-  type LeaveRequestRow,
   listPendingAssignedTo,
   listPendingRequestsOf,
   listPendingSelfRouted,
-  reassignIfCurrent,
 } from "@/server/repositories/leave-requests";
-import { listAllLeaveTypes, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import {
   deleteSessionsOf,
   emailInUse,
-  findMembers,
   findPerson,
   insertPerson,
   listActiveAdmins,
@@ -62,7 +59,6 @@ import {
   type PersonRow,
   updatePerson as updatePersonRow,
 } from "@/server/repositories/users";
-import { approveLinkFor } from "./email-approval";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { cancelScheduledScrubIn } from "./admin-people-deletion";
 import { type BalanceSummary, summarizeBalances } from "./balances";
@@ -375,9 +371,9 @@ export interface PersonUpdateResult {
  *   rule (see {@link rerouteApprovals}); those whose requester they still manage stay.
  *   Their own pending requests are re-routed too: one they had routed to themself as
  *   the only admin moves to whoever the rule now picks.
- * - Changing someone's manager re-routes that person's own pending requests, so the
- *   new manager (or the admin fallback) gets them and the old manager loses them. That
- *   includes an admin's request routed to themself.
+ * - Changing someone's manager or department re-routes that person's own pending
+ *   requests, so the new manager (or department manager, or the admin fallback) gets
+ *   them and the old one loses them. That includes an admin's request routed to themself.
  * - Promoting someone to admin re-routes every request an admin had routed to themself
  *   for want of another admin.
  * Each moved request writes `leave_request.reassigned` / `leave.reassigned`, and its
@@ -422,7 +418,9 @@ export async function updatePerson(ctx: ServiceContext, actor: Actor, userId: st
     const demoted = before.role === "admin" && after.role !== "admin";
     const affected = [
       ...(demoted ? await listPendingAssignedTo(tx, actor.companyId, after.id) : []),
-      ...(demoted || before.managerId !== after.managerId ? await listPendingRequestsOf(tx, actor.companyId, after.id) : []),
+      ...(demoted || before.managerId !== after.managerId || before.departmentId !== after.departmentId
+        ? await listPendingRequestsOf(tx, actor.companyId, after.id)
+        : []),
       ...(before.role !== "admin" && after.role === "admin" ? await listPendingSelfRouted(tx, actor.companyId) : []),
     ];
     const { reassigned, notify } = await rerouteApprovals(ctx, tx, actor, affected);
@@ -452,8 +450,8 @@ export interface DeactivationResult {
  * drop out of approvals, calendars and emails. Their own requests stay as they are.
  *
  * Pending requests they were assigned to approve move to whoever the approval rule
- * now picks for each requester (their active manager, else the longest-standing other
- * active admin; never self-approval), each with a `leave.reassigned` event and a
+ * now picks for each requester (their active manager, else their department's active
+ * manager, else the longest-standing other active admin; never self-approval), each with a `leave.reassigned` event and a
  * review email to the new approver after commit.
  *
  * API keys and webhook endpoints they created stay (they belong to the company); the
@@ -501,71 +499,6 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
     });
     return { result: { person: after, sessionsRevoked, feedsRevoked, requestsReassigned: reassigned, ...(await credentials()) }, notify };
   });
-}
-
-/**
- * Re-routes pending requests to the approver {@link reassignApprover} now picks for
- * each requester (read after the change that prompted it, inside `tx`): their active
- * manager, else the longest-standing other active admin, else the requester themself
- * when they are an admin; never self-approval. A request the rule would leave with the
- * approver it already has is left alone (so an only admin's request routed to themself
- * stays put); one nobody can take keeps no assigned approver, and every admin still
- * sees it in their inbox.
- *
- * Each move is compare-and-set on the request's current approver, writes
- * `leave_request.reassigned` and `leave.reassigned`, and queues a review email to the
- * new approver. Reads are batched (requesters, their managers, admins, contacts and
- * leave types: five queries at most, whatever the number of requests), so the caller's
- * company lock is held for one update and its audit rows per moved request.
- */
-export async function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Actor, requests: readonly LeaveRequestRow[]) {
-  const pending = [...new Map(requests.map((r) => [r.id, r])).values()];
-  if (pending.length === 0) return { reassigned: 0, notify: [] as Notification[] };
-  const requesters = new Map((await findMembers(tx, actor.companyId, [...new Set(pending.map((r) => r.userId))])).map((m) => [m.id, m]));
-  const managerIds = [...new Set([...requesters.values()].flatMap((r) => (r.managerId ? [r.managerId] : [])))];
-  const [managers, admins] = await Promise.all([
-    findMembers(tx, actor.companyId, managerIds).then((rows) => new Map(rows.map((m) => [m.id, m]))),
-    listActiveAdmins(tx, actor.companyId),
-  ]);
-  const rule = new ManagerApprovalRule();
-
-  const moves = pending.flatMap((request) => {
-    const requester = requesters.get(request.userId);
-    if (!requester) return [];
-    const manager = requester.managerId ? (managers.get(requester.managerId) ?? null) : null;
-    const approverId = reassignApprover(rule, { requester, manager, admins });
-    return approverId === request.approverId ? [] : [{ request, approverId }];
-  });
-  if (moves.length === 0) return { reassigned: 0, notify: [] as Notification[] };
-
-  const [contacts, leaveTypes] = await Promise.all([
-    activeContacts(tx, actor.companyId, moves.flatMap(({ request, approverId }) => [request.userId, approverId])),
-    listAllLeaveTypes(tx, actor.companyId).then((rows) => new Map(rows.map((t) => [t.id, t.name]))),
-  ]);
-  const notify: Notification[] = [];
-  let reassigned = 0;
-  for (const { request, approverId } of moves) {
-    const after = await reassignIfCurrent(tx, { companyId: actor.companyId, id: request.id, from: request.approverId }, approverId);
-    if (!after) continue;
-    await recordReassignment(tx, { before: request, after, source: actor.source });
-    reassigned++;
-
-    const approver = approverId && approverId !== request.userId ? contacts.get(approverId) : undefined;
-    if (!approver) continue;
-    const leave = summarize(after, contacts.get(request.userId), leaveTypes.get(after.leaveTypeId) ?? "Time off");
-    notify.push({
-      type: "leave.requested",
-      to: approver.email,
-      data: {
-        requestId: after.id,
-        recipientName: approver.name,
-        leave,
-        link: `${ctx.appUrl}/approvals`,
-        approveLink: approveLinkFor(ctx, after.id, approver.id),
-      },
-    });
-  }
-  return { reassigned, notify };
 }
 
 /**

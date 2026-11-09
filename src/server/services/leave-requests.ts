@@ -27,7 +27,8 @@ import {
 } from "@/server/repositories/leave-requests";
 import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findDepartment } from "@/server/repositories/departments";
-import { findMember, findPerson, listActiveAdmins, lockMember } from "@/server/repositories/users";
+import { findPerson, lockMember } from "@/server/repositories/users";
+import { loadApprovalContext } from "./approval-routing";
 import { currentApprover } from "./approvals";
 import { approveLinkFor } from "./email-approval";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
@@ -107,13 +108,11 @@ export async function submitLeaveRequest(
     const assessment = await assessLeaveRequest(tx, actor, input);
     const { leaveType } = assessment;
 
-    const manager =
-      requester.managerId && requester.managerId !== requester.id
-        ? ((await findMember(tx, actor.companyId, requester.managerId)) ?? null)
-        : null;
-    const [admins, settings] = await Promise.all([listActiveAdmins(tx, actor.companyId), findCompanySettings(tx, actor.companyId)]);
+    const settings = await findCompanySettings(tx, actor.companyId);
     if (!settings) throw new DomainError("no_company");
-    const decision = (rule ?? approvalRuleFor(readApprovalMode(settings.approvalMode))).resolve({ requester, manager, admins });
+    const decision = (rule ?? approvalRuleFor(readApprovalMode(settings.approvalMode))).resolve(
+      await loadApprovalContext(tx, actor.companyId, requester),
+    );
     const informId = decision.kind === "auto_approve" ? (decision.informId ?? null) : null;
     const headsUp = decision.kind === "auto_approve" && decision.informId !== undefined;
 

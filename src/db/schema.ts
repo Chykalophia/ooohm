@@ -107,10 +107,19 @@ export const departments = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    /**
+     * Optional. Approves requests from the department's people whose own manager is
+     * missing or inactive, and is treated like a manager for its people's leave details and for
+     * adding time off for them.
+     */
+    managerId: text("manager_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
     ...timestamps,
   },
-  // Names are unique per company ignoring case, so "Sales" and "sales" can never both exist.
-  (t) => [uniqueIndex("departments_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`)],
+  (t) => [
+    // Names are unique per company ignoring case, so "Sales" and "sales" can never both exist.
+    uniqueIndex("departments_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`),
+    index("departments_manager_idx").on(t.managerId),
+  ],
 );
 
 /**

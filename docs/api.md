@@ -217,7 +217,7 @@ None of these carries a name or email. **The contract for `user.deleted`:**
 
 | Type | Payload |
 | --- | --- |
-| `department.created`, `.renamed`, `.deleted` | `departmentId, name, actorId, actor` |
+| `department.created`, `.renamed`, `.deleted`, `.manager_changed` | `departmentId, name, managerId, actorId, actor`. `managerId` (the department's optional manager, who approves for its people whose own manager is missing or inactive) and `department.manager_changed` were added within version 1. `actorId` is `null` on a `department.manager_changed` sent when a scheduled scrub deletes the manager. |
 | `leave_type.created`, `.updated`, `.archived`, `.unarchived`, `.reordered` | `leaveTypeId, code, name, color, isPaid, countsAgainstAllowance, defaultAllowanceDays, carryoverEnabled, carryoverMaxDays, sortOrder, archived, actorId, actor` |
 | `holiday.created`, `.renamed`, `.deleted` | `holidayId, date, name, actorId, actor` |
 | `company.updated` | `companyId, name, timezone, workingDays, allowancePolicy, deletionGrace, managersSeeDetails, approvalMode, colleagueVisibility, theme, accentColor, corners, requestStyle, layout, actorId, actor`. `deletionGrace`, `managersSeeDetails`, `approvalMode`, `colleagueVisibility`, `theme`, `accentColor`, `corners`, `requestStyle` and `layout` were added within version 1. `theme` is a theme key such as `classic` or `cobalt`, `corners` is `theme`, `square`, `soft` or `round`, `approvalMode` is `required` or `heads_up` (time off is booked without approval; new values may appear), `accentColor` is `#rrggbb` or null, `requestStyle` is `form` or `sentence`, and `layout` is `standard`, `tonal`, `grouped`, `compact` or `legible`. New theme, corner, request-style and layout keys may appear. |

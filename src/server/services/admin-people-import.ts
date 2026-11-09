@@ -30,7 +30,8 @@ import { isUniqueViolation } from "@/server/repositories/errors";
 import { listPendingSelfRouted } from "@/server/repositories/leave-requests";
 import { emailsInUse, insertPerson, listPeopleNames, type PersonRow } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { beginAdminChange, inviteEmail, inviterName, personPayload, personSnapshot, rerouteApprovals } from "./admin-people";
+import { beginAdminChange, inviteEmail, inviterName, personPayload, personSnapshot } from "./admin-people";
+import { rerouteApprovals } from "./approval-routing";
 import { commitThenNotify, type Notification } from "./notify";
 
 /** Most people one admin may add by import in {@link PEOPLE_IMPORT_WINDOW_MINUTES}. */

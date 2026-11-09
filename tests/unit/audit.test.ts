@@ -39,6 +39,7 @@ test("admin event names are a public contract", () => {
     "department.created",
     "department.renamed",
     "department.deleted",
+    "department.manager_changed",
     "leave_type.created",
     "leave_type.updated",
     "leave_type.archived",

@@ -15,7 +15,7 @@ export function PersonFields({
   managers: readonly { id: string; label: string }[];
   person?: { name: string; role: Role; departmentId: string | null; managerId: string | null; canSelfApprove: boolean };
 }) {
-  const managerOptions = [{ value: "", label: "No manager (an admin approves)" }, ...managers.map((m) => ({ value: m.id, label: m.label }))];
+  const managerOptions = [{ value: "", label: "No manager (their department's manager or an admin approves)" }, ...managers.map((m) => ({ value: m.id, label: m.label }))];
   return (
     <>
       <TextField label="Name" name="name" required maxLength={PERSON_NAME_MAX_LENGTH} defaultValue={person?.name ?? ""} autoComplete="off" />

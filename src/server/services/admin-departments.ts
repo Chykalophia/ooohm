@@ -6,6 +6,7 @@
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { DomainError } from "@/domain/errors";
+import { MAX_OFF_LIMIT } from "@/domain/coverage";
 import { ADMIN_EVENT_TYPES, type DepartmentEventPayload, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { normalizeDepartmentName } from "@/domain/people";
@@ -20,6 +21,7 @@ import {
   lockDepartment,
   renameDepartment as renameDepartmentRow,
   setDepartmentManagerRow,
+  setDepartmentMaxOffRow,
 } from "@/server/repositories/departments";
 import { lockCompany } from "@/server/repositories/companies";
 import { isUniqueViolation } from "@/server/repositories/errors";
@@ -31,7 +33,7 @@ import { rerouteApprovals } from "./approval-routing";
 import { commitThenNotify, inTransaction } from "./notify";
 
 function payload(row: DepartmentRow): Unattributed<DepartmentEventPayload> {
-  return { departmentId: row.id, name: row.name, managerId: row.managerId };
+  return { departmentId: row.id, name: row.name, managerId: row.managerId, maxOff: row.maxOff };
 }
 
 /** Runs `work`, turning a unique-name race into `already_exists`. */
@@ -204,5 +206,36 @@ export async function setDepartmentManager(
     });
     const { reassigned, notify } = await rerouteApprovals(ctx, tx, actor, await listPendingRequestsInDepartment(tx, actor.companyId, id));
     return { result: { ...after, requestsReassigned: reassigned }, notify };
+  });
+}
+
+/**
+ * Sets (or, with `null`, clears) the department's coverage limit: at most `maxOff` of its
+ * people off on one working day. It only ever warns, the requester before sending and the
+ * approver before deciding, so nothing already booked or waiting changes. Setting the
+ * limit it already has changes and records nothing.
+ *
+ * @throws DomainError `forbidden`, `not_found`, or `invalid_input` (not a whole number
+ *   from 1 to {@link MAX_OFF_LIMIT}).
+ */
+export async function setDepartmentLimit(ctx: ServiceContext, actor: Actor, id: string, maxOff: number | null): Promise<DepartmentRow> {
+  assertCanAdminister(actor);
+  if (!isUuid(id)) throw new DomainError("not_found");
+  if (maxOff !== null && (!Number.isInteger(maxOff) || maxOff < 1 || maxOff > MAX_OFF_LIMIT)) throw new DomainError("invalid_input");
+  return inTransaction(ctx, async (tx) => {
+    await assertActiveAdmin(tx, actor);
+    const before = await lockDepartment(tx, actor.companyId, id);
+    if (!before) throw new DomainError("not_found");
+    if (before.maxOff === maxOff) return before;
+    const after = await setDepartmentMaxOffRow(tx, actor.companyId, id, maxOff);
+    await recordAdminChange(tx, actor, {
+      type: ADMIN_EVENT_TYPES.departmentLimitChanged,
+      entityType: "department",
+      entityId: id,
+      before: { maxOff: before.maxOff },
+      after: { maxOff: after.maxOff },
+      payload: payload(after),
+    });
+    return after;
   });
 }

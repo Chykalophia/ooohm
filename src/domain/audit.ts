@@ -38,6 +38,7 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   [ADMIN_EVENT_TYPES.departmentRenamed]: "Department renamed",
   [ADMIN_EVENT_TYPES.departmentDeleted]: "Department deleted",
   [ADMIN_EVENT_TYPES.departmentManagerChanged]: "Department manager changed",
+  [ADMIN_EVENT_TYPES.departmentLimitChanged]: "Department limit changed",
   [ADMIN_EVENT_TYPES.levelCreated]: "Level created",
   [ADMIN_EVENT_TYPES.levelRenamed]: "Level renamed",
   [ADMIN_EVENT_TYPES.levelDeleted]: "Level deleted",

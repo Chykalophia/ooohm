@@ -79,9 +79,9 @@ describe("department managers", { skip }, () => {
     assert.deepEqual(
       events.map((e) => [e.type, e.payload]),
       [
-        ["department.created", { departmentId: design.id, name: "Design", managerId: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
-        ["department.manager_changed", { departmentId: design.id, name: "Design", managerId: head.id, actorId: boss.id, actor: { type: "user", id: boss.id } }],
-        ["department.manager_changed", { departmentId: design.id, name: "Design", managerId: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.created", { departmentId: design.id, name: "Design", managerId: null, maxOff: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.manager_changed", { departmentId: design.id, name: "Design", managerId: head.id, maxOff: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.manager_changed", { departmentId: design.id, name: "Design", managerId: null, maxOff: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
       ],
     );
   });

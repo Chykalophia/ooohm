@@ -243,6 +243,7 @@ export const ADMIN_EVENT_TYPES = {
   departmentRenamed: "department.renamed",
   departmentDeleted: "department.deleted",
   departmentManagerChanged: "department.manager_changed",
+  departmentLimitChanged: "department.limit_changed",
   levelCreated: "level.created",
   levelRenamed: "level.renamed",
   levelDeleted: "level.deleted",
@@ -331,6 +332,11 @@ export interface DepartmentEventPayload extends Attribution {
    * people whose own manager is missing or inactive.
    */
   managerId: string | null;
+  /**
+   * Added within version 1, with `department.limit_changed`: the optional coverage limit,
+   * at most this many of its people off at once (`null` for none). Only ever a warning.
+   */
+  maxOff: number | null;
 }
 
 /** Version 1 payload of every `level.*` event: the level after the change (before, when deleted). */

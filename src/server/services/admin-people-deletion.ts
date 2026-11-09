@@ -335,7 +335,7 @@ async function executeDeletion(
       event: {
         companyId,
         type: ADMIN_EVENT_TYPES.departmentManagerChanged,
-        payload: { departmentId: department.id, name: department.name, managerId: null } satisfies Unattributed<DepartmentEventPayload>,
+        payload: { departmentId: department.id, name: department.name, managerId: null, maxOff: department.maxOff } satisfies Unattributed<DepartmentEventPayload>,
       },
     });
   }

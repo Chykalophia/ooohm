@@ -32,7 +32,7 @@ import { loadApprovalContext } from "./approval-routing";
 import { currentApprover } from "./approvals";
 import { approveLinkFor } from "./email-approval";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
-import { alsoOffFor } from "./also-off";
+import { alsoOffFor, alsoOffText } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { commitThenNotify, type Notification } from "./notify";
 
@@ -153,7 +153,7 @@ export async function submitLeaveRequest(
       const person = await findPerson(tx, actor.companyId, actor.id);
       const department = person?.departmentId ? await findDepartment(tx, actor.companyId, person.departmentId) : undefined;
       const request = { ...final, userId: actor.id, departmentId: department?.id ?? null, departmentName: department?.name ?? null };
-      return (await alsoOffFor(tx, actor.companyId, [request], readerId)).get(final.id)?.line ?? null;
+      return alsoOffText((await alsoOffFor(tx, actor.companyId, [request], readerId)).get(final.id));
     };
     if (headsUp) {
       if (me) {

@@ -1,0 +1,2 @@
+ALTER TABLE "departments" ADD COLUMN "max_off" integer;--> statement-breakpoint
+ALTER TABLE "departments" ADD CONSTRAINT "departments_max_off_positive" CHECK ("departments"."max_off" is null or "departments"."max_off" >= 1);

@@ -204,6 +204,13 @@
       "when": 1794191145688,
       "tag": "0028_department_scoping",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794234878548,
+      "tag": "0029_department_max_off",
+      "breakpoints": true
     }
   ]
 }

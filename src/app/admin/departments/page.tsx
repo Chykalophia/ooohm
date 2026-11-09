@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MAX_OFF_LIMIT } from "@/domain/coverage";
 import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
 import { formatCount } from "@/lib/format";
 import { listDepartmentManagerChoices, listDepartmentsForAdmin } from "@/server/services/admin-departments";
@@ -14,6 +15,7 @@ import {
   createDepartmentAction,
   deleteDepartmentAction,
   renameDepartmentAction,
+  setDepartmentLimitAction,
   setDepartmentManagerAction,
 } from "@/app/admin/departments/actions";
 
@@ -29,7 +31,7 @@ export default async function DepartmentsPage() {
       nav={nav}
       section="departments"
       title="Departments"
-      description="Group people so the team view can show one department at a time. A department can have a manager, who approves for its people that have no manager of their own."
+      description="Group people so the team view can show one department at a time. A department can have a manager, who approves for its people that have no manager of their own, and a limit on how many of its people are off at once."
     >
       <Card aria-label="Add a department">
         <ActionForm action={createDepartmentAction} submitLabel="Add department" pendingLabel="Adding…" resetOnSuccess className="space-y-4">
@@ -49,7 +51,10 @@ export default async function DepartmentsPage() {
                   {d.members === 0 ? "Nobody" : formatCount(d.members, "person", "people")}
                 </p>
               </div>
-              <p className="text-sm text-muted">{d.managerName ? `Managed by ${d.managerName}` : "No department manager"}</p>
+              <p className="text-sm text-muted">
+                {d.managerName ? `Managed by ${d.managerName}` : "No department manager"}
+                {d.maxOff !== null && ` · A warning past ${formatCount(d.maxOff, "person", "people")} off at once`}
+              </p>
               <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
                 <Reveal label={d.managerId ? "Change manager" : "Set a manager"} ariaLabel={`Change the manager of ${d.name}`}>
                   <ActionForm
@@ -71,6 +76,23 @@ export default async function DepartmentsPage() {
                           : managerOptions
                       }
                       hint="Approves for people here who have no active manager of their own. Sees their balances and notes like a manager, when the company lets managers see them."
+                    />
+                  </ActionForm>
+                </Reveal>
+                <Reveal label={d.maxOff === null ? "Set a limit" : "Change limit"} ariaLabel={`Change how many people of ${d.name} can be off at once`}>
+                  <ActionForm action={setDepartmentLimitAction} submitLabel="Save" pendingLabel="Saving…" buttonClassName={outlineButton} className="space-y-3">
+                    <input type="hidden" name="id" value={d.id} />
+                    <TextField
+                      label={`Most people of ${d.name} off at once`}
+                      name="maxOff"
+                      type="number"
+                      inputMode="numeric"
+                      optional
+                      min={1}
+                      max={MAX_OFF_LIMIT}
+                      step={1}
+                      defaultValue={d.maxOff ?? ""}
+                      hint="Past this, the person asking and their approver see a warning. Nothing is blocked. Leave it blank for no limit."
                     />
                   </ActionForm>
                 </Reveal>

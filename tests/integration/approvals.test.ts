@@ -449,14 +449,14 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     const { items } = await getApprovalTriage(ctx, co.people.boss);
     const byId = new Map(items.map((r) => [r.id, r]));
     // Ana (Design) overlaps Bo (Design, approved); Cy is in Sales, so not counted.
-    assert.deepEqual(byId.get(ana.id)?.alsoOff, { others: 1, line: "Bo is off then too." });
+    assert.deepEqual(byId.get(ana.id)?.alsoOff, { others: 1, line: "Bo is off then too.", coverage: null });
     assert.equal(byId.get(ana.id)?.requesterDepartmentName, "Design");
     // Cy's Sales colleagues are not off; Bo and Ana are in another department.
-    assert.deepEqual(byId.get(cy.id)?.alsoOff, { others: 0, line: "Nobody else in Sales is off then." });
+    assert.deepEqual(byId.get(cy.id)?.alsoOff, { others: 0, line: "Nobody else in Sales is off then.", coverage: null });
 
     // Without a department, everyone counts, and pending leave is marked as such.
     await t.db.update(schema.user).set({ departmentId: null }).where(eq(schema.user.id, co.people.cy.id));
     const cyAgain = (await getApprovalTriage(ctx, co.people.boss)).items.find((r) => r.id === cy.id);
-    assert.deepEqual(cyAgain?.alsoOff, { others: 2, line: "Also off then: Ana (not approved yet) and Bo." });
+    assert.deepEqual(cyAgain?.alsoOff, { others: 2, line: "Also off then: Ana (not approved yet) and Bo.", coverage: null });
   });
 });

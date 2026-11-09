@@ -30,3 +30,4 @@ Source: open questions in `.agent/challenge.md` (return_to: cklph Build v3 / Cha
    -> Confidence: high.
 
 Answered by agent: 5 of 5. HUMAN questions left: 0.
+- Date picker design: Option C (Sentence-scale calendar). Today marker and phone placement: keep option C's own (assumed). Peter, 2026-11-09

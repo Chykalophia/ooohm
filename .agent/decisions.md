@@ -1,0 +1,3 @@
+- Which date picker design? -> Option C, Sentence-scale calendar -> Peter, 2026-11-09
+- Today marker? -> Not answered; keep option C's underline (assumption) -> Peter, 2026-11-09
+- Phone placement? -> Not answered; keep option C's placement (assumption) -> Peter, 2026-11-09

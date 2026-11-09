@@ -3,9 +3,10 @@ import { alias } from "drizzle-orm/pg-core";
 import { departments, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 
-export type DepartmentRow = { id: string; name: string; managerId: string | null };
+/** `maxOff`: the optional coverage limit, at most this many of its people off at once. */
+export type DepartmentRow = { id: string; name: string; managerId: string | null; maxOff: number | null };
 
-const fields = { id: departments.id, name: departments.name, managerId: departments.managerId };
+const fields = { id: departments.id, name: departments.name, managerId: departments.managerId, maxOff: departments.maxOff };
 const manager = alias(user, "manager");
 
 /** The company's departments by name, ignoring case (every department list and picker uses this order). */
@@ -110,6 +111,26 @@ export async function setDepartmentManagerRow(tx: Transaction, companyId: string
     .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
     .returning(fields);
   return row;
+}
+
+/** Sets (or, with `null`, clears) the department's coverage limit. */
+export async function setDepartmentMaxOffRow(tx: Transaction, companyId: string, id: string, maxOff: number | null): Promise<DepartmentRow> {
+  const [row] = await tx
+    .update(departments)
+    .set({ maxOff })
+    .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
+    .returning(fields);
+  return row;
+}
+
+/** Each of `departmentIds` (of the company) that has a coverage limit, mapped to it. */
+export async function findDepartmentLimits(ex: Executor, companyId: string, departmentIds: readonly string[]) {
+  if (departmentIds.length === 0) return new Map<string, number>();
+  const rows = await ex
+    .select({ id: departments.id, maxOff: departments.maxOff })
+    .from(departments)
+    .where(and(eq(departments.companyId, companyId), inArray(departments.id, [...departmentIds])));
+  return new Map(rows.flatMap((r) => (r.maxOff !== null ? [[r.id, r.maxOff] as const] : [])));
 }
 
 /** Clears `userId` as manager of every department they manage; returns those departments after the change. */

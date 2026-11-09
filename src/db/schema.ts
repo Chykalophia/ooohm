@@ -141,12 +141,19 @@ export const departments = pgTable(
      * adding time off for them.
      */
     managerId: text("manager_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
+    /**
+     * Optional coverage limit: at most this many of the department's people off on one
+     * working day. Only ever a warning, to the requester and the approver
+     * (`src/domain/coverage.ts`). `null` means no limit.
+     */
+    maxOff: integer("max_off"),
     ...timestamps,
   },
   (t) => [
     // Names are unique per company ignoring case, so "Sales" and "sales" can never both exist.
     uniqueIndex("departments_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`),
     index("departments_manager_idx").on(t.managerId),
+    check("departments_max_off_positive", sql`${t.maxOff} is null or ${t.maxOff} >= 1`),
   ],
 );
 

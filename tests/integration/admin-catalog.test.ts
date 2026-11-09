@@ -79,9 +79,9 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     assert.deepEqual(
       (await companyEvents(t.db, co.companyId)).map((e) => [e.type, e.payload]),
       [
-        ["department.created", { departmentId: ops.id, name: "Ops", managerId: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
-        ["department.renamed", { departmentId: ops.id, name: "Operations", managerId: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
-        ["department.deleted", { departmentId: ops.id, name: "Operations", managerId: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.created", { departmentId: ops.id, name: "Ops", managerId: null, maxOff: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.renamed", { departmentId: ops.id, name: "Operations", managerId: null, maxOff: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
+        ["department.deleted", { departmentId: ops.id, name: "Operations", managerId: null, maxOff: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
       ],
     );
   });

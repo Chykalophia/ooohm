@@ -8,6 +8,7 @@ import { createRateLimiter } from "@/lib/rate-limit";
 import { serviceContext } from "@/server/runtime";
 import { previewLeaveRequest } from "@/server/services/balances";
 import { previewLeaveFor } from "@/server/services/leave-on-behalf";
+import { draftCoverage } from "@/server/services/also-off";
 import { type LeavePreviewResponse, leaveDraftSchema, readDraftFields } from "@/app/_lib/leave-input";
 import { addForMessages } from "@/app/_lib/leave-for-messages";
 import { messageFor, messageForError } from "@/app/_lib/run-action";
@@ -32,7 +33,8 @@ function reply(body: LeavePreviewResponse, status = 200): Response {
  *
  * Runs the same service computation as submit (`assessLeaveRequest`) for the signed-in
  * person and answers with what the request would cost and leave, or the calm message
- * submit would show. Writes nothing. A route handler rather than a server action,
+ * submit would show. When the dates take the person's department over its coverage
+ * limit, the warning follows (`draftCoverage`); it never stops the request. Writes nothing. A route handler rather than a server action,
  * because Next.js runs a client's server actions one at a time and this read must
  * never queue behind (or in front of) a submit. Limited to {@link PREVIEWS_PER_MINUTE}
  * per person per minute (429 beyond that).
@@ -48,13 +50,25 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (!parsed.success) return reply({ ok: false, message: messageFor("invalid_input") }, 400);
 
   const forUserId = request.nextUrl.searchParams.get("for");
+  const ctx = serviceContext();
+  // A department over its coverage limit only ever warns: the warning follows the cost.
+  // It is advisory, so a failed lookup keeps the cost line rather than failing the preview.
+  const withCoverage = async (message: string, userId: string) => {
+    try {
+      const coverage = await draftCoverage(ctx.db, actor.companyId, userId, parsed.data);
+      return coverage ? `${message} ${coverage}` : message;
+    } catch (err) {
+      log.error({ err }, "leave_preview_coverage_failed");
+      return message;
+    }
+  };
   try {
     if (forUserId) {
-      const { cost, personName } = await previewLeaveFor(serviceContext(), actor, forUserId, parsed.data);
-      return reply({ ok: true, message: formatRequestCost(cost, personName), cost });
+      const { cost, personName } = await previewLeaveFor(ctx, actor, forUserId, parsed.data);
+      return reply({ ok: true, message: await withCoverage(formatRequestCost(cost, personName), forUserId), cost });
     }
-    const cost = await previewLeaveRequest(serviceContext(), actor, parsed.data);
-    return reply({ ok: true, message: formatRequestCost(cost), cost });
+    const cost = await previewLeaveRequest(ctx, actor, parsed.data);
+    return reply({ ok: true, message: await withCoverage(formatRequestCost(cost), actor.id), cost });
   } catch (err) {
     if (isDomainError(err)) {
       const message = (forUserId ? addForMessages[err.code] : undefined) ?? messageForError(err, "leave_preview");

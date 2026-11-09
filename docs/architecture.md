@@ -512,8 +512,16 @@ is one line about other active people in the requester's department (everyone, w
 or pending leave costs a working day within the request's dates: "Nobody else in Design is off then.", "Aisha Khan
 is off then too." or "Also off then: A, B (not approved yet), C and 2 more." Each person is counted once. It shows
 the same names and dates the team calendar shows every member, never a note or a balance. The Approvals page shows
-it under each request (three queries for the whole page) and the review email carries it. It is information only and
-never blocks a request; rules about how many people may be off at once are a separate, future feature.
+it under each request (three queries for the whole page, four when a requester has a department) and the review
+email carries it. It is information only and never blocks a request.
+
+Coverage limits (`src/domain/coverage.ts`): a department may set the most of its people off at once
+(`departments.max_off`, Admin → Departments, audited as `department.limit_changed`). Past it, the request form's
+live preview (`draftCoverage`), the Approvals page and the review and heads-up emails add one warning: "This would
+put 3 people in Design off on Tue, Mar 3. The limit is 2." It counts the requester plus everyone else in the
+department with approved or pending leave on each working day of the request (weekends and holidays never count,
+half days do), whoever reads it, because it gives a number and no names. It only ever warns: nothing is blocked
+and nothing already booked or waiting changes when the limit does. People without a department have no limit.
 
 Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base URL.
 

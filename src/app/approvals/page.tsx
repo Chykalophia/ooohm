@@ -99,6 +99,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                         {r.approverId && r.approverId !== actor.id && ` · Assigned to ${r.approverName || "someone else"}`}
                       </p>
                       {r.note && <p className="text-sm break-words">{r.note}</p>}
+                      {r.alsoOff?.coverage && <p className="text-sm font-medium break-words">{r.alsoOff.coverage}</p>}
                       {r.alsoOff && (
                         <p className={cx("text-sm break-words", r.alsoOff.others > 0 ? "font-medium" : "text-muted")}>{r.alsoOff.line}</p>
                       )}

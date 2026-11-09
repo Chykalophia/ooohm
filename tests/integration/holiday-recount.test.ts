@@ -420,7 +420,7 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     const item = items.find((i) => i.id === mine.id);
     assert.deepEqual(
       item?.alsoOff,
-      { others: 2, line: "Also off then: Vera and Cyrus (not approved yet)." },
+      { others: 2, line: "Also off then: Vera and Cyrus (not approved yet).", coverage: null },
       "Later's leave in January isn't listed",
     );
     const cyrusItem = items.find((i) => i.requesterId === cyrus.id);
@@ -448,7 +448,7 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     // Fri Dec 25 overlaps Wen's Friday, a working day (and not Zed's leave).
     const workingDay = await submitLeaveRequest(ctx, yan, { leaveTypeId: co.pto, startDate: "2026-12-25", dayPortion: "full" });
     const { items } = await decidable(ctx, boss);
-    assert.deepEqual(items.find((i) => i.id === weekendOnly.id)?.alsoOff, { others: 0, line: "Nobody else is off then." });
+    assert.deepEqual(items.find((i) => i.id === weekendOnly.id)?.alsoOff, { others: 0, line: "Nobody else is off then.", coverage: null });
     assert.equal(items.find((i) => i.id === workingDay.id)?.alsoOff?.line, "Wen is off then too.");
   });
 

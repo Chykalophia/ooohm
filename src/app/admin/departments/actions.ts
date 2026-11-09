@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
-import { createDepartment, deleteDepartment, renameDepartment, setDepartmentManager } from "@/server/services/admin-departments";
+import { MAX_OFF_LIMIT } from "@/domain/coverage";
+import { createDepartment, deleteDepartment, renameDepartment, setDepartmentLimit, setDepartmentManager } from "@/server/services/admin-departments";
 import { formatCount } from "@/lib/format";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
@@ -14,6 +15,8 @@ const MESSAGES = {
   invalid_input: `Department names are 1 to ${DEPARTMENT_NAME_MAX_LENGTH} characters.`,
   invalid_manager: "Pick someone who's active in the company.",
 };
+
+const LIMIT_MESSAGES = { ...MESSAGES, invalid_input: `Use a whole number from 1 to ${MAX_OFF_LIMIT}, or leave it blank for no limit.` };
 
 const nameField = formFields.text(DEPARTMENT_NAME_MAX_LENGTH * 2);
 
@@ -67,5 +70,18 @@ export async function setDepartmentManagerAction(_prev: FormState, formData: For
       return `Saved.${moved}`;
     },
     MESSAGES,
+  );
+}
+
+export async function setDepartmentLimitAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return adminAction(
+    "department_limit",
+    formData,
+    z.object({ id: formFields.id, maxOff: formFields.optionalNumber }),
+    async (ctx, actor, { id, maxOff }) => {
+      const row = await setDepartmentLimit(ctx, actor, id, maxOff);
+      return row.maxOff === null ? "Saved. No limit." : `Saved. People get a warning past ${formatCount(row.maxOff, "person", "people")} off at once.`;
+    },
+    LIMIT_MESSAGES,
   );
 }

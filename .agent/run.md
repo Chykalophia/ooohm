@@ -16,3 +16,4 @@ Challenge: TASK READY -> cklph Build v3 / Spec + Plan
 Spec + Plan: DESIGN NEEDED -> cklph Design Preview v3 / Mockups
 Mockups: OPTIONS READY -> cklph Build v3 / Needs You
 Needs You: ANSWERED -> cklph Build v3 / Spec Revise
+Spec Revise: PLAN VERIFIED -> cklph Build v3 / Build

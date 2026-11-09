@@ -64,7 +64,7 @@ R13. **Calm.** One main action (pick a day). No animation longer than 150ms, and
 ## Acceptance criteria (testable)
 
 AC1. `pnpm test` passes, including a new `tests/unit/date-picker-grid.test.ts` that asserts:
-- (a) `pickerGrid("2026-11")` returns 42 dates, from `2026-10-26` to `2026-12-06`, with `inMonth` false for exactly the 7 dates outside November;
+- (a) `pickerGrid("2026-11")` returns 42 dates, from `2026-10-26` to `2026-12-06`, with `inMonth` false for exactly the 12 dates outside November (Oct 26–31 and Dec 1–6);
 - (b) `moveFocus("2026-01-31", "PageDown")` returns `2026-02-28`, and `moveFocus("2024-01-31", "PageDown")` returns `2024-02-29`;
 - (c) `moveFocus("2026-11-11", "Home")` returns `2026-11-09`, and `"End"` returns `2026-11-15`;
 - (d) the arrow keys give ±1/±7 days across month and year boundaries (`2026-12-31` + Right = `2027-01-01`);
@@ -95,6 +95,32 @@ AC7. axe-core (or an equivalent check in the browser step) reports 0 serious or 
 - **Ask first:** migrating any other date field; adding any dependency, including dev-only browser test tooling committed to `package.json`; changing domain date rules or `min` semantics.
 - **Never:** palette or `dark:` classes; `text-accent` for text; editing the server action, validation or schema; committing to main.
 
-## Design status
+## Design (approved)
 
-There is no approved visual target. The screenshot shows the problem, and there is no `.agent/design/CHOSEN.md`. Before building, a design pass must pick the popup's look within R4, R5, R11 and R12: the selected-day treatment, the today marker, the header layout, the footer, and how the popup is anchored and sized on phones.
+Option C, "Sentence-scale calendar" (`.agent/design/option-c.html`, chosen by Peter: "I like option C"; see `.agent/design/CHOSEN.md`). Build to match the mockup's CSS, translated to theme tokens and `styles.ts` recipes:
+- **Typed field:** underline-only (bottom border `border-field-border` equivalent), caption label on the left, `YYYY-MM-DD` placeholder, error text in the danger token under it.
+- **Header:** large month name in the display font (`--display-font`) with the year muted beside it; previous/next are bare, borderless, round 2.5rem icon buttons in `text-accent-ink`, grouped on the right.
+- **Weekdays:** small uppercase muted abbreviations.
+- **Day cells:** square (`aspect-ratio: 1`, min height 2.25rem), hover is a 10% accent tint with `text-accent-ink`.
+- **Today:** a short accent-ink underline under a bold number (not colour alone).
+- **Selected:** filled `bg-accent` tile with the on-accent text token, in the theme's button radius.
+- **Disabled (before `min`):** muted, 50% opacity, struck-through number.
+- **Footer:** a dashed top border, then a left-aligned text button "Today · Mon, Nov 9" (the date it will pick) in `text-accent-ink`.
+- **Phones (under 40rem):** the popup is not anchored under the token; it renders as a panel the width of the sentence's card, with a smaller month heading (1.25rem) and less padding. The popup still obeys R12 (no horizontal scroll at 320px; cells at least 36px).
+- Frost keeps its backdrop blur on the popup, as the card has it.
+
+The mockup is a reference for look only. If it conflicts with R1–R13, the requirements win. Today marker and phone placement: Option C's own, kept (assumption; Peter did not ask for a swap).
+
+## Resolved ambiguities
+
+| Item | Chosen reading | Source |
+|---|---|---|
+| Fields in scope | Reusable `DatePicker`; only the request sentence is migrated | `.agent/answers.md` Q1 |
+| Implementation | Custom popup, theme tokens, no new package | answers Q2 |
+| Design reference | The screenshot shows the problem; the target is the approved option C | answers Q3, `CHOSEN.md` |
+| Required details | Month nav, Monday-first, muted adjacent days, today marker, Today button, min-disabled, APG keyboard, no Clear, no year dropdown | answers Q4 |
+| Theme/mode matrix | 9 themes, Classic light/dark/auto, custom accent, corner override | answers Q5 |
+| Which design | Option C | `.agent/decisions.md`, `CHOSEN.md` |
+| Today marker | Option C's underline (assumed) | `decisions.md` |
+| Phone placement | Option C's card-width panel (assumed) | `decisions.md` |
+| AC1(a) out-of-month count | 12, not 7: Nov 1, 2026 is a Sunday, so the grid opens with 6 October days and ends with 6 December days (2026-10-26 to 2026-12-06 is 42 days, 30 in November) | `.agent/design/README.md`; checked by arithmetic: 42 - 30 = 12 |

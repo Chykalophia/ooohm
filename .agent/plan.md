@@ -1,15 +1,15 @@
 # Plan: themed date picker (request sentence)
 
-Spec: `.agent/spec.md`. Before slice 2, the design must be approved in `.agent/design/CHOSEN.md`.
+Spec: `.agent/spec.md`. Design approved: option C (`.agent/design/CHOSEN.md`, `.agent/design/option-c.html`). Spec's "Design (approved)" section is the visual brief.
 
 ## Slice 1: pure grid and keyboard helpers
-- Add `src/components/forms/date-picker-grid.ts`, reusing `src/domain/calendar-date.ts` and `calendar.ts` (`addMonths`, `monthGridBounds`, `toEpochDay`/`fromEpochDay`). Functions: `pickerGrid(month)`, `moveFocus(date, key, shift?)`, `isSelectable(date, min?)`, `parseTyped(text)`, `initialFocus(value, today, min?)`.
+- Add `src/components/forms/date-picker-grid.ts`, reusing `src/domain/calendar-date.ts` and `calendar.ts` (`addMonths`, `monthGridBounds`, `toEpochDay`/`fromEpochDay`). Functions: `pickerGrid(month)` (12 out-of-month dates for 2026-11), `moveFocus(date, key, shift?)`, `isSelectable(date, min?)`, `parseTyped(text)`, `initialFocus(value, today, min?)`.
 - Add `tests/unit/date-picker-grid.test.ts` covering AC1 (a)–(f), plus `initialFocus` (value > today > min).
 - **Accept:** `pnpm test -- --test-name-pattern="date picker" && pnpm typecheck` (or `pnpm test`), which exits 0.
 - **Out of scope:** any React or DOM code.
 
 ## Slice 2: the `DatePicker` component
-- Add `src/components/forms/date-picker.tsx` (client). It has the trigger (R2), the dialog (R4, R9), the grid with roving tabindex (R5, R7), the typed field (R3), closing and focus return (R8), a hidden `<input name required value>`, and fit (R12) and motion (R13). It uses tokens only (R11), following CHOSEN.md.
+- Add `src/components/forms/date-picker.tsx` (client). It has the trigger (R2), the dialog (R4, R9), the grid with roving tabindex (R5, R7), the typed field (R3), closing and focus return (R8), a hidden `<input name required value>`, and fit (R12) and motion (R13). It uses tokens only (R11) and follows option C as described in the spec's "Design (approved)" section, including the card-width panel under 40rem and the "Today · Mon, Nov 9" footer.
 - **Accept:** `pnpm typecheck && pnpm lint` exits 0, and `grep -nE 'dark:|text-accent[^-]|#[0-9a-fA-F]{3,6}' src/components/forms/date-picker.tsx` returns nothing.
 - **Out of scope:** using it anywhere else; holiday shading; ranges.
 

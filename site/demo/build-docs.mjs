@@ -40,7 +40,6 @@ const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/
 const anchor = (text) =>
   text
     .toLowerCase()
-    .replace(/<[^>]+>/g, "")
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .trim()
     .replace(/\s/g, "-");
@@ -61,6 +60,7 @@ function imageSize(file) {
     for (let i = 2; i < b.length; ) {
       const marker = b[i + 1];
       const length = b.readUInt16BE(i + 2);
+      if (length < 2) break;
       if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) return { width: b.readUInt16BE(i + 7), height: b.readUInt16BE(i + 5) };
       i += 2 + length;
     }

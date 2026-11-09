@@ -350,7 +350,7 @@ try {
     for (const [column, value] of Object.entries(shot.company ?? {})) setCompany(column, value);
     const options = { viewport: shot.size ?? DESKTOP, deviceScaleFactor: 2, colorScheme: "light" };
     const ctx = shot.as ? await signedInContext(browser, `${shot.as}@example.com`, options) : await browser.newContext(options);
-    if (shot.calm) await ctx.addInitScript(`addEventListener("DOMContentLoaded", () => { const s = document.createElement("style"); s.textContent = ${JSON.stringify(CALM)}; document.head.append(s); });`);
+    if (shot.calm) await ctx.addInitScript((css) => addEventListener("DOMContentLoaded", () => { const s = document.createElement("style"); s.textContent = css; document.head.append(s); }), CALM);
     const page = await ctx.newPage();
     try {
       await shot.run(page);

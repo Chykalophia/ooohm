@@ -28,3 +28,4 @@ Verify: GAPS FOUND -> cklph Build v3 / Needs You
 Needs You: ANSWERED -> cklph Build v3 / Build
 Build: TASK COMPLETE -> cklph Build v3 / Code Review
 Code Review: REVIEW CLEAN -> cklph Build v3 / Break 1 (Codex)
+Break 1 (red team): RED-TEAM CLEAR (typed hostile input, all supported month grids, year boundaries, existing attack regressions; no new issue reproduced) -> cklph Build v3 / Break 2 (Gemini)

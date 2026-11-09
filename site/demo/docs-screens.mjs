@@ -45,7 +45,12 @@ const company = psql(`select company_id from "user" where email = 'maya@example.
 if (!company) throw new Error("maya@example.com has no company; run demo-data.mts first");
 const idOf = (email) => psql(`select id from "user" where email = :'email';`, { email });
 const dept = (name) => psql(`select id from departments where company_id = :'c' and name = :'n';`, { c: company, n: name });
-const setCompany = (column, value) => psql(`update companies set ${column} = :'v' where id = :'c';`, { v: value, c: company });
+/** The company settings the shots switch; a column name can't be a psql variable, so it's checked against these. */
+const COMPANY_COLUMNS = new Set(["theme", "layout", "request_style", "approval_mode", "colleague_visibility"]);
+function setCompany(column, value) {
+  if (!COMPANY_COLUMNS.has(column)) throw new Error(`setCompany: ${column} isn't a setting the shots change`);
+  psql(`update companies set ${column} = :'v' where id = :'c';`, { v: value, c: company });
+}
 
 /** Demo rows the docs need on top of demo-data.mts: every one is idempotent. */
 function stage() {
@@ -107,6 +112,7 @@ async function part(page, locator, name, pad = 16) {
   const loc = typeof locator === "string" ? page.locator(locator).first() : locator.first();
   await loc.scrollIntoViewIfNeeded();
   const box = await loc.boundingBox();
+  if (!box) throw new Error(`${name}: the element to capture isn't on screen`);
   // The box is in viewport coordinates; a full-page clip takes page coordinates.
   const scroll = await page.evaluate(() => ({ x: scrollX, y: scrollY }));
   const b = { ...box, x: box.x + scroll.x, y: box.y + scroll.y };

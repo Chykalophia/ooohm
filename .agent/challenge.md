@@ -2,50 +2,44 @@
 
 ## Split
 
-1. **Modernize the calendar picker interaction and appearance.** This is a feature/redesign request; “2026+ modern design” does not define an interaction or visual acceptance bar.
-2. **Make the selector work across company themes and supported colour modes.** This is a theming requirement attached to the redesign. It is independently testable, but choosing a custom selector may be necessary because native popup chrome varies by browser and OS.
-3. **Possibly modernize every date-entry control.** “Cal date selector experience” and the singular picker screenshot do not establish whether only the request sentence or all date fields are in scope; expanding could affect several screens.
+1. **Modernize the picker shown inside the leave request sentence.** This is a UI feature/redesign; the task does not specify detailed visual acceptance, so use the approved in-repo design rules and the answered interaction requirements.
+2. **Make that selector theme-aware.** This is part of the redesign and independently verifiable across company themes and Classic colour modes.
+3. **Potentially migrate other date fields.** This would be a separate cross-screen rollout. The answer explicitly excludes the request form, holiday and audit fields from this PR; list them as follow-up work only.
 
 ## Premise
 
 | Ask | Assessment | Evidence |
 |---|---|---|
-| Replace the shown picker with a more current experience | **Holds, scope unclear.** `src/app/request-leave-sentence.tsx:141-185` overlays an invisible native date input and calls `showPicker()`. Native popup appearance varies by browser and OS, so application CSS cannot ensure a uniform themed popup. The “dated” premise is plausible for the shown control; no usability defect is specified. |
-| Make it on-brand in all themes | **Holds.** `AGENTS.md:9-10,47` requires theme tokens and theme compatibility; `docs/architecture.md:82-90` describes company themes and per-person colour modes. `src/app/globals.css:20-47` documents native control `color-scheme` and application theme tokens. |
-| Apply changes to every date field | **Doubtful / unstated.** Other native date fields are in `src/app/request-leave-form.tsx:196-205`, `src/app/admin/holidays/page.tsx:39`, and `src/app/admin/audit/page.tsx:204-205`. One screenshot does not establish that these controls should change too. |
+| The existing picker works but its design should be modernized | **Holds.** The request-sentence `DateToken` overlays an invisible native date input and opens the browser picker via `showPicker()`. That native popup is controlled by the browser/OS rather than app styles (`src/app/request-leave-sentence.tsx:140-185`); the app's CSS documents that native controls follow `color-scheme` (`src/app/globals.css:20-38`). A custom popup is therefore a plausible way to deliver consistent themed UI. |
+| The replacement should be on-brand in all themes | **Holds.** `AGENTS.md` requires calm UI and theme tokens; `src/components/ui/styles.ts:12-38` provides token-based focus and field recipes. Theme tokens vary by company theme and Classic colour mode (`src/app/globals.css:20-47`). |
+| All date controls need modernization | **Wrong for this milestone.** The answered scope is a reusable shared client component replacing the request-sentence picker only. The request form and admin holiday/audit date controls are explicitly follow-ups (`.agent/answers.md`, Round 1, item 1); existing examples include `src/app/request-leave-form.tsx:196-205`. |
 
 ## Context
 
 | Needed context | Status | Evidence / resolution |
 |---|---|---|
-| Target screen(s) | **Missing** | Request sentence is the shown picker (`src/app/request-leave-sentence.tsx:141-185`); request form, holiday creation, and audit filters also use date fields (references above). |
-| Theme/mode requirements | **Present** | `AGENTS.md:9-10,47`; `docs/architecture.md:82-90`; tokens in `src/app/globals.css:20-47`. Interpret “all themes” as every company theme and Classic light/dark/automatic where supported. |
-| Existing interaction | **Present** | The sentence picker preserves native keyboard entry and accessibility while invoking the native picker (`src/app/request-leave-sentence.tsx:140-185`). Both request layouts share request draft logic; end date is bounded by start date (`src/app/request-leave-sentence.tsx:97`; `src/app/request-leave-form.tsx:197-204`). |
-| Desired design and behavior | **Missing** | No acceptance decision defines month/year navigation, dismissal, small-screen placement, or whether screenshot details (Clear, Today, adjacent-month days) must remain. |
-| Date/data semantics and access | **Present** | Current controls use date-only values and constraints. No persistence, permissions, or server changes are requested. |
-| Accessibility acceptance | **Partly present** | Existing keyboard entry and accessible labeling are documented in the sentence picker (`src/app/request-leave-sentence.tsx:141-143,169-185`); custom picker focus and keyboard acceptance are unspecified. |
-| Acceptance signals | **Missing** | “Functional”, “modern”, and “onbrand” do not specify browser coverage, tested themes, responsive behavior, or scope across fields. |
-| Answers / prior decisions | **Missing** | No `.agent/answers.md` exists. No separate design decision file was found in the repository root. |
+| Target screen(s) | **Present** | Request sentence only, implemented by `DateToken` (`src/app/request-leave-sentence.tsx:140-188`); `.agent/answers.md`, item 1 confirms reusable component, no other field migrations. |
+| Implementation boundary | **Present** | Build an in-house themed calendar popup, no new package; preserve date-only form value and typed entry. `.agent/answers.md`, item 2. |
+| Design reference | **Present** | The screenshot is the current problem, not the target. Follow the calm UI and theme-token rules in `AGENTS.md`, and existing control recipes in `src/components/ui/styles.ts`; `.agent/answers.md`, item 3. |
+| Required interaction | **Present** | Month label and previous/next navigation; Monday-first weekday header; selectable adjacent-month dates; today marker and Today shortcut; dates before `min` disabled; Escape/outside dismissal restores trigger focus; arrow keys, PageUp/PageDown, Home/End, Enter; fit small screens without horizontal scroll. `.agent/answers.md`, item 4. No Clear action because both dates are required. |
+| Date semantics | **Present** | Keep `YYYY-MM-DD` value and required form submission; end date uses `min={startDate}` (`src/app/request-leave-sentence.tsx:169-177`; `.agent/answers.md`, item 2). |
+| Theme/mode acceptance | **Present** | Every company theme, plus Classic light, dark and automatic; custom accent and corner override; tokens only, no palette classes or `dark:` variants. `.agent/answers.md`, item 5 and `AGENTS.md`. |
+| Acceptance signals | **Assumed** | Validate the specified behavior, keyboard/screen-reader use, responsive fit and theme matrix in the build/verification step. These are now concrete from the round-one answers; no external design asset or new access is needed. |
 
 ## Questions
 
-1. **Which fields are in scope? (SAFE)** A) Request sentence picker only (★ recommended by the screenshot); B) both leave-request layouts; C) every date field, including holiday and audit filters.
-2. **What implementation boundary should define consistent appearance? (SAFE)** A) Keep native controls and improve only browser-supported styling; B) build a themed custom calendar popup (★ recommended if consistent cross-browser appearance is required); C) use a maintained date-picker package.
-3. **What is the authoritative design reference? (SAFE)** A) Supplied screenshot defines behavior and rough layout (★ recommended as the only concrete reference); B) screenshot only illustrates the current problem; C) provide an approved design/Figma reference.
-4. **Which screenshot details should be required? (SAFE)** A) Month/year navigation, Clear, Today, and adjacent-month dates (★ recommended if screenshot is authoritative); B) retain platform behavior; C) specify different details.
-5. **Which theme/mode matrix is the acceptance target? (SAFE)** A) Every company theme, with Classic light/dark/automatic (★ recommended; follows `AGENTS.md`); B) Classic light and dark only; C) another explicit matrix.
-
-No HUMAN-only question is required: this request does not alter auth, permissions, data/schema contracts, legal/privacy matters, money, production, or a new paid vendor.
+No blocking questions remain. All five SAFE questions from the previous challenge were answered in `.agent/answers.md` (Round 1); none concerns a HUMAN-ONLY decision.
 
 ## ASSUMPTIONS I'M MAKING
 
-- The screenshot depicts the browser-native popup opened by the request sentence; code evidence supports the implementation, but does not identify the browser shown.
-- Any replacement preserves date-only values, end-date minimum constraints, and keyboard/screen-reader access.
-- “Onbrand” means existing theme tokens and calm UI rules in `AGENTS.md`, with no new brand palette.
-- Choices are reversible design scope decisions on the feature branch; no data or server behavior change is implied.
+- The supplied screenshot refers to the request-sentence picker; this is consistent with the code and the answered scope.
+- The component is reusable infrastructure, but only the request-sentence field is migrated in this milestone.
+- Existing domain date validation remains authoritative; the selector only handles presentation and input interaction.
+- The in-repo visual language and answered interaction checklist provide the acceptance reference without requiring a new brand decision.
 
 ## Not doing
 
-- Not prescribing custom UI details or implementation before resolving scope and reference.
-- Not changing date validation, leave-day counting, persistence, or server behavior; there is no evidence these are faulty.
-- Not assuming every `type="date"` control should be migrated based on one screenshot.
+- Not migrating the request form, holiday creation or audit filters; keep these as follow-up candidates.
+- Not adding a date-picker dependency.
+- Not changing date validation, leave-day counting, persistence, permissions or server behavior.
+- Not adding Clear or year dropdown controls; these were not selected in the answered requirements.

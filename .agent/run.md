@@ -12,3 +12,4 @@ Fix 2: SKIPPED (halted upstream)
 Verify: SKIPPED (halted upstream)
 Challenge: TASK QUESTIONS -> cklph Get Answers v3 / Research
 Research: ROUND 1 -> cklph Build v3 / Challenge
+Challenge: TASK READY -> cklph Build v3 / Spec + Plan

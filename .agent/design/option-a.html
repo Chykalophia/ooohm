@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en" data-ui="classic" data-mode="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OOOhm date picker · Option A: Quiet popover</title>
+<style>
+/* Theme tokens copied from src/app/globals.css (the app's real values). */
+
+:root {
+  color-scheme: light;
+  /* Failures and irreversible actions, the same in every theme: text and borders, a
+     stronger hover, a faint background behind a hovered danger action, a badge border. */
+  --danger: light-dark(#b91c1c, #f87171);
+  --danger-strong: light-dark(#991b1b, #fca5a5);
+  --danger-soft: light-dark(#fef2f2, #450a0a);
+  --danger-border: light-dark(#fecaca, #7f1d1d);
+  --app-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display-font: var(--app-font);
+  --card-shadow: none;
+  --button-shadow: none;
+  --surface-blur: 0px;
+  --button-radius: var(--radius-lg);
+}
+
+:root,
+[data-ui="classic"] {
+  --background: light-dark(#fafaf9, #0c0a09);
+  --surface: light-dark(#ffffff, #1c1917);
+  --foreground: light-dark(#1c1917, #f5f5f4);
+  --muted: light-dark(#78716c, #a8a29e);
+  --border: light-dark(#e7e5e4, #292524);
+  --accent: light-dark(#0f766e, #2dd4bf);
+  --accent-foreground: light-dark(#ffffff, #042f2e);
+  --accent-ink: light-dark(#0f766e, #2dd4bf);
+  --app-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display-font: var(--app-font);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --button-radius: var(--radius-lg);
+  --card-shadow: none;
+  --button-shadow: none;
+  --surface-blur: 0px;
+}
+
+/* The person's colour mode. "system" lets the device choose, and follows it as it changes. */
+:root[data-mode="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-mode="system"] {
+  color-scheme: light dark;
+}
+
+/* Every theme but Classic is light only, on the page and in a preview inside a dark one. */
+[data-ui]:not([data-ui="classic"]) {
+  color-scheme: light;
+}
+
+/* Cobalt: precise and modern. Hairlines, small corners, a bevelled main button. */
+[data-ui="cobalt"] {
+  --background: #f6f7fb;
+  --surface: #ffffff;
+  --foreground: #101828;
+  --muted: #667085;
+  --border: #e4e7ec;
+  --accent: #2546d0;
+  --accent-foreground: #ffffff;
+  --accent-ink: #2546d0;
+  --app-font: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: var(--app-font);
+  --radius-sm: 0.1875rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.3125rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --button-radius: 0.3125rem;
+  --card-shadow: 0 1px 2px rgb(16 24 40 / 0.06);
+  --button-shadow: 0 1px 2px rgb(16 24 40 / 0.12), inset 0 -1px 0 rgb(0 0 0 / 0.18);
+  --surface-blur: 0px;
+}
+
+/* Ink & Marigold: navy ink, a marigold fill, soft blue-grey lines. */
+[data-ui="marigold"] {
+  --background: #f7f8fa;
+  --surface: #ffffff;
+  --foreground: #14213d;
+  --muted: #5b6478;
+  --border: #d3d8e2;
+  --accent: #f2a900;
+  --accent-foreground: #14213d;
+  --accent-ink: #14213d;
+  --app-font: "Sora Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: var(--app-font);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --button-radius: 0.375rem;
+  --card-shadow: none;
+  --button-shadow: none;
+  --surface-blur: 0px;
+}
+
+/* Saffron: friendly and tactile. Big corners and a solid "pressable" bottom edge. */
+[data-ui="saffron"] {
+  --background: #f5f6fb;
+  --surface: #ffffff;
+  --foreground: #22223b;
+  --muted: #6b6b85;
+  --border: #e3e4ee;
+  --accent: #ff9f1c;
+  --accent-foreground: #22223b;
+  --accent-ink: #a35400;
+  --app-font: "Lexend Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: var(--app-font);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --button-radius: 0.875rem;
+  --card-shadow: 0 3px 0 #e3e4ee;
+  --button-shadow: 0 3px 0 #d47c00;
+  --surface-blur: 0px;
+}
+
+/* Graphite: quiet monochrome; color only where it means something. */
+[data-ui="graphite"] {
+  --background: #fafafa;
+  --surface: #ffffff;
+  --foreground: #18181b;
+  --muted: #71717a;
+  --border: #e4e4e7;
+  --accent: #18181b;
+  --accent-foreground: #ffffff;
+  --accent-ink: #18181b;
+  --app-font: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: var(--app-font);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
+  --button-radius: 0.5rem;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  --button-shadow: none;
+  --surface-blur: 0px;
+}
+
+/* Plum: soft and grown-up, with pill buttons. */
+[data-ui="plum"] {
+  --background: #fbf7f9;
+  --surface: #ffffff;
+  --foreground: #2a1b26;
+  --muted: #7a6573;
+  --border: #eadbe3;
+  --accent: #6b2d5c;
+  --accent-foreground: #ffffff;
+  --accent-ink: #6b2d5c;
+  --app-font: "Onest Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: var(--app-font);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --button-radius: 9999px;
+  --card-shadow: 0 1px 2px rgb(80 20 60 / 0.05), 0 8px 20px rgb(80 20 60 / 0.06);
+  --button-shadow: none;
+  --surface-blur: 0px;
+}
+
+/* Signal: bold Swiss type and square corners, softened with pastel lines. */
+[data-ui="signal"] {
+  --background: #ffffff;
+  --surface: #ffffff;
+  --foreground: #0a0a0a;
+  --muted: #555555;
+  --border: #f3c2b9;
+  --accent: #e0301e;
+  --accent-foreground: #ffffff;
+  --accent-ink: #c4220f;
+  --app-font: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: var(--app-font);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --button-radius: 0;
+  --card-shadow: none;
+  --button-shadow: none;
+  --surface-blur: 0px;
+}
+
+[data-ui="signal"] :is(h1, h2, h3) {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+/* Forest: restful greens, serif headings and numbers. */
+[data-ui="forest"] {
+  --background: #f1f3f1;
+  --surface: #ffffff;
+  --foreground: #17251f;
+  --muted: #5e6b64;
+  --border: #d3dcd6;
+  --accent: #1f4d3a;
+  --accent-foreground: #ffffff;
+  --accent-ink: #1f4d3a;
+  --app-font: "Source Sans 3 Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: "Newsreader Variable", ui-serif, Georgia, serif;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.75rem;
+  --button-radius: 0.5rem;
+  --card-shadow: none;
+  --button-shadow: none;
+  --surface-blur: 0px;
+}
+
+/* Frost: frosted glass over a soft color wash. The playful one. */
+[data-ui="frost"] {
+  --background: #eef2f8;
+  --surface: rgb(255 255 255 / 0.66);
+  --foreground: #1c2433;
+  /* Over the darkest blue of the wash, not just white: 4.5:1 there too. */
+  --muted: #525c6e;
+  --border: rgb(28 36 51 / 0.1);
+  --accent: #1f6feb;
+  --accent-foreground: #ffffff;
+  --accent-ink: #1858c2;
+  --app-font: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: var(--app-font);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --button-radius: 9999px;
+  --card-shadow: 0 10px 30px rgb(31 60 110 / 0.1);
+  --button-shadow: 0 6px 16px rgb(31 111 235 / 0.28);
+  --surface-blur: 14px;
+  background-image:
+    radial-gradient(circle at 12% 8%, #cfe0ff 0, transparent 42%), radial-gradient(circle at 88% 18%, #ffdcd5 0, transparent 38%),
+    radial-gradient(circle at 55% 100%, #d6f2e3 0, transparent 45%);
+  background-attachment: fixed;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  [data-ui="frost"] {
+    --surface: #ffffff;
+    --surface-blur: 0px;
+  }
+}
+
+/* Corner overrides. After the themes, so they win on the same element. */
+[data-corners="square"] {
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --button-radius: 0;
+}
+
+[data-corners="soft"] {
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --button-radius: 0.375rem;
+}
+
+[data-corners="round"] {
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --button-radius: 9999px;
+}
+
+/*
+ * Form fields need a boundary of at least 3:1 against what is around them (WCAG 1.4.11),
+ * which the calm --border is not. Derived from each theme's own muted and surface (82%
+ * muted), so every light-only theme gets one without a value of its own.
+ *
+ * Classic writes its pair out: its muted and surface are light-dark() pairs, and a
+ * light-dark() inside color-mix() is not a colour Chrome accepts, which would leave the
+ * border at currentColor. Same mix: #908b86 (3.4:1 on white), #8f8986 (5.1:1 on #1c1917).
+ */
+:root,
+[data-ui] {
+  --field-border: color-mix(in srgb, var(--muted) 82%, var(--surface));
+}
+
+:root:not([data-ui]),
+[data-ui="classic"] {
+  --field-border: light-dark(#908b86, #8f8986);
+}
+
+body,[data-ui]{background-color:var(--background);color:var(--foreground);font-family:var(--app-font)}
+[data-ui="frost"]>body{background-color:transparent}
+*{box-sizing:border-box} body{margin:0;line-height:1.5}
+button,input{font:inherit;color:inherit}
+.muted{color:var(--muted)} .ink{color:var(--accent-ink)}
+.bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;align-items:center;padding:.75rem 1.25rem;background:var(--surface);border-bottom:1px solid var(--border);font-size:.875rem}
+.bar h1{font-size:1rem;margin:0 auto 0 0;font-family:var(--display-font)}
+.bar label{display:flex;gap:.4rem;align-items:center;color:var(--muted)}
+.bar select{border:1px solid var(--field-border);background:var(--surface);color:var(--foreground);border-radius:var(--radius-md);padding:.2rem .4rem}
+main{max-width:72rem;margin:0 auto;padding:1.5rem 1.25rem 4rem}
+.lede{max-width:44rem;color:var(--muted);margin:.25rem 0 1.5rem}
+.card{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-2xl);box-shadow:var(--card-shadow);padding:1.5rem}
+[data-ui="frost"] .card,[data-ui="frost"] .dp{backdrop-filter:blur(var(--surface-blur))}
+.card h2{margin:0 0 1rem;font-size:1.125rem;font-family:var(--display-font)}
+.sentence{font-family:var(--display-font);font-size:25px;line-height:1.95;letter-spacing:-.01em;margin:0}
+.token{position:relative;display:inline-block;margin:0 .125rem;padding:.125rem .5rem;line-height:1.3;white-space:nowrap;border-radius:var(--radius-lg);color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 10%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--accent) 40%,transparent);border:0;cursor:pointer;font:inherit}
+.token:hover,.token[aria-expanded="true"]{box-shadow:inset 0 -2px 0 var(--accent)}
+.token:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.anchor{position:relative;display:inline-block}
+.states{display:grid;grid-template-columns:repeat(auto-fill,minmax(21.5rem,1fr));gap:1.25rem;margin-top:1.5rem}
+.state{padding:1rem 1rem 1.25rem}
+.state h3{font-size:.8125rem;font-weight:600;margin:0 0 .15rem}
+.state p.note{font-size:.75rem;color:var(--muted);margin:0 0 .85rem}
+.state .dp{position:static}
+.phone{width:320px;height:600px;border:1px solid var(--border);border-radius:1.75rem;overflow:hidden;background:var(--background);position:relative;margin:0 auto}
+.phone .scr{padding:2.5rem 1rem 1rem;position:relative;height:100%}
+.phone .sentence{font-size:20px;line-height:2.05}
+.phone .card{padding:1rem}
+.foot{margin-top:2rem;font-size:.8125rem;color:var(--muted)}
+.focus-ring:focus-visible,.is-focus{outline:2px solid var(--accent-ink)!important;outline-offset:2px}
+@media (forced-colors:active){.dp [aria-selected="true"]{outline:2px solid CanvasText;outline-offset:-2px}.dp :focus-visible,.dp .is-focus{outline:2px solid Highlight!important}}
+@media (prefers-reduced-motion:reduce){.dp{animation:none!important}}
+@keyframes dp-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+/* ---- Option A: Quiet popover ---- */
+
+.dp{position:absolute;top:100%;left:0;z-index:30;margin-top:.5rem;width:min(20rem,calc(100vw - 2rem));padding:.75rem;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-xl);box-shadow:0 10px 15px -3px rgb(0 0 0/.1),0 4px 6px -4px rgb(0 0 0/.1);font-family:var(--app-font);font-size:1rem;line-height:1.5;letter-spacing:normal;color:var(--foreground);text-align:left;white-space:normal;animation:dp-in 120ms ease-out}
+.dp.on-phone{position:relative;left:auto;top:auto;margin-top:.5rem;width:auto}
+.typed{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}
+.typed label{font-size:.75rem;color:var(--muted);white-space:nowrap}
+.typed .tf{flex:1;min-width:0;border:1px solid var(--field-border);background:var(--surface);border-radius:var(--radius-md);padding:.25rem .5rem;font-size:.875rem;font-variant-numeric:tabular-nums;outline:none}
+.typed .tf:focus{border-color:var(--accent-ink);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-ink) 20%,transparent)}
+.typed .tf[aria-invalid="true"]{border-color:var(--danger)}
+.typed{flex-wrap:wrap}.err{flex-basis:100%;font-size:.75rem;color:var(--danger)}
+.hd{display:flex;align-items:center;justify-content:space-between;padding:.25rem .125rem .25rem .375rem}
+.ml{font-size:.9375rem;font-weight:600;margin:0;font-family:var(--app-font);text-transform:none;letter-spacing:0}
+.navs{display:flex;gap:.125rem}
+.nav{display:grid;place-items:center;width:2.25rem;height:2.25rem;border:0;background:none;border-radius:var(--radius-md);color:var(--muted);cursor:pointer}
+.nav:hover{color:var(--foreground);background:var(--background)}
+.wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:.75rem;color:var(--muted);text-align:center;padding:.25rem 0}
+.wd abbr{text-decoration:none}
+.wk{display:grid;grid-template-columns:repeat(7,1fr)}
+.day{position:relative;aspect-ratio:1;min-height:2.25rem;border:0;background:none;padding:0;cursor:pointer;display:grid;place-items:center;font-size:.875rem;font-variant-numeric:tabular-nums;color:var(--foreground)}
+.day .n{display:grid;place-items:center;width:2.25rem;height:2.25rem;border-radius:var(--button-radius)}
+.day:hover .n,.day.is-hover .n{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.day.out{color:var(--muted)}
+.day.today::after{content:"";position:absolute;bottom:.2rem;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:9999px;background:var(--accent-ink)}
+.day.sel .n{background:var(--accent);color:var(--accent-foreground);font-weight:600;box-shadow:var(--button-shadow)}
+.day.sel.today::after{background:var(--accent-foreground)}
+.day.dis{color:var(--muted);opacity:.55;cursor:default}
+.day.dis .n{text-decoration:line-through;text-decoration-thickness:1px}
+.day.dis:hover .n{background:none}
+.day:focus-visible,.day.is-focus{outline:none!important}
+.day:focus-visible .n,.day.is-focus .n{outline:2px solid var(--accent-ink);outline-offset:2px}
+.ft{display:flex;justify-content:flex-end;padding-top:.375rem;margin-top:.25rem}
+.todaybtn{border:0;background:none;font-size:.875rem;color:var(--muted);border-radius:var(--radius-md);padding:.25rem .5rem;cursor:pointer;min-height:1.5rem}
+.todaybtn:hover{color:var(--foreground)}
+.todaybtn:disabled{opacity:.6;cursor:default}
+
+</style></head>
+<body>
+<div class="bar"><h1>Option A: Quiet popover</h1>
+<label>Theme <select id="ui"><option value="classic">Classic</option><option value="cobalt">Cobalt</option><option value="marigold">Marigold</option><option value="saffron">Saffron</option><option value="graphite">Graphite</option><option value="plum">Plum</option><option value="signal">Signal</option><option value="forest">Forest</option><option value="frost">Frost</option></select></label>
+<label>Mode <select id="mode"><option value="light">Light</option><option value="dark">Dark</option><option value="system">Automatic</option></select><span id="modehint" class="muted" hidden>(light only in this theme)</span></label>
+<label>Corners <select id="corners"><option value="">Theme’s</option><option value="square">Square</option><option value="soft">Soft</option><option value="round">Round</option></select></label>
+<label>Accent <select id="accent"><option value="theme">Theme’s</option><option value="custom">Custom (#be185d)</option></select></label>
+</div>
+<main>
+<p class="lede">The popup is a sibling of the sentence’s existing type and portion menus (ChipSelect): same rounded-xl surface, border and shadow, opening right under the token. Month label on the left, both arrows grouped on the right. The selected day is a filled accent chip shaped like the theme’s buttons (pill in Plum and Frost, square in Signal, rounded elsewhere); today is a small accent-ink dot under the number. “Today” is a quiet text action bottom-right.</p>
+<section class="card" style="padding-bottom:26rem"><h2>Request time off <span class="muted" style="font-size:.8125rem;font-weight:400;font-family:var(--app-font)">· live: click a date, use the arrow keys, PageUp/PageDown, Home/End, Enter, Escape, or type YYYY-MM-DD</span></h2>
+<p class="sentence" id="live"></p></section>
+<div class="states" id="states"></div>
+<p class="foot">Mockup only. “Today” is pinned to Mon, Nov 9, 2026. Colours, fonts and corners come from the app’s theme tokens; webfonts fall back to system faces here.</p>
+</main>
+<script>const PHONE_NOTE="Anchored under the token; if it would cross the screen edge it slides left to keep 1rem of margin. Width min(20rem, 100vw − 2rem), so cells shrink to ~38px.";
+const V="a";
+const TODAY="2026-11-09";
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const WD=[["Mon","Monday"],["Tue","Tuesday"],["Wed","Wednesday"],["Thu","Thursday"],["Fri","Friday"],["Sat","Saturday"],["Sun","Sunday"]];
+const u=(s)=>{const[y,m,d]=s.split("-").map(Number);return new Date(Date.UTC(y,m-1,d))};
+const iso=(d)=>d.toISOString().slice(0,10);
+const add=(s,n)=>{const d=u(s);d.setUTCDate(d.getUTCDate()+n);return iso(d)};
+const addMonths=(s,n)=>{const d=u(s);const day=d.getUTCDate();const t=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+n,1));const last=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();t.setUTCDate(Math.min(day,last));return iso(t)};
+const dow=(s)=>(u(s).getUTCDay()+6)%7;
+const long=(s)=>u(s).toLocaleDateString("en-US",{timeZone:"UTC",weekday:"long",month:"long",day:"numeric",year:"numeric"});
+const short=(s)=>u(s).toLocaleDateString("en-US",{timeZone:"UTC",weekday:"short",month:"short",day:"numeric"});
+const grid=(ym)=>{const first=ym+"-01";const start=add(first,-dow(first));return Array.from({length:42},(_,i)=>{const d=add(start,i);return{d,inMonth:d.slice(0,7)===ym}})};
+const parseTyped=(t)=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(t))return null;return iso(u(t))===t?t:null};
+const icon=(dir)=>'<svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="'+(dir<0?"M10 3.5 5.5 8 10 12.5":"M6 3.5 10.5 8 6 12.5")+'" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const esc=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+
+/* opts: label, value, min, focus, typed, invalid, hover, focusClass, phone */
+function pickerHTML(o){
+  const focus=o.focus, ym=focus.slice(0,7);
+  const [y,m]=ym.split("-").map(Number);
+  const monthLabel=MONTHS[m-1]+" "+y;
+  const todayOk=!(o.min&&TODAY<o.min);
+  const cells=grid(ym).map(({d,inMonth})=>{
+    const sel=d===o.value, today=d===TODAY, dis=o.min&&d<o.min, f=d===focus;
+    const cls=["day",inMonth?"":"out",sel?"sel":"",today?"today":"",dis?"dis":"",o.focusClass&&f?"is-focus":"",o.hover===d?"is-hover":""].filter(Boolean).join(" ");
+    const name=long(d)+(today?", today":"");
+    return '<button type="button" role="gridcell" class="'+cls+'" data-d="'+d+'" tabindex="'+(f?0:-1)+'" aria-label="'+name+'"'+(sel?' aria-selected="true"':'')+(dis?' aria-disabled="true"':'')+'><span class="n">'+Number(d.slice(8))+'</span></button>';
+  });
+  const rows=[];for(let r=0;r<6;r++)rows.push('<div role="row" class="wk">'+cells.slice(r*7,r*7+7).join("")+'</div>');
+  const head='<div role="row" class="wd">'+WD.map(([a,f])=>'<span role="columnheader" aria-label="'+f+'"><abbr title="'+f+'">'+a+'</abbr></span>').join("")+'</div>';
+  const typedVal=o.typed!=null?o.typed:(o.value||"");
+  const fieldId="t"+Math.random().toString(36).slice(2,7);
+  const typed=(cls)=>'<div class="typed '+cls+'"><label for="'+fieldId+'">'+o.label+'</label><input id="'+fieldId+'" class="tf focus-ring" inputmode="numeric" placeholder="YYYY-MM-DD" autocomplete="off" value="'+esc(typedVal)+'"'+(o.invalid?' aria-invalid="true" aria-describedby="'+fieldId+'e"':'')+'>'+(o.invalid?'<span class="err" id="'+fieldId+'e">Use YYYY-MM-DD, on or after '+(o.min?short(o.min):"the first day")+'.</span>':'')+'</div>';
+  const prev='<button type="button" class="nav prev focus-ring" aria-label="Previous month">'+icon(-1)+'</button>';
+  const next='<button type="button" class="nav next focus-ring" aria-label="Next month">'+icon(1)+'</button>';
+  const month='<h2 class="ml" aria-live="polite">'+(V==="c"?'<span>'+MONTHS[m-1]+'</span> <span class="yr">'+y+'</span>':monthLabel)+'</h2>';
+  const todayBtn='<button type="button" class="todaybtn focus-ring"'+(todayOk?'':' disabled')+'>'+(V==="c"?'Today <span class="muted">· '+short(TODAY)+'</span>':'Today')+'</button>';
+  let header,footer;
+  if(V==="a"){header='<div class="hd">'+month+'<div class="navs">'+prev+next+'</div></div>';footer='<div class="ft">'+todayBtn+'</div>'}
+  else if(V==="b"){header='<div class="hd">'+prev+month+next+'</div>';footer='<div class="ft">'+todayBtn+'</div>'}
+  else{header='<div class="hd">'+month+'<div class="navs">'+prev+next+'</div></div>';footer='<div class="ft">'+todayBtn+'</div>'}
+  return '<div class="dp'+(o.phone?' on-phone':'')+'" role="dialog" aria-modal="true" aria-label="Choose '+o.label.toLowerCase()+'">'+typed(V)+header+'<div role="grid" class="g" aria-label="'+monthLabel+'">'+head+rows.join("")+'</div>'+footer+'</div>';
+}
+
+/* Live demo: one sentence with two working pickers */
+const state={startDate:"2026-11-23",endDate:"2026-11-25"};
+let open=null;
+function renderLive(){
+  const host=document.getElementById("live");
+  const tok=(name,label,min)=>{
+    const v=state[name];const isOpen=open&&open.name===name;
+    return '<span class="anchor"><button type="button" class="token" data-tok="'+name+'" aria-haspopup="dialog" aria-expanded="'+isOpen+'" aria-label="'+label+', '+(v?long(v):"no date")+'">'+(v?short(v):"pick a date")+'</button><input type="hidden" name="'+name+'" value="'+v+'">'+(isOpen?pickerHTML({label,value:v,min,focus:open.focus,typed:open.typed,invalid:open.invalid}):"")+'</span>';
+  };
+  host.innerHTML='I’m taking <span class="token">Vacation</span> from '+tok("startDate","First day")+' to '+tok("endDate","Last day",state.startDate)+', <span class="token">full days</span>.';
+  if(open){const f=host.querySelector('.dp [tabindex="0"]');if(open.refocus!=="typed")f&&f.focus();else host.querySelector(".dp .tf").focus();open.refocus=null}
+}
+function openPicker(name){const v=state[name],min=name==="endDate"?state.startDate:null;let f=v||TODAY;if(min&&f<min)f=min;open={name,min,focus:f};renderLive()}
+function close(){const n=open.name;open=null;renderLive();document.querySelector('[data-tok="'+n+'"]').focus()}
+function pick(d){if(open.min&&d<open.min)return;state[open.name]=d;if(open.name==="startDate"&&state.endDate<d)state.endDate=d;close()}
+document.addEventListener("click",(e)=>{
+  const live=document.getElementById("live");if(!live.contains(e.target))return;
+  const t=e.target.closest("[data-tok]");if(t){open&&open.name===t.dataset.tok?close():openPicker(t.dataset.tok);return}
+  if(!open)return;
+  const day=e.target.closest(".day");if(day){pick(day.dataset.d);return}
+  if(e.target.closest(".prev")){open.focus=addMonths(open.focus,-1);renderLive();document.querySelector("#live .prev").focus();return}
+  if(e.target.closest(".next")){open.focus=addMonths(open.focus,1);renderLive();document.querySelector("#live .next").focus();return}
+  if(e.target.closest(".todaybtn")){pick(TODAY)}
+});
+document.addEventListener("pointerdown",(e)=>{if(open&&!e.target.closest("#live .anchor"))close()});
+document.addEventListener("input",(e)=>{if(!open||!e.target.matches("#live .tf"))return;const p=parseTyped(e.target.value);open.typed=e.target.value;if(p&&!(open.min&&p<open.min)){state[open.name]=p;if(open.name==="startDate"&&state.endDate<p)state.endDate=p;open.focus=p;open.invalid=false}else open.invalid=e.target.value.length>0;open.refocus="typed";renderLive();const tf=document.querySelector("#live .tf");tf.setSelectionRange(tf.value.length,tf.value.length)});
+document.addEventListener("keydown",(e)=>{
+  if(!open)return;
+  if(e.key==="Escape"){e.preventDefault();close();return}
+  if(e.key==="Tab"){const els=[...document.querySelectorAll("#live .dp .tf,#live .dp .nav,#live .dp .day[tabindex='0'],#live .dp .todaybtn:not([disabled])")];const i=els.indexOf(document.activeElement);e.preventDefault();els[(i+(e.shiftKey?-1:1)+els.length)%els.length].focus();return}
+  const day=e.target.closest&&e.target.closest("#live .day");if(!day)return;
+  const d=day.dataset.d;let n=null;
+  switch(e.key){case"ArrowLeft":n=add(d,-1);break;case"ArrowRight":n=add(d,1);break;case"ArrowUp":n=add(d,-7);break;case"ArrowDown":n=add(d,7);break;
+  case"Home":n=add(d,-dow(d));break;case"End":n=add(d,6-dow(d));break;
+  case"PageUp":n=addMonths(d,e.shiftKey?-12:-1);break;case"PageDown":n=addMonths(d,e.shiftKey?12:1);break;
+  case"Enter":case" ":e.preventDefault();pick(d);return;default:return}
+  e.preventDefault();open.focus=n;renderLive();
+});
+
+/* Static states */
+const S=[
+  ["Default: a date is set","Focus starts on the selected day (Nov 23). Today (Nov 9) carries its marker.",{label:"First day",value:"2026-11-23",focus:"2026-11-23",focusClass:true}],
+  ["Hover","Pointer over Nov 18. Hover is a tint only; it never looks like a selection.",{label:"First day",value:"2026-11-23",focus:"2026-11-23",hover:"2026-11-18"}],
+  ["Empty value","The token reads “pick a date”; focus starts on today.",{label:"First day",value:"",typed:"",focus:TODAY,focusClass:true}],
+  ["Last day, with a minimum","First day is Nov 23, so the days before it are disabled (muted, struck through for non-colour cue). Focus may land on one but can’t pick it.",{label:"Last day",value:"2026-11-25",min:"2026-11-23",focus:"2026-11-20",focusClass:true}],
+  ["Typed entry rejected","“2026-02-30” is not a date: the value stays Nov 23, the field is aria-invalid.",{label:"First day",value:"2026-11-23",typed:"2026-02-30",invalid:true,focus:"2026-11-23"}],
+  ["Today before the minimum","The minimum is in December, so “Today” is disabled.",{label:"Last day",value:"2026-12-04",min:"2026-12-02",focus:"2026-12-04"}],
+];
+function renderStates(){
+  document.getElementById("states").innerHTML=S.map(([t,n,o])=>'<section class="card state"><h3>'+t+'</h3><p class="note">'+n+'</p>'+pickerHTML(o)+'</section>').join("")+
+  '<section class="card state"><h3>Phone, 320px</h3><p class="note">'+PHONE_NOTE+'</p><div class="phone"><div class="scr"><div class="card"><p class="sentence">I’m taking <span class="token">Vacation</span> from <span class="anchor"><button class="token" aria-expanded="true">Mon, Nov 23</button></span> to <span class="token">Wed, Nov 25</span>, full days.</p></div>'+pickerHTML({label:"First day",value:"2026-11-23",focus:"2026-11-23",phone:true})+'</div></div></section>';
+}
+
+/* Theme switcher */
+function applyTheme(){
+  const h=document.documentElement,q=(id)=>document.getElementById(id).value;
+  h.dataset.ui=q("ui");h.dataset.mode=q("mode");
+  if(q("corners"))h.dataset.corners=q("corners");else delete h.dataset.corners;
+  if(q("accent")==="custom"){h.style.setProperty("--accent","#be185d");h.style.setProperty("--accent-foreground","#ffffff");h.style.setProperty("--accent-ink","#be185d")}
+  else ["--accent","--accent-foreground","--accent-ink"].forEach((p)=>h.style.removeProperty(p));
+  document.getElementById("modehint").hidden=q("ui")==="classic";
+  const p=new URLSearchParams({ui:q("ui"),mode:q("mode"),corners:q("corners"),accent:q("accent")});history.replaceState(null,"","?"+p);
+}
+const params=new URLSearchParams(location.search);
+for(const k of ["ui","mode","corners","accent"]){const el=document.getElementById(k);if(params.has(k))el.value=params.get(k);el.addEventListener("change",applyTheme)}
+applyTheme();renderLive();renderStates();
+</script>
+</body></html>

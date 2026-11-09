@@ -149,11 +149,11 @@ export async function submitLeaveRequest(
     const leave = summarize(final, me, leaveType.name);
     const mail: Notification[] = [];
     // Who else is off, scoped to the requester's department as on the Approvals page.
-    const alsoOffLine = async () => {
+    const alsoOffLine = async (readerId: string) => {
       const person = await findPerson(tx, actor.companyId, actor.id);
       const department = person?.departmentId ? await findDepartment(tx, actor.companyId, person.departmentId) : undefined;
       const request = { ...final, userId: actor.id, departmentId: department?.id ?? null, departmentName: department?.name ?? null };
-      return (await alsoOffFor(tx, actor.companyId, [request])).get(final.id)?.line ?? null;
+      return (await alsoOffFor(tx, actor.companyId, [request], readerId)).get(final.id)?.line ?? null;
     };
     if (headsUp) {
       if (me) {
@@ -163,7 +163,7 @@ export async function submitLeaveRequest(
         mail.push({
           type: "leave.heads_up",
           to: told.email,
-          data: { requestId: final.id, recipientName: told.name, leave, alsoOff: await alsoOffLine(), link: `${ctx.appUrl}/calendar` },
+          data: { requestId: final.id, recipientName: told.name, leave, alsoOff: await alsoOffLine(told.id), link: `${ctx.appUrl}/calendar` },
         });
       }
     } else if (decision.kind === "auto_approve") {
@@ -175,7 +175,7 @@ export async function submitLeaveRequest(
         });
       }
     } else if (approver && approver.id !== actor.id) {
-      const alsoOff = await alsoOffLine();
+      const alsoOff = await alsoOffLine(approver.id);
       mail.push({
         type: "leave.requested",
         to: approver.email,

@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "department_scoping" boolean DEFAULT false NOT NULL;

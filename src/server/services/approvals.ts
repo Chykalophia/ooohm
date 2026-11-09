@@ -192,6 +192,7 @@ export async function getApprovalTriage(
       startDate: r.startDate,
       endDate: r.endDate,
     })),
+    actor.id,
   );
   const items = inbox.items.map((r) => ({ ...r, alsoOff: alsoOff.get(r.id) ?? null }));
   return { ...base, items, previous: inbox.previous, next: inbox.next, settled: [] };

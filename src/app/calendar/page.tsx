@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { yearHasHolidays } from "@/domain/calendar";
-import { CALENDAR_FILTER_LABELS, type CalendarFilter } from "@/domain/calendar-visibility";
+import type { CalendarFilter } from "@/domain/calendar-visibility";
 import { isHolidayYear } from "@/domain/holidays";
 import { formatMonth } from "@/lib/format";
 import { getMonthCalendar, getYearCalendar } from "@/server/services/calendar";
@@ -92,13 +92,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   }
 
   const month = readParam(monthParamSchema, params.month);
-  const { nav, weeks, agenda, leaveTypes, filter, filters } = await getMonthCalendar(
+  const { nav, weeks, agenda, leaveTypes, filter, filters, filterLabels } = await getMonthCalendar(
     page.ctx,
     page.actor,
     month,
     readParam(calendarFilterParamSchema, params.show),
   );
-  const whose = filter === "me" ? "Your time off" : filter === "team" ? "Your team's time off" : "Everyone's time off";
+  const whose =
+    filter === "me" ? "Your time off" : filter === "team" ? "Your team's time off" : filterLabels.everyone === "Everyone" ? "Everyone's time off" : `${filterLabels.everyone}'s time off`;
 
   return (
     <AppPage
@@ -115,7 +116,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
             label="Whose time off"
             items={filters.map((f) => ({
               href: monthHref(nav.month, f),
-              label: CALENDAR_FILTER_LABELS[f],
+              label: filterLabels[f],
               current: f === filter ? "page" : undefined,
             }))}
           />

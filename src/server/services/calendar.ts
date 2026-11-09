@@ -16,7 +16,7 @@ import {
   type TeamCalendarEntry,
   type YearMonth,
 } from "@/domain/calendar";
-import { calendarFiltersFor, calendarScopeFor, narrowCalendarScope } from "@/domain/calendar-visibility";
+import { CALENDAR_FILTERS, type CalendarFilter, calendarFilterLabel, calendarFiltersFor, narrowCalendarScope } from "@/domain/calendar-visibility";
 import { DomainError } from "@/domain/errors";
 import { teamLabel } from "@/domain/person";
 import { todayInTimeZone } from "@/lib/dates";
@@ -24,6 +24,7 @@ import type { ServiceContext } from "@/server/context";
 import { findCalendarViewer, findCompanySettings, listHolidays, listPersonalEntries, listTeamEntries } from "@/server/repositories/calendar";
 import { listDepartments } from "@/server/repositories/departments";
 import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { scopeOf } from "./calendar-scope";
 
 /** Where a month view sits and where its links go. */
 export interface MonthNav {
@@ -61,8 +62,8 @@ export function toTeamEntry({ personEmail, ...row }: TeamRow): TeamCalendarEntry
 async function calendarViewer(ctx: ServiceContext, actor: Actor) {
   const viewer = await findCalendarViewer(ctx.db, actor.companyId, actor.id);
   if (!viewer) throw new DomainError("no_company");
-  const person = { id: actor.id, role: actor.role, managerId: viewer.managerId };
-  return { settings: viewer, person, scope: calendarScopeFor(person, viewer) };
+  const person = { id: actor.id, role: actor.role, managerId: viewer.managerId, departmentId: viewer.departmentId };
+  return { settings: viewer, person, scope: await scopeOf(ctx.db, actor.companyId, person, viewer) };
 }
 
 /**
@@ -72,7 +73,7 @@ async function calendarViewer(ctx: ServiceContext, actor: Actor) {
  * team's or everyone's, as far as the company lets them see (`narrowCalendarScope`):
  * who, when and which leave type, never a note. Four queries whatever the month holds:
  * the viewer and company settings, then holidays, the leave and the leave types in
- * parallel.
+ * parallel; one more, for the departments the viewer manages, under department scoping.
  *
  * @param month `YYYY-MM`; anything else (or nothing) means the current month in the
  *   company's time zone.
@@ -96,6 +97,8 @@ export async function getMonthCalendar(ctx: ServiceContext, actor: Actor, month?
     nav,
     filter: shown.filter,
     filters: calendarFiltersFor(scope),
+    /** How each filter reads: under department scoping, `everyone` is "My department". */
+    filterLabels: Object.fromEntries(CALENDAR_FILTERS.map((f) => [f, calendarFilterLabel(f, scope)])) as Record<CalendarFilter, string>,
     weeks: buildMonthGrid(input),
     agenda: buildAgenda(input),
     leaveTypes: types.map(({ id, name, color }) => ({ id, name, color })),
@@ -171,8 +174,10 @@ export interface TeamCalendarQuery {
 export async function getTeamCalendar(ctx: ServiceContext, actor: Actor, query: TeamCalendarQuery = {}) {
   const [{ settings, scope }, departments] = await Promise.all([calendarViewer(ctx, actor), listDepartments(ctx.db, actor.companyId)]);
   const nav = monthNav(query.month, todayInTimeZone(settings.timezone, ctx.now()));
-  // Only a department of this company filters; an unknown id falls back to everyone.
-  const department = departments.find((d) => d.id === query.departmentId) ?? null;
+  // Under department scoping only the viewer's departments are offered. Only one of
+  // those filters; any other id falls back to everyone the viewer sees.
+  const offered = scope.kind === "departments" ? departments.filter((d) => scope.departmentIds.includes(d.id)) : departments;
+  const department = offered.find((d) => d.id === query.departmentId) ?? null;
   const { first, last } = monthBounds(nav.month);
   const [holidays, rows] = await Promise.all([
     listHolidays(ctx.db, actor.companyId, first, last),
@@ -181,6 +186,6 @@ export async function getTeamCalendar(ctx: ServiceContext, actor: Actor, query: 
   // Same rule as the month grid: someone whose leave only covers this month's weekends
   // or holidays is not out this month.
   const out = entriesCostingDaysIn(rows.map(toTeamEntry), { first, last, workingDays: settings.workingDays, holidays });
-  return { nav, departments, department, people: groupByPerson(out) };
+  return { nav, departments: offered, department, people: groupByPerson(out) };
 }
 

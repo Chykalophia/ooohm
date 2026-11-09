@@ -1,7 +1,7 @@
 import type { Actor } from "@/domain/actor";
 import { isEmptyBalance } from "@/domain/allowance-policy";
 import { entriesCostingDaysIn } from "@/domain/calendar";
-import { calendarScopeFor, canSeeOnCalendar } from "@/domain/calendar-visibility";
+import { canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
@@ -18,6 +18,7 @@ import { findDepartment } from "@/server/repositories/departments";
 import { listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findPerson } from "@/server/repositories/users";
 import { summarizeBalances } from "./balances";
+import { scopeOf } from "./calendar-scope";
 
 /** How far back "Recently" looks, and how far ahead "Coming up" does, in days. */
 const RECENT_DAYS = 60;
@@ -54,7 +55,8 @@ export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: s
   ]);
   if (!company) throw new DomainError("no_company");
   if (!person?.isActive) throw new DomainError("not_found");
-  const scope = calendarScopeFor({ id: actor.id, role: actor.role, managerId: userId === actor.id ? person.managerId : (viewer?.managerId ?? null) }, company);
+  const me = userId === actor.id ? person : viewer;
+  const scope = await scopeOf(ctx.db, actor.companyId, { id: actor.id, role: actor.role, managerId: me?.managerId ?? null, departmentId: me?.departmentId ?? null }, company);
   if (!canSeeOnCalendar(scope, person)) throw new DomainError("not_found");
 
   const now = ctx.now();

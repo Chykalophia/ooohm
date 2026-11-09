@@ -30,6 +30,7 @@ function snapshot(row: CompanyRow) {
     managersSeeDetails: row.managersSeeDetails,
     approvalMode: readApprovalMode(row.approvalMode),
     colleagueVisibility: row.colleagueVisibility,
+    departmentScoping: row.departmentScoping,
     ...readAppearance(row),
     logo: readStoredLogo(row),
   };
@@ -106,6 +107,7 @@ export async function updateCompanySettings(
       managersSeeDetails: b.managersSeeDetails,
       approvalMode: readApprovalMode(b.approvalMode),
       colleagueVisibility: b.colleagueVisibility,
+      departmentScoping: b.departmentScoping,
       ...normalizeCompanySettings(input, b.timezone),
     }));
     const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);

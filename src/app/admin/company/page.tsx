@@ -81,7 +81,13 @@ export default async function CompanyPage() {
             name="colleagueVisibility"
             defaultValue={readColleagueVisibility(company.colleagueVisibility)}
             options={COLLEAGUE_VISIBILITY.map((v) => ({ value: v, label: COLLEAGUE_VISIBILITY_LABELS[v] }))}
-            hint="Applies to Who's out, the calendar, people's pages and calendar links. Their team is their manager, the others who report to that manager, and anyone who reports to them. Admins and managers always see everyone."
+            hint="Applies to Who's out, the calendar, people's pages and calendar links. Their team is their manager, the others who report to that manager, and anyone who reports to them. Admins and managers always see everyone, unless the next setting is on."
+          />
+          <CheckboxField
+            label="Keep people to their own departments"
+            name="departmentScoping"
+            defaultChecked={company.departmentScoping}
+            hint="Managers, and anyone who could see everyone, then see only their own department, the departments they manage and the people who report to them, here and in approval emails. Admins still see everyone. Off by default."
           />
           <CheckboxField
             label="Managers can see their team's balances and notes"

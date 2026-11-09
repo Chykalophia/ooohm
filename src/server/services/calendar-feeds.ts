@@ -1,6 +1,5 @@
 import type { Actor } from "@/domain/actor";
 import { buildFeedCalendar, type FeedContent, feedCalendarName, type FeedKind, feedWindow, isFeedKind } from "@/domain/calendar-feed";
-import { calendarScopeFor } from "@/domain/calendar-visibility";
 import type { PersonChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import {
@@ -32,6 +31,7 @@ import { hasApprovedRequest } from "@/server/repositories/leave-requests";
 import { lockMember } from "@/server/repositories/users";
 import { toTeamEntry } from "./calendar";
 import { inTransaction } from "./notify";
+import { scopeOf } from "./calendar-scope";
 
 /** A live feed as its owner sees it. The link itself is never shown again after issue. */
 export interface FeedSummary {
@@ -195,7 +195,8 @@ export interface RenderedFeed {
  * (`calendarScopeFor`), so a change of setting, role or manager reaches it at once.
  *
  * Two queries, or three when the `last_used_at` stamp is missing or over an hour old:
- * the token lookup, then the entries and the stamp in parallel.
+ * the token lookup, then the entries and the stamp in parallel; under department
+ * scoping, one more before the entries, for the departments the owner manages.
  *
  * @param options.admit Asked with the feed's id once the token is known to be live,
  *   before the entries are read; returning `false` stops there. The route uses it to
@@ -223,11 +224,9 @@ export async function renderCalendarFeed(
       ? listPersonalEntries(ctx.db, feed.companyId, feed.userId, from, to).then(
           (entries): FeedContent => ({ kind: "personal", calendarName, entries }),
         )
-      : listTeamEntries(ctx.db, feed.companyId, from, to, {
-          scope: calendarScopeFor({ id: feed.userId, role: feed.ownerRole, managerId: feed.ownerManagerId }, feed),
-        }).then(
-          (rows): FeedContent => ({ kind: "team", calendarName, entries: rows.map(toTeamEntry) }),
-        ),
+      : scopeOf(ctx.db, feed.companyId, { id: feed.userId, role: feed.ownerRole, managerId: feed.ownerManagerId, departmentId: feed.ownerDepartmentId }, feed)
+          .then((scope) => listTeamEntries(ctx.db, feed.companyId, from, to, { scope }))
+          .then((rows): FeedContent => ({ kind: "team", calendarName, entries: rows.map(toTeamEntry) })),
     stale ? touchFeed(ctx.db, feed.id, now, staleBefore) : undefined,
   ]);
   return { feedId: feed.id, kind: feed.kind, body: serializeCalendar(buildFeedCalendar(content, now)) };

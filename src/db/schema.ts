@@ -95,6 +95,12 @@ export const companies = pgTable("companies", {
   approvalMode: text("approval_mode").notNull().default("required"),
   /** `COLLEAGUE_VISIBILITY` in src/domain/calendar-visibility.ts: what employees see of colleagues' time off. */
   colleagueVisibility: text("colleague_visibility").notNull().default("everyone"),
+  /**
+   * Off by default. When on, everyone but admins sees only the time off of their own
+   * department, the departments they manage and their direct reports
+   * (`calendarScopeFor` in src/domain/calendar-visibility.ts).
+   */
+  departmentScoping: boolean("department_scoping").notNull().default(false),
   /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
   theme: text("theme").notNull().default(DEFAULT_THEME),
   /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */

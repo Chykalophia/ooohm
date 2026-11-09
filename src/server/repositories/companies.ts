@@ -13,6 +13,7 @@ export const companyFields = {
   managersSeeDetails: companies.managersSeeDetails,
   approvalMode: companies.approvalMode,
   colleagueVisibility: companies.colleagueVisibility,
+  departmentScoping: companies.departmentScoping,
   theme: companies.theme,
   accentColor: companies.accentColor,
   corners: companies.corners,
@@ -38,6 +39,8 @@ export type CompanyRow = {
   approvalMode: string;
   /** What employees see of colleagues' time off; read it through `readColleagueVisibility`. */
   colleagueVisibility: string;
+  /** Everyone but admins sees only their departments' time off (`calendarScopeFor`). */
+  departmentScoping: boolean;
   /** Raw stored appearance; read it through `readAppearance`. */
   theme: string;
   accentColor: string | null;
@@ -94,6 +97,7 @@ export async function updateCompany(
     managersSeeDetails?: boolean;
     approvalMode?: string;
     colleagueVisibility?: string;
+    departmentScoping?: boolean;
     theme?: string;
     accentColor?: string | null;
     corners?: string;

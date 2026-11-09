@@ -42,6 +42,16 @@ export async function findDepartmentManagerIds(ex: Executor, companyId: string, 
   return new Map(rows.flatMap((r) => (r.managerId ? [[r.id, r.managerId] as const] : [])));
 }
 
+/** The ids of the departments `userId` manages, in id order. */
+export async function listManagedDepartmentIds(ex: Executor, companyId: string, userId: string): Promise<string[]> {
+  const rows = await ex
+    .select({ id: departments.id })
+    .from(departments)
+    .where(and(eq(departments.companyId, companyId), eq(departments.managerId, userId)))
+    .orderBy(asc(departments.id));
+  return rows.map((r) => r.id);
+}
+
 export async function findDepartment(ex: Executor, companyId: string, id: string): Promise<DepartmentRow | undefined> {
   const [row] = await ex
     .select(fields)

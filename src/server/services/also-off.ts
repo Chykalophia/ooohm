@@ -2,7 +2,9 @@ import type { Executor } from "@/db/types";
 import { entriesCostingDaysIn } from "@/domain/calendar";
 import { describeOverlap, overlapsFor } from "@/domain/overlap";
 import { teamLabel } from "@/domain/person";
+import { canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { findCompanySettings, listHolidays, listTeamEntries } from "@/server/repositories/calendar";
+import { loadCalendarScope } from "./calendar-scope";
 
 /** A request an approver is about to decide, with the requester's department (if any). */
 export interface AlsoOffRequest {
@@ -33,8 +35,17 @@ export interface AlsoOff {
  * whose leave there falls only on weekends or holidays, or was recounted to 0). Three
  * queries for all the requests, over the dates they span together: the leave, the
  * working days and the holidays, in parallel.
+ *
+ * @param readerId Who reads the line (the approver, or whoever a heads-up goes to).
+ *   Under department scoping it names only people they may see (`calendarScopeFor`),
+ *   for one or two more queries.
  */
-export async function alsoOffFor(ex: Executor, companyId: string, requests: readonly AlsoOffRequest[]): Promise<Map<string, AlsoOff>> {
+export async function alsoOffFor(
+  ex: Executor,
+  companyId: string,
+  requests: readonly AlsoOffRequest[],
+  readerId?: string,
+): Promise<Map<string, AlsoOff>> {
   const lines = new Map<string, AlsoOff>();
   if (requests.length === 0) return lines;
   const from = requests.reduce((min, r) => (r.startDate < min ? r.startDate : min), requests[0].startDate);
@@ -45,7 +56,10 @@ export async function alsoOffFor(ex: Executor, companyId: string, requests: read
     listHolidays(ex, companyId, from, to),
   ]);
   const workingDays = settings?.workingDays ?? [];
-  const leave = entries.map((e) => ({ ...e, personName: teamLabel({ name: e.personName, email: e.personEmail }) }));
+  // Under department scoping the line names only people its reader may see.
+  const scope = settings?.departmentScoping && readerId ? await loadCalendarScope(ex, companyId, readerId) : null;
+  const visible = scope ? entries.filter((e) => canSeeOnCalendar(scope, { id: e.userId, managerId: e.managerId, departmentId: e.departmentId })) : entries;
+  const leave = visible.map((e) => ({ ...e, personName: teamLabel({ name: e.personName, email: e.personEmail }) }));
   for (const r of requests) {
     const costing = entriesCostingDaysIn(leave, { first: r.startDate, last: r.endDate, workingDays, holidays });
     const overlaps = overlapsFor(

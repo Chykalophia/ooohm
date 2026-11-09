@@ -176,6 +176,13 @@
       "when": 1794189280668,
       "tag": "0024_department_managers",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794189385996,
+      "tag": "0025_allowance_rules",
+      "breakpoints": true
     }
   ]
 }

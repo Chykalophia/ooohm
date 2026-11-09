@@ -340,7 +340,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     await book(vac, weekdays("11", [2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18, 19, 20]));
     await book(co.pto, weekdays("12", [1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 21]));
     const busy = await queriesFor(new Date("2026-11-01T15:00:00Z"));
-    assert.equal(empty.queries, 6, "settings, types, requests, allowances, booked days, holidays");
+    assert.equal(empty.queries, 7, "settings, types, requests, allowances, booked days, allowance rules, holidays");
     assert.equal(busy.queries, empty.queries, "query count does not grow with requests");
 
     assert.ok(busy.dash.balances);

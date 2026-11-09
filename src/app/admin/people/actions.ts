@@ -18,6 +18,12 @@ const personFields = {
   name: formFields.text(PERSON_NAME_MAX_LENGTH * 2),
   role: z.enum(ROLES),
   departmentId: formFields.optionalId,
+  // Only on the form when the company has levels: absent leaves the person's level as it is.
+  levelId: z
+    .string()
+    .max(100)
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v || null)),
   managerId: formFields.optionalId,
   canSelfApprove: formFields.checkbox,
 };

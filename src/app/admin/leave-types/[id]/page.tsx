@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { getAllowanceRulesForm } from "@/server/services/admin-allowance-rules";
 import { getLeaveTypeForAdmin } from "@/server/services/admin-leave-types";
+import { AllowanceRules } from "@/app/admin/leave-types/allowance-rules";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
 import { BackLink } from "@/components/ui/section";
@@ -13,7 +15,7 @@ export const metadata: Metadata = { title: "Leave type · Admin · OOOhm" };
 export default async function EditLeaveTypePage({ params }: { params: Promise<{ id: string }> }) {
   const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
-  const leaveType = await orNotFound(getLeaveTypeForAdmin(ctx, actor, id));
+  const [leaveType, rules] = await Promise.all([orNotFound(getLeaveTypeForAdmin(ctx, actor, id)), getAllowanceRulesForm(ctx, actor, id)]);
 
   return (
     <AdminShell
@@ -28,6 +30,7 @@ export default async function EditLeaveTypePage({ params }: { params: Promise<{ 
           <LeaveTypeFields leaveType={leaveType} />
         </ActionForm>
       </Card>
+      {leaveType.countsAgainstAllowance && <AllowanceRules leaveTypeId={leaveType.id} {...rules} />}
       <BackLink href="/admin/leave-types">Back to leave types</BackLink>
     </AdminShell>
   );

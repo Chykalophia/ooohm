@@ -26,6 +26,7 @@ import { isUniqueViolation } from "@/server/repositories/errors";
 import { listPendingRequestsInDepartment } from "@/server/repositories/leave-requests";
 import { countDepartmentMembers, findMember, listPeopleNames } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { removeRulesOf } from "./admin-allowance-rules";
 import { rerouteApprovals } from "./approval-routing";
 import { commitThenNotify, inTransaction } from "./notify";
 
@@ -136,10 +137,13 @@ export async function deleteDepartment(ctx: ServiceContext, actor: Actor, id: st
   assertCanAdminister(actor);
   if (!isUuid(id)) throw new DomainError("not_found");
   await inTransaction(ctx, async (tx) => {
+    // The company lock first, as rule changes take it, so a rule removed here is removed once.
+    if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
     await assertActiveAdmin(tx, actor);
     const before = await lockDepartment(tx, actor.companyId, id);
     if (!before) throw new DomainError("not_found");
     if ((await countDepartmentMembers(tx, id)) > 0) throw new DomainError("department_not_empty");
+    await removeRulesOf(tx, actor, { departmentId: id });
     await deleteDepartmentRow(tx, actor.companyId, id);
     await recordAdminChange(tx, actor, {
       type: ADMIN_EVENT_TYPES.departmentDeleted,

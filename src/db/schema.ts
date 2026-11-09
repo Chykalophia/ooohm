@@ -14,6 +14,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -144,6 +145,23 @@ export const emailTemplates = pgTable(
   ],
 );
 
+/**
+ * Levels people can be placed at (Intern, Senior), so allowance rules can give them
+ * more or less time off. Optional: a company without levels never sees them.
+ */
+export const levels = pgTable(
+  "levels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("levels_company_lower_name_uq").on(t.companyId, sql`lower(${t.name})`)],
+);
+
 // Auth (Better Auth core tables + OOOhm user fields)
 
 export const user = pgTable(
@@ -160,6 +178,7 @@ export const user = pgTable(
       onDelete: "set null",
     }),
     managerId: text("manager_id").references((): AnyPgColumn => user.id, { onDelete: "set null" }),
+    levelId: uuid("level_id").references(() => levels.id, { onDelete: "set null" }),
     role: roleEnum("role").notNull().default("employee"),
     /** When true, this user's own requests are approved automatically. */
     canSelfApprove: boolean("can_self_approve").notNull().default(false),
@@ -347,6 +366,35 @@ export const allowances = pgTable(
   (t) => [
     uniqueIndex("allowances_user_type_year_uq").on(t.userId, t.leaveTypeId, t.year),
     check("allowances_days_nonneg", sql`${t.days} >= 0`),
+  ],
+);
+
+/**
+ * A yearly allowance of one leave type for a department, a level, or both, replacing
+ * the type's default for the people it matches (the most specific rule wins; see
+ * `@/domain/allowance-rules`). A person's own allowance row still wins over it.
+ */
+export const allowanceRules = pgTable(
+  "allowance_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    leaveTypeId: uuid("leave_type_id")
+      .notNull()
+      .references(() => leaveTypes.id, { onDelete: "cascade" }),
+    departmentId: uuid("department_id").references(() => departments.id, { onDelete: "cascade" }),
+    levelId: uuid("level_id").references(() => levels.id, { onDelete: "cascade" }),
+    days: numeric("days", { precision: 5, scale: 1, mode: "number" }).notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    // One rule per type and target; "no department" and "no level" count as values.
+    unique("allowance_rules_target_uq").on(t.leaveTypeId, t.departmentId, t.levelId).nullsNotDistinct(),
+    index("allowance_rules_company_idx").on(t.companyId),
+    check("allowance_rules_target", sql`${t.departmentId} is not null or ${t.levelId} is not null`),
+    check("allowance_rules_days_nonneg", sql`${t.days} >= 0`),
   ],
 );
 

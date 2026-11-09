@@ -44,7 +44,7 @@ import { findCompanySettings, listHolidayDates } from "@/server/repositories/cal
 import { type LeaveRequestRow, lockActiveRequestsOnDates, updateRequestDays } from "@/server/repositories/leave-requests";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findContacts } from "@/server/repositories/users";
-import { allowanceYearsFor, balanceInputs } from "./balances";
+import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "./balances";
 import { recordRecount, summarize } from "./leave-changes";
 import type { Notification } from "./notify";
 
@@ -141,7 +141,7 @@ export async function recountLeave(
   const people = new Map(
     (await findContacts(tx, actor.companyId, [...new Set(changed.map((c) => c.after.userId))])).map((p) => [p.id, p]),
   );
-  const overdrawn = await findOverdrawn(tx, policy, typeById, changed, people);
+  const overdrawn = await findOverdrawn(tx, actor.companyId, policy, typeById, changed, people);
 
   const notify: Notification[] = [];
   for (const { before, after, grew } of changed) {
@@ -199,10 +199,12 @@ function causeFor(change: CalendarChange, request: { startDate: string; endDate:
 
 /**
  * The tracked balances, among the years a recount charged more, that are now below
- * zero. Two queries (allowance rows and booked days) for all of them.
+ * zero. Four queries at most (allowance rows, booked days, allowance rules and
+ * where the people sit) for all of them.
  */
 async function findOverdrawn(
   tx: Transaction,
+  companyId: string,
   policy: AllowancePolicy,
   typeById: Map<string, Awaited<ReturnType<typeof listLeaveTypesWithAllowance>>[number]>,
   changed: readonly { after: LeaveRequestRow; grew: readonly YearDays[] }[],
@@ -219,11 +221,12 @@ async function findOverdrawn(
     leaveTypeIds: [...new Set(all.map((k) => k.leaveTypeId))],
   };
   const years = [...new Set(all.map((k) => k.year))];
-  const [allowanceRows, bookedRows] = await Promise.all([
+  const [allowanceRows, bookedRows, defaults] = await Promise.all([
     listAllowances(tx, { ...scope, years: allowanceYearsFor(years) }),
     sumBookedDays(tx, { ...scope, years }),
+    loadAllowanceDefaults(tx, companyId, scope.userIds),
   ]);
-  const inputs = balanceInputs(allowanceRows, bookedRows);
+  const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
 
   const overdrawn: OverdrawnBalance[] = [];
   for (const { userId, leaveTypeId, year } of all) {

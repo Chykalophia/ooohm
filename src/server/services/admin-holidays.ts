@@ -190,6 +190,7 @@ function checkIds(ids: readonly string[]): string[] {
 /** @throws DomainError `forbidden`, `not_found`, or `invalid_input`. */
 export async function renameHoliday(ctx: ServiceContext, actor: Actor, id: string, rawName: string): Promise<HolidayRow> {
   const [row] = await renameHolidays(ctx, actor, [id], rawName);
+  if (!row) throw new DomainError("not_found");
   return row;
 }
 

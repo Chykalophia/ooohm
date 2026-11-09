@@ -9,7 +9,7 @@ import { adminAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
 
 const MESSAGES = {
-  already_exists: "There's already a holiday on that date.",
+  already_exists: "Every day you picked already has a holiday.",
   not_found: "That holiday doesn't exist any more.",
   invalid_input: `Pick a first day, a last day on or after it (${HOLIDAY_RANGE_MAX_DAYS} days at most), and a name.`,
 };

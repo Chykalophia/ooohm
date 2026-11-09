@@ -33,7 +33,7 @@ export function RequestLeaveSentence({ leaveTypes, defaultDate }: { leaveTypes: 
  * keeps it a chip in the sentence's loose lines instead of a tall box crowding them.
  */
 const token = cx(
-  "relative mx-0.5 inline-block max-w-full rounded-lg bg-accent/10 px-2 py-0.5 leading-[1.3] whitespace-nowrap text-accent-ink",
+  "relative mx-0.5 inline-block max-w-full rounded-lg bg-accent/10 px-2 py-0.5 leading-[1.3] text-accent-ink sm:whitespace-nowrap",
   "shadow-[inset_0_-2px_0_color-mix(in_srgb,var(--accent)_40%,transparent)] transition-shadow",
   "hover:shadow-[inset_0_-2px_0_var(--accent)] has-[:focus-visible]:shadow-[inset_0_-2px_0_var(--accent)]",
   "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-ink",

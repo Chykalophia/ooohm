@@ -16,3 +16,11 @@ R1–R11 and R13 are consistent with the implementation and recorded evidence. A
 ## 3. Omissions
 
 - **[low] Browser coverage does not establish the 320px absolute no-overflow criterion.** `.agent/evidence/date-picker/checks.txt` records the failure as pre-existing. Add a regression check that identifies the overflowing element and passes only when the page is at most 320px wide with the popup open.
+
+## Review Fix
+
+- **[medium] AC6 320px overflow**: fixed. The `token` chip class had an unconditional `whitespace-nowrap`; it is now `sm:whitespace-nowrap`, so "PTO (Scheduled Time Off)" wraps inside its chip on phones. Regression test `tests/unit/request-sentence-chips.test.ts` (fails on the old class string).
+- **[low] phone panel width**: fixed. On phones the panel now takes the nearest `section` (the sentence card) box: its left edge and width, capped at the viewport (`date-picker.tsx` placement effect). Cell sizes are unchanged.
+- **[low] browser coverage**: `verify.mjs` now FAILs unless `scrollWidth <= 320` with the popup open (culprit named), and checks panel box == card box.
+- Not re-run: the browser script. Its playwright/chromium setup lived under /tmp and is gone, so the 320px result is unmeasured this session; Break 1 should re-run it.
+- Suite: `tsc --noEmit` clean, eslint clean on touched files, unit tests 430 pass / 0 fail. Integration tests not run (no DB change).

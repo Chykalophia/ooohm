@@ -256,10 +256,10 @@ const fit = await page.evaluate(() => ({
   scroll: document.documentElement.scrollWidth,
   cells: [...document.querySelectorAll('[role="gridcell"]')].map((c) => c.getBoundingClientRect()).map((b) => Math.min(b.width, b.height)),
   dlg: document.querySelector('[role="dialog"]').getBoundingClientRect().toJSON(),
+  card: document.querySelector('[role="dialog"]').closest('section').getBoundingClientRect().toJSON(),
 }));
-check("AC6 320px: opening the popup adds no horizontal scroll", fit.scroll <= Math.max(320, baseline.scroll), `closed=${baseline.scroll} open=${fit.scroll}`);
-if (fit.scroll <= 320) check("AC6 320px: scrollWidth <= 320 with the popup open", true, `scrollWidth=${fit.scroll}`);
-else lines.push(`KNOWN AC6 320px: scrollWidth=${fit.scroll} with the popup open, but ${baseline.scroll} with it closed too: pre-existing, from "${baseline.culprit}" (leave-type chip, not touched here)`);
+check("AC6 320px: scrollWidth <= 320 with the popup open", fit.scroll <= 320, `closed=${baseline.scroll} open=${fit.scroll} culprit="${baseline.culprit}"`);
+check("AC6 320px: phone panel is the sentence card's box", Math.abs(fit.dlg.left - fit.card.left) < 1 && Math.abs(fit.dlg.width - fit.card.width) < 1, `dlg=${fit.dlg.left}/${fit.dlg.width} card=${fit.card.left}/${fit.card.width}`);
 check("AC6 320px: every day cell >= 36x36", Math.min(...fit.cells) >= 36, `smallest=${Math.min(...fit.cells).toFixed(1)}px`);
 check("AC6 320px: popup inside the viewport", fit.dlg.left >= 0 && fit.dlg.right <= 320, `left=${fit.dlg.left.toFixed(1)} right=${fit.dlg.right.toFixed(1)}`);
 await page.screenshot({ path: `${OUT}/phone-320.png`, fullPage: false });

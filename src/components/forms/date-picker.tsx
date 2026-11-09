@@ -104,7 +104,7 @@ export function DatePicker({
     popup.current?.querySelector<HTMLElement>(`[data-date="${focus}"]`)?.focus();
   }, [open, focus]);
 
-  // Under the trigger, kept inside the viewport; on phones, the card's width from its left edge.
+  // Under the trigger, kept inside the viewport; on phones, the sentence card's width and left edge.
   useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
@@ -114,7 +114,14 @@ export function DatePicker({
       const viewport = document.documentElement.clientWidth;
       const anchor = wrap.getBoundingClientRect().left;
       const phone = !window.matchMedia("(min-width: 40rem)").matches;
-      const left = phone ? EDGE : Math.max(EDGE, Math.min(anchor, viewport - EDGE - panel.offsetWidth));
+      // Phones: exactly the card's box (the nearest section), never wider than the viewport.
+      const card = phone ? (wrap.closest("section") ?? wrap.closest("form")) : null;
+      const box = card?.getBoundingClientRect();
+      const width = box ? Math.min(box.width, viewport) : 0;
+      panel.style.width = box ? `${width}px` : "";
+      const left = box
+        ? Math.max(0, Math.min(box.left, viewport - width))
+        : Math.max(EDGE, Math.min(anchor, viewport - EDGE - panel.offsetWidth));
       panel.style.left = `${left - anchor}px`;
     };
     place();

@@ -1,4 +1,4 @@
-import { and, asc, between, eq } from "drizzle-orm";
+import { and, asc, between, eq, inArray } from "drizzle-orm";
 import { holidays } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 
@@ -15,12 +15,14 @@ export async function listHolidayRows(ex: Executor, companyId: string, from: str
     .orderBy(asc(holidays.date));
 }
 
-export async function findHoliday(ex: Executor, companyId: string, id: string): Promise<HolidayRow | undefined> {
-  const [row] = await ex
+/** The company's holidays among `ids`, by date; ids of other companies are left out. */
+export async function findHolidays(ex: Executor, companyId: string, ids: readonly string[]): Promise<HolidayRow[]> {
+  if (ids.length === 0) return [];
+  return ex
     .select(fields)
     .from(holidays)
-    .where(and(eq(holidays.id, id), eq(holidays.companyId, companyId)));
-  return row;
+    .where(and(eq(holidays.companyId, companyId), inArray(holidays.id, [...ids])))
+    .orderBy(asc(holidays.date));
 }
 
 /**
@@ -42,19 +44,23 @@ export async function insertHolidays(
     .returning(fields);
 }
 
-export async function renameHoliday(tx: Transaction, companyId: string, id: string, name: string): Promise<HolidayRow | undefined> {
-  const [row] = await tx
+/** @returns The renamed rows, by date. */
+export async function renameHolidays(tx: Transaction, companyId: string, ids: readonly string[], name: string): Promise<HolidayRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await tx
     .update(holidays)
     .set({ name })
-    .where(and(eq(holidays.id, id), eq(holidays.companyId, companyId)))
+    .where(and(eq(holidays.companyId, companyId), inArray(holidays.id, [...ids])))
     .returning(fields);
-  return row;
+  return rows.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export async function deleteHoliday(tx: Transaction, companyId: string, id: string): Promise<HolidayRow | undefined> {
-  const [row] = await tx
+/** @returns The deleted rows, by date. */
+export async function deleteHolidays(tx: Transaction, companyId: string, ids: readonly string[]): Promise<HolidayRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await tx
     .delete(holidays)
-    .where(and(eq(holidays.id, id), eq(holidays.companyId, companyId)))
+    .where(and(eq(holidays.companyId, companyId), inArray(holidays.id, [...ids])))
     .returning(fields);
-  return row;
+  return rows.sort((a, b) => a.date.localeCompare(b.date));
 }

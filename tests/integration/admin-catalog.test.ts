@@ -5,7 +5,16 @@ import * as schema from "@/db/schema";
 import { getCompanySettings, updateCompanyAppearance, updateCompanySettings } from "@/server/services/admin-company";
 import { getAppearance } from "@/server/services/appearance";
 import { createDepartment, deleteDepartment, listDepartmentsForAdmin, renameDepartment } from "@/server/services/admin-departments";
-import { addHoliday, addUsFederalHolidays, deleteHoliday, listHolidaysForAdmin, renameHoliday } from "@/server/services/admin-holidays";
+import {
+  addHoliday,
+  addHolidayRange,
+  addUsFederalHolidays,
+  deleteHoliday,
+  deleteHolidays,
+  listHolidaysForAdmin,
+  renameHoliday,
+  renameHolidays,
+} from "@/server/services/admin-holidays";
 import {
   createLeaveType,
   getLeaveTypeForAdmin,
@@ -324,6 +333,66 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
         { holidayId: xmas.id, date: "2026-12-25", name: "Christmas Day", actorId: boss.id, actor: { type: "user", id: boss.id } },
         { holidayId: xmas.id, date: "2026-12-25", name: "Christmas Day", actorId: boss.id, actor: { type: "user", id: boss.id } },
       ],
+    );
+  });
+
+  test("holidays: a range adds one holiday per day, skips taken dates, recounts once, and renames or deletes together", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { canSelfApprove: true } });
+    const ctx = createTestContext(t.db);
+    const { boss, ana } = co.people;
+    // Mon Dec 21 to Fri Jan 1: nine working days and a weekend.
+    const request = await submitLeaveRequest(ctx, ana, {
+      leaveTypeId: co.pto,
+      startDate: "2026-12-21",
+      endDate: "2027-01-01",
+      dayPortion: "full",
+    });
+    assert.deepEqual(await requestDaysOf(t.db, request.id), [
+      { year: 2026, days: 9 },
+      { year: 2027, days: 1 },
+    ]);
+    const { holiday: xmas } = await addHoliday(ctx, boss, { date: "2026-12-25", name: "Christmas" });
+
+    const { added, skipped, recount } = await addHolidayRange(ctx, boss, {
+      startDate: "2026-12-21",
+      endDate: "2027-01-03",
+      name: " Winter shutdown ",
+    });
+    assert.equal(added.length, 13, "fourteen days, Christmas already taken");
+    assert.deepEqual(skipped, ["2026-12-25"]);
+    assert.ok(added.every((h) => h.name === "Winter shutdown"));
+    assert.deepEqual(recount, { recounted: 1, nowFree: 1, overdrawn: [] });
+    assert.deepEqual(await requestDaysOf(t.db, request.id), [], "every working day is now a holiday");
+    assert.equal((await companyAudit(t.db, co.companyId, "holiday.created")).length, 14);
+    assert.equal((await companyEvents(t.db, co.companyId, "holiday.created")).length, 14);
+
+    await rejectsWith(addHolidayRange(ctx, boss, { startDate: "2026-12-24", endDate: "2026-12-26", name: "Again" }), "already_exists");
+    await rejectsWith(addHolidayRange(ctx, boss, { startDate: "2026-12-26", endDate: "2026-12-24", name: "Back" }), "invalid_input");
+    await rejectsWith(addHolidayRange(ctx, boss, { startDate: "2026-01-01", endDate: "2026-03-01", name: "Long" }), "invalid_input");
+    await rejectsWith(addHolidayRange(ctx, ana, { startDate: "2026-12-01", endDate: "2026-12-02", name: "Mine" }), "forbidden");
+
+    const ids = added.map((h) => h.id);
+    const renamed = await renameHolidays(ctx, boss, ids, "Year-end break");
+    assert.ok(renamed.every((h) => h.name === "Year-end break"));
+    assert.equal((await companyAudit(t.db, co.companyId, "holiday.renamed")).length, 13);
+    await rejectsWith(renameHolidays(ctx, boss, [...ids, ZERO_UUID], "Nope"), "not_found");
+    await rejectsWith(deleteHolidays(ctx, boss, [...ids, ZERO_UUID]), "not_found");
+    assert.equal((await listHolidaysForAdmin(ctx, boss, 2026)).holidays.length, 12, "Thanksgiving, Christmas, and ten shutdown days in 2026");
+
+    const after = await deleteHolidays(ctx, boss, ids);
+    assert.deepEqual(after, { recounted: 1, nowFree: 0, overdrawn: [] });
+    assert.deepEqual(
+      await requestDaysOf(t.db, request.id),
+      [
+        { year: 2026, days: 8 },
+        { year: 2027, days: 1 },
+      ],
+      "only Christmas stays free",
+    );
+    assert.equal((await companyAudit(t.db, co.companyId, "holiday.deleted")).length, 13);
+    assert.deepEqual(
+      (await listHolidaysForAdmin(ctx, boss, 2026)).holidays.map((h) => h.id).includes(xmas.id),
+      true,
     );
   });
 

@@ -48,6 +48,17 @@ export type LeaveEmail =
       approveLink?: string | null;
     }
   | { kind: "approved"; recipientName: string; leave: LeaveSummary; reason: string | null; link: string }
+  /** Heads-up time off (approval turned off): the requester's confirmation. */
+  | { kind: "booked"; recipientName: string; leave: LeaveSummary; link: string }
+  /** Heads-up time off: the manager (or fallback admin) is told, not asked. */
+  | {
+      kind: "heads_up";
+      recipientName: string;
+      leave: LeaveSummary;
+      /** Who else is off on those dates (`alsoOffFor`). */
+      alsoOff?: string | null;
+      link: string;
+    }
   | {
       kind: "added";
       recipientName: string;
@@ -117,6 +128,16 @@ export const LEAVE_KINDS: { [K in LeaveKind]: LeaveKindSpec<K> } = {
   approved: {
     defaults: { subject: "Your time off is approved", message: "Your {{leave_type}} is approved, {{dates}}: {{days}}." },
     details: (email) => ({ extra: email.reason ? { label: "Note from approver", value: email.reason, quoted: true } : undefined }),
+  },
+  booked: {
+    defaults: { subject: "Your time off is booked", message: "Your {{leave_type}} is booked, {{dates}}: {{days}}. Enjoy it." },
+  },
+  heads_up: {
+    defaults: {
+      subject: "{{requester}} is off {{date_span}}",
+      message: "{{requester}} is taking {{leave_type}}, {{dates}}: {{days}}. It's booked, so there's nothing you need to do.",
+    },
+    details: (email) => ({ quote: email.leave.note ?? undefined, overlap: email.alsoOff ?? undefined }),
   },
   added: {
     defaults: {

@@ -42,7 +42,7 @@ export default async function HomePage() {
       {dashboard.leaveTypes.length === 0 ? (
         <p className="text-muted">No leave types yet. An admin needs to set them up.</p>
       ) : (
-        <RequestLeave leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} />
+        <RequestLeave leaveTypes={dashboard.leaveTypes} defaultDate={dashboard.defaultDate} headsUp={dashboard.approvalMode === "heads_up"} />
       )}
 
       {!passkeyAdded && (

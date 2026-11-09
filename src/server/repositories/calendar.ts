@@ -7,6 +7,7 @@ const settingsFields = {
   timezone: companies.timezone,
   workingDays: companies.workingDays,
   allowancePolicy: companies.allowancePolicy,
+  approvalMode: companies.approvalMode,
 };
 
 export async function findCompanySettings(ex: Executor, companyId: string) {

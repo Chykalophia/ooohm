@@ -72,6 +72,13 @@ export const NOTIFICATION_TYPES = {
     recipientName: "Ana Ruiz",
     reason: "Enjoy it!",
   }),
+  "leave.booked": leave("booked", "Booked", "To the person, when they book time off and approval is turned off.", {
+    recipientName: "Ana Ruiz",
+  }),
+  "leave.heads_up": leave("heads_up", "Heads-up", "To the manager, when someone books time off and approval is turned off.", {
+    recipientName: "Mo Reyes",
+    alsoOff: "Aisha Khan is off then too.",
+  }),
   "leave.rejected": leave("rejected", "Declined", "To the person, when their request is declined.", {
     recipientName: "Ana Ruiz",
     reason: "It's launch week. Could you move it by a week?",

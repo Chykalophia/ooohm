@@ -58,9 +58,10 @@ function scopeFor(actor: Actor): InboxScope {
 
 /**
  * Who the approval rule (minus self-approval) picks for `requesterId`'s pending
- * requests now, read inside `tx`: three reads at most.
+ * requests now, read inside `tx`: three reads at most. Also who is told when someone
+ * cancels heads-up time off.
  */
-async function currentApprover(tx: Transaction, companyId: string, requesterId: string): Promise<string | null> {
+export async function currentApprover(tx: Transaction, companyId: string, requesterId: string): Promise<string | null> {
   const [requester, admins] = await Promise.all([findMember(tx, companyId, requesterId), listActiveAdmins(tx, companyId)]);
   if (!requester) return null;
   const manager =

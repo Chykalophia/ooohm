@@ -16,7 +16,7 @@ import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { ActionForm } from "@/components/forms/action-form";
 import { CheckboxField, SelectField } from "@/components/ui/fields";
-import { card, cx, focusRing } from "@/components/ui/styles";
+import { card, choiceCard, cx, focusRing } from "@/components/ui/styles";
 import { updateAppearanceAction } from "@/app/admin/appearance/actions";
 
 export const metadata: Metadata = { title: "Appearance · Admin · OOOhm" };
@@ -140,7 +140,7 @@ export default async function AppearancePage() {
               {REQUEST_STYLES.map((style) => (
                 <label
                   key={style}
-                  className="flex cursor-pointer items-start gap-2 rounded-2xl border border-border p-3 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
+                  className={choiceCard}
                 >
                   <input
                     type="radio"
@@ -165,7 +165,7 @@ export default async function AppearancePage() {
               {LAYOUTS.map((layout) => (
                 <label
                   key={layout}
-                  className="flex cursor-pointer items-start gap-2 rounded-2xl border border-border p-3 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
+                  className={choiceCard}
                 >
                   <input type="radio" name="layout" value={layout} defaultChecked={current.layout === layout} className="mt-1 accent-[var(--accent)]" />
                   <span>

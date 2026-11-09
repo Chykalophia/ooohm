@@ -105,6 +105,10 @@ export const surface = "rounded-2xl border border-border bg-surface";
 
 export const card = `${surface} p-5 sm:p-6`;
 
+/** A radio drawn as a bordered card with a label and a line under it: one of a few settings that each need a sentence. */
+export const choiceCard =
+  "flex cursor-pointer items-start gap-2 rounded-2xl border border-border p-3 has-[:checked]:border-accent-ink has-[:checked]:ring-2 has-[:checked]:ring-accent/30 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40";
+
 /** A rounded pill used as a filter or section switch; `active` marks the current one. */
 export function pillClass(active: boolean): string {
   return cx(

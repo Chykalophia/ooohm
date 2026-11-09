@@ -15,7 +15,7 @@ export async function requestLeaveAction(_prev: FormState, formData: FormData): 
   const fields = { ...readDraftFields(formData), note: formData.get("note") ?? undefined };
   return runFormAction("leave_request_submit", fields, leaveRequestSchema, async (ctx, actor, input) => {
     const request = await submitLeaveRequest(ctx, actor, input);
-    return formatSubmitted({ ...request, approved: request.status === "approved" });
+    return formatSubmitted({ ...request, approved: request.status === "approved", headsUp: request.headsUp });
   });
 }
 

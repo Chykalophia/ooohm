@@ -15,14 +15,23 @@ import { type LeaveTypeOption, LeavePreviewLine, type Portion, SubmitRow, useLea
  * the form and shares its live preview, so only the layout differs. An admin picks it
  * under Admin → Appearance.
  */
-export function RequestLeaveSentence({ leaveTypes, defaultDate }: { leaveTypes: LeaveTypeOption[]; defaultDate: string }) {
+export function RequestLeaveSentence({
+  leaveTypes,
+  defaultDate,
+  headsUp = false,
+}: {
+  leaveTypes: LeaveTypeOption[];
+  defaultDate: string;
+  /** The company turned approval off: the sentence books the time off instead of asking. */
+  headsUp?: boolean;
+}) {
   const { state, dispatch, pending, onSubmit, key } = useRequestAction();
 
   return (
-    <Section id={REQUEST_FORM_ID} title="Request time off" surface className="scroll-mt-6 space-y-4">
+    <Section id={REQUEST_FORM_ID} title={headsUp ? "Book time off" : "Request time off"} surface className="scroll-mt-6 space-y-4">
       <form action={dispatch} onSubmit={onSubmit} className="space-y-4">
-        <SentenceFields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} />
-        <SubmitRow state={state} pending={pending} label="Send request" />
+        <SentenceFields key={key} leaveTypes={leaveTypes} defaultDate={defaultDate} justSubmitted={state.status === "success"} headsUp={headsUp} />
+        <SubmitRow state={state} pending={pending} label={headsUp ? "Book it" : "Send request"} />
       </form>
     </Section>
   );
@@ -52,10 +61,12 @@ function SentenceFields({
   leaveTypes,
   defaultDate,
   justSubmitted,
+  headsUp,
 }: {
   leaveTypes: LeaveTypeOption[];
   defaultDate: string;
   justSubmitted: boolean;
+  headsUp: boolean;
 }) {
   const {
     leaveTypeId,
@@ -121,13 +132,13 @@ function SentenceFields({
 
       <details className="group text-sm">
         <summary className={cx("w-fit cursor-pointer rounded-md font-medium text-accent-ink marker:content-none", focusRing)}>
-          Add a note for your approver
+          {headsUp ? "Add a note" : "Add a note for your approver"}
         </summary>
         <textarea
           name="note"
           rows={2}
           maxLength={NOTE_MAX_LENGTH}
-          aria-label="Note for your approver"
+          aria-label={headsUp ? "Note" : "Note for your approver"}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           className={cx(fieldClass(), "mt-2 resize-y")}

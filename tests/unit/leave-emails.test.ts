@@ -171,3 +171,30 @@ test("time off added for someone says who added it, that it's approved, and the 
   assert.match(unnamed.text, /^Someone added your PTO/);
   assert.doesNotMatch(unnamed.text, /Note:/);
 });
+
+test("heads-up time off: the requester hears it's booked, their manager is told without being asked", () => {
+  const booked = renderLeaveEmail({ kind: "booked", recipientName: "Ana", leave: leave(), link: "https://x/" });
+  assert.equal(booked.subject, "Your time off is booked");
+  assert.match(booked.text, /^Your PTO is booked, Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\. Enjoy it\.\n/);
+  assert.doesNotMatch(booked.text, /approv/i);
+
+  const told = renderLeaveEmail({
+    kind: "heads_up",
+    recipientName: "Sam",
+    leave: leave({ requesterName: "Lena Park", note: "Visiting my parents" }),
+    alsoOff: "Aisha Khan is off then too.",
+    link: "https://x/calendar",
+  });
+  assert.equal(told.subject, "Lena Park is off Nov 2 to Nov 6");
+  assert.match(
+    told.text,
+    /^Lena Park is taking PTO, Mon, Nov 2 to Fri, Nov 6, 2026: 5 days\. It's booked, so there's nothing you need to do\.\n\n“Visiting my parents”\n\nAisha Khan is off then too\.\n/,
+  );
+  assert.match(told.text, /Open in OOOhm: https:\/\/x\/calendar/);
+  assert.doesNotMatch(told.text, /Approve|Review/);
+
+  const hostileName = renderLeaveEmail({ kind: "heads_up", recipientName: hostile, leave: leave({ requesterName: hostile, note: hostile }), link: "https://x/" });
+  assert.doesNotMatch(hostileName.subject, /[\r\n]/);
+  assert.doesNotMatch(hostileName.html, /<script\b/i);
+  assert.match(hostileName.html, /&lt;script&gt;/);
+});

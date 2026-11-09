@@ -37,6 +37,8 @@ const leaveCases: Record<string, LeaveEmail> = {
   requestedHostile: { kind: "requested", recipientName: hostile, leave: leave({ requesterName: hostile, note: hostile }), link: "https://x/approvals" },
   approved: { kind: "approved", recipientName: "Ana", leave: leave(), reason: null, link: "https://x/" },
   approvedWithNote: { kind: "approved", recipientName: "Ana", leave: leave(), reason: "Hand over X first", link: "https://x/" },
+  booked: { kind: "booked", recipientName: "Ana", leave: leave(), link: "https://x/" },
+  headsUp: { kind: "heads_up", recipientName: "Mo", leave: leave({ note: "Family visit" }), alsoOff: "Aisha Khan is off then too.", link: "https://x/calendar" },
   added: { kind: "added", recipientName: "Ana", leave: leave({ note: "Feel better" }), addedByName: "Mo Reyes", link: "https://x/" },
   addedUnnamed: { kind: "added", recipientName: "Ana", leave: leave(), addedByName: " ", link: "https://x/" },
   rejected: { kind: "rejected", recipientName: "Ana", leave: leave(), reason: "Launch week", link: "https://x/" },

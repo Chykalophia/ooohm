@@ -1,18 +1,16 @@
-# Needs You: pick the date picker design
+# Needs You: keep or undo a shared date-validation change
 
-resume_at: cklph Build v3 / Spec Revise
+resume_at: cklph Build v3 / Build
 
-Three mockups of the themed date picker are in `.agent/design/` (open `option-a.html`, `option-b.html` and `option-c.html` from the task's file viewer or the `feature/review-date-picker-t-352` branch). Each one is interactive and has a theme, mode, corner and accent switcher. `.agent/design/README.md` gives one paragraph per option.
+Verify passed every acceptance criterion (434/434 unit tests, 89/89 browser checks, build OK). One gap: Fix 2 changed `src/domain/calendar-date.ts`, so the server's date validation now accepts years 0001–0099. On `main` it rejects them, and year 50 is silently read as 1950. The spec said "Never: editing validation" and "Ask first: changing domain date rules". Details are in `.agent/verify.md`.
 
 ## Questions
 
-1. **Which option?**
-   - A: Quiet popover. It matches the sentence's existing menus, with a button-shaped selected day and a dot for today. ★ recommended
-   - B: Framed form panel. Full-size typed field, ring for today, square cells and a full-width "Today" button.
-   - C: Sentence-scale calendar. Big display-face month, underline for today, an underline-only typed field and "Today · Mon, Nov 9".
-2. **Today marker:** keep the chosen option's marker, or swap in another one (dot, ring or underline)?
-3. **On phones:** keep the chosen option's placement, or always pin the popup to the screen's side margins (1rem)?
+1. **The domain date change?**
+   - A: Undo it in `calendar-date.ts`. Put the `setUTCFullYear` helper in `date-picker-grid.ts` / `date-picker.tsx` only, and keep both attack tests passing. Server validation stays as on `main`. ★ recommended
+   - B: Keep it, as an approved bug fix. Add unit tests for `isCalendarDate` and `toEpochDay` on years 1–99 and note the change in the PR.
+   - C: Undo it, and also refuse years before 1000 in the picker (typed entry, navigation).
 
 ## For the Needs You agent
 
-Save the answers to `.agent/design/CHOSEN.md` in this form: the chosen option and its file, any swaps from questions 2 and 3, and Peter's exact words. Then route to `cklph Build v3 / Spec Revise`. Spec Revise should also fix AC1(a): November 2026 has 12 out-of-month dates, not 7 (see README.md).
+Record the answer in `.agent/decisions.md`, then route to `cklph Build v3 / Build` with the chosen option as Build's task. After Build, the card should come back through Verify.

@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { type CalendarDate, utcMs } from "@/domain/calendar-date";
+import type { CalendarDate } from "@/domain/calendar-date";
 import { monthOf } from "@/domain/calendar";
 import { formatShortDay } from "@/lib/format";
 import { cx, errorText, focusRing } from "@/components/ui/styles";
-import { initialFocus, isGridKey, isSelectable, localToday, moveFocus, parseTyped, pickerGrid } from "./date-picker-grid";
+import {
+  initialFocus,
+  isGridKey,
+  isSelectable,
+  localToday,
+  moveFocus,
+  parseTyped,
+  pickerGrid,
+  utcMs,
+} from "./date-picker-grid";
 
 const longFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",

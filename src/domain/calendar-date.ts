@@ -11,27 +11,20 @@ export type CalendarDate = string;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MS_PER_DAY = 86_400_000;
 
-/** UTC midnight of a date in ms. `Date.UTC` reads years 0-99 as 19xx, so the year is set explicitly. */
-export function utcMs(y: number, m: number, d: number): number {
-  const t = new Date(0);
-  t.setUTCFullYear(y, m, d);
-  return t.getTime();
-}
-
 /** True for a well-formed `YYYY-MM-DD` string naming a real day (no Feb 30). */
 export function isCalendarDate(value: string): value is CalendarDate {
   const m = ISO_DATE.exec(value);
   if (!m) return false;
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
   if (y < 1 || mo < 1 || mo > 12 || d < 1) return false;
-  const utc = new Date(utcMs(y, mo - 1, d));
+  const utc = new Date(Date.UTC(y, mo - 1, d));
   return utc.getUTCFullYear() === y && utc.getUTCMonth() === mo - 1 && utc.getUTCDate() === d;
 }
 
 /** Days since 1970-01-01 for a valid calendar date. */
 export function toEpochDay(date: CalendarDate): number {
   const [y, m, d] = date.split("-").map(Number);
-  return Math.round(utcMs(y, m - 1, d) / MS_PER_DAY);
+  return Math.round(Date.UTC(y, m - 1, d) / MS_PER_DAY);
 }
 
 export function fromEpochDay(epochDay: number): CalendarDate {

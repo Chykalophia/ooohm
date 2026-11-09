@@ -2,18 +2,43 @@
  * The date picker's grid and keyboard maths: pure functions over `YYYY-MM-DD` dates, no
  * DOM, so they are unit tested on their own (`tests/unit/date-picker-grid.test.ts`).
  */
-import { type CalendarDate, fromEpochDay, isCalendarDate, isoWeekday, toEpochDay } from "@/domain/calendar-date";
-import { addMonths, monthBounds, monthGridBounds, monthOf, type YearMonth } from "@/domain/calendar";
+import { type CalendarDate, fromEpochDay, isCalendarDate } from "@/domain/calendar-date";
+import { addMonths, monthOf, type YearMonth } from "@/domain/calendar";
 
 /** Six weeks, always, so the popup keeps its height from month to month. */
 export const PICKER_DAYS = 42;
 
-/** The first and last days a picker can reach (Date.UTC reads years 0-99 as 19xx, so the floor is year 100). */
+/**
+ * The first and last days a picker can reach: the first and last that the shared
+ * `isCalendarDate` accepts, so the picker never offers a day the server refuses
+ * (unit tested against it at both edges).
+ */
 export const MIN_DATE: CalendarDate = "0100-01-01";
 export const MAX_DATE: CalendarDate = "9999-12-31";
 
+/** UTC midnight of a date in ms. `Date.UTC` reads years 0-99 as 19xx, so the year is set explicitly. */
+export function utcMs(y: number, m: number, d: number): number {
+  const t = new Date(0);
+  t.setUTCFullYear(y, m, d);
+  return t.getTime();
+}
+
+/**
+ * Days since 1970-01-01. The picker's own version of the domain's `toEpochDay`, right for
+ * years 0-99 too, so grid cells just before `MIN_DATE` (0099-12 in the 0100-01 grid) come out right.
+ */
+export function pickerEpochDay(date: CalendarDate): number {
+  const [y, m, d] = date.split("-").map(Number);
+  return Math.round(utcMs(y, m - 1, d) / 86_400_000);
+}
+
+/** ISO weekday: 1 = Monday ... 7 = Sunday (1970-01-01 was a Thursday). */
+function weekday(date: CalendarDate): number {
+  return ((((pickerEpochDay(date) + 3) % 7) + 7) % 7) + 1;
+}
+
 function clampDay(epochDay: number): number {
-  return Math.min(Math.max(epochDay, toEpochDay(MIN_DATE)), toEpochDay(MAX_DATE));
+  return Math.min(Math.max(epochDay, pickerEpochDay(MIN_DATE)), pickerEpochDay(MAX_DATE));
 }
 
 export type PickerDay = { date: CalendarDate; inMonth: boolean };
@@ -21,7 +46,8 @@ export type PickerDay = { date: CalendarDate; inMonth: boolean };
 /** The 42 days the popup shows for `month`: Monday-first weeks from the week holding the 1st. */
 export function pickerGrid(month: YearMonth): PickerDay[] {
   // Near the last supported day the grid slides back so it never shows a five-digit year.
-  const start = Math.min(toEpochDay(monthGridBounds(month).start), toEpochDay(MAX_DATE) - (PICKER_DAYS - 1));
+  const first = pickerEpochDay(`${month}-01`);
+  const start = Math.min(first - (weekday(`${month}-01`) - 1), pickerEpochDay(MAX_DATE) - (PICKER_DAYS - 1));
   return Array.from({ length: PICKER_DAYS }, (_, i) => {
     const date = fromEpochDay(start + i);
     return { date, inMonth: monthOf(date) === month };
@@ -49,7 +75,7 @@ export function isGridKey(key: string): key is GridKey {
 /** The same day number `count` months later, clamped to that month's last day (Jan 31 + 1 = Feb 28). */
 export function addMonthsClamped(date: CalendarDate, count: number): CalendarDate {
   const month = addMonths(monthOf(date), count);
-  const last = monthBounds(month).last;
+  const last = fromEpochDay(pickerEpochDay(`${addMonths(month, 1)}-01`) - 1);
   const day = Math.min(Number(date.slice(8)), Number(last.slice(8)));
   return `${month}-${String(day).padStart(2, "0")}`;
 }
@@ -61,7 +87,7 @@ export function moveFocus(date: CalendarDate, key: GridKey, shift = false): Cale
 }
 
 function moveUnclamped(date: CalendarDate, key: GridKey, shift: boolean): CalendarDate {
-  const day = toEpochDay(date);
+  const day = pickerEpochDay(date);
   switch (key) {
     case "ArrowLeft":
       return fromEpochDay(clampDay(day - 1));
@@ -72,9 +98,9 @@ function moveUnclamped(date: CalendarDate, key: GridKey, shift: boolean): Calend
     case "ArrowDown":
       return fromEpochDay(clampDay(day + 7));
     case "Home":
-      return fromEpochDay(clampDay(day - (isoWeekday(date) - 1)));
+      return fromEpochDay(clampDay(day - (weekday(date) - 1)));
     case "End":
-      return fromEpochDay(clampDay(day + (7 - isoWeekday(date))));
+      return fromEpochDay(clampDay(day + (7 - weekday(date))));
     case "PageUp":
       return addMonthsClamped(date, shift ? -12 : -1);
     case "PageDown":
@@ -82,9 +108,12 @@ function moveUnclamped(date: CalendarDate, key: GridKey, shift: boolean): Calend
   }
 }
 
-/** False for a day before `min`: it shows, and takes focus, but can't be picked. */
+/**
+ * False for a day before `min`, or one the shared `isCalendarDate` refuses (0099-12 cells
+ * in the 0100-01 grid): it shows but can't be picked.
+ */
 export function isSelectable(date: CalendarDate, min?: CalendarDate): boolean {
-  return !min || date >= min;
+  return isCalendarDate(date) && (!min || date >= min);
 }
 
 /** A typed `YYYY-MM-DD` naming a real day, or null for anything else. */

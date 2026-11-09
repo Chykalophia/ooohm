@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { initialFocus, isSelectable, localToday, moveFocus, parseTyped, pickerGrid } from "@/components/forms/date-picker-grid";
+import { isCalendarDate } from "@/domain/calendar-date";
 
 describe("date picker grid", () => {
   test("AC1(a) pickerGrid(2026-11) is 42 days from 2026-10-26 to 2026-12-06, 12 outside November", () => {
@@ -99,4 +100,63 @@ test("regression: focus clamps at the first and last supported days", async () =
   const grid = pickerGrid("9999-12");
   assert.equal(grid.length, 42);
   assert.equal(grid[41].date, "9999-12-31");
+});
+
+describe("date picker agrees with the shared validator (isCalendarDate)", () => {
+  // Every day the picker lets a person pick or type, the server accepts too.
+  const edges = [
+    "0099-12-27",
+    "0099-12-31",
+    "0100-01-01",
+    "0100-01-02",
+    "0100-02-28",
+    "0100-02-29",
+    "9999-12-30",
+    "9999-12-31",
+  ];
+
+  test("MIN_DATE and MAX_DATE are the first and last days isCalendarDate accepts", async () => {
+    const { MIN_DATE, MAX_DATE } = await import("@/components/forms/date-picker-grid");
+    assert.equal(isCalendarDate(MIN_DATE), true);
+    assert.equal(isCalendarDate("0099-12-31"), false);
+    assert.equal(isCalendarDate(MAX_DATE), true);
+    assert.equal(isCalendarDate("10000-01-01"), false);
+  });
+
+  test("low edge: every selectable cell of the 0100-01 grid passes isCalendarDate; the 0099 cells are disabled", () => {
+    const grid = pickerGrid("0100-01");
+    assert.equal(grid[0].date, "0099-12-28");
+    for (const { date } of grid) assert.equal(isSelectable(date), isCalendarDate(date), date);
+    assert.equal(isSelectable("0099-12-31"), false);
+    assert.equal(isSelectable("0100-01-01"), true);
+  });
+
+  test("high edge: every selectable cell of the 9999-12 grid passes isCalendarDate", () => {
+    for (const { date } of pickerGrid("9999-12")) assert.equal(isSelectable(date), isCalendarDate(date), date);
+  });
+
+  test("typed entry accepts exactly what isCalendarDate accepts at the edges", () => {
+    for (const text of edges) assert.equal(parseTyped(text) !== null, isCalendarDate(text), text);
+    assert.equal(parseTyped("0050-06-15"), null);
+  });
+
+  test("keyboard and month navigation never land on a day isCalendarDate refuses", () => {
+    const keys = ["ArrowLeft", "ArrowUp", "Home", "PageUp"] as const;
+    for (const key of keys) {
+      for (const shift of [false, true]) {
+        for (const from of ["0100-01-01", "0100-01-15", "0100-06-30", "0100-12-31"]) {
+          const to = moveFocus(from, key, shift);
+          assert.ok(isCalendarDate(to), `${from} ${key}${shift ? "+shift" : ""} -> ${to}`);
+        }
+      }
+    }
+    for (const key of ["ArrowRight", "ArrowDown", "End", "PageDown"] as const) {
+      for (const shift of [false, true]) {
+        for (const from of ["9999-12-31", "9999-12-15", "9999-01-31"]) {
+          const to = moveFocus(from, key, shift);
+          assert.ok(isCalendarDate(to), `${from} ${key}${shift ? "+shift" : ""} -> ${to}`);
+        }
+      }
+    }
+  });
 });

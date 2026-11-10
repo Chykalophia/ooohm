@@ -29,7 +29,7 @@ export function ItemList({ ordered = false, className, ...props }: React.HTMLAtt
   return <Tag className={cx("divide-y divide-border", surface, className)} {...props} />;
 }
 
-/** One row of an {@link ItemList}. */
+/** One row of an {@link ItemList}. The first and last take the list's corners, so a tinted row fits inside it. */
 export function Item({ className, ...props }: React.LiHTMLAttributes<HTMLLIElement>) {
-  return <li className={cx("p-4", className)} {...props} />;
+  return <li className={cx("p-4 first:rounded-t-[inherit] last:rounded-b-[inherit]", className)} {...props} />;
 }

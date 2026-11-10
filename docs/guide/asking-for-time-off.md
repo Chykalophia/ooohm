@@ -31,7 +31,7 @@ keys move between days and Enter picks one.
 ### The form
 
 The form asks the same things as labelled fields: Type, From, To, How much of the day (Full day,
-Morning or Afternoon) and an optional Note.
+Morning or Afternoon) and an optional Note. From and To open the same calendar as the sentence.
 
 ![The request form](../../site/docs/images/request-form.webp)
 

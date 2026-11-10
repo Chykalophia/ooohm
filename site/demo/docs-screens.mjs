@@ -135,7 +135,6 @@ const SHOTS = {
     as: "lena", calm: true,
     async run(p) {
       await open(p, "/");
-      await part(p, "#request", "request-sentence");
       await p.getByRole("button", { name: /^First day/ }).click();
       await p.waitForTimeout(300);
       save("request-date-picker", await p.screenshot({ clip: { x: 0, y: 0, width: DESKTOP.width, height: 700 } }));

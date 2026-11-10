@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- Built by site/demo/build-docs.mjs from docs/guide/admin-appearance.md. Edit the Markdown, not this file. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appearance · OOOhm guide</title>
+  <meta name="description" content="Your logo, the company theme, a custom accent color, corners, how people ask for time off, and the trial layouts.">
+  <meta name="theme-color" content="#fafaf9">
+  <meta property="og:title" content="Appearance · OOOhm guide">
+  <meta property="og:description" content="Your logo, the company theme, a custom accent color, corners, how people ask for time off, and the trial layouts.">
+  <meta property="og:image" content="https://ooohm.team/media/og.png">
+  <meta property="og:url" content="https://ooohm.team/docs/admin-appearance.html">
+  <link rel="canonical" href="https://ooohm.team/docs/admin-appearance.html">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="../fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="docs.css">
+</head>
+<body class="docs">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="docs-nav">
+    <div class="wrap docs-nav-row">
+      <a class="logo" href="../" aria-label="OOOhm home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg><span><b>OOO</b>hm</span></a>
+      <a class="docs-home" href="index.html">Guide</a>
+      <a class="btn btn-quiet nav-cta" href="https://github.com/Chykalophia/ooohm">GitHub</a>
+    </div>
+  </header>
+  <div class="wrap docs-grid">
+    <details class="side" data-side>
+      <summary>Contents</summary>
+      <nav aria-label="Guide"><p class="side-group">Overview</p><ul><li><a href="index.html">OOOhm guide</a></li></ul><p class="side-group">For everyone</p><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="asking-for-time-off.html">Asking for time off</a></li><li><a href="calendar.html">Calendar</a></li><li><a href="team.html">Who's out</a></li></ul><p class="side-group">For managers</p><ul><li><a href="approvals.html">Approvals</a></li><li><a href="reports.html">Reports</a></li></ul><p class="side-group">For admins</p><ul><li><a href="admin-people.html">People</a></li><li><a href="admin-organization.html">Departments, levels and leave types</a></li><li><a href="admin-holidays.html">Holidays</a></li><li><a href="admin-company.html">Company settings</a></li><li><a href="admin-appearance.html" aria-current="page">Appearance</a></li><li><a href="emails.html">Emails</a></li><li><a href="admin-audit-integrations.html">Audit log and integrations</a></li></ul></nav>
+    </details>
+    <main id="main" class="prose">
+<h1>Appearance</h1>
+<p>Admin → <strong>Appearance</strong> sets how OOOhm looks for everyone in the company. People can't change it for themselves; they only choose light or dark on their <a href="getting-started.html#your-account">account page</a>, where the theme has a dark version.</p>
+<figure><img src="images/admin-appearance.webp" alt="Admin, Appearance" width="1000" height="2933" loading="lazy" decoding="async"><figcaption>Admin, Appearance</figcaption></figure>
+<h2 id="logo"><a class="anchor" href="#logo">Logo</a></h2>
+<p>Your logo shows instead of the OOOhm logo in the header, on the sign-in page and at the top of emails. Logos are PNG or JPEG files up to 512 KB, at most 4096 pixels on a side. A wide logo on a transparent background reads best in light and dark mode. <strong>Remove logo</strong> brings the OOOhm logo back; emails already sent show your company's name instead.</p>
+<h2 id="theme"><a class="anchor" href="#theme">Theme</a></h2>
+<p>Nine themes, each a full look: colours, type, corners and buttons. Each option shows a small live preview.</p>
+<div class="table"><table><thead><tr><th scope="col">Theme</th><th scope="col">Look</th></tr></thead><tbody><tr><td><strong>Classic</strong> (default)</td><td>Calm deep teal. The original look, with dark mode.</td></tr><tr><td><strong>Cobalt</strong></td><td>Precise and modern: hairline borders and cobalt blue.</td></tr><tr><td><strong>Ink &amp; Marigold</strong></td><td>Navy ink with a warm marigold accent.</td></tr><tr><td><strong>Saffron</strong></td><td>Friendly and tactile, with rounded controls.</td></tr><tr><td><strong>Graphite</strong></td><td>Quiet monochrome. Colour only where it means something.</td></tr><tr><td><strong>Plum</strong></td><td>Soft and grown-up, with pill buttons.</td></tr><tr><td><strong>Signal</strong></td><td>Bold Swiss type, square corners and pastel lines.</td></tr><tr><td><strong>Forest</strong></td><td>Restful greens with serif headings.</td></tr><tr><td><strong>Frost</strong></td><td>Playful frosted glass over a soft colour wash.</td></tr></tbody></table></div>
+<p>Only Classic, with its own accent, has a dark version. The other themes are light only.</p>
+<div class="gallery" style="--cols:3"><figure><img src="../media/themes/classic.jpg" alt="Classic" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Classic</figcaption></figure><figure><img src="../media/themes/cobalt.jpg" alt="Cobalt" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Cobalt</figcaption></figure><figure><img src="../media/themes/marigold.jpg" alt="Ink &amp; Marigold" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Ink &amp; Marigold</figcaption></figure><figure><img src="../media/themes/saffron.jpg" alt="Saffron" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Saffron</figcaption></figure><figure><img src="../media/themes/graphite.jpg" alt="Graphite" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Graphite</figcaption></figure><figure><img src="../media/themes/plum.jpg" alt="Plum" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Plum</figcaption></figure><figure><img src="../media/themes/signal.jpg" alt="Signal" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Signal</figcaption></figure><figure><img src="../media/themes/forest.jpg" alt="Forest" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Forest</figcaption></figure><figure><img src="../media/themes/frost.jpg" alt="Frost" width="1260" height="840" loading="lazy" decoding="async"><figcaption>Frost</figcaption></figure></div>
+<h2 id="accent-color"><a class="anchor" href="#accent-color">Accent color</a></h2>
+<p>Tick <strong>Use our own accent color instead of the theme's</strong> and pick a colour. It colours the main button, today's date and selected items, and the buttons and links in emails. Pale colours keep their fill and get a darker shade for text, so everything stays readable. The colour applies only while the box is ticked.</p>
+<h2 id="corners"><a class="anchor" href="#corners">Corners</a></h2>
+<p><strong>Corners</strong> overrides how rounded cards, fields and buttons are in every theme: As the theme draws them (default), Square, Slightly rounded, or Rounded.</p>
+<h2 id="how-people-ask-for-time-off"><a class="anchor" href="#how-people-ask-for-time-off">How people ask for time off</a></h2>
+<div class="table"><table><thead><tr><th scope="col">Choice</th><th scope="col">On Home</th></tr></thead><tbody><tr><td><strong>Form</strong></td><td>Labelled fields for type, dates and part of the day.</td></tr><tr><td><strong>Sentence</strong></td><td>One short sentence with the choices inside it, like a note to your manager.</td></tr></tbody></table></div>
+<p>Both send the same request and show the same day count. Only the layout on Home changes. See <a href="asking-for-time-off.html#the-request">Asking for time off</a>.</p>
+<h2 id="layout-trial"><a class="anchor" href="#layout-trial">Layout (trial)</a></h2>
+<p>Five layouts change spacing, shape and navigation; every screen keeps the same actions. Try one for a while, then switch back.</p>
+<div class="table"><table><thead><tr><th scope="col">Layout</th><th scope="col">Look</th></tr></thead><tbody><tr><td><strong>Standard</strong> (default)</td><td>Bordered cards and a top bar.</td></tr><tr><td><strong>Tonal</strong></td><td>Soft filled cards, big balance numbers and a large request button.</td></tr><tr><td><strong>Grouped</strong></td><td>Large titles and inset lists, like a phone's settings app.</td></tr><tr><td><strong>Compact</strong></td><td>A side menu, tighter spacing and wider tables, for people who live in it.</td></tr><tr><td><strong>Legible</strong></td><td>Larger text, 48px targets, bold focus rings and underlined links.</td></tr></tbody></table></div>
+<div class="gallery" style="--cols:2"><figure><img src="images/layout-standard.webp" alt="Standard" width="1000" height="760" loading="lazy" decoding="async"><figcaption>Standard</figcaption></figure><figure><img src="images/layout-tonal.webp" alt="Tonal" width="1000" height="760" loading="lazy" decoding="async"><figcaption>Tonal</figcaption></figure><figure><img src="images/layout-grouped.webp" alt="Grouped" width="1000" height="760" loading="lazy" decoding="async"><figcaption>Grouped</figcaption></figure><figure><img src="images/layout-compact.webp" alt="Compact" width="1000" height="760" loading="lazy" decoding="async"><figcaption>Compact</figcaption></figure><figure><img src="images/layout-legible.webp" alt="Legible" width="1000" height="760" loading="lazy" decoding="async"><figcaption>Legible</figcaption></figure></div>
+      <nav class="pager" aria-label="Next and previous">
+        <a class="prev" href="admin-company.html"><span>Previous</span>Company settings</a>
+        <a class="next" href="emails.html"><span>Next</span>Emails</a>
+      </nav>
+      <p class="edit"><a href="https://github.com/Chykalophia/ooohm/blob/main/docs/guide/admin-appearance.md" rel="noopener">This page on GitHub</a></p>
+    </main>
+    <nav class="toc" aria-label="On this page"><p class="side-group">On this page</p><ul><li><a href="#logo">Logo</a></li><li><a href="#theme">Theme</a></li><li><a href="#accent-color">Accent color</a></li><li><a href="#corners">Corners</a></li><li><a href="#how-people-ask-for-time-off">How people ask for time off</a></li><li><a href="#layout-trial">Layout (trial)</a></li></ul></nav>
+  </div>
+  <footer class="footer">
+    <div class="wrap footer-row">
+      <a class="logo" href="../" aria-label="OOOhm home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg><span><b>OOO</b>hm</span></a>
+      <nav aria-label="Footer" class="footer-links">
+        <a href="index.html">Guide</a>
+        <a href="https://github.com/Chykalophia/ooohm">GitHub</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/hosting.md">Hosting</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/api.md">API</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/LICENSE.md">License</a>
+      </nav>
+      <p class="fine">© 2026 Chykalophia Group, LLC. Source-available under FSL-1.1-ALv2.</p>
+    </div>
+  </footer>
+  <script>
+    // The contents stay open beside the page on wide screens and fold away on narrow ones.
+    const side = document.querySelector("[data-side]");
+    const wide = matchMedia("(min-width: 1001px)");
+    const fit = () => (side.open = wide.matches);
+    fit();
+    wide.addEventListener("change", fit);
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<!-- Built by site/demo/build-docs.mjs from docs/guide/emails.md. Edit the Markdown, not this file. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emails · OOOhm guide</title>
+  <meta name="description" content="Every email OOOhm sends, who gets it and when, its default words and variables, and how an admin changes them.">
+  <meta name="theme-color" content="#fafaf9">
+  <meta property="og:title" content="Emails · OOOhm guide">
+  <meta property="og:description" content="Every email OOOhm sends, who gets it and when, its default words and variables, and how an admin changes them.">
+  <meta property="og:image" content="https://ooohm.team/media/og.png">
+  <meta property="og:url" content="https://ooohm.team/docs/emails.html">
+  <link rel="canonical" href="https://ooohm.team/docs/emails.html">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="../fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="docs.css">
+</head>
+<body class="docs">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="docs-nav">
+    <div class="wrap docs-nav-row">
+      <a class="logo" href="../" aria-label="OOOhm home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg><span><b>OOO</b>hm</span></a>
+      <a class="docs-home" href="index.html">Guide</a>
+      <a class="btn btn-quiet nav-cta" href="https://github.com/Chykalophia/ooohm">GitHub</a>
+    </div>
+  </header>
+  <div class="wrap docs-grid">
+    <details class="side" data-side>
+      <summary>Contents</summary>
+      <nav aria-label="Guide"><p class="side-group">Overview</p><ul><li><a href="index.html">OOOhm guide</a></li></ul><p class="side-group">For everyone</p><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="asking-for-time-off.html">Asking for time off</a></li><li><a href="calendar.html">Calendar</a></li><li><a href="team.html">Who's out</a></li></ul><p class="side-group">For managers</p><ul><li><a href="approvals.html">Approvals</a></li><li><a href="reports.html">Reports</a></li></ul><p class="side-group">For admins</p><ul><li><a href="admin-people.html">People</a></li><li><a href="admin-organization.html">Departments, levels and leave types</a></li><li><a href="admin-holidays.html">Holidays</a></li><li><a href="admin-company.html">Company settings</a></li><li><a href="admin-appearance.html">Appearance</a></li><li><a href="emails.html" aria-current="page">Emails</a></li><li><a href="admin-audit-integrations.html">Audit log and integrations</a></li></ul></nav>
+    </details>
+    <main id="main" class="prose">
+<h1>Emails</h1>
+<p>OOOhm sends an email for every change someone should hear about, and nothing else: no digests, no reminders, no marketing. Every email has a plain-text version and an HTML version in your company's accent colour, with your logo at the top if you've uploaded one (see <a href="admin-appearance.html">Appearance</a>).</p>
+<p>The examples below use OOOhm's own wording and the made-up names the email editor's preview uses (Ana Ruiz asks, Mo Reyes approves, at a company called Acme).</p>
+<h2 id="at-a-glance"><a class="anchor" href="#at-a-glance">At a glance</a></h2>
+<div class="table"><table><thead><tr><th scope="col">Email</th><th scope="col">Who gets it</th><th scope="col">When</th></tr></thead><tbody><tr><td><a href="#time-off-request">Time off request</a></td><td>The approver</td><td>Someone asks for time off.</td></tr><tr><td><a href="#approved">Approved</a></td><td>The person</td><td>Their time off is approved.</td></tr><tr><td><a href="#declined">Declined</a></td><td>The person</td><td>Their request is declined.</td></tr><tr><td><a href="#booked">Booked</a></td><td>The person</td><td>They book time off and approval is turned off.</td></tr><tr><td><a href="#heads-up">Heads-up</a></td><td>Their manager (or an admin)</td><td>Someone books time off and approval is turned off.</td></tr><tr><td><a href="#added-for-someone">Added for someone</a></td><td>The person</td><td>A manager or admin adds time off for them.</td></tr><tr><td><a href="#removed-for-someone">Removed for someone</a></td><td>The person</td><td>A manager or admin removes their time off to correct the record.</td></tr><tr><td><a href="#cancelled-to-the-person">Cancelled (to the person)</a></td><td>The person</td><td>They cancel their time off.</td></tr><tr><td><a href="#cancelled-to-the-approver">Cancelled (to the approver)</a></td><td>The approver</td><td>Someone cancels time off.</td></tr><tr><td><a href="#recounted">Recounted</a></td><td>The person</td><td>A holiday or working-day change alters what their time off takes.</td></tr><tr><td><a href="#invite">Invite</a></td><td>The new person</td><td>An admin adds them, or sends a new sign-in link.</td></tr><tr><td><a href="#sign-in-link">Sign-in link</a></td><td>Anyone with an account</td><td>They ask for a link on the sign-in page.</td></tr></tbody></table></div>
+<p>Every email but the sign-in link can be reworded under Admin → Emails.</p>
+<h2 id="changing-what-an-email-says"><a class="anchor" href="#changing-what-an-email-says">Changing what an email says</a></h2>
+<p>Admin → <strong>Emails</strong> lists every email, who gets it, and whether it uses <em>OOOhm's wording</em> or <em>Your wording</em>.</p>
+<figure><img src="images/admin-emails.webp" alt="Admin, Emails" width="1000" height="1346" loading="lazy" decoding="async"><figcaption>Admin, Emails</figcaption></figure>
+<p>Open one to change its <strong>Subject</strong> and <strong>Message</strong>. The preview on the right updates as you type, with made-up names and dates, in your accent colour.</p>
+<figure><img src="images/admin-email-editor.webp" alt="The email editor" width="1000" height="1856" loading="lazy" decoding="async"><figcaption>The email editor</figcaption></figure>
+<ul><li><strong>Subject</strong> is one line. Leave it empty for OOOhm's own subject.</li><li><strong>Message</strong>: the first paragraph leads the email. Leave a blank line to start another paragraph; those come after the request's details. Leave it empty for OOOhm's own message.</li><li><strong>Variables</strong> like <code>{{requester}}</code> fill in for each email. Choose one under the message to add it where the cursor was. If a variable fills in to nothing in the subject, OOOhm's own subject is used, so no email goes out without one.</li><li><strong>Save wording</strong> applies to every email of that kind from then on. Once saved, <strong>Go back to OOOhm's wording</strong> (under the editor) puts the default back. Both are recorded in the audit log.</li></ul>
+<p>What you can't change, on purpose: the request's details (dates, note, who else is off, the reason), the buttons, the links, and the footer. Notes and reasons people type are never variables; they appear in the body only, escaped, so nothing typed can change an email's subject or headers.</p>
+<h3 id="variables-in-every-time-off-email"><a class="anchor" href="#variables-in-every-time-off-email">Variables in every time off email</a></h3>
+<div class="table"><table><thead><tr><th scope="col">Variable</th><th scope="col">Fills in</th></tr></thead><tbody><tr><td><code>{{recipient}}</code></td><td>The name of the person this email goes to.</td></tr><tr><td><code>{{requester}}</code></td><td>The name of the person the time off is for.</td></tr><tr><td><code>{{leave_type}}</code></td><td>The leave type, such as PTO (shown in bold).</td></tr><tr><td><code>{{dates}}</code></td><td>The dates in full, such as Mon, Nov 2 to Fri, Nov 6, 2026.</td></tr><tr><td><code>{{date_span}}</code></td><td>The dates in short, such as Nov 2 to Nov 6.</td></tr><tr><td><code>{{days}}</code></td><td>How many working days it takes, such as 5 days.</td></tr></tbody></table></div>
+<p>Some emails add their own; they're listed with each email below.</p>
+<h2 id="time-off-request"><a class="anchor" href="#time-off-request">Time off request</a></h2>
+<p><strong>To</strong> the approver, <strong>when</strong> someone asks for time off.</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>{{requester}} asked for {{date_span}}</code></td></tr><tr><td>Message</td><td><code>{{requester}} asked for {{leave_type}}, {{dates}}: {{days}}.</code></td></tr></tbody></table></div>
+<p>Adds on its own: the requester's note in quotes, and who else is off then. <strong>Approve</strong> opens the <a href="approvals.html#approving-from-the-email">approve page</a>; <strong>Open in OOOhm</strong> opens the inbox. The footer says the Approve link is for this approver alone and stops working once the request is decided.</p>
+<figure><img src="images/email-leave-requested.webp" alt="The time off request email" width="640" height="348" loading="lazy" decoding="async"><figcaption>The time off request email</figcaption></figure>
+<pre class="code" data-lang="text"><code>Subject: Ana Ruiz asked for Nov 2 to Nov 6
+
+Ana Ruiz asked for PTO, Mon, Nov 2 to Fri, Nov 6, 2026: 5 days.
+
+“Visiting family”
+
+Aisha Khan is off then too.
+
+Approve: https://ooohm.example/approve/…
+Decline or look closer in OOOhm: https://ooohm.example/
+
+The Approve link is for you alone and stops working once the request is decided. To decline, open the request in OOOhm.</code></pre>
+<h2 id="approved"><a class="anchor" href="#approved">Approved</a></h2>
+<p><strong>To</strong> the person, <strong>when</strong> their time off is approved (in the inbox, from the email, or by the approver deciding it in OOOhm).</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>Your time off is approved</code></td></tr><tr><td>Message</td><td><code>Your {{leave_type}} is approved, {{dates}}: {{days}}.</code></td></tr></tbody></table></div>
+<p>Adds on its own: the approver's reason, as <em>Note from approver</em>, when they gave one.</p>
+<figure><img src="images/email-leave-approved.webp" alt="The approved email" width="640" height="260" loading="lazy" decoding="async"><figcaption>The approved email</figcaption></figure>
+<h2 id="declined"><a class="anchor" href="#declined">Declined</a></h2>
+<p><strong>To</strong> the person, <strong>when</strong> their request is declined.</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>Your time off request was declined</code></td></tr><tr><td>Message</td><td><code>Your {{leave_type}} request was declined, {{dates}}: {{days}}.</code></td></tr></tbody></table></div>
+<p>Adds on its own: the approver's <em>Reason</em>, when they gave one.</p>
+<figure><img src="images/email-leave-rejected.webp" alt="The declined email" width="640" height="284" loading="lazy" decoding="async"><figcaption>The declined email</figcaption></figure>
+<h2 id="booked"><a class="anchor" href="#booked">Booked</a></h2>
+<p><strong>To</strong> the person, <strong>when</strong> they book time off and the company's approval is set to <strong>Just let us know</strong>.</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>Your time off is booked</code></td></tr><tr><td>Message</td><td><code>Your {{leave_type}} is booked, {{dates}}: {{days}}. Enjoy it.</code></td></tr></tbody></table></div>
+<figure><img src="images/email-leave-booked.webp" alt="The booked email" width="640" height="248" loading="lazy" decoding="async"><figcaption>The booked email</figcaption></figure>
+<h2 id="heads-up"><a class="anchor" href="#heads-up">Heads-up</a></h2>
+<p><strong>To</strong> the person's manager, or an admin when they have none, <strong>when</strong> someone books time off and approval is turned off. Nothing to approve: it tells them.</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>{{requester}} is off {{date_span}}</code></td></tr><tr><td>Message</td><td><code>{{requester}} is taking {{leave_type}}, {{dates}}: {{days}}. It's booked, so there's nothing you need to do.</code></td></tr></tbody></table></div>
+<p>Adds on its own: the note, and who else is off then.</p>
+<figure><img src="images/email-leave-heads-up.webp" alt="The heads-up email" width="640" height="319" loading="lazy" decoding="async"><figcaption>The heads-up email</figcaption></figure>
+<h2 id="added-for-someone"><a class="anchor" href="#added-for-someone">Added for someone</a></h2>
+<p><strong>To</strong> the person, <strong>when</strong> a manager or admin adds time off for them (on their page under Team). It's approved as it's added.</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>Time off was added for you</code></td></tr><tr><td>Message</td><td><code>{{added_by}} added your {{leave_type}}, {{dates}}: {{days}}. It's approved, so there's nothing you need to do.</code></td></tr></tbody></table></div>
+<p>Extra variable: <code>{{added_by}}</code>, the manager or admin who added it. Adds on its own: their <em>Note</em>, if any.</p>
+<figure><img src="images/email-leave-added.webp" alt="The added email" width="640" height="284" loading="lazy" decoding="async"><figcaption>The added email</figcaption></figure>
+<h2 id="removed-for-someone"><a class="anchor" href="#removed-for-someone">Removed for someone</a></h2>
+<p><strong>To</strong> the person, <strong>when</strong> a manager or admin removes their approved time off to correct the record.</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>Time off was removed for you</code></td></tr><tr><td>Message</td><td><code>{{removed_by}} removed your {{leave_type}}, {{dates}}: {{days}}. Those days are back in your balance.</code></td></tr></tbody></table></div>
+<p>Extra variable: <code>{{removed_by}}</code>. Adds on its own: the <em>Reason</em>, which is required.</p>
+<figure><img src="images/email-leave-removed.webp" alt="The removed email" width="640" height="284" loading="lazy" decoding="async"><figcaption>The removed email</figcaption></figure>
+<h2 id="cancelled-to-the-person"><a class="anchor" href="#cancelled-to-the-person">Cancelled (to the person)</a></h2>
+<p><strong>To</strong> the person, <strong>when</strong> they cancel their own time off (after the 20-second undo has passed).</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>Your time off request was cancelled</code></td></tr><tr><td>Message</td><td><code>Your {{leave_type}} request was cancelled, {{dates}}: {{days}}.</code></td></tr></tbody></table></div>
+<figure><img src="images/email-leave-cancelled-requester.webp" alt="The cancelled email, to the person" width="640" height="248" loading="lazy" decoding="async"><figcaption>The cancelled email, to the person</figcaption></figure>
+<h2 id="cancelled-to-the-approver"><a class="anchor" href="#cancelled-to-the-approver">Cancelled (to the approver)</a></h2>
+<p><strong>To</strong> the approver, <strong>when</strong> someone cancels time off.</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>A time off request was cancelled</code></td></tr><tr><td>Message</td><td><code>{{requester}} cancelled their {{leave_type}}, {{dates}}: {{days}}. Nothing else is needed from you.</code></td></tr></tbody></table></div>
+<figure><img src="images/email-leave-cancelled-approver.webp" alt="The cancelled email, to the approver" width="640" height="248" loading="lazy" decoding="async"><figcaption>The cancelled email, to the approver</figcaption></figure>
+<h2 id="recounted"><a class="anchor" href="#recounted">Recounted</a></h2>
+<p><strong>To</strong> the person, <strong>when</strong> an admin adds or deletes a holiday, or changes the working days, and that changes how many days their time off takes (this year and later).</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>Your time off was recounted</code></td></tr><tr><td>Message</td><td><code>{{cause}}, so your {{leave_type}} for {{dates}} {{change}}.</code></td></tr></tbody></table></div>
+<div class="table"><table><thead><tr><th scope="col">Extra variable</th><th scope="col">Fills in</th></tr></thead><tbody><tr><td><code>{{cause}}</code></td><td>What changed, such as <em>Tue, Nov 3, 2026 is now a company holiday (Founders' Day)</em>.</td></tr><tr><td><code>{{change}}</code></td><td>What that does, such as <em>now takes 4 days instead of 5 days</em>. If it no longer takes any days, it says so and suggests cancelling it.</td></tr><tr><td><code>{{previous_days}}</code></td><td>How many days it took before, such as 5 days.</td></tr></tbody></table></div>
+<p>Adds on its own: a <em>Balance</em> line when the new count leaves the person over their balance.</p>
+<figure><img src="images/email-leave-recounted.webp" alt="The recounted email" width="640" height="272" loading="lazy" decoding="async"><figcaption>The recounted email</figcaption></figure>
+<h2 id="invite"><a class="anchor" href="#invite">Invite</a></h2>
+<p><strong>To</strong> someone an admin adds (one at a time, or from a <a href="admin-people.html#importing-people-from-a-csv">CSV import</a> with <em>Email each person their invite now</em> ticked), and again when an admin chooses <strong>Send a new sign-in link</strong> on their page.</p>
+<div class="table"><table><thead><tr><th scope="col"></th><th scope="col">Default</th></tr></thead><tbody><tr><td>Subject</td><td><code>You're invited to OOOhm</code></td></tr><tr><td>Message</td><td><code>{{inviter}} added you to {{company}} on OOOhm, where you ask for time off and see who's out.</code></td></tr></tbody></table></div>
+<div class="table"><table><thead><tr><th scope="col">Variable</th><th scope="col">Fills in</th></tr></thead><tbody><tr><td><code>{{recipient}}</code></td><td>The invited person's name.</td></tr><tr><td><code>{{inviter}}</code></td><td>The admin who invited them.</td></tr><tr><td><code>{{company}}</code></td><td>Your company's name.</td></tr></tbody></table></div>
+<p>Fixed: the greeting (<em>Hi Ana Ruiz,</em>), the <strong>Sign in to OOOhm</strong> button with a one-time link, and the footer: the link works once, expires in 15 minutes, and where to get a new one.</p>
+<figure><img src="images/email-invite.webp" alt="The invite email" width="640" height="337" loading="lazy" decoding="async"><figcaption>The invite email</figcaption></figure>
+<h2 id="sign-in-link"><a class="anchor" href="#sign-in-link">Sign-in link</a></h2>
+<p><strong>To</strong> anyone with an account who asks for a sign-in link on the sign-in page. Nothing anyone typed appears in it, and it can't be reworded.</p>
+<p>Subject: <code>Your OOOhm sign-in link</code>. The link works once and expires in 15 minutes; if they didn't ask for it, they can ignore it. An address without an active account gets no email, and the sign-in page answers the same either way, so it can't be used to find out who works there.</p>
+<figure><img src="images/email-sign-in.webp" alt="The sign-in email" width="640" height="258" loading="lazy" decoding="async"><figcaption>The sign-in email</figcaption></figure>
+<h2 id="sending"><a class="anchor" href="#sending">Sending</a></h2>
+<p>Emails go out after the change is saved, never before, so a failed email never undoes a change. A failed send is logged with the request or person it was about. How OOOhm sends mail (SMTP or the SendGrid API, and the From address) is set by whoever runs it: see <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/hosting.md" rel="noopener">hosting</a>.</p>
+      <nav class="pager" aria-label="Next and previous">
+        <a class="prev" href="admin-appearance.html"><span>Previous</span>Appearance</a>
+        <a class="next" href="admin-audit-integrations.html"><span>Next</span>Audit log and integrations</a>
+      </nav>
+      <p class="edit"><a href="https://github.com/Chykalophia/ooohm/blob/main/docs/guide/emails.md" rel="noopener">This page on GitHub</a></p>
+    </main>
+    <nav class="toc" aria-label="On this page"><p class="side-group">On this page</p><ul><li><a href="#at-a-glance">At a glance</a></li><li><a href="#changing-what-an-email-says">Changing what an email says</a></li><li><a href="#time-off-request">Time off request</a></li><li><a href="#approved">Approved</a></li><li><a href="#declined">Declined</a></li><li><a href="#booked">Booked</a></li><li><a href="#heads-up">Heads-up</a></li><li><a href="#added-for-someone">Added for someone</a></li><li><a href="#removed-for-someone">Removed for someone</a></li><li><a href="#cancelled-to-the-person">Cancelled (to the person)</a></li><li><a href="#cancelled-to-the-approver">Cancelled (to the approver)</a></li><li><a href="#recounted">Recounted</a></li><li><a href="#invite">Invite</a></li><li><a href="#sign-in-link">Sign-in link</a></li><li><a href="#sending">Sending</a></li></ul></nav>
+  </div>
+  <footer class="footer">
+    <div class="wrap footer-row">
+      <a class="logo" href="../" aria-label="OOOhm home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg><span><b>OOO</b>hm</span></a>
+      <nav aria-label="Footer" class="footer-links">
+        <a href="index.html">Guide</a>
+        <a href="https://github.com/Chykalophia/ooohm">GitHub</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/hosting.md">Hosting</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/api.md">API</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/LICENSE.md">License</a>
+      </nav>
+      <p class="fine">© 2026 Chykalophia Group, LLC. Source-available under FSL-1.1-ALv2.</p>
+    </div>
+  </footer>
+  <script>
+    // The contents stay open beside the page on wide screens and fold away on narrow ones.
+    const side = document.querySelector("[data-side]");
+    const wide = matchMedia("(min-width: 1001px)");
+    const fit = () => (side.open = wide.matches);
+    fit();
+    wide.addEventListener("change", fit);
+  </script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+/*
+ * The product guide (/docs). Built on the landing page's styles.css: the same palette,
+ * type and footer, with a quiet three-column reading layout.
+ */
+.docs-nav { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--border); }
+.docs-nav-row { display: flex; align-items: center; gap: 24px; height: 64px; }
+.docs-home { text-decoration: none; color: var(--muted); font-size: 15px; padding-block: 12px; }
+.docs-home:hover { color: var(--ink); }
+
+.docs-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr) 200px; gap: 48px; padding-block: 40px 72px; align-items: start; }
+
+.side, .toc { position: sticky; top: 88px; max-height: calc(100vh - 104px); overflow: auto; font-size: 15px; }
+.side summary { display: none; }
+.side-group { margin: 20px 0 6px; font-size: 13px; font-weight: 600; color: var(--ink); letter-spacing: .01em; }
+.side-group:first-child, .side nav > .side-group:first-child { margin-top: 0; }
+.side ul, .toc ul { list-style: none; margin: 0; padding: 0; }
+.side a, .toc a { display: block; padding: 5px 10px; margin-left: -10px; border-radius: 8px; text-decoration: none; color: var(--muted); line-height: 1.35; }
+.side a:hover, .toc a:hover { color: var(--ink); background: var(--tint); }
+.side a[aria-current="page"] { color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.toc { font-size: 14px; }
+
+.prose { min-width: 0; max-width: 760px; }
+.prose h1 { font-size: clamp(32px, 4vw, 42px); line-height: 1.1; margin-bottom: 20px; }
+.prose h2 { font-size: 26px; line-height: 1.2; margin: 56px 0 14px; padding-top: 4px; }
+.prose h3 { font-size: 20px; line-height: 1.3; margin: 36px 0 10px; }
+.prose h4 { font-size: 17px; margin: 28px 0 8px; color: var(--ink); }
+.prose .anchor { color: inherit; text-decoration: none; }
+.prose .anchor:hover { text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: 6px; }
+.prose p, .prose ul, .prose ol, .prose blockquote { margin: 0 0 16px; }
+.prose ul, .prose ol { padding-left: 22px; }
+.prose li { margin-bottom: 6px; }
+.prose li::marker { color: var(--muted); }
+.prose strong { color: var(--ink); font-weight: 600; }
+.prose a:not(.anchor) { color: var(--accent); text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: 3px; }
+.prose a:not(.anchor):hover { text-decoration-color: var(--accent); }
+.prose code { font: 500 0.86em/1.4 var(--mono); background: var(--tint); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; color: var(--ink); white-space: nowrap; }
+.prose pre.code { margin: 0 0 20px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-ctl); overflow-x: auto; font: 400 13.5px/1.6 var(--mono); color: var(--ink); }
+.prose pre.code code { background: none; border: 0; padding: 0; font: inherit; white-space: pre-wrap; }
+.prose blockquote { padding: 12px 16px; border-left: 3px solid var(--accent-line); background: var(--surface); border-radius: 0 var(--r-ctl) var(--r-ctl) 0; }
+
+.prose figure { margin: 8px 0 28px; }
+.prose figure img { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 1px 2px rgba(28, 25, 23, .04), 0 18px 40px -28px rgba(28, 25, 23, .25); }
+.prose figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); text-align: center; }
+.prose .gallery { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 16px; margin: 8px 0 28px; }
+.prose .gallery figure { margin: 0; }
+.prose .gallery figcaption { margin-top: 6px; font-size: 13px; }
+
+.prose .table { margin: 0 0 24px; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface); }
+.prose table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.5; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.prose th { font-size: 13px; font-weight: 600; color: var(--ink); background: var(--tint); }
+.prose tbody tr:last-child td { border-bottom: 0; }
+.prose td:first-child { min-width: 9em; }
+.prose td code { white-space: normal; }
+
+.pager { display: flex; justify-content: space-between; gap: 16px; margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); }
+.pager a { display: grid; gap: 2px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface); text-decoration: none !important; color: var(--ink) !important; font-weight: 500; max-width: 48%; }
+.pager a:hover { border-color: var(--border-strong); }
+.pager span { font-size: 13px; font-weight: 400; color: var(--muted); }
+.pager .next { margin-left: auto; text-align: right; }
+.edit { margin-top: 24px; font-size: 14px; }
+
+@media (max-width: 1240px) {
+  .docs-grid { grid-template-columns: 220px minmax(0, 1fr); }
+  .toc { display: none; }
+}
+@media (max-width: 1000px) {
+  .docs-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 24px; }
+  .side { position: static; max-height: none; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface); padding: 0 16px; }
+  .side summary { display: list-item; cursor: pointer; padding: 12px 0; font-weight: 500; color: var(--ink); }
+  .side nav { padding-bottom: 12px; }
+}
+@media (max-width: 640px) {
+  .wrap { width: calc(100% - 32px); }
+  .prose .gallery { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .prose h2 { font-size: 23px; margin-top: 44px; }
+  .pager { flex-direction: column; }
+  .pager a { max-width: none; }
+  .docs-nav-row { gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

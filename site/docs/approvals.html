@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- Built by site/demo/build-docs.mjs from docs/guide/approvals.md. Edit the Markdown, not this file. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Approvals · OOOhm guide</title>
+  <meta name="description" content="The approvals inbox, coverage warnings, deciding with a reason, keyboard shortcuts, and approving straight from the email.">
+  <meta name="theme-color" content="#fafaf9">
+  <meta property="og:title" content="Approvals · OOOhm guide">
+  <meta property="og:description" content="The approvals inbox, coverage warnings, deciding with a reason, keyboard shortcuts, and approving straight from the email.">
+  <meta property="og:image" content="https://ooohm.team/media/og.png">
+  <meta property="og:url" content="https://ooohm.team/docs/approvals.html">
+  <link rel="canonical" href="https://ooohm.team/docs/approvals.html">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="../fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="docs.css">
+</head>
+<body class="docs">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="docs-nav">
+    <div class="wrap docs-nav-row">
+      <a class="logo" href="../" aria-label="OOOhm home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg><span><b>OOO</b>hm</span></a>
+      <a class="docs-home" href="index.html">Guide</a>
+      <a class="btn btn-quiet nav-cta" href="https://github.com/Chykalophia/ooohm">GitHub</a>
+    </div>
+  </header>
+  <div class="wrap docs-grid">
+    <details class="side" data-side>
+      <summary>Contents</summary>
+      <nav aria-label="Guide"><p class="side-group">Overview</p><ul><li><a href="index.html">OOOhm guide</a></li></ul><p class="side-group">For everyone</p><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="asking-for-time-off.html">Asking for time off</a></li><li><a href="calendar.html">Calendar</a></li><li><a href="team.html">Who's out</a></li></ul><p class="side-group">For managers</p><ul><li><a href="approvals.html" aria-current="page">Approvals</a></li><li><a href="reports.html">Reports</a></li></ul><p class="side-group">For admins</p><ul><li><a href="admin-people.html">People</a></li><li><a href="admin-organization.html">Departments, levels and leave types</a></li><li><a href="admin-holidays.html">Holidays</a></li><li><a href="admin-company.html">Company settings</a></li><li><a href="admin-appearance.html">Appearance</a></li><li><a href="emails.html">Emails</a></li><li><a href="admin-audit-integrations.html">Audit log and integrations</a></li></ul></nav>
+    </details>
+    <main id="main" class="prose">
+<h1>Approvals</h1>
+<p>Managers and admins have <strong>Approvals</strong> in the top bar, with a count of what's waiting for them.</p>
+<h2 id="who-approves-whom"><a class="anchor" href="#who-approves-whom">Who approves whom</a></h2>
+<p>Each person has one approver:</p>
+<ol><li>their manager (Admin → People);</li><li>if they have none, their department's manager (Admin → Departments);</li><li>if there's none of those either, an admin.</li></ol>
+<p>Someone set to <strong>Approves their own requests</strong> has their requests approved as soon as they send them, still within their balance. When a company turns approval off (<strong>Just let us know</strong> under <a href="admin-company.html#time-off-approval">Company</a>), nothing waits here: time off is booked straight away, and the approver gets a <a href="emails.html#heads-up">heads-up email</a> instead.</p>
+<h2 id="needs-you"><a class="anchor" href="#needs-you">Needs you</a></h2>
+<figure><img src="images/approvals.webp" alt="Approvals: three requests waiting" width="1000" height="1288" loading="lazy" decoding="async"><figcaption>Approvals: three requests waiting</figcaption></figure>
+<p>Each request shows who asked, the dates, the leave type, how many days, and their note. Under it, OOOhm says who else is off then (<em>Aisha Khan is off then too</em>), or that nobody else in their department is.</p>
+<p>If the person's department has a <a href="admin-organization.html#coverage-limits">coverage limit</a> and this request would go past it, a warning says so in bold: <em>This would put up to 2 people in Design off at once, on 3 days from Mon, Nov 23. The limit is 1.</em> It's a warning only; you can still approve.</p>
+<p><strong>Approve</strong> or <strong>Decline</strong>, with an optional <strong>Reason</strong>. The person gets an email either way (<a href="emails.html#approved">approved</a>, <a href="emails.html#declined">declined</a>), with your reason in it.</p>
+<p><strong>Keyboard shortcuts</strong>: tick the box to use J and K to move between requests, A to approve, and D to decline with a reason.</p>
+<h2 id="waiting-on-others"><a class="anchor" href="#waiting-on-others">Waiting on others</a></h2>
+<p>Admins also see <strong>Waiting on others</strong>: requests assigned to someone else. As an admin you can still decide them.</p>
+<h2 id="settled"><a class="anchor" href="#settled">Settled</a></h2>
+<p><strong>Settled</strong> lists what you decided in the last 30 days, newest first, with your note.</p>
+<figure><img src="images/approvals-settled.webp" alt="Settled decisions" width="1000" height="760" loading="lazy" decoding="async"><figcaption>Settled decisions</figcaption></figure>
+<h2 id="approving-from-the-email"><a class="anchor" href="#approving-from-the-email">Approving from the email</a></h2>
+<p>The <a href="emails.html#time-off-request">request email</a> has an <strong>Approve</strong> button. It opens a page in OOOhm that shows the request and asks once more, so a mail scanner that follows links can't approve anything by itself.</p>
+<figure><img src="images/approve-from-email.webp" alt="The page the Approve button opens" width="1000" height="760" loading="lazy" decoding="async"><figcaption>The page the Approve button opens</figcaption></figure>
+<p>The link is for that approver alone and works for 7 days. It stops working once the request is decided, cancelled, or moves to another approver. To decline, use <strong>Decline or look closer in OOOhm</strong>.</p>
+      <nav class="pager" aria-label="Next and previous">
+        <a class="prev" href="team.html"><span>Previous</span>Who's out</a>
+        <a class="next" href="reports.html"><span>Next</span>Reports</a>
+      </nav>
+      <p class="edit"><a href="https://github.com/Chykalophia/ooohm/blob/main/docs/guide/approvals.md" rel="noopener">This page on GitHub</a></p>
+    </main>
+    <nav class="toc" aria-label="On this page"><p class="side-group">On this page</p><ul><li><a href="#who-approves-whom">Who approves whom</a></li><li><a href="#needs-you">Needs you</a></li><li><a href="#waiting-on-others">Waiting on others</a></li><li><a href="#settled">Settled</a></li><li><a href="#approving-from-the-email">Approving from the email</a></li></ul></nav>
+  </div>
+  <footer class="footer">
+    <div class="wrap footer-row">
+      <a class="logo" href="../" aria-label="OOOhm home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><g transform="translate(3.52 3.52) scale(0.78)"><path d="M7.5 24.5H12.6V21.2A7.5 7.5 0 1 1 19.4 21.2V24.5H24.5"/></g></svg><span><b>OOO</b>hm</span></a>
+      <nav aria-label="Footer" class="footer-links">
+        <a href="index.html">Guide</a>
+        <a href="https://github.com/Chykalophia/ooohm">GitHub</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/hosting.md">Hosting</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/docs/api.md">API</a>
+        <a href="https://github.com/Chykalophia/ooohm/blob/main/LICENSE.md">License</a>
+      </nav>
+      <p class="fine">© 2026 Chykalophia Group, LLC. Source-available under FSL-1.1-ALv2.</p>
+    </div>
+  </footer>
+  <script>
+    // The contents stay open beside the page on wide screens and fold away on narrow ones.
+    const side = document.querySelector("[data-side]");
+    const wide = matchMedia("(min-width: 1001px)");
+    const fit = () => (side.open = wide.matches);
+    fit();
+    wide.addEventListener("change", fit);
+  </script>
+</body>
+</html>

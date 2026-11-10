@@ -32,7 +32,7 @@ function Hint({ id, children }: { id: string; children?: React.ReactNode }) {
  * The label above a control and the hint below it; `control` receives the ids to use.
  * `describedBy` (the caller's own `aria-describedby`) is kept beside the hint's id.
  */
-function FieldShell({
+export function FieldShell({
   label,
   hint,
   optional,

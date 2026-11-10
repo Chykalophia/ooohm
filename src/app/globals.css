@@ -445,7 +445,8 @@ body,
 }
 
 /* Tonal (after Material 3): soft filled cards, big numbers, a large pill main action. */
-[data-layout="tonal"] .rounded-2xl.border {
+/* A card, not a popup floating over one (the date picker keeps its edge, untinted). */
+[data-layout="tonal"] .rounded-2xl.border:not([data-date-picker]) {
   border-color: transparent;
   background-color: color-mix(in srgb, var(--accent) 7%, var(--surface));
   /* Grey text on the tint keeps 4.5:1. */
@@ -477,7 +478,7 @@ body,
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-[data-layout="grouped"] .rounded-2xl.border {
+[data-layout="grouped"] .rounded-2xl.border:not([data-date-picker]) {
   border-color: transparent;
   border-radius: var(--radius-xl);
 }

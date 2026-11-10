@@ -5,6 +5,7 @@ import * as schema from "@/db/schema";
 import { getCompanySettings, updateCompanyAppearance, updateCompanySettings } from "@/server/services/admin-company";
 import { getAppearance } from "@/server/services/appearance";
 import { createDepartment, deleteDepartment, listDepartmentsForAdmin, renameDepartment } from "@/server/services/admin-departments";
+import { createLevel, deleteLevel, listLevelsForAdmin } from "@/server/services/admin-levels";
 import {
   addHoliday,
   addHolidayRange,
@@ -93,6 +94,38 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
         ["department.deleted", { departmentId: ops.id, name: "Operations", managerId: null, maxOff: null, actorId: boss.id, actor: { type: "user", id: boss.id } }],
       ],
     );
+  });
+
+  test("departments and levels count only active people, yet deactivated ones still block a delete", async () => {
+    const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {}, bo: {}, cy: { isActive: false }, di: { isActive: false } });
+    const ctx = createTestContext(t.db);
+    const { boss } = co.people;
+    const mgmt = await createDepartment(ctx, boss, "Management");
+    const senior = await createLevel(ctx, boss, "Senior");
+    const place = (key: "ana" | "bo" | "cy" | "di") =>
+      t.db.update(schema.user).set({ departmentId: mgmt.id, levelId: senior.id }).where(eq(schema.user.id, co.people[key].id));
+    await Promise.all([place("ana"), place("bo"), place("cy"), place("di")]);
+
+    const counts = async () => ({
+      department: (await listDepartmentsForAdmin(ctx, boss)).map((d) => [d.members, d.assigned]),
+      level: (await listLevelsForAdmin(ctx, boss)).map((l) => [l.members, l.assigned]),
+    });
+    // Two active, two deactivated: the page shows 2; all four still point at it.
+    assert.deepEqual(await counts(), { department: [[2, 4]], level: [[2, 4]] });
+
+    // Deactivating changes the shown count straight away.
+    await t.db.update(schema.user).set({ isActive: false }).where(eq(schema.user.id, co.people.ana.id));
+    await t.db.update(schema.user).set({ isActive: false }).where(eq(schema.user.id, co.people.bo.id));
+    assert.deepEqual(await counts(), { department: [[0, 4]], level: [[0, 4]] });
+
+    // "Nobody" active is not empty: deleting would silently empty four people's fields.
+    await rejectsWith(deleteDepartment(ctx, boss, mgmt.id), "department_not_empty");
+    await rejectsWith(deleteLevel(ctx, boss, senior.id), "level_not_empty");
+
+    await t.db.update(schema.user).set({ departmentId: null, levelId: null }).where(eq(schema.user.companyId, co.companyId));
+    assert.deepEqual(await counts(), { department: [[0, 0]], level: [[0, 0]] });
+    await deleteDepartment(ctx, boss, mgmt.id);
+    await deleteLevel(ctx, boss, senior.id);
   });
 
   test("departments: two creates racing past the read check cannot both win, whatever the case", async () => {

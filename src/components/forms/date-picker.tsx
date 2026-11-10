@@ -55,26 +55,39 @@ const EDGE = 16;
  * grid follows the WAI-ARIA date picker dialog pattern (arrows, Home/End, PageUp/PageDown,
  * Shift for years). The value is posted as `name`, `YYYY-MM-DD`, and is required.
  *
- * Inside a sentence's `<p>`, so it is built of spans and buttons only. Colours are theme
- * tokens; the popup sits under the trigger and, on phones, spans the card's width.
+ * It can sit inside a sentence's `<p>`, so it is built of spans and buttons only. Colours
+ * are theme tokens; the popup sits under the trigger and, on phones, spans the card's width.
+ * A labelled form field wraps it as {@link DateField} (`./date-field.tsx`).
  */
 export function DatePicker({
+  id: triggerId,
   name,
   label,
+  pickerLabel = label,
   value,
   min,
   onChange,
   className,
+  rootClassName = "inline-block max-w-full",
+  adornment,
 }: {
+  /** The trigger's id, for a `<label htmlFor>` outside it. */
+  id?: string;
   name: string;
-  /** What the date is ("First day"): names the trigger, the dialog and the typed field. */
+  /** The trigger's name ("From", "First day"); it begins the button's accessible name. */
   label: string;
+  /** What the date is ("First day"): names the dialog and its typed field. Defaults to `label`. */
+  pickerLabel?: string;
   value: CalendarDate | "";
   /** Days before it show but can't be picked. */
   min?: CalendarDate;
   onChange: (value: CalendarDate) => void;
-  /** The trigger's own look (the sentence's token). */
+  /** The trigger's whole look, focus included (the sentence's token, a form field). */
   className?: string;
+  /** The wrapper's display: inline in a sentence, `block` to fill a form column. */
+  rootClassName?: string;
+  /** Shown after the date inside the trigger (a form field's calendar icon). */
+  adornment?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [focus, setFocus] = useState<CalendarDate>("");
@@ -205,17 +218,19 @@ export function DatePicker({
   const days = month ? pickerGrid(month) : [];
 
   return (
-    <span ref={root} className="relative inline-block max-w-full">
+    <span ref={root} className={cx("relative", rootClassName)}>
       <button
         ref={trigger}
+        id={triggerId}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`${label}, ${value ? longDay(value) : "no date"}`}
         onClick={() => (open ? close() : show())}
-        className={cx("cursor-pointer", focusRing, className)}
+        className={cx("cursor-pointer", className)}
       >
         {value ? formatShortDay(value) : "pick a date"}
+        {adornment}
       </button>
       {/* The posted value. A real (invisible) input, so `required` still blocks an empty submit. */}
       <input
@@ -233,7 +248,7 @@ export function DatePicker({
           role="dialog"
           data-date-picker
           aria-modal="true"
-          aria-label={`Choose ${label.toLowerCase()}`}
+          aria-label={`Choose ${pickerLabel.toLowerCase()}`}
           onKeyDown={onDialogKey}
           style={{ fontFamily: "var(--app-font)" }}
           className={cx(
@@ -245,7 +260,7 @@ export function DatePicker({
         >
           <span className="mb-3 flex flex-wrap items-baseline gap-x-2">
             <label htmlFor={`${id}-typed`} className="text-xs tracking-[0.06em] text-muted uppercase">
-              {label}
+              {pickerLabel}
             </label>
             <input
               ref={typedField}

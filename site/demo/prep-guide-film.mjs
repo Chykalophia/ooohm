@@ -44,6 +44,7 @@ try {
   await browser.close();
 }
 
+if (!hits || !Number.isFinite(duration)) throw new Error(`${FILM} must set window.HITS and window.DURATION.`);
 const tmp = join(here, ".frames", "sfx");
 rmSync(tmp, { recursive: true, force: true });
 mkdirSync(tmp, { recursive: true });

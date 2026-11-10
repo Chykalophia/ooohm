@@ -123,9 +123,14 @@ export const surface = "rounded-2xl border border-border bg-surface";
 
 export const card = `${surface} p-5 sm:p-6`;
 
-/** A list row or card whose link is its action: it tints while that link is hovered or keyboard-focused. */
+/**
+ * A list row or card whose link is its action: it tints while that link is hovered or
+ * keyboard-focused. The tint is an accent wash laid over the row's own background (a
+ * gradient of one colour), not a new background colour, so it shows on every layout:
+ * Tonal colours its cards from globals.css, which a background colour here would lose to.
+ */
 export const linkedRow =
-  "transition-colors has-[a[href]:hover]:bg-background has-[a[href]:focus-visible]:bg-background";
+  "from-accent/5 to-accent/5 has-[a[href]:hover]:bg-linear-to-b has-[a[href]:focus-visible]:bg-linear-to-b";
 
 /** A radio drawn as a bordered card with a label and a line under it: one of a few settings that each need a sentence. */
 export const choiceCard =

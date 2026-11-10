@@ -10,7 +10,7 @@ import { requireAdminPage } from "@/app/_lib/page-context";
 import { Item, ItemList } from "@/components/ui/card";
 import { InlineAction } from "@/components/forms/inline-action";
 import { cancelDeletionAction } from "@/app/admin/people/actions";
-import { nativeCheck, primaryButton, quietLink, textLink } from "@/components/ui/styles";
+import { cx, linkedRow, nativeCheck, primaryButton, quietLink, textLink } from "@/components/ui/styles";
 import { SelectField, TextField } from "@/components/ui/fields";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { departmentParamSchema, readParam } from "@/app/_lib/calendar-input";
@@ -96,7 +96,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       ) : (
         <ItemList>
           {people.map((p) => (
-            <Item key={p.id} className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <Item key={p.id} className={cx(linkedRow, "flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between")}>
               <div className="min-w-0 space-y-1">
                 <p className="font-medium break-words">
                   <Link href={`/admin/people/${p.id}`} className={textLink}>

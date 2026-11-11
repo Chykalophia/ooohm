@@ -197,7 +197,7 @@ dialog.film video { width: 100%; border-radius: 14px; background: #000; }
 .section.tint { background: var(--tint); border-block: 1px solid var(--border); }
 .section-head { max-width: 760px; margin-bottom: 64px; }
 h2 { font-size: clamp(32px, 3.6vw, 48px); line-height: 1.08; letter-spacing: -0.03em; }
-.section-lede { font-size: 19px; margin-top: 20px; }
+.section-lede { font-size: 19px; margin-top: 20px; max-width: 34em; }
 .split { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 72px; align-items: center; }
 .split > div > p:not(.kicker) { margin-top: 18px; font-size: 18px; }
 

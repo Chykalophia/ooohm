@@ -166,11 +166,14 @@ span.stack { display: inline-grid; }
 /* The film */
 .film-band { padding: 24px 0 48px; }
 .film-poster { position: relative; display: block; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: 20px; overflow: hidden; cursor: pointer; background: var(--surface); }
-.film-poster img { width: 100%; transition: transform .6s var(--ease); }
-.film-poster:hover img { transform: scale(1.012); }
+.film-poster img { width: 100%; transition: transform .4s var(--ease); }
 .play { position: absolute; left: 50%; top: 50%; width: 84px; height: 84px; translate: -50% -50%; border-radius: 50%; background: var(--ink); display: grid; place-items: center; transition: transform .25s var(--ease), background-color .25s; }
 .play svg { width: 26px; height: 26px; fill: #fff; margin-left: 4px; }
-.film-poster:hover .play { transform: scale(1.06); background: var(--accent); }
+/* Hover only where there is a pointer that hovers: on a phone a tap would leave it stuck. */
+@media (hover: hover) and (pointer: fine) {
+  .film-poster:hover img { transform: scale(1.012); }
+  .film-poster:hover .play { transform: scale(1.06); background: var(--accent); }
+}
 .film-caption { margin-top: 14px; font-size: 15px; color: var(--muted); }
 .film-caption b { color: var(--ink); font-weight: 600; }
 .transcript { margin-top: 10px; font-size: 15px; }
@@ -341,8 +344,8 @@ h3 { font-size: clamp(26px, 2.6vw, 34px); line-height: 1.12; letter-spacing: -0.
 .footer-links a:hover { color: var(--ink); }
 .fine { width: 100%; font-size: 13px; color: var(--muted); }
 
-/* Reveal on scroll: subtle, once. */
-.reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s var(--ease), transform .7s var(--ease); }
+/* Reveal on scroll: subtle, once, and quick enough that a fast scroller never meets an empty block. */
+.reveal { opacity: 0; transform: translateY(8px); transition: opacity .35s var(--ease), transform .35s var(--ease); }
 .reveal.in { opacity: 1; transform: none; }
 
 @media (max-width: 1000px) {

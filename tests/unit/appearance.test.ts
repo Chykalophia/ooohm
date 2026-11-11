@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { DEFAULT_APPEARANCE, THEME_KEYS, followsDarkMode, normalizeAppearance, readAppearance } from "@/domain/appearance";
 import { isDomainError } from "@/domain/errors";
-import { DARKEST_LIGHT_GROUND, accentTokens, htmlAppearance } from "@/lib/appearance";
+import { DARKEST_LIGHT_GROUND, accentHover, accentTokens, htmlAppearance } from "@/lib/appearance";
 import { contrastRatio } from "@/lib/color";
 import type { ServiceContext } from "@/server/context";
 import { getAppearance } from "@/server/services/appearance";
@@ -81,6 +82,36 @@ test("accent tokens: text on the fill and accent-coloured text both stay readabl
   assert.equal(accentTokens("#f2a900").accentForeground, "#111111", "a pale accent gets dark text");
 });
 
+test("accent hover: the main button's label keeps 4.5:1 and the fill visibly changes, for any custom accent", () => {
+  const colors = ["#f2a900", "#ffeb3b", "#2546d0", "#000000", "#ffffff", "#7f7f7f", "#777777", "#767676", "#18181b", "#fafafa"];
+  for (let i = 0; i < 64; i++) colors.push(`#${((i * 2654435761) >>> 8).toString(16).padStart(6, "0").slice(0, 6)}`);
+  for (const color of colors) {
+    const t = accentTokens(color);
+    assert.ok(contrastRatio(t.accentHover, t.accentForeground) >= 4.5, `${color}: label on the hover fill`);
+    assert.notEqual(t.accentHover, t.accent, `${color}: hover differs from the fill`);
+  }
+  assert.equal(accentHover("#e0301e", "#ffffff"), "#ca2b1b", "white text: the fill darkens");
+  assert.equal(accentHover("#f2a900", "#14213d"), "#f3b21a", "dark text: the fill lightens");
+  assert.equal(accentHover("#18181b", "#ffffff"), "#2f2f32", "a near-black fill lightens, since darker would not show");
+});
+
+test("accent hover: every theme's --accent-hover in globals.css follows the rule and keeps 4.5:1", () => {
+  const css = readFileSync(new URL("../../src/app/globals.css", import.meta.url), "utf8");
+  const blocks = [...css.matchAll(/\[data-ui="([a-z]+)"\] \{([^}]*)\}/g)].filter(([, , body]) => body.includes("--accent:"));
+  assert.deepEqual(blocks.map(([, theme]) => theme).sort(), [...THEME_KEYS].sort(), "one accent block per theme");
+  for (const [, theme, body] of blocks) {
+    const token = (name: string) => new RegExp(`--${name}:\\s*([^;]+);`).exec(body)?.[1]?.trim() ?? "";
+    // Classic writes light-dark() pairs; check each half.
+    const halves = (v: string) => (v.startsWith("light-dark(") ? v.slice(11, -1).split(",").map((s) => s.trim()) : [v]);
+    const [accents, foregrounds, hovers] = ["accent", "accent-foreground", "accent-hover"].map((n) => halves(token(n)));
+    assert.equal(hovers.length, accents.length, `${theme}: --accent-hover is set`);
+    accents.forEach((accent, i) => {
+      assert.equal(hovers[i], accentHover(accent, foregrounds[i]), `${theme}[${i}]: matches accentHover()`);
+      assert.ok(contrastRatio(hovers[i], foregrounds[i]) >= 4.5, `${theme}[${i}]: label on the hover fill`);
+    });
+  }
+});
+
 test("html appearance: attributes for the stylesheet, accent tokens only when customised", () => {
   assert.deepEqual(htmlAppearance(DEFAULT_APPEARANCE), { attributes: { "data-ui": "classic", "data-mode": "light" }, style: {} });
   const custom = htmlAppearance({ theme: "graphite", accentColor: "#f2a900", corners: "round" }, "dark");
@@ -90,6 +121,7 @@ test("html appearance: attributes for the stylesheet, accent tokens only when cu
   assert.equal(custom.style["--accent"], "#f2a900");
   assert.equal(custom.style["--accent-foreground"], "#111111");
   assert.ok(custom.style["--accent-ink"]);
+  assert.equal(custom.style["--accent-hover"], accentTokens("#f2a900").accentHover);
 });
 
 test("get appearance: a failed read falls back to the default look instead of failing the page", async () => {

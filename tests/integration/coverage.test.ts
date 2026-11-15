@@ -3,7 +3,7 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { draftCoverage, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
-import { getApprovalTriage } from "@/server/services/approvals";
+import { getApprovalTriage } from "@/modules/approvals";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";

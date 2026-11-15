@@ -1,5 +1,5 @@
 import "server-only";
-import type { ApprovalMode } from "@/domain/approval-rule";
+import type { ApprovalMode } from "@/shared/kernel/approval";
 import type { CalendarDate } from "@/domain/calendar-date";
 import type { PageCursor } from "@/domain/paging";
 import type { BalanceSummary } from "@/server/services/balances";

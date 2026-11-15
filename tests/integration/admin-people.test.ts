@@ -18,7 +18,7 @@ import {
   updatePerson,
 } from "@/server/services/admin-people";
 import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
@@ -26,6 +26,8 @@ import { createWebhookEndpoint, deleteWebhookEndpoint } from "@/server/services/
 import { rejectsWith } from "./assertions";
 import { captureStderr, companyAudit, companyEvents, decidable, type PersonSpec, seedCompany, setAllowance, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 

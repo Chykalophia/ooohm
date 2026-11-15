@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, SUBMIT_LIMIT, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { auditFor, eventsFor, requestsOf, seedCompany, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);

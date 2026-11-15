@@ -2,7 +2,7 @@ import "server-only";
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { readAppearance } from "@/domain/appearance";
-import { readApprovalMode } from "@/domain/approval-rule";
+import { readApprovalMode } from "@/shared/kernel/approval";
 import { readStoredLogo } from "@/domain/company-logo";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "@/domain/events";

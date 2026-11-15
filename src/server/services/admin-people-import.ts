@@ -27,11 +27,10 @@ import type { ServiceContext } from "@/server/context";
 import { countRecentActions } from "@/modules/audit";
 import { addDepartment, listDepartments } from "@/modules/organisation";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
-import { listPendingSelfRouted } from "@/server/repositories/leave-requests";
+import { listPendingSelfRouted, rerouteApprovals } from "@/modules/approvals";
 import { emailsInUse, insertPerson, listPeopleNames, type PersonRow } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { beginAdminChange, inviteEmail, inviterName, personPayload, personSnapshot } from "./admin-people";
-import { rerouteApprovals } from "./approval-reroute";
 import { commitThenNotify, type Notification } from "@/modules/notifications";
 
 /** Most people one admin may add by import in {@link PEOPLE_IMPORT_WINDOW_MINUTES}. */

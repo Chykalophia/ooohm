@@ -1,15 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { ApprovalCandidate, ApprovalRequester } from "@/domain/approval-rule";
-import {
-  APPROVAL_MODES,
-  approvalRuleFor,
-  DEFAULT_APPROVAL_MODE,
-  isApprovalMode,
-  ManagerApprovalRule,
-  readApprovalMode,
-  reassignApprover,
-} from "@/domain/approval-rule";
+import type { ApprovalCandidate, ApprovalRequester } from "@/modules/approvals/domain/approval-context";
+import { approvalRuleFor } from "@/modules/approvals/domain/approval-rule";
+import { ManagerApprovalRule, reassignApprover } from "@/modules/approvals/domain/approver-for";
+import { APPROVAL_MODES, DEFAULT_APPROVAL_MODE, isApprovalMode, readApprovalMode } from "@/shared/kernel/approval";
 import { isDomainError } from "@/domain/errors";
 
 const rule = new ManagerApprovalRule();

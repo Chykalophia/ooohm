@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { type ApprovalRule, approvalRuleFor, readApprovalMode } from "@/domain/approval-rule";
+import { readApprovalMode } from "@/shared/kernel/approval";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import type { Notification } from "@/modules/notifications";
@@ -59,7 +59,6 @@ export async function submitLeaveRequest(
   deps: LeaveDeps,
   actor: Actor,
   input: SubmitLeaveInput,
-  rule?: ApprovalRule,
 ): Promise<ServiceResult<SubmittedLeaveDTO>> {
   // Cheap checks first, so malformed input never opens a transaction.
   const range = createDateRange(input.startDate, input.endDate, input.dayPortion);
@@ -68,7 +67,7 @@ export async function submitLeaveRequest(
     const note = normalizeNote(input.note);
     if (!isUuid(input.leaveTypeId)) throw new DomainError("leave_type_unavailable");
     return deps.unitOfWork(actor.companyId, async (store) => {
-      const plan = await planSubmit(store, actor, input, rule);
+      const plan = await planSubmit(store, actor, input);
       const final = await storeSubmission(deps, store, actor, { plan, range: range.value, note, userId: actor.id });
       const notify: Notification[] = await submitMail(deps, store, actor, final, plan);
       return { result: { ...toLeaveRequestDTO(final), headsUp: plan.headsUp }, notify };
@@ -77,7 +76,7 @@ export async function submitLeaveRequest(
 }
 
 /** The checks under the locks: an active requester under the rate limit, the cost, and who decides. */
-async function planSubmit(store: LeaveStore, actor: Actor, input: SubmitLeaveInput, rule?: ApprovalRule): Promise<SubmitPlan> {
+async function planSubmit(store: LeaveStore, actor: Actor, input: SubmitLeaveInput): Promise<SubmitPlan> {
   // Shared with other submits, exclusive with a holiday or working-days change, which
   // recounts submitted requests: a request is never counted with a calendar that is
   // being replaced. Taken before the member lock, the order every service locks in.
@@ -91,9 +90,7 @@ async function planSubmit(store: LeaveStore, actor: Actor, input: SubmitLeaveInp
   const assessment = await store.allowances.assess(actor, input);
   const settings = await store.directory.companySettings(actor.companyId);
   if (!settings) throw new DomainError("no_company");
-  const decision = (rule ?? approvalRuleFor(readApprovalMode(settings.approvalMode))).resolve(
-    await store.approvals.contextFor(actor.companyId, requester),
-  );
+  const decision = await store.approvals.route(actor.companyId, requester, readApprovalMode(settings.approvalMode));
   const informId = decision.kind === "auto_approve" ? (decision.informId ?? null) : null;
   const headsUp = decision.kind === "auto_approve" && decision.informId !== undefined;
   return { assessment, decision, informId, headsUp };

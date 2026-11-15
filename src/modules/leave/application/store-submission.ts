@@ -7,7 +7,7 @@ import type { DayCount } from "../domain/day-count";
 import { type LeaveRequest, submitLeave } from "../domain/leave-request";
 import { recordEvent } from "./leave-changes";
 import type { LeaveDeps, LeaveStore } from "./ports";
-import type { ApprovalDecision } from "@/domain/approval-rule";
+import type { ApprovalDecision } from "@/shared/kernel/approval";
 import type { LeaveAssessment } from "@/server/services/balances";
 
 /** What a new request costs and who decides it. */

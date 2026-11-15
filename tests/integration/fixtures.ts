@@ -5,7 +5,7 @@ import type { Database } from "@/db/types";
 import type { Actor, Role } from "@/domain/actor";
 import { byUser } from "@/domain/change-source";
 import type { ServiceContext } from "@/server/context";
-import { getApprovalTriage } from "@/server/services/approvals";
+import { getApprovalTriage } from "@/modules/approvals";
 
 export interface PersonSpec {
   role?: Role;

@@ -437,7 +437,7 @@ balance (`managers_see_details` off) gets the cost but never what is left, in th
 
 ### Approval rule
 
-`ApprovalRule` (`src/domain/approval-rule.ts`) is pluggable; v1 ships `ManagerApprovalRule` (and
+`ApprovalRule` (`src/modules/approvals/domain/`) is pluggable; v1 ships `ManagerApprovalRule` (`approver-for.ts`, and
 `HeadsUpApprovalRule` for companies that turned approval off, above):
 
 1. `can_self_approve` → approved on submit.
@@ -481,7 +481,7 @@ optional reason (max 500 characters) stored in `decision_note`. Every status cha
 **A stored assignment grants the right to decide only while it still matches the approval rule** (`canDecide`,
 `src/modules/leave/domain/leave-permissions.ts`). When the right rests on the assignment (a non-admin approver, or an admin
 deciding their own request routed to themself), `decideLeaveRequest` reads the requester, their manager, their
-department's manager and the active admins (`loadApprovalContext`, `src/server/services/approval-routing.ts`) in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
+department's manager and the active admins (`ApprovalContextReader`, served by `loadApprovalContexts` in `src/modules/approvals/infrastructure/drizzle-approval-context.reader.ts`) in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
 `forbidden` and the request is left to the admins, who see every pending request. Its compare-and-set then also
 requires `approver_id` to still be the actor, so it loses (`conflict`) to a concurrent re-route. This closes the
 window a submit leaves open: submit reads the manager and the admins without locking them (a shared lock on the
@@ -1017,6 +1017,14 @@ person's **member lock** (`lockMember`), as the M3 rule requires of every writer
 
 ### Organisation
 
+`src/modules/approvals` (README there, Tier 3) owns deciding requests, the Approvals page, approve from the email and
+re-routing pending requests. Leave owns the `leave_requests` table, so a decision or a reassignment writes through
+leave's public API (`lockLeaveRequest`, `updateStatusIfCurrent`, `reassignIfCurrent`, `recordLeaveChange`,
+`recordReassignment`); approvals owns its reads (the inbox, Settled, the review behind a link, the pending lists an
+admin change re-routes). Leave asks who decides through its own `ApprovalRouter` port, which approvals implements;
+`wireModules()` (`src/server/wiring.ts`) hands it over in every composition root (`runtime.ts`,
+`scripts/script-context.mts`, the integration harness), so approvals → leave is the only direction.
+
 `src/modules/organisation` (README there) owns the company row, departments, levels and the leave type catalog.
 Nearly every module reads it, so it imports no other module (`tests/architecture/organisation-boundary.test.ts`).
 Two admin changes reach further: new working days recount leave already sent, and a new department manager
@@ -1073,7 +1081,7 @@ type DTOs name the type; the allowance settings balances compute from are read b
 - **Deactivate** (`deactivatePerson`), in one transaction: `is_active = false`; every session deleted (and the
   session hook already refuses new ones); every live calendar link revoked (`calendar_feed.revoked`, reason
   `deactivated`); their own requests untouched. **Pending requests they were assigned to approve are
-  reassigned** (`reassignApprover`, `src/domain/approval-rule.ts`): the same rule as at submit minus
+  reassigned** (`rerouteApprovals` from `@/modules/approvals`, with `approverFor` in `src/modules/approvals/domain/approver-for.ts`): the same rule as at submit minus
   self-approval, so the requester's active manager, else the longest-standing other active admin, else the
   requester if they are an admin, else nobody (`approver_id` null; admins see every pending request anyway).
   Each move is a compare-and-set on `pending` and the old approver, writes `leave.reassigned`, and emails the

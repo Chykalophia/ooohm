@@ -25,7 +25,7 @@ import {
   getDeletionPreview,
   runDueScrubs,
 } from "@/server/services/admin-people-deletion";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { getAuditLog as readAuditLog } from "@/modules/audit";
 import { unwrap } from "@/shared/lib/result";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
@@ -39,6 +39,8 @@ import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/server/services/company-settings";
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);

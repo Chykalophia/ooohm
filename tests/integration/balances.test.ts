@@ -5,7 +5,7 @@ import * as schema from "@/db/schema";
 import type { Actor } from "@/domain/actor";
 import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
 import { getPersonDetail } from "@/server/services/admin-people";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { getBalanceSummary, previewLeaveRequest } from "@/server/services/balances";
 import { issueCalendarFeed, shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
 import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
@@ -13,6 +13,8 @@ import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);

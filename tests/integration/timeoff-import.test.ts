@@ -12,7 +12,7 @@ import type { Database } from "@/db/types";
 import { toActor } from "@/domain/actor";
 import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
 import { readTimeOffSqlite } from "@/server/importers/timeoff/sqlite-reader";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { getBalanceSummary } from "@/server/services/balances";
 import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
@@ -32,6 +32,8 @@ import {
 import { rejectsWith } from "./assertions";
 import { decidable, requestsOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);

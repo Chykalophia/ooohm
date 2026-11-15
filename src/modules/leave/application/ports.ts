@@ -7,7 +7,6 @@ import "server-only";
  */
 import type { Role } from "@/domain/actor";
 import type { AllowancePolicy } from "@/domain/allowance-policy";
-import type { ApprovalContext } from "@/domain/approval-rule";
 import type { CalendarDate } from "@/domain/calendar-date";
 import type { ChangeSource } from "@/domain/change-source";
 import type { PageRequest } from "@/domain/paging";
@@ -17,6 +16,7 @@ import type { LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisatio
 import type { PersonRow } from "@/server/repositories/users";
 import type { BalanceSummary, LeaveAssessment, LeaveDraft, LeaveTypeWithAllowance, balanceInputs } from "@/server/services/balances";
 import type { IdGenerator } from "@/shared/lib/id-generator";
+import type { ApprovalDecision, ApprovalMode } from "@/shared/kernel/approval";
 import type { YearDays } from "@/shared/kernel/leave-days";
 import type { DayPortion, LeaveRange, LeaveStatus } from "@/shared/kernel/leave-range";
 import type { DateRange } from "../domain/date-range";
@@ -70,11 +70,20 @@ export interface LeaveRequestRepository {
   insert(request: LeaveRequest): Promise<LeaveRequest>;
   /** Stores what a new request costs per calendar year. */
   saveYearDays(requestId: string, split: readonly YearDays[]): Promise<void>;
-  /** Compare-and-set on the status: `undefined` when it is no longer `from`. */
+  /**
+   * Compare-and-set on the status: `undefined` when it is no longer `from`. With
+   * `approverId`, the request must also still be assigned to that person, so a decision
+   * resting on the assignment loses to a concurrent reassignment.
+   */
   updateStatusIfCurrent(
-    where: { companyId: string; id: string; from: LeaveStatus },
+    where: { companyId: string; id: string; from: LeaveStatus; approverId?: string },
     set: { status: LeaveStatus; decidedAt?: Date; decisionNote?: string | null },
   ): Promise<LeaveRequest | undefined>;
+  /**
+   * Moves a pending request to `approverId` only while it is still pending and assigned
+   * to `from` (`null`: to nobody), compare-and-set like {@link updateStatusIfCurrent}.
+   */
+  reassignIfCurrent(where: { companyId: string; id: string; from: string | null }, approverId: string | null): Promise<LeaveRequest | undefined>;
   /** Locks the company's pending and approved requests on any of `dates`, or ending on or after `from`; oldest start first. */
   lockActiveOnDates(companyId: string, dates: readonly string[] | { from: string }): Promise<LeaveRequest[]>;
   listYearDays(requestIds: readonly string[]): Promise<Map<string, YearDays[]>>;
@@ -157,10 +166,17 @@ export interface AllowanceReader {
   recarry(job: { companyId: string; timezone: string; policy: AllowancePolicy; member: Person; leaveType: LeaveTypeRow; closingYear: number; source: ChangeSource }): Promise<void>;
 }
 
-/** Approvals' public API, as leave needs it. */
+/**
+ * Approval routing, as leave needs it. Leave owns this port; the approvals module
+ * implements it and the composition root hands it over (`provideApprovalRouting`), so
+ * approvals depends on leave and never the other way.
+ */
 export interface ApprovalRouter {
-  /** What the approval rule needs to route `requester`'s request now. */
-  contextFor(companyId: string, requester: Requester): Promise<ApprovalContext>;
+  /**
+   * Who decides `requester`'s new request under the company's approval `mode`, read now.
+   * Throws `DomainError` `no_approver` when nobody can.
+   */
+  route(companyId: string, requester: Requester, mode: ApprovalMode): Promise<ApprovalDecision>;
   /** Who the approval rule (minus self-approval) picks for `requesterId` now. */
   currentApprover(companyId: string, requesterId: string): Promise<string | null>;
 }

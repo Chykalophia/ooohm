@@ -23,13 +23,16 @@ import { unavailableSecretBox } from "../../src/lib/integration-crypto";
 import type { ServiceContext } from "../../src/server/context";
 import { createAdapterRegistry } from "../../src/server/integrations/adapter";
 import { uuidGenerator } from "../../src/shared/lib/id-generator";
+import { wireModules } from "../../src/server/wiring";
 import { getPersonDetail, listPeople } from "../../src/server/services/admin-people";
 import { listBalancesForApi, listEventsForApi, listUsersForApi } from "../../src/server/services/api-v1";
-import { getApprovalNav, getApprovalTriage } from "../../src/server/services/approvals";
+import { getApprovalNav, getApprovalTriage } from "../../src/modules/approvals";
 import { getAuditLog } from "../../src/modules/audit";
 import { getMonthCalendar, getTeamCalendar } from "../../src/server/services/calendar";
 import { getDashboard as getDashboardResult, listLeaveRequestsForApi as listLeaveRequestsForApiResult } from "../../src/modules/leave";
 import { unwrap } from "../../src/shared/lib/result";
+
+wireModules();
 
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
 const listLeaveRequestsForApi = (...args: Parameters<typeof listLeaveRequestsForApiResult>) => listLeaveRequestsForApiResult(...args).then(unwrap);

@@ -1,7 +1,7 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
 import { addDays, isEmptyBalance, resolveAllowancePolicy } from "@/domain/allowance-policy";
-import { readApprovalMode } from "@/domain/approval-rule";
+import { readApprovalMode } from "@/shared/kernel/approval";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";

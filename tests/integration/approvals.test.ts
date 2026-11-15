@@ -3,15 +3,20 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { isDomainError } from "@/domain/errors";
-import { updateStatusIfCurrent } from "@/server/repositories/leave-requests";
-import { type ApprovalsView, decideLeaveRequest, getApprovalNav, getApprovalTriage } from "@/server/services/approvals";
-import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { type ApprovalsView, decideLeaveRequest as decideLeaveRequestResult, getApprovalNav, getApprovalTriage } from "@/modules/approvals";
+import {
+  cancelLeaveRequest as cancelLeaveRequestResult,
+  getDashboard as getDashboardResult,
+  submitLeaveRequest as submitLeaveRequestResult,
+  updateStatusIfCurrent,
+} from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { auditFor, decidable, eventsFor, seedCompany } from "./fixtures";
 import type { PageCursor } from "@/domain/paging";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);

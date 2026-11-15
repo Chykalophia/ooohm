@@ -4,7 +4,7 @@
  * submitted requests keep the per-year split stored with them (`leave_request_days`).
  */
 import { ALLOWANCE_POLICY_KEYS } from "./allowance-policy";
-import { type ApprovalMode, isApprovalMode } from "./approval-rule";
+import { type ApprovalMode, isApprovalMode } from "@/shared/kernel/approval";
 import { type ColleagueVisibility, isColleagueVisibility } from "./calendar-visibility";
 import { DomainError } from "./errors";
 import { oneLine } from "./text";

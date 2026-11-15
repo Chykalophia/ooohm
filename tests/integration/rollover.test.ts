@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { and, asc, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { getBalanceSummary, previewLeaveRequest } from "@/server/services/balances";
 import { cancelLeaveRequest as cancelLeaveRequestResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
@@ -10,6 +10,8 @@ import { runYearRollover } from "@/server/services/rollover";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);

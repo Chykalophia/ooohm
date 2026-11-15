@@ -1,6 +1,9 @@
 import type { Actor } from "@/domain/actor";
 import { assertCovered, type Balance } from "@/domain/allowance-policy";
-import { type ApprovalContext, ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
+import type { ApprovalContext } from "@/modules/approvals/domain/approval-context";
+import { approvalRuleFor } from "@/modules/approvals/domain/approval-rule";
+import { approverFor } from "@/modules/approvals/domain/approver-for";
+import type { ApprovalMode } from "@/shared/kernel/approval";
 import type { ChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import { eventAttribution } from "@/domain/events";
@@ -226,9 +229,12 @@ export class FakeApprovalRouter implements ApprovalRouter {
     const admins = [...this.directory.people.values()].filter((p) => p.role === "admin" && p.isActive);
     return { requester, manager: candidate(requester.managerId), departmentManager: null, admins };
   }
+  async route(companyId: string, requester: Requester, mode: ApprovalMode) {
+    return approvalRuleFor(mode).resolve(await this.contextFor(companyId, requester));
+  }
   async currentApprover(companyId: string, requesterId: string) {
     const requester = this.directory.people.get(requesterId);
-    return requester ? reassignApprover(new ManagerApprovalRule(), await this.contextFor(companyId, requester)) : null;
+    return requester ? approverFor(await this.contextFor(companyId, requester)) : null;
   }
 }
 

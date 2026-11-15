@@ -32,7 +32,6 @@ import { personLabel } from "@/domain/person";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { rerouteApprovals } from "./approval-reroute";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/modules/audit";
 import { findCompany, findDepartment, listDepartments, lockCompanyForChange } from "@/modules/organisation";
@@ -44,7 +43,8 @@ import {
   listPendingAssignedTo,
   listPendingRequestsOf,
   listPendingSelfRouted,
-} from "@/server/repositories/leave-requests";
+  rerouteApprovals,
+} from "@/modules/approvals";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import {
   deleteSessionsOf,

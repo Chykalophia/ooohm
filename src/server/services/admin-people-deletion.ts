@@ -101,7 +101,7 @@ import {
 import { findPerson, listActiveAdmins, lockPerson, type PersonRow } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { listAuditEntriesAbout } from "@/modules/audit";
-import { loadBalances } from "./balances";
+import { loadBalances } from "@/modules/balances";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /** Most scheduled scrubs one daily run carries out; the rest wait for the next run. */

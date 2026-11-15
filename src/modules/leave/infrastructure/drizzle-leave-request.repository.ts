@@ -4,13 +4,13 @@ import { alias } from "drizzle-orm/pg-core";
 import { leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { PageRequest } from "@/domain/paging";
-import { insertRequestDays, listRequestDays, replaceRequestDays } from "@/server/repositories/balances";
 import { activeInRange } from "@/server/repositories/calendar";
 import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
 import { earliestOverlappingStart, type LeaveStatus } from "@/shared/kernel/leave-range";
 import type { ApiLeaveRequest, ApiLeaveRequestPage, LeaveRequestRepository } from "../application/ports";
 import type { LeaveRequest } from "../domain/leave-request";
+import { insertRequestDays, listRequestDays, replaceRequestDays } from "./drizzle-leave-request-days";
 
 /** A `leave_requests` row. Stays inside this file: callers get a {@link LeaveRequest}. */
 type LeaveRequestRow = typeof leaveRequests.$inferSelect;

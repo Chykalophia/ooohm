@@ -6,8 +6,8 @@
  * as it does over the type's default (see `AnnualCalendarYearPolicy`); the services
  * keep rows that were following the rules in step when the rules change.
  */
-import { DomainError } from "./errors";
-import { MAX_ALLOWANCE_DAYS, normalizeDayAmount } from "./leave-type-settings";
+import { DomainError } from "@/domain/errors";
+import { MAX_ALLOWANCE_DAYS, normalizeDayAmount } from "@/domain/leave-type-settings";
 
 /** Where a person sits, as far as allowance rules go. */
 export interface Placement {
@@ -64,4 +64,21 @@ export function normalizeAllowanceRule(input: Placement & { days: number }): Pla
     throw new DomainError("invalid_input", "Pick a department, a level, or both.", { field: "departmentId" });
   }
   return { departmentId: input.departmentId, levelId: input.levelId, days: normalizeDayAmount(input.days, { min: 0, max: MAX_ALLOWANCE_DAYS }) };
+}
+
+/**
+ * Each person's default yearly allowance of a leave type: the allowance rule for their
+ * department and level ({@link defaultAllowanceFor}), else the type's own default.
+ */
+export type AllowanceDefaults = (userId: string, leaveType: { id: string; defaultAllowanceDays: number | null }) => number | null;
+
+/** {@link AllowanceDefaults} when no rule applies: every type's own default. */
+export const typeDefaults: AllowanceDefaults = (_userId, leaveType) => leaveType.defaultAllowanceDays;
+
+const NOWHERE: Placement = { departmentId: null, levelId: null };
+
+/** The {@link AllowanceDefaults} of the company's `rules` for people at `placements`; someone not listed sits nowhere. */
+export function allowanceDefaultsFrom(rules: readonly AllowanceRule[], placements: ReadonlyMap<string, Placement>): AllowanceDefaults {
+  if (rules.length === 0) return typeDefaults;
+  return (userId, leaveType) => defaultAllowanceFor(leaveType, placements.get(userId) ?? NOWHERE, rules);
 }

@@ -3,47 +3,11 @@ import { and, asc, eq, gte, inArray, lt, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { allowances, leaveRequestDays, leaveRequests } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { YearDays } from "@/shared/kernel/leave-days";
+import type { AllowanceRepository } from "../application/ports";
+import type { BalanceScope } from "../domain/allowance";
 
 export type AllowanceRow = typeof allowances.$inferSelect;
 export type NewAllowance = typeof allowances.$inferInsert;
-
-/** Stores what a just-created request costs in each year. Every entry must have `days > 0`. */
-export async function insertRequestDays(tx: Transaction, requestId: string, split: readonly YearDays[]): Promise<void> {
-  if (split.length === 0) return;
-  await tx.insert(leaveRequestDays).values(split.map(({ year, days }) => ({ requestId, year, days })));
-}
-
-/** The stored per-year split of each request, by request id, ordered by year. */
-export async function listRequestDays(ex: Executor, requestIds: readonly string[]): Promise<Map<string, YearDays[]>> {
-  const split = new Map<string, YearDays[]>();
-  if (requestIds.length === 0) return split;
-  const rows = await ex
-    .select({ requestId: leaveRequestDays.requestId, year: leaveRequestDays.year, days: leaveRequestDays.days })
-    .from(leaveRequestDays)
-    .where(inArray(leaveRequestDays.requestId, [...requestIds]))
-    .orderBy(leaveRequestDays.requestId, leaveRequestDays.year);
-  for (const { requestId, year, days } of rows) {
-    const list = split.get(requestId) ?? [];
-    list.push({ year, days });
-    split.set(requestId, list);
-  }
-  return split;
-}
-
-/** Replaces a request's per-year split. Every entry must have `days > 0`. */
-export async function replaceRequestDays(tx: Transaction, requestId: string, split: readonly YearDays[]): Promise<void> {
-  await tx.delete(leaveRequestDays).where(eq(leaveRequestDays.requestId, requestId));
-  await insertRequestDays(tx, requestId, split);
-}
-
-/** Which balances to read: people, years and optionally leave types. */
-export interface BalanceScope {
-  userIds: readonly string[];
-  years: readonly number[];
-  /** Limit to these leave types; all types when omitted. */
-  leaveTypeIds?: readonly string[];
-}
 
 function scopeIsEmpty(scope: BalanceScope): boolean {
   return scope.userIds.length === 0 || scope.years.length === 0 || scope.leaveTypeIds?.length === 0;
@@ -180,4 +144,19 @@ export async function lockAllowancesFrom(
 export async function setAllowanceDays(tx: Transaction, id: string, days: number): Promise<AllowanceRow> {
   const [row] = await tx.update(allowances).set({ days }).where(eq(allowances.id, id)).returning();
   return row;
+}
+
+/** The {@link AllowanceRepository} on Drizzle, bound to `ex` (writes need a transaction). */
+export function drizzleAllowanceRepository(ex: Executor): AllowanceRepository {
+  const tx = ex as Transaction;
+  return {
+    list: (scope) => listAllowances(ex, scope),
+    sumBooked: (scope) => sumBookedDays(ex, scope),
+    find: (where) => findAllowance(ex, where),
+    insertMissing: (rows) => insertMissingAllowances(tx, rows),
+    setCarriedOverDays: (id, days) => setCarriedOverDays(tx, id, days),
+    setDays: (id, days) => setAllowanceDays(tx, id, days),
+    writeOverride: (values) => writeAllowanceOverride(tx, values),
+    lockFrom: (scope) => lockAllowancesFrom(tx, scope),
+  };
 }

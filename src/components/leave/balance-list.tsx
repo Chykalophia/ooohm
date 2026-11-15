@@ -1,4 +1,4 @@
-import type { Balance } from "@/domain/allowance-policy";
+import type { Balance } from "@/modules/balances";
 import { formatBalanceTotal, formatBalanceUsage, formatRemaining } from "@/lib/format";
 import { Item, ItemList } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";

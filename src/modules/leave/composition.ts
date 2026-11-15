@@ -11,7 +11,7 @@ import type { ApiClient } from "@/domain/integrations";
 import type { PageCursor } from "@/domain/paging";
 import type { ServiceContext } from "@/server/context";
 import { commitThenNotify } from "@/modules/notifications";
-import type { LeaveDraft } from "@/server/services/balances";
+import type { LeaveDraft } from "@/modules/balances";
 import { activeContactsIn, type LeaveChange, recordLeaveChangeIn, recordReassignmentIn } from "./application/leave-changes";
 import type { ApprovalRouter, LeaveDeps, LeaveRequestRepository, LeaveStore } from "./application/ports";
 import { alsoOffFor } from "./application/queries/also-off";

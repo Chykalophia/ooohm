@@ -24,7 +24,7 @@
  * - Types without `use_allowance` import untracked, or, when TimeOff caps them with a
  *   yearly `limit`, as a tracked type whose default allowance is that limit.
  */
-import { addDays } from "@/domain/allowance-policy";
+import { addDays } from "@/shared/kernel/day-amounts";
 import type { Role } from "@/domain/actor";
 import { type CalendarDate, fromEpochDay, isCalendarDate, toEpochDay } from "@/domain/calendar-date";
 import { isSupportedTimeZone } from "@/domain/company-settings";

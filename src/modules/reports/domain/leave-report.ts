@@ -4,7 +4,7 @@
  * loaded; see `buildLeaveReport`.
  */
 import { type Actor, isAdmin } from "@/domain/actor";
-import { addDays } from "@/domain/allowance-policy";
+import { addDays } from "@/shared/kernel/day-amounts";
 import type { CalendarDate } from "@/domain/calendar-date";
 import { eachDate, isoWeekday } from "@/domain/calendar-date";
 import { monthOf, type YearMonth } from "@/domain/calendar";

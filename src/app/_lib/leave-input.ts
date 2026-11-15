@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RequestCost } from "@/domain/allowance-policy";
+import type { RequestCost } from "@/modules/balances";
 import { DAY_PORTIONS, NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);

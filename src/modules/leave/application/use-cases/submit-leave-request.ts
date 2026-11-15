@@ -4,7 +4,7 @@ import { readApprovalMode } from "@/shared/kernel/approval";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import type { Notification } from "@/modules/notifications";
-import type { LeaveDraft } from "@/server/services/balances";
+import type { LeaveDraft } from "@/modules/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { createDateRange } from "../../domain/date-range";
 import { normalizeNote } from "../../domain/note";

@@ -6,7 +6,8 @@ import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { EMAIL_MAX_LENGTH, PERSON_NAME_MAX_LENGTH } from "@/domain/people";
 import { isDomainError } from "@/domain/errors";
 import { DELETION_MODES, type DeletionBlockers, type DeletionMode, deletionBlockersOf } from "@/domain/person-deletion";
-import { setAllowanceOverride } from "@/server/services/admin-allowances";
+import { setAllowanceOverride } from "@/modules/balances";
+import { map } from "@/shared/lib/result";
 import { deactivatePerson, invitePerson, reactivatePerson, resendInvite, updatePerson } from "@/server/services/admin-people";
 import { cancelScheduledDeletion, deletePerson } from "@/server/services/admin-people-deletion";
 import type { FormState } from "@/components/forms/form-state";
@@ -174,8 +175,9 @@ export async function allowanceAction(_prev: FormState, formData: FormData): Pro
     formData,
     allowanceSchema,
     async (ctx, actor, input) => {
-      const { changed } = await setAllowanceOverride(ctx, actor, input);
-      return changed ? "Saved." : "Those are already the amounts, so nothing changed and nothing was recorded.";
+      return map(await setAllowanceOverride(ctx, actor, input), ({ changed }) =>
+        changed ? "Saved." : "Those are already the amounts, so nothing changed and nothing was recorded.",
+      );
     },
     {
       ...PERSON_MESSAGES,

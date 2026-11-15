@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { resolveAllowancePolicy } from "@/domain/allowance-policy";
+import { resolveAllowancePolicy } from "@/modules/balances";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { personLabel } from "@/domain/person";

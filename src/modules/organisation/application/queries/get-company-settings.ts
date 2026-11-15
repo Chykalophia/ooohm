@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { ALLOWANCE_POLICY_KEYS } from "@/domain/allowance-policy";
+import { ALLOWANCE_POLICY_KEYS } from "@/shared/kernel/allowance-policy-keys";
 import { supportedTimeZones } from "@/domain/company-settings";
 import type { ServiceContext } from "@/server/context";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";

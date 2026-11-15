@@ -9,7 +9,7 @@ import "server-only";
  * returned: an API key is a company-wide machine credential, and the calendar privacy
  * rule already keeps notes between a person and their approver.
  */
-import { resolveAllowancePolicy } from "@/domain/allowance-policy";
+import { resolveAllowancePolicy } from "@/modules/balances";
 import type { CalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
@@ -18,13 +18,13 @@ import type { LeaveStatus } from "@/shared/kernel/leave-range";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listBalanceSubjects, listUsersPage } from "@/server/repositories/api-reads";
-import { listAllowances, sumBookedDays } from "@/server/repositories/balances";
+import { listAllowances, sumBookedDays } from "@/modules/balances";
 import { findCompanySettings } from "@/server/repositories/calendar";
 import { listHolidayRows } from "@/server/repositories/holidays";
 import { listAllLeaveTypes } from "@/modules/organisation";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { companyEventExists, listCompanyEvents } from "@/server/repositories/outbox";
-import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "./balances";
+import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "@/modules/balances";
 
 export const API_DEFAULT_PAGE_SIZE = 100;
 export const API_MAX_PAGE_SIZE = 200;

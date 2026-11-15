@@ -1,5 +1,5 @@
 // Dependency rules for OOOhm (docs/architecture-plan/04-fitness-functions.md, ADR-0012).
-// `pnpm arch` fails on any violation not recorded in .dependency-cruiser-known-violations.json.
+// `pnpm arch` fails on any violation: there is no baseline (tests/architecture/baselines.test.ts).
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
@@ -89,7 +89,7 @@ module.exports = {
         path: "^src/",
         pathNot: [
           "^src/db/",
-          "^src/lib/(auth|auth-client)\\.ts$",
+          "^src/lib/(auth|auth-client|auth-handler)\\.ts$",
           "^src/lib/mail/smtp\\.ts$",
           "^src/server/(runtime\\.ts$|admin/|identity/)",
           // The shared repository helpers (recordChange, keyset pages, driver errors) are infrastructure too.

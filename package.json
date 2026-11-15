@@ -23,8 +23,7 @@
     "test:e2e": "tsx --conditions=react-server --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-reporter=spec \"tests/e2e/**/*.spec.ts\"",
     "start:embedded": "OOOHM_DB=embedded pnpm db:migrate && OOOHM_DB=embedded pnpm db:seed && OOOHM_DB=embedded next start",
     "vercel-build": "tsx --conditions=react-server scripts/migrate.mts --if-production && tsx --conditions=react-server scripts/seed.mts --if-production && next build",
-    "arch": "depcruise src --config .dependency-cruiser.cjs --ignore-known --output-type err",
-    "arch:baseline": "depcruise-baseline src --config .dependency-cruiser.cjs --output-to .dependency-cruiser-known-violations.json",
+    "arch": "depcruise src --config .dependency-cruiser.cjs --output-type err",
     "madge": "madge --circular --extensions ts,tsx --ts-config tsconfig.json src"
   },
   "dependencies": {

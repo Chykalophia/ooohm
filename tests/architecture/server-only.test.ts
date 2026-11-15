@@ -17,12 +17,6 @@ const CLIENT_SAFE = new Set(["src/lib/auth-client.ts", "src/lib/color.ts", "src/
  */
 const LOADED_OUTSIDE_NEXT = new Set(["src/db/schema.ts"]);
 
-/**
- * Baseline: server files that do not import `server-only` yet. Empty since A1; a file
- * may leave the list but never join it.
- */
-export const MISSING_SERVER_ONLY = new Set<string>([]);
-
 /** Shared server code outside src/shared/lib/db: the unit of work and the admin checks. */
 const SHARED_SERVER_FILES = ["src/shared/lib/unit-of-work.ts", "src/shared/lib/admin-access.ts"];
 
@@ -39,14 +33,7 @@ function serverFiles(): string[] {
 
 const importsServerOnly = (source: string) => /^import\s+["']server-only["'];?$/m.test(source);
 
-test("every server file imports server-only, apart from the recorded baseline", () => {
+test("every server file imports server-only", () => {
   const missing = serverFiles().filter((path) => !importsServerOnly(read(path)));
-  const unexpected = missing.filter((path) => !MISSING_SERVER_ONLY.has(path));
-  assert.deepEqual(unexpected, [], `Add import "server-only" to these new server files:\n${unexpected.join("\n")}`);
-});
-
-test("the server-only baseline only shrinks", () => {
-  const files = new Set(serverFiles());
-  const stale = [...MISSING_SERVER_ONLY].filter((path) => !files.has(path) || importsServerOnly(read(path)));
-  assert.deepEqual(stale, [], `Remove these from MISSING_SERVER_ONLY; they are fixed or gone:\n${stale.join("\n")}`);
+  assert.deepEqual(missing, [], `Add import "server-only" to these server files:\n${missing.join("\n")}`);
 });

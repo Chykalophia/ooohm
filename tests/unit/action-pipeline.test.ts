@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import { createActionPipeline } from "@/app/_lib/action-pipeline";
+import { ACTION_RATE_LIMIT, createActionPipeline } from "@/app/_lib/action-pipeline";
+import { createRateLimiter } from "@/lib/rate-limit";
 import type { Actor } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import type { ServiceContext } from "@/server/context";
@@ -164,4 +165,45 @@ test("a returned failure from a state or redirect action is a calm error, with n
   const go = await viaGo.runActionThenGo("t", form({ name: "Ana" }), schema, async () => err("forbidden"));
   assert.deepEqual(go, { status: "error", message: "You can't change that request." });
   assert.ok(!viaGo.calls.some((c) => c.startsWith("redirect")));
+});
+
+/** A pipeline with a per-person action limit, acting as whoever `who()` names. */
+function limited(limit: number, who: () => string = () => "u1") {
+  const calls: string[] = [];
+  const pipeline = createActionPipeline({
+    actor: async () => ({ ...actorOf("employee"), id: who() }),
+    context: () => ({}) as ServiceContext,
+    refresh: () => calls.push("refresh"),
+    redirect: () => {
+      throw new Error("NEXT_REDIRECT");
+    },
+    limiter: createRateLimiter({ limit, windowMs: 60_000, now: () => 0 }),
+  });
+  return { calls, ...pipeline };
+}
+
+test("a person over the action rate limit is refused calmly, before parsing or calling the service", async () => {
+  const h = limited(2);
+  const work = async () => {
+    h.calls.push("work");
+    return "Saved.";
+  };
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, work)).status, "success");
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, work)).status, "success");
+  const third = await h.runFormAction("t", form({ name: "" }), schema, work);
+  assert.deepEqual(third, { status: "error", message: "That's a lot of requests in a few minutes. Wait a little, then try again." });
+  assert.deepEqual(h.calls, ["work", "refresh", "work", "refresh"]);
+});
+
+test("the action rate limit counts each person on their own", async () => {
+  let who = "u1";
+  const h = limited(1, () => who);
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, async () => "ok")).status, "success");
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, async () => "ok")).status, "error");
+  who = "u2";
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, async () => "ok")).status, "success");
+});
+
+test("the app's action limit is generous: a busy minute of clicking stays well inside it", () => {
+  assert.ok(ACTION_RATE_LIMIT.limit / (ACTION_RATE_LIMIT.windowMs / 60_000) >= 60, "fewer than 60 actions a minute allowed");
 });

@@ -4,6 +4,7 @@ import type { Actor } from "@/domain/actor";
 import { canAdminister } from "@/shared/kernel/admin-permissions";
 import type { DomainErrorCode } from "@/domain/errors";
 import type { ServiceContext } from "@/server/context";
+import type { RateLimiter } from "@/lib/rate-limit";
 import { type ServiceResult, valueOf } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { type ActionError, messageFor, runActionWith } from "./run-action";
@@ -13,8 +14,9 @@ import { type ActionError, messageFor, runActionWith } from "./run-action";
  * one service call:
  *
  * 1. the session (the `actor` dependency redirects to sign-in without one);
- * 2. a company, and for `admin` actions the admin role (the service checks the role
- *    again inside its transaction; this only spares a refused caller a round trip);
+ * 2. a company, then the person's action rate limit ({@link ACTION_RATE_LIMIT}), then for
+ *    `admin` actions the admin role (the service checks the role again inside its
+ *    transaction; this only spares a refused caller a round trip);
  * 3. the submitted fields, parsed with the action's schema;
  * 4. the service call, through {@link runActionWith}, so expected failures become calm
  *    messages and nothing internal reaches the browser;
@@ -45,6 +47,14 @@ export type ActionOptions = {
   refresh?: boolean;
 };
 
+/**
+ * How many server actions one person may run in a window, in this process. Generous: a
+ * person clicking through a busy screen never meets it; a script hammering an action
+ * does. Per process (see `src/lib/rate-limit.ts`); limits that must hold everywhere,
+ * like invites and imports, are counted in the database by their use cases.
+ */
+export const ACTION_RATE_LIMIT = { limit: 120, windowMs: 60_000 } as const;
+
 export type PipelineDeps = {
   /** The signed-in person's actor, `null` without a company; redirects to sign-in without a session. */
   actor: () => Promise<Actor | null>;
@@ -52,6 +62,8 @@ export type PipelineDeps = {
   refresh: () => void;
   /** Sends the browser elsewhere; never returns (Next.js throws to do it). */
   redirect: (path: string) => never;
+  /** Counts each person's actions; without one, actions are not limited. */
+  limiter?: RateLimiter;
 };
 
 export function createActionPipeline(deps: PipelineDeps) {
@@ -62,6 +74,7 @@ export function createActionPipeline(deps: PipelineDeps) {
   ): Promise<{ actor: Actor; data: z.infer<S> } | ActionError> {
     const actor = await deps.actor();
     if (!actor) return { status: "error", message: messageFor("no_company") };
+    if (deps.limiter && !deps.limiter.take(`${actor.companyId}:${actor.id}`)) return { status: "error", message: messageFor("rate_limited") };
     if (options.who === "admin" && !canAdminister(actor)) return { status: "error", message: "Only admins can do that." };
 
     const parsed = schema.safeParse(input instanceof FormData ? Object.fromEntries(input) : input);

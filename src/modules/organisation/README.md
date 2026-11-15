@@ -47,7 +47,7 @@ actor. `findCompany` → `CompanyDTO`; `listDepartments`, `findDepartment` → `
 
 `LeaveTypeSettingsDTO.defaultAllowanceDays` is the type's own setting. A person's default can differ (an allowance
 rule replaces it), so balances read it only through `loadAllowanceDefaults`; the settings the allowance policy
-computes from are read by the balance code itself (`src/server/repositories/leave-type-allowances.ts`).
+computes from are read by the balance code itself (`src/shared/lib/db/leave-type-allowances.ts`).
 `tests/architecture/default-allowance.test.ts` lists every file that may read the field.
 
 ### Steps
@@ -55,8 +55,8 @@ computes from are read by the balance code itself (`src/server/repositories/leav
 On the caller's transaction, throwing `DomainError` to roll it back:
 
 - `saveCompanySettings` and `changeDepartmentManager`: the change, its lock, the active-admin check and its audit
-  row, returning before and after. `src/server/services/company-settings.ts` adds the leave recount new working days
-  cause, and `department-manager.ts` re-routes the department's waiting requests; both send email after commit.
+  row, returning before and after. Leave's `updateCompanySettings` adds the recount new working days cause, and
+  approvals' `setDepartmentManager` re-routes the department's waiting requests; both send email after commit.
 - `lockCompanyForChange`: `lockCompany` plus the company, for a change that needs its settings.
 - `addDepartment`, `addLeaveType`, `applyLeaveTypeChanges`, `applyCompanyChanges`, `clearDepartmentsManagedBy`:
   writes with no audit row, for setup, imports and a person's deletion, which record the change themselves.

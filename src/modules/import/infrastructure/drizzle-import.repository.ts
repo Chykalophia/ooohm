@@ -3,7 +3,8 @@ import "server-only";
  * Queries for one-time imports (TimeOff.Management): the `import_runs` ledger, the
  * checks that a target company is empty enough, and bulk writes. An import writes
  * thousands of rows in one transaction, so the writes here insert in chunks instead of
- * one statement per row.
+ * one statement per row. Creating the company is shared with the first install
+ * (`src/shared/lib/db/company-creation.ts`).
  */
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { allowances, auditLog, companies, departments, importRuns, leaveRequestDays, leaveRequests, user } from "@/db/schema";
@@ -11,7 +12,6 @@ import type { Executor, Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import type { ChangeSource } from "@/domain/change-source";
 import { type AuditEntry, sourceColumns } from "@/shared/lib/db/change-log";
-import { type CompanyRow, companyFields } from "@/shared/lib/db/company-columns";
 
 /** Rows per insert statement: well under Postgres's 65,535 bind parameters for the widest table here. */
 const CHUNK = 500;
@@ -52,22 +52,6 @@ export async function insertImportRun(
 /** Every company, so a refusal for an unknown company can list the ones that exist. */
 export async function listCompanyNames(ex: Executor) {
   return ex.select({ id: companies.id, name: companies.name }).from(companies).orderBy(companies.createdAt);
-}
-
-/**
- * Locks the companies table against inserts (and against another caller of this) until
- * the transaction ends, so a check that no company exists still holds when one is created.
- */
-export async function lockCompaniesTable(tx: Transaction): Promise<void> {
-  await tx.execute(sql`LOCK TABLE ${companies} IN SHARE ROW EXCLUSIVE MODE`);
-}
-
-export async function insertCompany(
-  tx: Transaction,
-  values: { name: string; timezone: string; workingDays: number[] },
-): Promise<CompanyRow> {
-  const [row] = await tx.insert(companies).values(values).returning(companyFields);
-  return row;
 }
 
 /** How many leave requests a company holds, in any status. */

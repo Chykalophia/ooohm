@@ -16,6 +16,7 @@ export {
   getMyRequest,
   listLeaveRequestsForApi,
   recountLeave,
+  updateCompanySettings,
   recordLeaveChange,
   recordReassignment,
   activeContacts,

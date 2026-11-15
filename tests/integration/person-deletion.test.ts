@@ -19,7 +19,7 @@ import { DAILY_JOBS, runDueJobs } from "@/server/jobs/scheduled-jobs";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
-import * as companySettings from "@/server/services/company-settings";
+import * as companySettings from "@/modules/leave";
 
 const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
 const getPersonFormOptions = (...args: Parameters<typeof getPersonFormOptionsResult>) => getPersonFormOptionsResult(...args).then(unwrap);

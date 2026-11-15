@@ -43,7 +43,7 @@ import "server-only";
 import type { Transaction } from "@/db/types";
 import { DomainError } from "@/domain/errors";
 import type { ServiceContext } from "@/server/context";
-import { findAccountsByEmail, insertAuditEntries } from "@/server/repositories/imports";
+import { findAccountsByEmail, insertAuditEntries } from "@/modules/import/infrastructure/drizzle-import.repository";
 import { selectTimeOffCompany } from "@/modules/import/domain/timeoff/plan/rules";
 import type { TimeOffImportInput, TimeOffImportReport } from "./report";
 import { applyAllowances, applyRequests } from "@/modules/import/application/steps/apply-leave";

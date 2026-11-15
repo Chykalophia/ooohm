@@ -9,7 +9,7 @@ import { type AllowanceDefaults, type BalanceSummary, loadAllowanceDefaults, sum
 import { findCompany } from "@/modules/organisation";
 import { type PersonDTO, toPersonDTO } from "@/modules/people/application/dto";
 import { canManagePeople } from "@/modules/people/application/policies";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { listLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";
 import { findPerson } from "@/shared/lib/db/members";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 

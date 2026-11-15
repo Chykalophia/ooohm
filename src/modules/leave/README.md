@@ -25,6 +25,9 @@ Use cases, each `(ctx, actor, …)` → `ServiceResult`:
 - `addLeaveFor(ctx, actor, userId, input)` → `AddedLeaveDTO`: an admin or the person's manager books approved leave
   for them.
 - `removeLeaveFor(ctx, actor, requestId, reason)` → `LeaveRequestDTO`: corrects approved leave of the open year.
+- `updateCompanySettings(ctx, actor, input)` → `{ company, recount }`: organisation's `saveCompanySettings` step and,
+  when the working days changed, the recount, in one transaction (organisation imports no other module, so the
+  workflow lives here). Fails with `forbidden`, `no_company`, `invalid_input`, or as the recount.
 - `recountLeave(tx, ctx, actor, change)` → `Recount`: inside the holiday or working-days transaction, which unwraps it.
 
 Queries: `getDashboard`, `listMyRequests`, `getMyRequest`, `previewLeaveFor`, `listLeaveRequestsForApi` (each a

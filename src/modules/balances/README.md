@@ -8,7 +8,8 @@ a Strategy resolved by key, the use cases depend on ports, and the use-case test
 
 The `allowances` and `allowance_rules` tables, through `infrastructure/drizzle-allowance.repository.ts` and
 `drizzle-allowance-rule.repository.ts`. It reads the booked days in `leave_request_days` (leave writes them), and
-the leave type settings through `src/server/repositories/leave-type-allowances.ts`. Organisation removes the rules
+the leave type settings and active requests through `src/shared/lib/db/leave-type-allowances.ts` and
+`leave-requests.ts` (calendar reads them too, and leave imports balances, so neither sits behind an index). Organisation removes the rules
 of a department or level it deletes (`allowance-rule-removal.ts` there).
 
 ## Rules it keeps

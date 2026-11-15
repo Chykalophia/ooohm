@@ -21,12 +21,11 @@ module.exports = {
     },
     {
       name: "app-not-to-infrastructure",
-      comment: "Pages, actions and routes call services/modules, never the database or the auth SDK (layer skipping).",
+      comment: "Pages, actions and routes call modules, never the database or the auth SDK (layer skipping).",
       severity: "error",
       from: { path: "^src/app/" },
       to: {
         path: [
-          "^src/server/repositories/",
           "^src/shared/lib/db/",
           "^src/modules/[^/]+/infrastructure/",
           "^src/db/",
@@ -53,7 +52,7 @@ module.exports = {
     {
       name: "application-not-to-concrete-infrastructure",
       severity: "error",
-      from: { path: ["^src/(server/services|modules/[^/]+/application)/", "^src/shared/lib/(unit-of-work|admin-access)\\.ts$"] },
+      from: { path: ["^src/modules/[^/]+/application/", "^src/shared/lib/(unit-of-work|admin-access)\\.ts$"] },
       to: { path: ["^src/db/(index|connect)", "^src/lib/(env|auth|mail)", "node_modules/(nodemailer|better-auth|next|postgres|@electric-sql)/"] },
     },
     {
@@ -66,7 +65,7 @@ module.exports = {
           "^src/db/",
           "^src/lib/(auth|auth-client)\\.ts$",
           "^src/lib/mail/smtp\\.ts$",
-          "^src/server/(repositories/|runtime\\.ts$|admin/|identity/)",
+          "^src/server/(runtime\\.ts$|admin/|identity/)",
           // The shared repository helpers (recordChange, keyset pages, driver errors) are infrastructure too.
           "^src/shared/lib/db/",
           "^src/modules/[^/]+/infrastructure/",

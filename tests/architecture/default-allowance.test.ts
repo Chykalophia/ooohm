@@ -17,7 +17,7 @@ const ALLOWED: Record<string, string> = {
   "src/modules/balances/domain/allowance-rules.ts": "defaultAllowanceFor and typeDefaults: a rule, else the type's own default",
   "src/modules/balances/domain/rollover.ts": "reads the types after loadAllowanceDefaults replaced their defaults",
   "src/modules/balances/application/member-rollover.ts": "reads the types after loadAllowanceDefaults replaced their defaults",
-  "src/server/repositories/leave-type-allowances.ts": "the balance code's read of the setting",
+  "src/shared/lib/db/leave-type-allowances.ts": "the balance code's read of the setting",
   "src/modules/integrations/application/queries/list-leave-types-for-api.ts": "the API lists the type's own setting",
   "src/modules/import/application/": "writes the setting from the TimeOff export",
   "src/modules/organisation/": "the leave type catalog, which stores, audits and maps the setting",

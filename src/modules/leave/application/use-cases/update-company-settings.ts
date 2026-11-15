@@ -2,17 +2,29 @@ import "server-only";
 /**
  * Saving the company's settings, with what new working days do to leave already sent.
  *
- * The settings belong to the organisation module (`saveCompanySettings`); the recount
- * belongs to leave, which reads organisation. This use case joins the two in one
- * transaction, so organisation never depends on leave or on email.
+ * The settings belong to the organisation module (its `saveCompanySettings` step); the
+ * recount belongs to leave, which reads organisation. This use case joins the two in one
+ * unit of work, so organisation never depends on leave or on email.
  */
 import type { Actor } from "@/domain/actor";
 import type { CompanySettingsInput } from "@/domain/company-settings";
-import type { ServiceContext } from "@/server/context";
-import { canManageCompanySettings, type CompanyDTO, saveCompanySettings } from "@/modules/organisation";
-import { commitThenNotify } from "@/modules/notifications";
+import { canManageCompanySettings, type CompanyChange, type CompanyDTO } from "@/modules/organisation";
+import type { Notification } from "@/modules/notifications";
 import { attempt, err, type ServiceResult, unwrap } from "@/shared/lib/result";
-import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "@/modules/leave";
+import type { LeaveDeps, LeaveStore } from "../ports";
+import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "./recount-leave";
+
+/** Organisation's settings step, bound to the unit of work's transaction. */
+export interface CompanySettingsWriter {
+  save(actor: Actor, input: CompanySettingsInput): Promise<CompanyChange>;
+}
+
+/** What {@link updateCompanySettings} needs: leave's dependencies and one transaction holding both steps. */
+export interface UpdateCompanySettingsDeps {
+  leave: LeaveDeps;
+  /** Runs `work` in one transaction with the settings step and leave's ports bound to it; its emails go out after commit. */
+  unitOfWork<T>(companyId: string, work: (settings: CompanySettingsWriter, store: LeaveStore) => Promise<{ result: T; notify: Notification[] }>): Promise<T>;
+}
 
 /**
  * Saves the company's settings. A new time zone changes which day is "today" from now
@@ -26,17 +38,17 @@ import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "@/modules/
  * `invalid_input`, or as {@link recountLeave}.
  */
 export async function updateCompanySettings(
-  ctx: ServiceContext,
+  deps: UpdateCompanySettingsDeps,
   actor: Actor,
   input: CompanySettingsInput,
 ): Promise<ServiceResult<{ company: CompanyDTO; recount: RecountOutcome }>> {
   if (!canManageCompanySettings(actor)) return err("forbidden");
   return attempt(() =>
-    commitThenNotify(ctx, actor.companyId, async (tx) => {
-      const { before, after, changed } = await saveCompanySettings(tx, actor, input);
+    deps.unitOfWork(actor.companyId, async (settings, store) => {
+      const { before, after, changed } = await settings.save(actor, input);
       const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);
       if (!changed || !workingDaysChanged) return { result: { company: after, recount: NOTHING_RECOUNTED }, notify: [] };
-      const { outcome, notify } = unwrap(await recountLeave(tx, ctx, actor, { kind: "working_days", previous: before.workingDays }));
+      const { outcome, notify } = unwrap(await recountLeave(deps.leave, store, actor, { kind: "working_days", previous: before.workingDays }));
       return { result: { company: after, recount: outcome }, notify };
     }),
   );

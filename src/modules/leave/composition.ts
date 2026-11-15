@@ -10,7 +10,9 @@ import type { Actor } from "@/domain/actor";
 import type { ApiClient } from "@/modules/integrations";
 import type { PageCursor } from "@/domain/paging";
 import type { ServiceContext } from "@/server/context";
+import type { CompanySettingsInput } from "@/domain/company-settings";
 import { commitThenNotify } from "@/modules/notifications";
+import { saveCompanySettings } from "@/modules/organisation";
 import type { LeaveDraft } from "@/modules/balances";
 import { activeContactsIn, type LeaveChange, recordLeaveChangeIn, recordReassignmentIn } from "./application/leave-changes";
 import type { ApprovalRouter, LeaveDeps, LeaveRequestRepository, LeaveStore } from "./application/ports";
@@ -23,6 +25,7 @@ import { previewLeaveFor as previewFor } from "./application/queries/preview-lea
 import { addLeaveFor as addFor } from "./application/use-cases/add-leave-for";
 import { cancelLeaveRequest as cancel } from "./application/use-cases/cancel-leave-request";
 import { type CalendarChange, recountLeave as recount } from "./application/use-cases/recount-leave";
+import { updateCompanySettings as updateSettings } from "./application/use-cases/update-company-settings";
 import { removeLeaveFor as removeFor } from "./application/use-cases/remove-leave-for";
 import { type SubmitLeaveInput, submitLeaveRequest as submit } from "./application/use-cases/submit-leave-request";
 import type { LeaveRequest } from "./domain/leave-request";
@@ -122,6 +125,23 @@ export const listLeaveRequestsForApi = (ctx: ServiceContext, client: ApiClient, 
  */
 export function recountLeave(tx: Transaction, ctx: ServiceContext, actor: Actor, change: CalendarChange) {
   return recount(leaveDeps(ctx), leaveStore(tx), actor, change);
+}
+
+/**
+ * Saves the company's settings and recounts leave when the working days changed, in one
+ * transaction: organisation's `saveCompanySettings` step, then {@link recountLeave}.
+ */
+export function updateCompanySettings(ctx: ServiceContext, actor: Actor, input: CompanySettingsInput) {
+  const leave = leaveDeps(ctx);
+  return updateSettings(
+    {
+      leave,
+      unitOfWork: (companyId, work) =>
+        commitThenNotify(ctx, companyId, (tx) => work({ save: (a, i) => saveCompanySettings(tx, a, i) }, leaveStore(tx))),
+    },
+    actor,
+    input,
+  );
 }
 
 /** Writes the audit row and outbox event for one leave transition another module makes (a decision), inside `tx`. */

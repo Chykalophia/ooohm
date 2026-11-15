@@ -7,7 +7,7 @@ import { rejectsWith } from "./assertions";
 import { addLeaveType, auditFor, companyAudit, companyEvents, decidable, eventsFor, requestsOf, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as organisation from "@/modules/organisation";
-import * as companySettings from "@/server/services/company-settings";
+import * as companySettings from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.

@@ -17,11 +17,10 @@ import {
   type ExistingAccount,
   findImportRunByCompany,
   findImportRunBySha,
-  insertCompany,
   listCompanyAccounts,
   listCompanyNames,
-  lockCompaniesTable,
-} from "@/server/repositories/imports";
+} from "@/modules/import/infrastructure/drizzle-import.repository";
+import { insertCompany, lockCompaniesTable } from "@/shared/lib/db/company-creation";
 import { buildImportPlan } from "@/modules/import/domain/timeoff/mapping";
 import { timeOffTimeZone } from "@/modules/import/domain/timeoff/plan/rules";
 import type { TimeOffCompany } from "@/modules/import/domain/timeoff/source";

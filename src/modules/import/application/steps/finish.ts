@@ -6,7 +6,7 @@ import { type LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisatio
  */
 import type { UserChangeSource } from "@/domain/change-source";
 import { IMPORT_AUDIT_ACTIONS, IMPORT_EVENT_TYPES, type ImportCompletedPayload, type Unattributed } from "@/domain/events";
-import { insertImportRun } from "@/server/repositories/imports";
+import { insertImportRun } from "@/modules/import/infrastructure/drizzle-import.repository";
 import { recordChange } from "@/shared/lib/db/change-log";
 import type { ImportPlan, PlannedAllowance } from "@/modules/import/domain/timeoff/plan/types";
 import type { TimeOffSnapshot } from "@/modules/import/domain/timeoff/source";

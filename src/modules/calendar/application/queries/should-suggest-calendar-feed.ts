@@ -1,7 +1,7 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
 import type { ServiceContext } from "@/server/context";
-import { hasApprovedRequest } from "@/server/repositories/leave-requests";
+import { hasApprovedRequest } from "@/shared/lib/db/leave-requests";
 import { hasLiveFeedIn } from "@/modules/calendar/infrastructure/drizzle-calendar-feeds.repository";
 
 /**

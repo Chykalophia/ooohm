@@ -18,7 +18,7 @@ const probes: Record<string, string> = {
   [`src/lib/${PROBE}/a.ts`]: `import { b } from "./b";\nexport const a = () => b;\n`,
   [`src/lib/${PROBE}/b.ts`]: `import { a } from "./a";\nexport const b = () => a;\n`,
   [`src/lib/${PROBE}/vendor.ts`]: `import nodemailer from "nodemailer";\nexport const probe = nodemailer;\n`,
-  [`src/server/services/${PROBE}/concrete.ts`]: `import { env } from "@/lib/env";\nexport const probe = env;\n`,
+  [`src/modules/${PROBE}b/application/concrete.ts`]: `import { env } from "@/lib/env";\nexport const probe = env;\n`,
   // Two planted modules: `a` is reached past its index, `b` breaks its own layers.
   [`src/modules/${PROBE}a/application/queries/thing.ts`]: `export const thing = 1;\n`,
   [`src/modules/${PROBE}a/index.ts`]: `export { thing } from "./application/queries/thing";\n`,

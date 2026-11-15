@@ -33,13 +33,12 @@ import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { rerouteApprovals } from "./approval-reroute";
-import { countLiveApiKeys } from "@/server/repositories/api-keys";
+import { countLiveApiKeys, countLiveEndpoints } from "@/modules/integrations";
 import { countRecentActions } from "@/modules/audit";
 import { findCompany, findDepartment, listDepartments, lockCompanyForChange } from "@/modules/organisation";
 import { findLevel, listLevels } from "@/modules/organisation";
 import { followDefaults } from "./admin-allowance-rules";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
-import { countLiveEndpoints } from "@/server/repositories/webhooks";
 import {
   listPendingAssignedTo,
   listPendingRequestsOf,

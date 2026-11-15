@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { listAdapters } from "@/server/services/integrations";
+import { unwrap } from "@/shared/lib/result";
+import { listAdapters } from "@/modules/integrations";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card, Item, ItemList } from "@/components/ui/card";
@@ -12,7 +13,7 @@ export const metadata: Metadata = { title: "Connectors · Admin · OOOhm" };
 
 export default async function IntegrationsPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const adapters = await listAdapters(ctx, actor);
+  const adapters = unwrap(await listAdapters(ctx, actor));
 
   return (
     <AdminShell

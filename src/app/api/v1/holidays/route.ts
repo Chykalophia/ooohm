@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { listHolidaysForApi } from "@/server/services/api-v1";
+import { listHolidaysForApi } from "@/modules/integrations";
 import { parseQuery } from "@/app/api/v1/_lib/handler";
 import { holidaysQuery } from "@/app/api/v1/_lib/query";
 import { apiGet } from "@/app/api/v1/_lib/api-get";

@@ -60,6 +60,7 @@ const layers = [
       "src/modules/audit/application/**/*.ts",
       "src/modules/import/application/**/*.ts",
       "src/modules/organisation/application/**/*.ts",
+      "src/modules/integrations/application/**/*.ts",
     ],
     paths: [
       ...next,
@@ -78,6 +79,7 @@ const layers = [
       "src/modules/notifications/infrastructure/**/*.ts",
       "src/modules/audit/infrastructure/**/*.ts",
       "src/modules/organisation/infrastructure/**/*.ts",
+      "src/modules/integrations/infrastructure/**/*.ts",
     ],
     paths: [...next, pool, { name: "@/lib/env", message: "Repositories take everything they need as arguments." }],
     patterns: [

@@ -1,15 +1,13 @@
 import "server-only";
-import { and, asc, eq, gt, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
-import { departments, leaveRequests, user } from "@/db/schema";
+import { and, asc, eq, gt, isNull, ne, or } from "drizzle-orm";
+import { departments, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 import type { Role } from "@/domain/actor";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { earliestOverlappingStart, type LeaveStatus } from "@/shared/kernel/leave-range";
 
 /**
  * Read queries of the REST API (`/api/v1`). Each page is one query, keyset-paged on an
  * index, and every query is scoped by the API key's company. Pages fetch `limit + 1`
- * rows so the service can tell whether another page follows without counting.
+ * rows so the query can tell whether another page follows without counting.
  */
 
 /** A person as the API shows them: no session, sign-in or approval-preference data. */

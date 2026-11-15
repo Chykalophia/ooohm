@@ -15,9 +15,10 @@ repositories or modules. The rest of `src/modules/notifications` (the catalog of
 and the email editor's use cases) sits beside services: it may read through repositories (the company accent) but
 never calls a service. `src/shared/lib/db/**` (`recordChange`, `keysetPage`, driver errors) and the notifications and
 audit modules' `infrastructure/` follow the repository rules; `src/shared/lib/unit-of-work.ts`, `admin-access.ts` and
-the audit module's `application/` follow the service rules. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
-one-time imports, M7: they read another system's files into domain records and never touch OOOhm's database)
-follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
+the audit, import and integrations modules' `application/` follow the service rules, and the integrations module's
+`infrastructure/` the repository rules. `src/server/integrations/**` (the adapter seam, M6) and
+`src/modules/import/infrastructure/**` (the source reader for one-time imports, M7: it reads another system's files
+into domain records and never touches OOOhm's database) follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
 `scripts/*.mts` (migrate, seed, rollover, the outbox worker, the TimeOff import) are composition roots for
 processes outside Next: the rollover, the worker and the TimeOff import build their `ServiceContext` with
 `scriptContext` (`scripts/script-context.mts`).
@@ -1388,7 +1389,7 @@ service tx ─► events_outbox ──(worker: dispatch)──► webhook_delive
 Every state change already writes an `events_outbox` row in its transaction (`recordChange`). The **outbox
 worker** (`scripts/worker.mts`, `pnpm worker`, the compose `worker` service) turns those rows into deliveries:
 
-1. **Dispatch** (`dispatchOutboxBatch`, `src/server/services/outbox-dispatch.ts`). In one transaction: claim up
+1. **Dispatch** (`dispatchOutboxBatch`, `src/modules/integrations/application/jobs/dispatch-outbox.ts`). In one transaction: claim up
    to 100 undispatched rows, oldest first, with `FOR UPDATE SKIP LOCKED`; create a `webhook_deliveries` row for
    every enabled, live endpoint of the event's company that subscribes to its type and **existed when the event
    was written** (an endpoint never receives history); create an `adapter_deliveries` row for every registered
@@ -1396,7 +1397,7 @@ worker** (`scripts/worker.mts`, `pnpm worker`, the compose `worker` service) tur
    `adapter_handles_failed`, so a faulty adapter cannot stall dispatch); set `delivered_at` (read it as "dispatched"). The delivery's `body` is
    the envelope as JSON, fixed now so every retry sends the same bytes. Unique `(endpoint, event)` and
    `(adapter, event)` indexes make a repeat harmless.
-2. **Deliver** (`deliverDueWebhooks`, `src/server/services/webhook-delivery.ts`). Claim up to 20 due deliveries
+2. **Deliver** (`deliverDueWebhooks`, `src/modules/integrations/application/jobs/deliver-webhooks.ts`). Claim up to 20 due deliveries
    (`status = 'pending' and next_attempt_at <= now`, enabled live endpoint) in one `UPDATE ... WHERE id IN
    (SELECT ... FOR UPDATE SKIP LOCKED)` that also **leases** them: `attempts + 1`, `next_attempt_at = now + 2
    min`. Then, 8 at a time and outside any transaction: open the endpoint's secret, sign, POST with a 10-second
@@ -1407,7 +1408,7 @@ worker** (`scripts/worker.mts`, `pnpm worker`, the compose `worker` service) tur
    another and are **claimed one at a time**, just before each call, so the 2-minute lease always covers the one
    call it guards: a slow adapter never leaves queued claims whose leases run out and get re-claimed by another
    worker while the first is still working through its batch.
-3. **Retry schedule** (`retryDelayMs`, `src/domain/integrations.ts`, shared): after attempt 1 to 7 fails, wait
+3. **Retry schedule** (`retryDelayMs`, `src/modules/integrations/domain/integrations.ts`, shared): after attempt 1 to 7 fails, wait
    1 min, 5 min, 30 min, 2 h, 6 h, 12 h, 24 h, each ±10% jitter; the 8th failure marks it `failed`. Success is a
    2xx. Anything else is a failure: other statuses (3xx included: redirects are never followed), timeouts,
    refused or blocked addresses, an unreadable secret (`secret_unreadable`, e.g. after the key changed).
@@ -1465,7 +1466,8 @@ batches of 1,000. Pending deliveries and undispatched events are never pruned. T
 
 ### Webhooks
 
-Admin use cases are in `src/server/services/webhooks.ts`, screens under `/admin/webhooks`. They follow the admin
+Admin use cases are in `src/modules/integrations/application/use-cases/` (one file each, returning a `ServiceResult`), screens under
+`/admin/webhooks`. They follow the admin
 rules ([Admin](#admin-m5)): `assertCanAdminister`, `assertActiveAdmin` in the transaction, company scoping (an id
 from another company, or a deleted endpoint, is `not_found`), and `audit_log` + outbox in the same transaction.
 
@@ -1512,11 +1514,11 @@ to 64 KB, and only a 200-character excerpt is stored.
 
 Route handlers under `src/app/api/v1/*/route.ts` are one line each: `apiGet` (`_lib/api-get.ts`) builds the
 context, then `handleApiRequest` (`_lib/handler.ts`, injectable and tested without Next) authenticates, rate
-limits and maps errors; the route parses the query with zod (`_lib/query.ts`) and calls one service in
-`src/server/services/api-v1.ts`, whose queries are in `src/server/repositories/api-reads.ts` and the existing
-repositories.
+limits and maps errors; the route parses the query with zod (`_lib/query.ts`) and calls one query of `@/modules/integrations`
+(`src/modules/integrations/application/queries/list-*-for-api.ts`; the leave list is `listLeaveRequestsForApi` in `@/modules/leave`),
+whose own queries are in `src/modules/integrations/infrastructure/drizzle-api-reads.repository.ts` and the existing repositories.
 
-- **Keys** (`src/server/services/api-keys.ts`, screen `/admin/api-keys`): `ooohm_` + 32 random bytes, shown once,
+- **Keys** (`createApiKey`, `revokeApiKey`, `authenticateApiKey` in `src/modules/integrations`, screen `/admin/api-keys`): `ooohm_` + 32 random bytes, shown once,
   stored as SHA-256 hex under a unique index (a plain hash suffices for 256 random bits) with an 8-character
   `prefix` for admins to tell keys apart. At most 50 live keys per company. `scopes text[]` is `CHECK`ed to
   `read`/`write`; v1 grants `read` and every endpoint requires it (`assertScope`), so `write` endpoints can come
@@ -1583,7 +1585,7 @@ Adapters never touch the database (lint enforces it: `src/server/integrations/**
 schema, Drizzle, `env`, `auth`, services or repositories). Outbound, the worker delivers envelopes to them
 exactly as to webhooks (`adapter_deliveries`, same claim, lease and retry schedule; a delivery whose adapter is
 no longer registered fails its attempts with `adapter_not_registered` and resumes if it comes back). Inbound,
-`applyInboundSync` (`src/server/services/inbound-sync.ts`) writes what they return:
+`applyInboundSync` (`src/modules/integrations/application/inbound-sync.ts`) writes what they return:
 
 - **People**, matched by lowercased email, in one transaction under the company lock: a person of this company is
   renamed if the name differs (`user.updated`); an unknown email creates an employee with no department or
@@ -1619,15 +1621,16 @@ SQLite file ──(readTimeOffSqlite, node:sqlite, read-only)──► TimeOffSn
                      report ◄──(reconcile: loadBalances)◄── one transaction ◄──(importTimeOff)────────────┘
 ```
 
-- **Reader** (`src/server/importers/timeoff/sqlite-reader.ts`): opens the file with Node's built-in `node:sqlite`
-  (Node 22.13+, no native dependency) read-only and returns plain records (`src/domain/timeoff/source.ts`). Table
+- **Reader** (`src/modules/import/infrastructure/timeoff-sqlite-reader.ts`): opens the file with Node's built-in `node:sqlite`
+  (Node 22.13+, no native dependency) read-only and returns plain records (`src/modules/import/domain/timeoff/source.ts`). Table
   and column names are matched against the spellings TimeOff's Sequelize models have used; a missing required one
   stops the import with what the file does have.
-- **Plan** (`src/domain/timeoff/mapping.ts`, pure): people (email dedupe, roles, managers from department bosses,
+- **Plan** (`src/modules/import/domain/timeoff/mapping.ts`, pure, one step per entity in `plan/`): people (email dedupe, roles, managers from department bosses,
   loop breaking), departments, leave types (the allowance pool decision), holidays, allowance rows, requests (half
   days split into single-day requests, days counted with OOOhm's `splitLeaveDaysByYear`), and TimeOff's own
-  balance for every person and year (`src/domain/timeoff/balance.ts`). Refusals are `DomainError("import_refused")`.
-- **Service** (`src/server/services/timeoff-import.ts`): one `db.transaction` for everything, with bulk writes from
+  balance for every person and year (`src/modules/import/domain/timeoff/balance.ts`). Refusals are `DomainError("import_refused")`.
+- **Use case** (`src/modules/import/application/import-timeoff.ts`, its steps in `application/steps/`): one
+  `db.transaction` for everything, with bulk writes from
   `src/server/repositories/imports.ts`. It runs the year rollover's step for last year
   (`recarryMemberLeaveType`, with a `record` hook that audits each change as `import.allowance` instead of the
   rollover's `balance.adjusted` event) for every imported active person, so the reconciliation sees what the
@@ -1650,7 +1653,7 @@ SQLite file ──(readTimeOffSqlite, node:sqlite, read-only)──► TimeOffSn
 - **CLI-only**: `importTimeOff` takes no `Actor` (there is no session); it resolves `actorEmail` (`--actor`) to an
   active admin of the target company inside the transaction, after people are imported, and refuses otherwise.
   That names who made the change; it is not a sign-in, since whoever runs the CLI already holds the database
-  credentials. The lint rules forbid `src/app` from importing it or `src/server/importers/*`.
+  credentials. The lint rules forbid `src/app` from importing `@/modules/import`.
 
 ## Hosting: database and background modes
 

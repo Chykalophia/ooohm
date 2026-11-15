@@ -30,10 +30,10 @@ for processes outside Next) is the only place that wires concrete implementation
 | `src/server/services/**` | Application | Use cases, transactions, authorization against data, audit + outbox, email after commit |
 | `src/server/repositories/**` | Infrastructure | Drizzle queries only; each takes an executor first |
 | `src/shared/kernel/**`, `src/shared/lib/**` | Shared | Pure kernel rules; `ServiceResult`, the unit of work (`inTransaction`), admin checks, `recordChange` and other repository helpers (`lib/db/`) |
-| `src/server/integrations/**`, `importers/**` | Ports / infrastructure | Adapter seam; one-time import readers |
+| `src/server/integrations/**` | Ports | Adapter seam (the port `ServiceContext` names) |
 | `src/domain/**` | Domain | Pure rules and types; no I/O |
 | `src/lib/**`, `src/db/**` | Infrastructure + cross-cutting | Env, auth, logging, mail, crypto; schema and connection |
-| `src/modules/<m>/**` | All four, inside the module | `reports`, `organisation` (company, appearance, departments, levels, leave types), `notifications` (emails, Admin → Emails), `audit` (the audit log viewer) and `leave` (Tier 3: aggregate, ports, in-memory fakes and a repository contract) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
+| `src/modules/<m>/**` | All four, inside the module | `reports`, `organisation` (company, appearance, departments, levels, leave types), `notifications` (emails, Admin → Emails), `audit` (the audit log viewer), `integrations` (webhooks, API keys, the REST API, adapters, outbox jobs; event contracts in `tests/contracts`), `import` (the CLI-only TimeOff import) and `leave` (Tier 3: aggregate, ports, in-memory fakes and a repository contract) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
 
 ## Where code is going
 

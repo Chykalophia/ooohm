@@ -1,10 +1,10 @@
 /**
- * Pure rules of the integration layer: the event envelope every consumer sees,
- * which events a webhook can subscribe to, the retry schedule shared by webhook and
- * adapter deliveries, and API key scopes. No I/O; the services and the worker apply
- * these.
+ * Pure rules of the integrations module: which events a webhook can subscribe to, the
+ * limits on endpoints and keys, the retry schedule shared by webhook and adapter
+ * deliveries, and API key scopes. The envelope itself is `@/domain/event-envelope`.
+ * No I/O; the use cases and the delivery jobs apply these.
  */
-import { DomainError } from "./errors";
+import { DomainError } from "@/domain/errors";
 import {
   ADMIN_EVENT_TYPES,
   BALANCE_EVENT_TYPES,
@@ -14,8 +14,8 @@ import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
   LEAVE_RECOUNTED_EVENT_TYPE,
-} from "./events";
-import { oneLine } from "./text";
+} from "@/domain/events";
+import { oneLine } from "@/domain/text";
 
 /**
  * The public integration guide (docs/api.md in the published source): auth, events,
@@ -23,45 +23,6 @@ import { oneLine } from "./text";
  * OpenAPI document, which a deployment's admins can reach where a repository path is not.
  */
 export const API_GUIDE_URL = "https://github.com/Chykalophia/ooohm/blob/main/docs/api.md";
-
-/** The envelope version. A change that breaks consumers gets a new version; adding a field does not. */
-export const ENVELOPE_VERSION = 1;
-
-/**
- * One event as webhooks, the events API and adapters deliver it (version 1). `data` is
- * the payload documented for `type` in docs/api.md.
- */
-export interface EventEnvelope<T = unknown> {
-  /** The `events_outbox` id (a generated id for `ping`). Receivers dedupe on it: delivery is at least once. */
-  id: string;
-  type: string;
-  version: typeof ENVELOPE_VERSION;
-  /** When the change happened, ISO 8601 in UTC. */
-  createdAt: string;
-  companyId: string;
-  data: T;
-}
-
-/** An outbox row as the envelope is built from it. */
-export interface OutboxEventSource {
-  id: string;
-  type: string;
-  companyId: string;
-  createdAt: Date;
-  payload: unknown;
-}
-
-/** The public envelope of one outbox event, as webhooks, adapters and `/api/v1/events` deliver it. */
-export function buildEnvelope(event: OutboxEventSource): EventEnvelope {
-  return {
-    id: event.id,
-    type: event.type,
-    version: ENVELOPE_VERSION,
-    createdAt: event.createdAt.toISOString(),
-    companyId: event.companyId,
-    data: event.payload,
-  };
-}
 
 /** The type of the test event an admin sends to one endpoint. It never enters the outbox. */
 export const PING_EVENT_TYPE = "ping";

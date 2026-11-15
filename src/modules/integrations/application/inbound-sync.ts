@@ -33,7 +33,7 @@ import { lockCompany } from "@/shared/lib/db/company-lock";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { findPersonByEmail, insertPerson, lockMember, type PersonRow, updatePerson } from "@/server/repositories/users";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";
-import { writeAllowance } from "./admin-allowances";
+import { writeAllowance } from "@/server/services/admin-allowances";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /**
@@ -179,6 +179,41 @@ async function syncUsers(ctx: ServiceContext, input: InboundSyncInput, result: I
   });
 }
 
+type CompanyOf = NonNullable<Awaited<ReturnType<typeof findCompany>>>;
+
+/** Writes one checked allowance from a sync in its own transaction, or says why it was skipped. */
+async function applyBalance(
+  ctx: ServiceContext,
+  input: InboundSyncInput,
+  at: { company: CompanyOf; currentYear: number },
+  entry: { email: string; leaveTypeCode: string; year: number; days: number; adjustment: number | undefined },
+) {
+  return inTransaction(ctx, async (tx) => {
+    const admin = adminOf(input);
+    if (admin) await assertActiveAdmin(tx, admin);
+    const person = await findPersonByEmail(tx, entry.email);
+    if (!person || person.companyId !== input.companyId) return "unknown_person" as const;
+    const member = await lockMember(tx, input.companyId, person.id);
+    if (!member) return "unknown_person" as const;
+    const leaveType = await findLeaveTypeByCode(tx, input.companyId, entry.leaveTypeCode);
+    if (!leaveType) return "unknown_leave_type" as const;
+    const existing = await findAllowance(tx, { userId: member.id, leaveTypeId: leaveType.id, year: entry.year });
+    const { changed } = await writeAllowance(tx, {
+      company: at.company,
+      currentYear: at.currentYear,
+      member,
+      leaveType,
+      year: entry.year,
+      days: entry.days,
+      adjustmentDays: entry.adjustment ?? existing?.adjustmentDays ?? 0,
+      reason: "sync",
+      source: sourceOf(input),
+      note: `Synced from adapter:${input.adapterId}`,
+    });
+    return changed ? ("changed" as const) : ("unchanged" as const);
+  });
+}
+
 async function syncBalances(ctx: ServiceContext, input: InboundSyncInput, result: InboundSyncResult): Promise<void> {
   const balances = input.balances ?? [];
   if (balances.length === 0) return;
@@ -210,30 +245,7 @@ async function syncBalances(ctx: ServiceContext, input: InboundSyncInput, result
       continue;
     }
 
-    const outcome = await inTransaction(ctx, async (tx) => {
-      const admin = adminOf(input);
-      if (admin) await assertActiveAdmin(tx, admin);
-      const person = await findPersonByEmail(tx, email);
-      if (!person || person.companyId !== input.companyId) return "unknown_person" as const;
-      const member = await lockMember(tx, input.companyId, person.id);
-      if (!member) return "unknown_person" as const;
-      const leaveType = await findLeaveTypeByCode(tx, input.companyId, leaveTypeCode);
-      if (!leaveType) return "unknown_leave_type" as const;
-      const existing = await findAllowance(tx, { userId: member.id, leaveTypeId: leaveType.id, year: raw.year });
-      const { changed } = await writeAllowance(tx, {
-        company,
-        currentYear,
-        member,
-        leaveType,
-        year: raw.year,
-        days,
-        adjustmentDays: adjustment ?? existing?.adjustmentDays ?? 0,
-        reason: "sync",
-        source: sourceOf(input),
-        note: `Synced from adapter:${input.adapterId}`,
-      });
-      return changed ? ("changed" as const) : ("unchanged" as const);
-    });
+    const outcome = await applyBalance(ctx, input, { company, currentYear }, { email, leaveTypeCode, year: raw.year, days, adjustment });
     if (outcome === "changed") result.balances.changed++;
     else if (outcome === "unchanged") result.balances.unchanged++;
     else skip(outcome, email);

@@ -3,22 +3,25 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { diffAuditSnapshots } from "@/domain/audit";
-import { MAX_WEBHOOK_ENDPOINTS } from "@/domain/integrations";
+import { authenticateApiKey, createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deleteWebhookEndpoint as deleteWebhookEndpointResult, getWebhookEndpoint as getWebhookEndpointResult, listApiKeys as listApiKeysResult, listWebhookEndpoints as listWebhookEndpointsResult, MAX_WEBHOOK_ENDPOINTS, revokeApiKey as revokeApiKeyResult, rotateWebhookSecret as rotateWebhookSecretResult, sendWebhookPing as sendWebhookPingResult, setWebhookEndpointEnabled as setWebhookEndpointEnabledResult, updateWebhookEndpoint as updateWebhookEndpointResult } from "@/modules/integrations";
+import { unwrap } from "@/shared/lib/result";
 import { hashToken } from "@/lib/token-hash";
-import { authenticateApiKey, createApiKey, listApiKeys, revokeApiKey } from "@/server/services/api-keys";
-import {
-  createWebhookEndpoint,
-  deleteWebhookEndpoint,
-  getWebhookEndpoint,
-  listWebhookEndpoints,
-  rotateWebhookSecret,
-  sendWebhookPing,
-  setWebhookEndpointEnabled,
-  updateWebhookEndpoint,
-} from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+const deleteWebhookEndpoint = (...args: Parameters<typeof deleteWebhookEndpointResult>) => deleteWebhookEndpointResult(...args).then(unwrap);
+const getWebhookEndpoint = (...args: Parameters<typeof getWebhookEndpointResult>) => getWebhookEndpointResult(...args).then(unwrap);
+const listApiKeys = (...args: Parameters<typeof listApiKeysResult>) => listApiKeysResult(...args).then(unwrap);
+const listWebhookEndpoints = (...args: Parameters<typeof listWebhookEndpointsResult>) => listWebhookEndpointsResult(...args).then(unwrap);
+const revokeApiKey = (...args: Parameters<typeof revokeApiKeyResult>) => revokeApiKeyResult(...args).then(unwrap);
+const rotateWebhookSecret = (...args: Parameters<typeof rotateWebhookSecretResult>) => rotateWebhookSecretResult(...args).then(unwrap);
+const sendWebhookPing = (...args: Parameters<typeof sendWebhookPingResult>) => sendWebhookPingResult(...args).then(unwrap);
+const setWebhookEndpointEnabled = (...args: Parameters<typeof setWebhookEndpointEnabledResult>) => setWebhookEndpointEnabledResult(...args).then(unwrap);
+const updateWebhookEndpoint = (...args: Parameters<typeof updateWebhookEndpointResult>) => updateWebhookEndpointResult(...args).then(unwrap);
 
 const URL_WITH_TOKEN = "https://hooks.example.com/catch/123/s3cr3t-path-token?sig=abc";
 

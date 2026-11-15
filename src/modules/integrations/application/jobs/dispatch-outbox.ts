@@ -2,13 +2,13 @@ import "server-only";
 /**
  * Step one of the outbox worker: fan new outbox events out into deliveries.
  */
-import { buildEnvelope } from "@/domain/integrations";
+import { buildEnvelope } from "@/domain/event-envelope";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import type { Adapter } from "@/server/integrations/adapter";
-import { insertAdapterDeliveries, type NewAdapterDelivery } from "@/server/repositories/adapter-deliveries";
-import { claimUndispatched, markDispatched } from "@/server/repositories/outbox";
-import { insertDeliveries, listDispatchTargets, type NewWebhookDelivery } from "@/server/repositories/webhooks";
+import { insertAdapterDeliveries, type NewAdapterDelivery } from "@/modules/integrations/infrastructure/drizzle-adapter-deliveries.repository";
+import { claimUndispatched, markDispatched } from "@/modules/integrations/infrastructure/drizzle-outbox.repository";
+import { insertDeliveries, listDispatchTargets, type NewWebhookDelivery } from "@/modules/integrations/infrastructure/drizzle-webhooks.repository";
 
 /**
  * Asks an adapter whether it wants an event. Adapter code is not core code: a throw

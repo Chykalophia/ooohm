@@ -15,7 +15,7 @@
     "job:rollover": "tsx --conditions=react-server --env-file-if-exists=.env scripts/rollover.mts",
     "import:timeoff": "tsx --conditions=react-server --no-warnings=ExperimentalWarning --env-file-if-exists=.env scripts/import-timeoff.mts",
     "worker": "tsx --conditions=react-server --env-file-if-exists=.env scripts/worker.mts",
-    "test": "tsx --conditions=react-server --no-warnings=ExperimentalWarning --test \"tests/unit/**/*.test.ts\" \"tests/architecture/**/*.test.ts\"",
+    "test": "tsx --conditions=react-server --no-warnings=ExperimentalWarning --test \"tests/unit/**/*.test.ts\" \"tests/architecture/**/*.test.ts\" \"tests/contracts/**/*.test.ts\"",
     "test:components": "tsx --no-warnings=ExperimentalWarning --experimental-test-module-mocks --import ./tests/components/setup.ts --test \"tests/components/**/*.test.tsx\"",
     "test:integration":"tsx --conditions=react-server --no-warnings=ExperimentalWarning --test \"tests/integration/**/*.test.ts\"",
     "test:integration:embedded": "TEST_DATABASE_URL=pglite:memory tsx --conditions=react-server --no-warnings=ExperimentalWarning --test \"tests/integration/**/*.test.ts\"",

@@ -3,12 +3,12 @@ import "server-only";
  * Step two of the outbox worker: send due webhook deliveries, signed, and schedule
  * retries.
  */
-import { retryDelayMs } from "@/domain/integrations";
+import { retryDelayMs } from "@/modules/integrations/domain/integrations";
 import { webhookRequestHeaders } from "@/lib/integration-crypto";
 import { log } from "@/lib/log";
 import { describeTransportError, MAX_RESPONSE_BYTES, type WebhookFetch } from "@/lib/safe-fetch";
 import type { ServiceContext } from "@/server/context";
-import { type ClaimedWebhookDelivery, claimDueDeliveries, type DeliveryOutcome, recordDeliveryOutcome, releaseDeliveryClaims } from "@/server/repositories/webhooks";
+import { type ClaimedWebhookDelivery, claimDueDeliveries, type DeliveryOutcome, recordDeliveryOutcome, releaseDeliveryClaims } from "@/modules/integrations/infrastructure/drizzle-webhooks.repository";
 
 /** Deliveries claimed per batch. */
 export const DELIVERY_BATCH_SIZE = 20;
@@ -156,53 +156,64 @@ export async function deliverDueWebhooks(ctx: ServiceContext, deps: DeliveryDeps
 
   const unstarted = await inParallel(claims, deps.concurrency ?? DELIVERY_CONCURRENCY, async (claim) => {
     const outcome = await attempt(ctx, claim, run, now());
-    const at = now();
-    let recorded: DeliveryOutcome;
-    if (outcome.ok) {
-      recorded = { status: "delivered", at, statusCode: outcome.statusCode, latencyMs: outcome.latencyMs, excerpt: outcome.excerpt };
-    } else {
-      const delay = retryDelayMs(claim.attempts, random());
-      recorded = {
-        status: delay === null ? "failed" : "pending",
-        at,
-        nextAttemptAt: new Date(at.getTime() + (delay ?? 0)),
-        statusCode: outcome.statusCode,
-        latencyMs: outcome.latencyMs,
-        error: outcome.error,
-        excerpt: outcome.excerpt,
-      };
-    }
-    const fields = { deliveryId: claim.id, endpointId: claim.endpointId, eventId: claim.eventId, eventType: claim.eventType, attempt: claim.attempts };
-    try {
-      const kept = await recordDeliveryOutcome(ctx.db, claim, recorded);
-      if (!kept) log.warn(fields, "webhook_delivery_outcome_dropped");
-    } catch (err) {
-      // The lease runs out and another attempt follows: at least once, never lost.
-      log.error({ ...fields, err }, "webhook_delivery_record_failed");
-      return;
-    }
-    if (recorded.status === "delivered") {
-      result.delivered++;
-      log.info({ ...fields, statusCode: recorded.statusCode, latencyMs: recorded.latencyMs }, "webhook_delivered");
-    } else {
-      if (recorded.status === "failed") result.failed++;
-      else result.retried++;
-      const level = recorded.status === "failed" ? log.error : log.warn;
-      level(
-        { ...fields, statusCode: recorded.statusCode, error: recorded.error, nextAttemptAt: recorded.status === "pending" ? recorded.nextAttemptAt.toISOString() : null },
-        recorded.status === "failed" ? "webhook_delivery_failed" : "webhook_delivery_retry_scheduled",
-      );
-    }
+    await keepOutcome(ctx, claim, outcomeToRecord(claim, outcome, now(), random), result);
   }, deps.signal);
   if (unstarted.length > 0) {
     result.attempted -= unstarted.length;
-    try {
-      const released = await releaseDeliveryClaims(ctx.db, unstarted, now());
-      log.info({ released }, "webhook_deliveries_released");
-    } catch (err) {
-      // Their leases run out instead; each costs one attempt.
-      log.error({ count: unstarted.length, err }, "webhook_delivery_release_failed");
-    }
+    await releaseUnstarted(ctx, unstarted, now());
   }
   return result;
+}
+
+type AttemptOutcome = Awaited<ReturnType<typeof attempt>>;
+
+/** What to record for one attempt: delivered, pending with the next wait of the retry schedule, or failed after the last. */
+function outcomeToRecord(claim: ClaimedWebhookDelivery, outcome: AttemptOutcome, at: Date, random: () => number): DeliveryOutcome {
+  if (outcome.ok) return { status: "delivered", at, statusCode: outcome.statusCode, latencyMs: outcome.latencyMs, excerpt: outcome.excerpt };
+  const delay = retryDelayMs(claim.attempts, random());
+  return {
+    status: delay === null ? "failed" : "pending",
+    at,
+    nextAttemptAt: new Date(at.getTime() + (delay ?? 0)),
+    statusCode: outcome.statusCode,
+    latencyMs: outcome.latencyMs,
+    error: outcome.error,
+    excerpt: outcome.excerpt,
+  };
+}
+
+/** Records one outcome with a compare-and-set on the claim, counts it in `result`, and logs it. */
+async function keepOutcome(ctx: ServiceContext, claim: ClaimedWebhookDelivery, recorded: DeliveryOutcome, result: DeliveryRunResult) {
+  const fields = { deliveryId: claim.id, endpointId: claim.endpointId, eventId: claim.eventId, eventType: claim.eventType, attempt: claim.attempts };
+  try {
+    const kept = await recordDeliveryOutcome(ctx.db, claim, recorded);
+    if (!kept) log.warn(fields, "webhook_delivery_outcome_dropped");
+  } catch (err) {
+    // The lease runs out and another attempt follows: at least once, never lost.
+    log.error({ ...fields, err }, "webhook_delivery_record_failed");
+    return;
+  }
+  if (recorded.status === "delivered") {
+    result.delivered++;
+    log.info({ ...fields, statusCode: recorded.statusCode, latencyMs: recorded.latencyMs }, "webhook_delivered");
+    return;
+  }
+  if (recorded.status === "failed") result.failed++;
+  else result.retried++;
+  const level = recorded.status === "failed" ? log.error : log.warn;
+  level(
+    { ...fields, statusCode: recorded.statusCode, error: recorded.error, nextAttemptAt: recorded.status === "pending" ? recorded.nextAttemptAt.toISOString() : null },
+    recorded.status === "failed" ? "webhook_delivery_failed" : "webhook_delivery_retry_scheduled",
+  );
+}
+
+/** Hands claims never attempted back, due at once, without spending an attempt. */
+async function releaseUnstarted(ctx: ServiceContext, unstarted: readonly ClaimedWebhookDelivery[], now: Date) {
+  try {
+    const released = await releaseDeliveryClaims(ctx.db, unstarted, now);
+    log.info({ released }, "webhook_deliveries_released");
+  } catch (err) {
+    // Their leases run out instead; each costs one attempt.
+    log.error({ count: unstarted.length, err }, "webhook_delivery_release_failed");
+  }
 }

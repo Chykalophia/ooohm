@@ -4,7 +4,8 @@ import "server-only";
  * adapters, with the webhook retry schedule. Nothing runs here in v1, which registers no
  * adapters.
  */
-import { buildEnvelope, retryDelayMs } from "@/domain/integrations";
+import { buildEnvelope } from "@/domain/event-envelope";
+import { retryDelayMs } from "@/modules/integrations/domain/integrations";
 import { log } from "@/lib/log";
 import { describeTransportError } from "@/lib/safe-fetch";
 import type { ServiceContext } from "@/server/context";
@@ -14,7 +15,7 @@ import {
   claimDueAdapterDeliveries,
   recordAdapterOutcome,
   releaseAdapterClaim,
-} from "@/server/repositories/adapter-deliveries";
+} from "@/modules/integrations/infrastructure/drizzle-adapter-deliveries.repository";
 
 /** The most deliveries one run attempts. */
 export const ADAPTER_BATCH_SIZE = 20;

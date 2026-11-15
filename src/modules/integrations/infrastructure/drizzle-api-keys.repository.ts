@@ -25,10 +25,13 @@ const fields = {
   revokedAt: apiKeys.revokedAt,
 };
 
+/** A key in the admin list, with who created it. */
+export type ApiKeyListRow = ApiKeyRow & { createdByName: string | null; createdByEmail: string | null };
+
 const creator = alias(user, "creator");
 
 /** The company's keys, live first, then newest first, with who created each. One query. */
-export async function listApiKeys(ex: Executor, companyId: string) {
+export async function listApiKeys(ex: Executor, companyId: string): Promise<ApiKeyListRow[]> {
   return ex
     .select({ ...fields, createdByName: creator.name, createdByEmail: creator.email })
     .from(apiKeys)

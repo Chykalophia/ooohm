@@ -2,20 +2,20 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import type { EventEnvelope } from "@/domain/integrations";
-import { RETRY_DELAYS_MS } from "@/domain/integrations";
+import { applyInboundSync, createWebhookEndpoint as createWebhookEndpointResult, deliverDueAdapterEvents, dispatchOutboxBatch, listAdapters as listAdaptersResult, RETRY_DELAYS_MS, syncAdapterNow as syncAdapterNowResult } from "@/modules/integrations";
+import { type EventEnvelope } from "@/domain/event-envelope";
 import { type Adapter, createAdapterRegistry, type InboundBalance, type InboundUser } from "@/server/integrations/adapter";
 import { adapterRegistry } from "@/server/integrations/registry";
-import { deliverDueAdapterEvents } from "@/server/services/adapter-delivery";
-import { applyInboundSync } from "@/server/services/inbound-sync";
-import { listAdapters, syncAdapterNow } from "@/server/services/integrations";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
-import { createWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+const listAdapters = (...args: Parameters<typeof listAdaptersResult>) => listAdaptersResult(...args).then(unwrap);
+const syncAdapterNow = (...args: Parameters<typeof syncAdapterNowResult>) => syncAdapterNowResult(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 

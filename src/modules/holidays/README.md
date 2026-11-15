@@ -36,7 +36,7 @@ Use cases take `(ctx, actor, …)` and return a `ServiceResult`; each fails with
 
 - `domain/holiday-range.ts` (runs of days) and `domain/us-federal-holidays.ts` (the eleven federal holidays on
   their observed dates).
-- The name, date and year checks stay in `src/domain/holidays.ts` (`normalizeHolidayName`, `assertHolidayDate`,
+- The name, date and year checks stay in `src/shared/kernel/holidays.ts` (`normalizeHolidayName`, `assertHolidayDate`,
   `isHolidayYear`): the calendar page and the TimeOff mapping use them too.
 - `application/use-cases/`, `application/queries/`, `application/steps/`: one function per file;
   `application/holiday-changes.ts` holds the audit record, the company lock and the year and id checks.

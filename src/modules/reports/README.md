@@ -30,5 +30,4 @@ through the services and repositories that own them.
 - `ui/report-presenter.ts`: labels, links and chart items for `src/app/reports/page.tsx`. The page's tables sit
   beside it in `src/app/reports/report-tables.tsx`.
 
-The module's domain still uses `src/domain` helpers (actor, calendar dates, day counting, CSV) that move to
-`src/shared/kernel` or their own modules in later phases; those edges are in the dependency-cruiser baseline.
+The module's domain uses the shared kernel's helpers (actor, calendar dates, day counting, CSV).

@@ -35,12 +35,12 @@ signing secret; the secret and the full key are returned once, by the use case t
 
 ## Stays outside, and why
 
-- `src/domain/event-envelope.ts` (the envelope and `buildEnvelope`) and the adapter port
+- `src/shared/kernel/event-envelope.ts` (the envelope and `buildEnvelope`) and the adapter port
   (`src/server/integrations/`): `ServiceContext` names the adapter registry, and adapters receive envelopes.
   Moving either in would make every use case's import of `ServiceContext` a cycle through this module.
-- `src/domain/webhook-target.ts`: `ServiceContext` names its `TargetPolicy`, and `src/lib/safe-fetch.ts` uses its
+- `src/shared/kernel/webhook-target.ts`: `ServiceContext` names its `TargetPolicy`, and `src/lib/safe-fetch.ts` uses its
   address checks.
-- `src/domain/events.ts`: the catalog of event types and payloads every module writes.
+- `src/shared/kernel/events.ts`: the catalog of event types and payloads every module writes.
 
 ## Inside
 

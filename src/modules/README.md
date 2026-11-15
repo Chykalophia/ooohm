@@ -55,7 +55,7 @@ Create only the folders a module needs. Server files (`application/`, `infrastru
   `application` and `infrastructure` never import `ui`; `ui` never imports `infrastructure`.
 - A module's `domain` imports only its own domain, `src/shared/kernel` and `src/shared/lib/result.ts`
   (`module-domain-is-pure`).
-- A module may use `src/domain`, `src/lib` and `src/shared`. When code outside a module needs something the
+- A module may use `src/lib` and `src/shared`. When code outside a module needs something the
   module owns, the module exports a small query from its index; never its repository. A read that a module below
   the owner needs (one the owner imports) sits in `src/shared/lib/db/`.
 - Tests may import a module's internals (a domain function, say) to test them directly.

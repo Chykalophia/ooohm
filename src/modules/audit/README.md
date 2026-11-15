@@ -28,5 +28,5 @@ records its own audit row and outbox event with `recordChange` (`src/shared/lib/
 - `application/audit-reading.ts`: naming the ids in a row, matching a search, reading the filters.
 - `application/dto.ts` (`toAuditLogEntryDTO`: labels in, emails and key ids left behind), `policies.ts`,
   `schemas.ts`.
-- Action labels and change descriptions come from `src/domain/audit.ts`; who made a change from
-  `src/domain/change-source.ts`.
+- `domain/audit.ts`: action labels and change descriptions, pure and unit tested; who made a change from
+  `src/shared/kernel/change-source.ts`.

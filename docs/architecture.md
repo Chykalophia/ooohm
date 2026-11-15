@@ -28,7 +28,7 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 | Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | modules' `index.ts`, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
 | Shared UI | `src/components/**` | Reusable components and class recipes that render what a page passes in | domain types and pure functions, `lib` (not `env`, `db`, `auth`); never `src/app` or `src/server` |
 | Shared data access | `src/shared/lib/db/**` | Repository helpers and the reads several modules share (members, company locks, leave type allowance settings, leave request reads). Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
-| Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
+| Shared kernel | `src/shared/kernel/**` | Pure types, rules and policies several layers share (client components and the schema import it). No I/O, no Next.js, no Drizzle, no env | nothing outside `src/shared/kernel` but `Result` (`domain-is-pure`) |
 | Modules | `src/modules/<m>/**` | A feature's use cases, queries, policies, DTOs, rules, repositories and presenters (`src/modules/README.md`) | other modules' `index.ts` only; inside, its own layers as `module-layers` allows |
 | Infrastructure | `src/lib/**`, `src/db/**` | Env, logging, mail transport, auth, formatting, schema, the connection pool | `domain` (pure functions and types, e.g. `toActor` for `requireActor`) |
 
@@ -70,7 +70,7 @@ several routes share is a small server-only file next to them (`admin/people/per
 module's `ui/` (`presentAuditLog`, `presentApprovals`, `presentDelivery`, the calendar's links and captions),
 exported from its index and unit-tested (`tests/unit/page-presenters.test.ts`); markup a page would otherwise
 spell out goes in components beside the route (`admin/audit/audit-log-table.tsx`). Pages and actions import only
-module indexes, `src/app`, `src/components`, the shared kernel, `Result`, search params, `src/domain` and the pure
+module indexes, `src/app`, `src/components`, the shared kernel, `Result`, search params and the pure
 `src/lib` helpers (`pages-and-actions-through-modules` in `.dependency-cruiser.cjs`; the token pages and actions
 for the email approval link, setup and sign-in are the exceptions). ESLint's size limits are errors: 100 lines for
 an action or route file, 50 per function in logic layers, 150 per component; `src/components/ui/sortable-list.tsx`
@@ -113,7 +113,7 @@ colour mode is a display preference of the person's own, so changing it writes n
 name), "Your requests" (10, latest dates first), approvals (10, earliest first) and an endpoint's
 webhook deliveries (25). Short lists that stay small by nature (departments, leave types, a year's holidays, API
 keys, calendar links, webhook endpoints, which stop at 20) are not. Pages are keyset, both ways
-(`src/domain/paging.ts`): a page is the `size + 1` rows just after (or, for Previous, just before) the sort key of
+(`src/shared/kernel/paging.ts`): a page is the `size + 1` rows just after (or, for Previous, just before) the sort key of
 the row at its edge, so each page is one read however deep someone goes (Previous adds a one-row read), and no row
 is skipped or shown twice because rows were added or removed in between (a row added behind the page shows on the
 earlier pages). The audit log, deliveries and the inbox read their indexes in order; people and a person's requests
@@ -164,7 +164,7 @@ indistinguishable from one that does not exist (`not_found`).
 
 ### Errors
 
-Expected failures throw `DomainError` with a stable `code` (`src/domain/errors.ts`). Server actions run
+Expected failures throw `DomainError` with a stable `code` (`src/shared/kernel/errors.ts`). Server actions run
 service calls through `runActionWith` (`src/app/_lib/run-action.ts`), which maps each code to a calm message and logs
 anything else as `<event>_failed`, returning a generic retry message. Stack traces never reach the browser.
 
@@ -196,7 +196,7 @@ actions, written in bulk with `insertAuditEntries`) without a per-row event, and
 
 #### Attribution: who or what made a change
 
-Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-source.ts`), one of:
+Nothing is anonymous. Every change names a `ChangeSource` (`src/shared/kernel/change-source.ts`), one of:
 
 | `kind` | Who or what | Example label in the audit log |
 | --- | --- | --- |
@@ -254,7 +254,7 @@ via? }` (`id` is the key's creator) or `{ type: "system", process }`. `recordCha
 so an event and its audit row can never disagree. The import's bulk `insertAuditEntries` takes one `source` for
 the whole batch and writes the same columns.
 
-Leave events (`src/domain/events.ts`) are a public contract for webhooks and adapters (M6):
+Leave events (`src/shared/kernel/events.ts`) are a public contract for webhooks and adapters (M6):
 
 | Event | When | `status` in payload |
 | --- | --- | --- |
@@ -289,7 +289,7 @@ Calendar feed events (M4):
 Payload (v1): `feedId, userId, kind, reason, actorId` (`reason` is `null` on `issued`). Neither the payload nor
 the audit row (`kind, createdAt, revokedAt`) ever holds the token or its hash.
 
-Admin events (M5), registered in `ADMIN_EVENT_TYPES` (`src/domain/events.ts`). For each, the audit `action` is
+Admin events (M5), registered in `ADMIN_EVENT_TYPES` (`src/shared/kernel/events.ts`). For each, the audit `action` is
 the event type, and `actorId` is the admin unless a row below says otherwise (a self-rename, an adapter sync or a
 scheduled scrub).
 
@@ -346,7 +346,7 @@ delivered in.
 ### Dates
 
 Leave dates are `YYYY-MM-DD` strings end to end (`date` columns in `mode: "string"`). Arithmetic runs on UTC
-epoch days in `src/domain/calendar-date.ts`, and display formatting (`src/lib/format.ts`) formats in UTC, so
+epoch days in `src/shared/kernel/calendar-date.ts`, and display formatting (`src/lib/format.ts`) formats in UTC, so
 a stored day never shifts with the server's or browser's time zone. "Today" is computed in the company's
 time zone (`todayInTimeZone`).
 
@@ -370,7 +370,7 @@ the module: Better Auth sends it (`src/lib/auth.ts`, template in `src/lib/sign-i
 **Admin → Emails** (`/admin/emails`; `listEmailsForAdmin`, `getEmailForAdmin`, `previewEmail`, `saveEmailCopy` and `resetEmailCopy` in `src/modules/notifications`, each returning a `ServiceResult`, admins only by `canEditEmailCopy`) lets an admin replace one email's subject
 and message with the company's own words. Each catalog type carries its editable copy (`EditableCopy`): a default
 subject and message written with `{{variable}}` placeholders, the variables it offers (`{{requester}}`, `{{dates}}`,
-`{{days}}`, …), and sample data for the editor's live preview. Rules (`src/domain/email-template.ts`):
+`{{days}}`, …), and sample data for the editor's live preview. Rules (`src/shared/kernel/email-template.ts`):
 
 - Only the subject and the message change. The request's details (the note, who else is off, a decline reason), the
   buttons, the links, the approve note and the layout stay as OOOhm sends them, so no wording can break an approve
@@ -869,14 +869,14 @@ at most 366 days, which submit checks and the `leave_requests_span_max` constrai
 so the bound hides nothing and the scan reads at most a year before the range instead of the company's whole
 history. `calendar.test.ts` seeds 50 people with seven requests each and pins the count at 4, empty or full, and
 exercises a request of exactly 366 days ending on the range's first day. Grouping, ordering and the grid are pure
-functions in `src/domain/calendar.ts`.
+functions in `src/shared/kernel/calendar.ts`.
 
 ### Privacy rule
 
 A member may see who is out, when, and the leave type's name and colour, for the people their calendar scope
 allows (`calendarScopeFor`, above: everyone, unless an admin narrows it for employees). Nobody sees another person's request
 note, decision note or balance on any calendar screen or feed. This is enforced by shape, not by filtering: every
-calendar view and both feeds are built from `CalendarEntry` (`src/domain/calendar.ts`), and the repository's
+calendar view and both feeds are built from `CalendarEntry` (`src/shared/kernel/calendar.ts`), and the repository's
 calendar queries (`src/modules/calendar/infrastructure/drizzle-calendar.repository.ts`) select only its fields. Notes are left out of the personal
 feed too, since a feed URL can travel further than the app. A person with a blank name is labelled by the part
 of their email before the `@` (`teamLabel`, `src/shared/kernel/person-label.ts`), never the full address, on the team view
@@ -897,7 +897,7 @@ last_used_at, revoked_at)`, migration `0005` (`token_hint`: `0021`).
   unnoticed. The page shows when the feed was created and last fetched, and its last 4 characters
   (`token_hint`, `CHECK`ed; null for links made before `0021`), so people can tell which link a calendar holds.
   The other 39 characters (234 random bits) stay secret.
-- With the new link, the page offers one-tap subscribe links (`addToCalendarLinks`, `src/domain/calendar-feed.ts`):
+- With the new link, the page offers one-tap subscribe links (`addToCalendarLinks`, `src/shared/kernel/calendar-feed.ts`):
   Google (`calendar.google.com/calendar/r?cid=webcal://…`), Apple (`webcal://…`) and Outlook on the web
   (`outlook.office.com/calendar/0/addfromweb?url=…`). Each hands the link to that calendar service, as
   subscribing does anyway.
@@ -943,7 +943,7 @@ last_used_at, revoked_at)`, migration `0005` (`token_hint`: `0021`).
 
 ### ICS format
 
-`src/domain/ics.ts` is a pure RFC 5545 writer, unit tested in `tests/unit/ics.test.ts` against a strict parser
+`src/shared/kernel/ics.ts` is a pure RFC 5545 writer, unit tested in `tests/unit/ics.test.ts` against a strict parser
 (`tests/support/ics-parser.ts`) that integration tests use on real feeds too.
 
 - `VCALENDAR` with `VERSION:2.0`, `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, `X-WR-CALNAME` and `NAME`
@@ -1199,7 +1199,7 @@ also holds the deletion grace option ([The grace option](#the-grace-option)); `c
 
 `/admin/appearance` (`updateCompanyAppearance`): the theme everyone in the company sees, an optional accent colour
 and a corner style, all chosen by an admin (never per person; light or dark is per person, above). Themes are a fixed list (`THEMES` in
-`src/domain/appearance.ts`); each keeps one accent colour. The root layout reads the look on every request
+`src/shared/kernel/appearance.ts`); each keeps one accent colour. The root layout reads the look on every request
 (`getAppearance`, which falls back to the default on any error so a page never fails on it) and sets `data-ui`,
 `data-corners` and, for a custom accent, the accent tokens on `<html>`. `globals.css` keys each theme's tokens
 (colours, fonts, radii, shadows) on those attributes; fonts are self-hosted from `@fontsource-variable` packages,
@@ -1220,7 +1220,7 @@ whole company and switch back.
 `company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle`, `layout` and `logo`.
 
 The same page sets the company's logo (`updateCompanyLogo`, `removeCompanyLogo`). The file is judged by its bytes,
-never its name or claimed type (`readLogoImage`, `src/domain/company-logo.ts`): PNG or JPEG only, up to 512 KB and 4096
+never its name or claimed type (`readLogoImage`, `src/shared/kernel/company-logo.ts`): PNG or JPEG only, up to 512 KB and 4096
 pixels a side. SVG is refused because it can carry script and Outlook draws neither SVG nor WebP. The bytes live on the
 company row (`companies.logo`, with its SHA-256, type and size beside it; a check keeps the five set or cleared together),
 so no file store is needed on any host. `GET /logo/<sha256>.<png|jpg>` serves it publicly, like the favicon, because the
@@ -1247,7 +1247,7 @@ their API keys.
 - **Five queries a page**, whatever it holds: company (time zone), people, departments and leave types in
   parallel (for the pickers and for naming ids inside before/after snapshots), then the page, whose actor and
   subject names, and API key name and prefix, come from joins. Adapter names come from the registry.
-- Summaries are pure (`describeAuditChange`, `src/domain/audit.ts`): changed fields only, ids named ("Manager:
+- Summaries are pure (`describeAuditChange`, `src/modules/audit/domain/audit.ts`): changed fields only, ids named ("Manager:
   Ana → Ben"), an unknown id described rather than shown.
 
 ### Screens
@@ -1510,7 +1510,7 @@ rules ([Admin](#admin-m5)): `assertCanAdminister`, `assertActiveAdmin` in the tr
 from another company, or a deleted endpoint, is `not_found`), and `audit_log` + outbox in the same transaction.
 
 - **Create** takes the company lock and allows at most 20 live endpoints per company (`limit_reached`), since
-  every event fans out to each. The URL is checked (`normalizeWebhookUrl`, `src/domain/webhook-target.ts`):
+  every event fans out to each. The URL is checked (`normalizeWebhookUrl`, `src/shared/kernel/webhook-target.ts`):
   absolute, at most 2,048 characters, no credentials or fragment, `https:` unless `WEBHOOK_ALLOW_INSECURE`
   (`insecure_url`), and, unless `WEBHOOK_ALLOW_PRIVATE`, not an IP literal in a blocked range nor an obviously
   local name such as `localhost`, `*.local`, `*.internal` or a single label (`blocked_address`). Event types must

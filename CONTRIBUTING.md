@@ -44,7 +44,7 @@ These hold for every change. [AGENTS.md](AGENTS.md) has the full list.
 
 - Keep the layers: `src/app` (thin pages and actions) calls a module's index
   (`@/modules/<m>`), whose use cases call its repositories. Pure rules live in a
-  module's `domain/`, `src/shared/kernel` or `src/domain`.
+  module's `domain/` or, when several layers share them, `src/shared/kernel`.
 - No `console.*` in server code: use `log` from `@/lib/log`.
 - Never edit a committed migration. Change `src/db/schema.ts`, run
   `pnpm db:generate` and commit the new SQL.

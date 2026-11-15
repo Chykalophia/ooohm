@@ -68,7 +68,7 @@ On the caller's transaction, throwing `DomainError` to roll it back:
 - `application/policies.ts`, `application/dto.ts` (the DTOs and their mappers), and the shared parts of each kind of
   change: `company-changes.ts`, `department-changes.ts`, `level-changes.ts`, `leave-type-changes.ts`,
   `allowance-rule-removal.ts`, `logo-ref.ts`.
-- The pure rules stay in `src/domain` (`company-settings`, `appearance`, `company-logo`, `leave-type-settings`,
+- The pure rules sit in `src/shared/kernel` (`company-settings`, `appearance`, `company-logo`, `leave-type-settings`,
   `color-mode`; `normalizeDepartmentName` / `normalizeLevelName` are in `src/shared/kernel/names.ts`): the schema, client components,
   `src/lib` and the TimeOff mapping use them too, and none of those can import a server-only module index.
 - A person read (a department's manager, the names of a level's members) goes through the shared member directory,

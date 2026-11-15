@@ -34,7 +34,8 @@ On the caller's executor, for other modules' and services' transactions (plain v
 `loadAllowanceDefaults`, `loadBalanceInputs`, `loadBalances`, `summarizeBalances`, `assessLeaveRequest` (leave's
 submit and preview), `recarryMemberLeaveType` (leave and the TimeOff import), `writeAllowance` and `findAllowance`
 (the inbound sync), `followDefaults` (a move between departments or levels), and `listAllowances`,
-`sumBookedDays` with `balanceInputs` and `allowanceYearsFor` (the REST API's balance list).
+`sumBookedDays` with `balanceInputs` and `allowanceYearsFor` (the REST API's balance list). Every balance read is
+scoped to a company (`BalanceScope.companyId`): allowances and booked days of another company's people read as none.
 
 The policy: `resolveAllowancePolicy`, `ALLOWANCE_POLICY_KEYS`, `ANNUAL_CALENDAR_YEAR`, the `Balance`,
 `RequestCost` and `AllowancePolicy` types, `isEmptyBalance`, `remainingAfter`, `findShortfall`, `assertCovered`

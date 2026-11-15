@@ -1,6 +1,6 @@
 # calendar
 
-**Tier 2 with domain rules in `src/domain`.** What people see of the company's time off: the month and year views,
+**Tier 2 with domain rules in `src/shared/kernel`.** What people see of the company's time off: the month and year views,
 Who's out, the calendar feed links (iCalendar) and the one rule of whose time off someone sees
 (`calendarScopeFor`), which this module alone loads.
 
@@ -45,7 +45,7 @@ Queries and use cases that can fail return a `ServiceResult`.
 - `application/queries/`, `application/use-cases/`, `application/steps/`: one function per file.
   `calendar-scope.ts` (the scope loader), `calendar-viewer.ts` (month and year nav, the viewer with their scope),
   `feed-changes.ts`, `dto.ts`, `schemas.ts`.
-- The pure rules stay in `src/domain`: `calendar.ts` (grids, agendas, months), `calendar-visibility.ts`
+- The pure rules sit in `src/shared/kernel`: `calendar.ts` (grids, agendas, months), `calendar-visibility.ts`
   (`calendarScopeFor`, `canSeeOnCalendar`, colleague visibility), `calendar-feed.ts` and `ics.ts`. Client
-  components (the date picker, month nav, leave chips) and `src/domain/company-settings.ts` and `events.ts` import
+  components (the date picker, month nav, leave chips) and `src/shared/kernel/company-settings.ts` and `events.ts` import
   them, and none of those may import a module's files.

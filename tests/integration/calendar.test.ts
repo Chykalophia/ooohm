@@ -6,7 +6,7 @@ import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import type { LeaveStatus } from "@/shared/kernel/leave-range";
-import { violatedConstraint } from "@/server/repositories/errors";
+import { violatedConstraint } from "@/shared/lib/db/errors";
 import { getMonthCalendar, getTeamCalendar, getYearCalendar } from "@/server/services/calendar";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";

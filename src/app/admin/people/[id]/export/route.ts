@@ -1,5 +1,5 @@
 import { toActor } from "@/domain/actor";
-import { canAdminister } from "@/domain/admin-permissions";
+import { canAdminister } from "@/shared/kernel/admin-permissions";
 import { isDomainError } from "@/domain/errors";
 import { currentUser } from "@/lib/auth";
 import { isCrossSiteRequest } from "@/lib/fetch-site";

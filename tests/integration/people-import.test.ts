@@ -5,7 +5,7 @@ import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { CHANGE_PROCESSES } from "@/domain/change-source";
 import { peopleImportSampleCsv } from "@/domain/people-import";
-import { INVITE_SUBJECT } from "@/server/notifications/templates/invite";
+import { INVITE_SUBJECT } from "@/modules/notifications/application/templates/invite";
 import { invitePerson } from "@/server/services/admin-people";
 import { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport } from "@/server/services/admin-people-import";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";

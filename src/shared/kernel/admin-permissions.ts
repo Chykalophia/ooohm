@@ -1,5 +1,5 @@
-import { type Actor, isAdmin } from "./actor";
-import { DomainError } from "./errors";
+import { type Actor, isAdmin } from "@/domain/actor";
+import { DomainError } from "@/domain/errors";
 
 /**
  * Whether `actor` may use the admin screens and services: manage people, departments,

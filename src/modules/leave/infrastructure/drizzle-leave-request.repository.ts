@@ -6,7 +6,7 @@ import type { Executor, Transaction } from "@/db/types";
 import type { PageRequest } from "@/domain/paging";
 import { insertRequestDays, listRequestDays, replaceRequestDays } from "@/server/repositories/balances";
 import { activeInRange } from "@/server/repositories/calendar";
-import { cursorInstant, keysetPage } from "@/server/repositories/keyset";
+import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 import { listActiveRequestsInRange, lockLeaveRequest, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
 import { earliestOverlappingStart } from "@/shared/kernel/leave-range";
 import type { ApiLeaveRequest, ApiLeaveRequestPage, LeaveRequestRepository } from "../application/ports";

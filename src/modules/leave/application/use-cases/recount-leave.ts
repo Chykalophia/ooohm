@@ -37,7 +37,7 @@ import { DomainError } from "@/domain/errors";
 import { personLabel } from "@/domain/person";
 import { yearInTimeZone } from "@/lib/dates";
 import { formatDays, type RecountCause } from "@/lib/format";
-import type { Notification } from "@/server/notifications/catalog";
+import type { Notification } from "@/modules/notifications";
 import type { LeaveTypeWithAllowance } from "@/server/services/balances";
 import type { YearDays } from "@/shared/kernel/leave-days";
 import { attempt, type ServiceResult } from "@/shared/lib/result";

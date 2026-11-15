@@ -3,7 +3,7 @@ import type { Actor } from "@/domain/actor";
 import { type ApprovalRule, approvalRuleFor, readApprovalMode } from "@/domain/approval-rule";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
-import type { Notification } from "@/server/notifications/catalog";
+import type { Notification } from "@/modules/notifications";
 import type { LeaveDraft } from "@/server/services/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { createDateRange } from "../../domain/date-range";

@@ -12,7 +12,7 @@ import "server-only";
  */
 import type { Transaction } from "@/db/types";
 import type { Actor, Role } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type Unattributed, type UserEventPayload } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
@@ -34,12 +34,12 @@ import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { rerouteApprovals } from "./approval-reroute";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
-import { countRecentActions } from "@/server/repositories/audit-log";
+import { countRecentActions } from "@/modules/audit";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
 import { findDepartment, listDepartments } from "@/server/repositories/departments";
 import { findLevel, listLevels } from "@/modules/organisation";
 import { followDefaults } from "./admin-allowance-rules";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { countLiveEndpoints } from "@/server/repositories/webhooks";
 import {
   listPendingAssignedTo,
@@ -61,11 +61,11 @@ import {
   type PersonRow,
   updatePerson as updatePersonRow,
 } from "@/server/repositories/users";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { cancelScheduledScrubIn } from "./admin-people-deletion";
 import { type BalanceSummary, loadAllowanceDefaults, summarizeBalances } from "./balances";
 import { revokeFeedsOnDeactivation } from "./calendar-feeds";
-import { commitThenNotify, type Notification } from "./notify";
+import { commitThenNotify, type Notification } from "@/modules/notifications";
 
 /** Most invites (new or resent) one admin may send per {@link INVITE_WINDOW_MINUTES}. */
 export const INVITE_LIMIT = 30;

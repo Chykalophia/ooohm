@@ -1,7 +1,7 @@
 import "server-only";
 import { DomainError } from "@/domain/errors";
 import type { LevelEventPayload, Unattributed } from "@/domain/events";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import type { LevelDTO } from "./dto";
 
 /** A level as its events carry it. */

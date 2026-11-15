@@ -9,7 +9,7 @@ import type { Actor } from "@/domain/actor";
 import { createHash } from "node:crypto";
 import { type AppearanceInput, normalizeAppearance, readAppearance } from "@/domain/appearance";
 import { readLogoImage, readStoredLogo } from "@/domain/company-logo";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { ALLOWANCE_POLICY_KEYS } from "@/domain/allowance-policy";
 import { readApprovalMode } from "@/domain/approval-rule";
 import { type CompanySettingsInput, normalizeCompanySettings, supportedTimeZones } from "@/domain/company-settings";
@@ -17,10 +17,11 @@ import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "@/domain/events";
 import type { ServiceContext } from "@/server/context";
 import { type CompanyRow, findCompany, lockCompany, updateCompany } from "@/server/repositories/companies";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { commitThenNotify, inTransaction } from "./notify";
+import { commitThenNotify } from "@/modules/notifications";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 function snapshot(row: CompanyRow) {
   return {

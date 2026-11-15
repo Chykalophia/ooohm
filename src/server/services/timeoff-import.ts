@@ -64,7 +64,7 @@ import {
 import type { TimeOffSnapshot } from "@/domain/timeoff/source";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { type AuditEntry, recordChange } from "@/server/repositories/change-log";
+import { type AuditEntry, recordChange } from "@/shared/lib/db/change-log";
 import { type CompanyRow, lockCompany, updateCompany } from "@/server/repositories/companies";
 import { insertDepartment } from "@/server/repositories/departments";
 import { insertHolidays, listHolidayRows } from "@/server/repositories/holidays";

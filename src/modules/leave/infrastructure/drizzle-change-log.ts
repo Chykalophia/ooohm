@@ -1,6 +1,6 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
-import { recordChange } from "@/server/repositories/change-log";
+import { recordChange } from "@/shared/lib/db/change-log";
 import type { ChangeLog } from "../application/ports";
 
 /** Audit row and outbox event in `tx`, through `recordChange` (ADR-0010). */

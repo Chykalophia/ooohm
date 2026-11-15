@@ -51,7 +51,9 @@ const layers = [
     ],
   },
   {
-    files: ["src/server/services/**/*.ts"],
+    // Use cases: the old services, the shared unit of work and admin checks, and the
+    // application layer of the modules whose old service sat here.
+    files: ["src/server/services/**/*.ts", "src/shared/lib/unit-of-work.ts", "src/shared/lib/admin-access.ts", "src/modules/audit/application/**/*.ts"],
     paths: [
       ...next,
       pool,
@@ -63,11 +65,14 @@ const layers = [
     patterns: [drizzle, relative, nextSub, upward("Services never import presentation.")],
   },
   {
-    files: ["src/server/repositories/**/*.ts"],
+    files: ["src/server/repositories/**/*.ts", "src/shared/lib/db/**/*.ts", "src/modules/notifications/infrastructure/**/*.ts", "src/modules/audit/infrastructure/**/*.ts"],
     paths: [...next, pool, { name: "@/lib/env", message: "Repositories take everything they need as arguments." }],
     patterns: [
       upward("Repositories never import presentation."),
-      { group: ["@/server/services/*", "@/server/notifications/*", "@/server/notifications/**", "@/server/runtime", "@/lib/auth"], message: "Repositories sit below services." },
+      {
+        group: ["@/server/services/*", "@/modules/*", "@/shared/lib/unit-of-work", "@/shared/lib/admin-access", "@/server/runtime", "@/lib/auth"],
+        message: "Repositories sit below services and module use cases.",
+      },
       nextSub,
       relative,
     ],
@@ -75,7 +80,7 @@ const layers = [
   {
     // Email templates and the ServiceContext type sit beside services and are pure: no
     // database, configuration, session or framework.
-    files: ["src/server/notifications/templates/**/*.ts", "src/server/context.ts"],
+    files: ["src/modules/notifications/application/templates/**/*.ts", "src/server/context.ts"],
     paths: [
       ...next,
       pool,
@@ -84,13 +89,22 @@ const layers = [
       { name: "@/lib/auth", message: "Templates resolve nothing from the session." },
       { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
     ],
-    patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowServices("Templates and the context type sit below services.")],
+    patterns: [
+      drizzle,
+      nextSub,
+      relative,
+      upward("Nothing in src/server imports presentation."),
+      belowServices("Templates and the context type sit below services."),
+      // Templates import each other as ./x; every module path (the catalog, the sender, use cases) is above them.
+      { group: ["@/modules/*", "@/shared/lib/unit-of-work", "@/shared/lib/admin-access", "@/shared/lib/db/*"], message: "Templates and the context type sit below services and modules." },
+    ],
   },
   {
-    // The notifications module: the catalog of email types and how they are sent after
-    // commit. Services call it through `commitThenNotify`; it reads the company's accent
-    // through a repository, but never opens a transaction or calls a use case.
-    files: ["src/server/notifications/*.ts"],
+    // The notifications module: the catalog of email types, how they are sent after
+    // commit, and the email editor's use cases. Services call it through
+    // `commitThenNotify`; it reads through repositories, and never calls a service.
+    files: ["src/modules/notifications/**/*.ts"],
+    ignores: ["src/modules/notifications/application/templates/**", "src/modules/notifications/infrastructure/**"],
     paths: [
       ...next,
       pool,
@@ -157,8 +171,9 @@ const layers = [
     files: ["src/lib/**/*.ts", "src/db/**/*.ts"],
     patterns: [relative, { group: ["@/app/*", "@/server/*"], message: "Infrastructure never imports the layers built on it." }],
   },
-].map(({ files, paths = [], patterns = [] }) => ({
+].map(({ files, ignores, paths = [], patterns = [] }) => ({
   files,
+  ...(ignores ? { ignores } : {}),
   rules: { "no-restricted-imports": ["error", { paths, patterns }] },
 }));
 

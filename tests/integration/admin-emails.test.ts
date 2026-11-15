@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { getEmailForAdmin, listEmailsForAdmin, previewEmail, resetEmailCopy, saveEmailCopy } from "@/server/services/admin-emails";
+import * as notifications from "@/modules/notifications";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { invitePerson } from "@/server/services/admin-people";
@@ -11,6 +11,12 @@ import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
+// The email editor returns ServiceResults; these unwrap them, so the calls and assertions below stay plain.
+const listEmailsForAdmin = (...a: Parameters<typeof notifications.listEmailsForAdmin>) => notifications.listEmailsForAdmin(...a).then(unwrap);
+const getEmailForAdmin = (...a: Parameters<typeof notifications.getEmailForAdmin>) => notifications.getEmailForAdmin(...a).then(unwrap);
+const previewEmail = (...a: Parameters<typeof notifications.previewEmail>) => notifications.previewEmail(...a).then(unwrap);
+const saveEmailCopy = (...a: Parameters<typeof notifications.saveEmailCopy>) => notifications.saveEmailCopy(...a).then(unwrap);
+const resetEmailCopy = (...a: Parameters<typeof notifications.resetEmailCopy>) => notifications.resetEmailCopy(...a).then(unwrap);
 
 describe("admin: email copy", { skip }, () => {
   let t: TestDatabase;

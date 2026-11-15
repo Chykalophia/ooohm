@@ -27,14 +27,14 @@ import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import type { InboundBalance, InboundUser } from "@/server/integrations/adapter";
 import { findAllowance } from "@/server/repositories/balances";
-import { recordChange } from "@/server/repositories/change-log";
+import { recordChange } from "@/shared/lib/db/change-log";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { findLeaveTypeByCode } from "@/server/repositories/leave-types";
 import { findPersonByEmail, insertPerson, lockMember, type PersonRow, updatePerson } from "@/server/repositories/users";
-import { assertActiveAdmin } from "./admin-access";
+import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { writeAllowance } from "./admin-allowances";
-import { inTransaction } from "./notify";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /**
  * Who started a sync, which decides both its authorization and what every change it

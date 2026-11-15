@@ -8,7 +8,7 @@ import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { ADMIN_EVENT_TYPES, type AllowanceRuleEventPayload, type Unattributed } from "@/domain/events";
 import { type AllowanceRuleRow, deleteAllowanceRulesOf } from "@/server/repositories/allowance-rules";
-import { recordAdminChange } from "./admin-access";
+import { recordAdminChange } from "@/shared/lib/admin-access";
 
 /** A rule as its audit rows record it. */
 export function allowanceRuleSnapshot(rule: AllowanceRuleRow) {

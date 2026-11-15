@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { removeCompanyLogo, updateCompanyLogo } from "@/server/services/admin-company";
 import { getCompanyLogo, getDeploymentLogo } from "@/server/services/appearance";
-import { emailAccentFor } from "@/server/notifications/accent";
+import { emailAccentFor } from "@/modules/notifications/application/accent";
 import { handleLogoFetch } from "@/app/logo/[file]/logo-fetch";
 import { jpegHeader, pngImage } from "../support/images";
 import { rejectsWith } from "./assertions";

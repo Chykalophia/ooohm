@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 import type { Actor } from "@/domain/actor";
-import { canAdminister } from "@/domain/admin-permissions";
+import { canAdminister } from "@/shared/kernel/admin-permissions";
 import type { DomainErrorCode } from "@/domain/errors";
 import type { ServiceContext } from "@/server/context";
 import { type ServiceResult, valueOf } from "@/shared/lib/result";

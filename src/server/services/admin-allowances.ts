@@ -12,7 +12,7 @@ import "server-only";
  */
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { resolveAllowancePolicy } from "@/domain/allowance-policy";
 import type { ChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
@@ -24,10 +24,10 @@ import { type AllowanceRow, findAllowance, writeAllowanceOverride } from "@/serv
 import { type CompanyRow, findCompany } from "@/server/repositories/companies";
 import { findLeaveTypeForAdmin, type LeaveTypeRow } from "@/server/repositories/leave-types";
 import { lockMember } from "@/server/repositories/users";
-import { assertActiveAdmin } from "./admin-access";
+import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { recordAllowanceChange } from "./allowance-changes";
 import { recarryMemberLeaveType } from "./rollover";
-import { inTransaction } from "./notify";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 export interface AllowanceOverrideInput extends AllowanceEdit {
   userId: string;

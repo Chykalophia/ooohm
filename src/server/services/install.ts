@@ -11,10 +11,10 @@ import { insertCompany, lockCompaniesTable } from "@/server/repositories/imports
 import { isInstalled, markInstalled } from "@/server/repositories/installation";
 import { insertLeaveType } from "@/server/repositories/leave-types";
 import { insertPerson } from "@/server/repositories/users";
-import { recordAdminChange } from "./admin-access";
+import { recordAdminChange } from "@/shared/lib/admin-access";
 import { recordLeaveTypeChange } from "./admin-leave-types";
 import { personPayload, personSnapshot } from "./admin-people";
-import { inTransaction } from "./notify";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /**
  * Where this install stands: `installed`, or empty with the web setup `open` (a

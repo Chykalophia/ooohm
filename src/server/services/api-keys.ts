@@ -10,7 +10,7 @@ import "server-only";
  * neither ever holds the key or its hash.
  */
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { DomainError } from "@/domain/errors";
 import { type ApiKeyEventPayload, INTEGRATION_EVENT_TYPES, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
@@ -29,8 +29,8 @@ import {
   stampKeyUsed,
 } from "@/server/repositories/api-keys";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { inTransaction } from "./notify";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /** `last_used_at` is written at most once per this window per key. */
 export const KEY_USE_STAMP_MS = 60_000;

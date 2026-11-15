@@ -12,7 +12,7 @@ import type { ApprovalRule } from "@/domain/approval-rule";
 import type { PageCursor } from "@/domain/paging";
 import type { ServiceContext } from "@/server/context";
 import { approveLinkFor } from "@/server/services/approve-link";
-import { commitThenNotify } from "@/server/services/notify";
+import { commitThenNotify } from "@/modules/notifications";
 import type { LeaveDraft } from "@/server/services/balances";
 import { activeContactsIn, type LeaveChange, recordLeaveChangeIn, recordReassignmentIn } from "./application/leave-changes";
 import type { LeaveDeps, LeaveStore } from "./application/ports";

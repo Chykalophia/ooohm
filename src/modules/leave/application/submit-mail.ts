@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import type { Notification } from "@/server/notifications/catalog";
+import type { Notification } from "@/modules/notifications";
 import type { LeaveRequest } from "../domain/leave-request";
 import { activeContactsIn, summarize } from "./leave-changes";
 import type { LeaveDeps, LeaveStore } from "./ports";

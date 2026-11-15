@@ -4,7 +4,7 @@ import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { executeRows } from "@/db/rows";
 import type { Executor, Transaction } from "@/db/types";
 import type { PageRequest } from "@/domain/paging";
-import { cursorInstant, keysetPage } from "./keyset";
+import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 
 /** An endpoint as services use it. `secretCiphertext` never leaves the service layer. */
 export type WebhookEndpointRow = {

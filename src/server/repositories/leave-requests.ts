@@ -5,7 +5,7 @@ import { auditLog, departments, leaveRequests, leaveTypes, user } from "@/db/sch
 import type { Executor, Transaction } from "@/db/types";
 import type { LeaveStatus } from "@/shared/kernel/leave-range";
 import type { PageRequest } from "@/domain/paging";
-import { cursorInstant, keysetPage } from "./keyset";
+import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 
 export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
 

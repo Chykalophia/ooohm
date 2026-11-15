@@ -1,11 +1,11 @@
 import "server-only";
 import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { DomainError } from "@/domain/errors";
 import type { AdminEventType, IntegrationEventType } from "@/domain/events";
-import { recordChange } from "@/server/repositories/change-log";
-import { findMember } from "@/server/repositories/users";
+import { recordChange } from "@/shared/lib/db/change-log";
+import { findMemberStanding } from "@/shared/lib/db/admin-standing";
 
 /**
  * The check every admin write runs inside its transaction: the actor is an admin by
@@ -18,7 +18,7 @@ import { findMember } from "@/server/repositories/users";
  */
 export async function assertActiveAdmin(ex: Executor, actor: Actor): Promise<void> {
   assertCanAdminister(actor);
-  const me = await findMember(ex, actor.companyId, actor.id);
+  const me = await findMemberStanding(ex, actor.companyId, actor.id);
   if (!me?.isActive || me.role !== "admin") throw new DomainError("forbidden");
 }
 

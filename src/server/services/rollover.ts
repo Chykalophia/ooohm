@@ -12,7 +12,7 @@ import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-t
 import { listActiveMembers, lockMember } from "@/server/repositories/users";
 import { recordAllowanceChange } from "./allowance-changes";
 import { balanceInputs, loadAllowanceDefaults } from "./balances";
-import { inTransaction } from "./notify";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /** What one run changed. A second run over the same data reports zeros. */
 export interface RolloverResult {

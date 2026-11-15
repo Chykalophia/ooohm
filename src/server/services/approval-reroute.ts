@@ -10,7 +10,7 @@ import { listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { findMembers } from "@/server/repositories/users";
 import { loadApprovalContexts } from "./approval-routing";
 import { approveLinkFor } from "./approve-link";
-import type { Notification } from "./notify";
+import type { Notification } from "@/modules/notifications";
 
 /**
  * Re-routes pending requests to the approver {@link reassignApprover} now picks for

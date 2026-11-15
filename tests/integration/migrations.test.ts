@@ -6,7 +6,7 @@ import { after, before, describe, test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { asc, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { violatedConstraint } from "@/server/repositories/errors";
+import { violatedConstraint } from "@/shared/lib/db/errors";
 import { createTestDatabase, MIGRATIONS_FOLDER, skip, type TestDatabase } from "./harness";
 
 interface Journal {

@@ -28,7 +28,7 @@ import {
 import { findCompanySettings } from "@/server/repositories/calendar";
 import { findLeaveType } from "@/server/repositories/leave-types";
 import { currentApprover } from "./approval-routing";
-import { commitThenNotify } from "./notify";
+import { commitThenNotify } from "@/modules/notifications";
 
 export type Decision = "approve" | "reject";
 

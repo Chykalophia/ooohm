@@ -14,7 +14,7 @@ import "server-only";
  */
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { DomainError } from "@/domain/errors";
 import { INTEGRATION_EVENT_TYPES, type IntegrationEventType, type Unattributed, type WebhookEndpointEventPayload } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
@@ -46,8 +46,8 @@ import {
   type WebhookDeliveryRow,
   type WebhookEndpointRow,
 } from "@/server/repositories/webhooks";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { inTransaction } from "./notify";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /** Deliveries shown on an endpoint's page. */
 export const DELIVERIES_PAGE_SIZE = 25;

@@ -16,9 +16,9 @@ import { findCompanySettings } from "@/server/repositories/calendar";
 import { findDepartment } from "@/server/repositories/departments";
 import { hasPasskeyOf, listPasskeysOf } from "@/server/repositories/passkeys";
 import { findPerson, lockMember, updateColorMode, updatePerson } from "@/server/repositories/users";
-import { recordAdminChange } from "./admin-access";
+import { recordAdminChange } from "@/shared/lib/admin-access";
 import { personPayload, personSnapshot } from "./admin-people";
-import { inTransaction } from "./notify";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 
 export interface Account {

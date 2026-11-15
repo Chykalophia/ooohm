@@ -3,7 +3,7 @@ import type { Actor } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { personLabel } from "@/domain/person";
-import type { Notification } from "@/server/notifications/catalog";
+import type { Notification } from "@/modules/notifications";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { createDateRange } from "../../domain/date-range";
 import type { LeaveRequest } from "../../domain/leave-request";

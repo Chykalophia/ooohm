@@ -12,7 +12,7 @@ import "server-only";
  */
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { normalizeAllowanceRule, type Placement } from "@/domain/allowance-rules";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
@@ -32,15 +32,15 @@ import {
 import { lockAllowancesFrom, setAllowanceDays } from "@/server/repositories/balances";
 import { lockCompany } from "@/server/repositories/companies";
 import { findDepartment, listDepartments } from "@/server/repositories/departments";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { findLeaveType, listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { lockMembers } from "@/server/repositories/users";
 import { findLevel, listLevels } from "@/modules/organisation";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { recordAllowanceChange } from "./allowance-changes";
 import { allowanceRulePayload as payload, allowanceRuleSnapshot as snapshot } from "./allowance-rule-removal";
 import { type AllowanceDefaults, loadAllowanceDefaults } from "./balances";
-import { inTransaction } from "./notify";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 export interface AllowanceRuleInput extends Placement {
   leaveTypeId: string;

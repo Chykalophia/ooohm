@@ -4,7 +4,7 @@ import { readApprovalMode } from "@/domain/approval-rule";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { todayInTimeZone } from "@/lib/dates";
-import type { Notification } from "@/server/notifications/catalog";
+import type { Notification } from "@/modules/notifications";
 import { attempt, err, type ServiceResult, unwrap } from "@/shared/lib/result";
 import { cancelLeave, type LeaveRequest } from "../../domain/leave-request";
 import { canCancel } from "../../domain/leave-permissions";

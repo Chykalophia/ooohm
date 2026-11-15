@@ -27,11 +27,11 @@ import {
   runDueScrubs,
 } from "@/server/services/admin-people-deletion";
 import { decideLeaveRequest } from "@/server/services/approvals";
-import { getAuditLog } from "@/server/services/audit-log";
+import { getAuditLog as readAuditLog } from "@/modules/audit";
+import { unwrap } from "@/shared/lib/result";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { getTeamCalendar } from "@/server/services/calendar";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
-import { unwrap } from "@/shared/lib/result";
 import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
 import { DAILY_JOBS, runDueJobs } from "@/server/services/scheduled-jobs";
 import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
@@ -41,6 +41,8 @@ import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures"
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
+/** Reads the audit log and unwraps its ServiceResult, so the calls and assertions below stay plain. */
+const getAuditLog = (...a: Parameters<typeof readAuditLog>) => readAuditLog(...a).then(unwrap);
 
 const NOW = new Date("2026-11-02T15:00:00Z");
 const DAY = 86_400_000;

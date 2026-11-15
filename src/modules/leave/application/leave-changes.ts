@@ -10,7 +10,7 @@ import {
   leaveEventPayload,
 } from "@/domain/events";
 import { personLabel } from "@/domain/person";
-import type { LeaveSummary } from "@/server/notifications/templates/leave";
+import type { LeaveSummary } from "@/modules/notifications";
 import type { LeaveDomainEvent } from "../domain/events";
 import { LEAVE_EVENT_NAMES } from "../domain/events";
 import type { LeaveRequest } from "../domain/leave-request";

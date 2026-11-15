@@ -7,9 +7,9 @@ ports, and the use-case tests run on in-memory fakes.
 ## Owns
 
 The `leave_requests` table and the writes to `leave_request_days` (a request's cost per calendar year), through
-`infrastructure/drizzle-leave-request.repository.ts`. Approvals still write a request's status and approver
-(`updateStatusIfCurrent`, `lockLeaveRequest`, `reassignIfCurrent` in `src/server/repositories/leave-requests.ts`),
-and balances read `leave_request_days`, until those modules move.
+`infrastructure/drizzle-leave-request.repository.ts` and `drizzle-leave-request-days.ts`. Approvals still write a
+request's status and approver (`updateStatusIfCurrent`, `lockLeaveRequest`, `reassignIfCurrent` in
+`src/server/repositories/leave-requests.ts`) until that module moves; balances reads `leave_request_days`.
 
 ## Public API (`index.ts`)
 
@@ -49,8 +49,8 @@ Every change writes an audit row and a `leave.*` outbox event in its transaction
   (balances), `ApprovalRouter` (approval routing), `ChangeLog`, `AlsoOffReader`, `Clock`, and `LeaveDeps` with its
   `unitOfWork`.
 - `application/use-cases/`: one file per use case. `application/queries/`: one file per read.
-- `infrastructure/`: the Drizzle repository and directory, and the adapters onto the balances and approval-routing
-  services and `recordChange`.
+- `infrastructure/`: the Drizzle repository and directory, and the adapters onto `@/modules/balances`, the
+  approval-routing service and `recordChange`.
 - `composition.ts`: binds the ports to a transaction (`leaveStore`, `leaveDeps`, `leaveModule`); the index exports
   its ctx-taking functions.
 

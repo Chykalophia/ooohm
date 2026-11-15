@@ -2,8 +2,8 @@ import "server-only";
 /**
  * The ports leave's use cases depend on (Tier 3). Each is implemented against the
  * database in `infrastructure/` and in memory by the fakes in `tests/unit/modules/leave/fakes`;
- * `composition.ts` wires the real ones. Leave owns these interfaces: the approvals and
- * balances code that implements two of them depends on leave, never the other way.
+ * `composition.ts` wires the real ones. Leave owns these interfaces; its infrastructure
+ * adapts them onto the balances module and the approval routing, which never import leave.
  */
 import type { Role } from "@/domain/actor";
 import type { ApprovalContext } from "@/domain/approval-rule";

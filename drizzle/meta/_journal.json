@@ -211,6 +211,13 @@
       "when": 1794234878548,
       "tag": "0029_department_max_off",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794717827867,
+      "tag": "0030_audit_erasure_functions",
+      "breakpoints": true
     }
   ]
 }

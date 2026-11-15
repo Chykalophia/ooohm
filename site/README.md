@@ -59,7 +59,7 @@ The people and requests are fictional (Northwind Studio). With Postgres running 
 
 ```bash
 # .env: SEED_ADMIN_EMAIL=maya@example.com, SEED_ADMIN_NAME="Maya Chen", SEED_COMPANY_NAME="Northwind Studio",
-# a local DATABASE_URL, OOOHM_BACKGROUND=inline. The clips are dated around Nov 3, 2026.
+# a local DATABASE_URL and DATABASE_ADMIN_URL (.env.example), OOOHM_BACKGROUND=inline. Clips are dated around Nov 3, 2026.
 pnpm db:migrate && pnpm db:seed
 pnpm exec tsx --conditions=react-server --env-file=.env site/demo/demo-data.mts   # resets the demo requests; local databases only
 pnpm build && pnpm start          # in a second terminal; wait until http://localhost:3000 answers

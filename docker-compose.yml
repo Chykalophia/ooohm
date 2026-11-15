@@ -1,9 +1,16 @@
 name: ooohm
 
-# POSTGRES_PASSWORD is placed inside a URL below, so keep it URL-safe
+# The passwords are placed inside URLs below, so keep them URL-safe
 # (letters, digits, - _ . ~). `openssl rand -hex 24` makes a good one.
+#
+# Three database roles (docs/deploy.md#database-roles): `ooohm` (POSTGRES_USER, the
+# superuser, used only to create the other two), `ooohm_owner` (owns the schema: migrations
+# and the seed) and `ooohm_app` (rows only, and the audit log only grows: the app, the worker
+# and the rollover job).
+x-app-database-url: &app-database-url postgres://ooohm_app:${OOOHM_DB_APP_PASSWORD:-ooohm_app}@db:5432/ooohm
+
 x-app-env: &app-env
-  DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
+  DATABASE_URL: *app-database-url
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
   PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
@@ -50,7 +57,8 @@ services:
       timeout: 3s
       retries: 20
 
-  # Runs migrations, the first-run seed and the (idempotent) year rollover, then exits.
+  # Creates or repairs the two database roles, runs migrations (as the owner), the first-run
+  # seed and the (idempotent) year rollover, then exits.
   # A failed rollover is reported but does not stop the app from starting: balances
   # still work without it, only carryover waits. Re-run it with
   # `docker compose run --rm migrate pnpm job:rollover [year]`.
@@ -61,10 +69,14 @@ services:
     command:
       - sh
       - -c
-      - pnpm db:migrate && pnpm db:seed && { pnpm job:rollover || echo "Year rollover failed (see above); the app starts anyway." >&2; }
-    # Only what migrations, the seed and the rollover need; no auth secret or OAuth credentials.
+      - pnpm db:roles && pnpm db:migrate && pnpm db:seed && { pnpm job:rollover || echo "Year rollover failed (see above); the app starts anyway." >&2; }
+    # Only what the roles, migrations, the seed and the rollover need; no auth secret or OAuth credentials.
     environment:
-      DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
+      DATABASE_SUPERUSER_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
+      DATABASE_ADMIN_URL: postgres://ooohm_owner:${OOOHM_DB_OWNER_PASSWORD:-ooohm_owner}@db:5432/ooohm
+      DATABASE_URL: *app-database-url
+      OOOHM_DB_OWNER_PASSWORD: ${OOOHM_DB_OWNER_PASSWORD:-ooohm_owner}
+      OOOHM_DB_APP_PASSWORD: ${OOOHM_DB_APP_PASSWORD:-ooohm_app}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
       SEED_COMPANY_NAME: ${SEED_COMPANY_NAME:-}
@@ -108,7 +120,7 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      DATABASE_URL: postgres://ooohm:${POSTGRES_PASSWORD:-ooohm}@db:5432/ooohm
+      DATABASE_URL: *app-database-url
       WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY:?Set WEBHOOK_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
       WEBHOOK_ALLOW_INSECURE: ${WEBHOOK_ALLOW_INSECURE:-false}
       WEBHOOK_ALLOW_PRIVATE: ${WEBHOOK_ALLOW_PRIVATE:-false}

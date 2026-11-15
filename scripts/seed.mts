@@ -17,12 +17,10 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { resolveDatabaseConfig } from "../src/db/config";
-import { openDatabase } from "../src/db/connect";
 import * as schema from "../src/db/schema";
-import { nonEmptyEnv } from "../src/lib/integration-env";
 import { yearInTimeZone } from "../src/lib/dates";
 import { DEFAULT_LEAVE_TYPES } from "../src/domain/install";
+import { adminDatabaseConfig, openAdminDatabase } from "../src/server/admin/db";
 
 const args = process.argv.slice(2);
 const unknown = args.filter((a) => a !== "--if-production");
@@ -42,7 +40,14 @@ if (args.includes("--if-production")) {
   }
 }
 
-const config = resolveDatabaseConfig(nonEmptyEnv(process.env));
+// As the database owner (DATABASE_ADMIN_URL on Postgres; docs/deploy.md#database-roles).
+let config;
+try {
+  config = adminDatabaseConfig();
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+}
 const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
 if (adminEmail && !z.email().safeParse(adminEmail).success) {
   throw new Error(`SEED_ADMIN_EMAIL is not a valid email address: "${adminEmail}"`);
@@ -51,7 +56,7 @@ if (adminEmail && !z.email().safeParse(adminEmail).success) {
 const companyName = process.env.SEED_COMPANY_NAME?.trim() || "My Company";
 
 
-const handle = await openDatabase(config, { purpose: "pnpm db:seed", max: 1 });
+const handle = await openAdminDatabase({ config, purpose: "pnpm db:seed", max: 1 });
 const { db } = handle;
 
 // The build-time seed (--if-production) runs only until the instance is set up: once a

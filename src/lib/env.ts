@@ -9,6 +9,9 @@ import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, envFlag, integrationEnvShap
 const schema = z.object({
   // Checked in full by resolveDatabaseConfig (src/db/config.ts): a postgres:// URL, or
   // pglite:<dir> / OOOHM_DB=embedded for the embedded database.
+  // The app role's connection (docs/deploy.md#database-roles). The owner's DATABASE_ADMIN_URL
+  // is deliberately absent: the app never needs it, and only src/server/admin/db.ts (migrate,
+  // seed, import) reads and validates it, through resolveAdminDatabaseConfig.
   DATABASE_URL: z.string().optional(),
   DATABASE_URL_UNPOOLED: z.string().optional(),
   OOOHM_DB: z.enum(["postgres", "embedded"]).optional(),

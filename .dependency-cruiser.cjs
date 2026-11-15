@@ -56,6 +56,13 @@ module.exports = {
       },
       to: { path: "node_modules/(nodemailer|better-auth|@better-auth|postgres|@electric-sql|drizzle-orm)/" },
     },
+    {
+      name: "admin-db-only-from-scripts",
+      comment: "The database owner's connection (src/server/admin) is for migrate, seed and the import scripts; nothing in src imports it (ADR-0006).",
+      severity: "error",
+      from: { path: "^src/", pathNot: "^src/server/admin/" },
+      to: { path: "^src/server/admin/" },
+    },
     // Added in A2. Two rules, because only `from.path` can capture a group: `$1` in `to` refers to the module the
     // import starts in, so a module's own layers stay reachable and every other module only through index.ts.
     // (Checked on a fixture tree with dependency-cruiser 16 before this plan was written.)

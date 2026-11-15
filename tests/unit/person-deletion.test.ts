@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { changeSourceLabel, bySystem, CHANGE_PROCESSES, recordedChangeSource } from "@/domain/change-source";
-import { csvCell, toCsv } from "@/domain/csv";
+import { csvCell, toCsv } from "@/shared/kernel/csv";
 import { isDomainError } from "@/domain/errors";
 import { eventAttribution } from "@/domain/events";
-import { normalizeEmail } from "@/domain/people";
+import { normalizeEmail } from "@/shared/kernel/names";
 import {
   assertConfirmed,
   assertDeletable,
-  confirmationMatches,
   DELETION_GRACE_DAYS,
   deletionBlockers,
   deletionBlockersOf,
@@ -28,8 +27,8 @@ import {
   shortStableId,
   tombstoneEmail,
   tombstoneName,
-} from "@/domain/person-deletion";
-import { displayName } from "@/domain/person";
+} from "@/modules/people/domain/person-deletion";
+import { confirmationMatches, displayName } from "@/shared/kernel/person-label";
 import { isCrossSiteRequest } from "@/lib/fetch-site";
 
 const ID = "3f9a2c71-0b8e-4f4e-9d1c-2a7b6e5d4c3b";

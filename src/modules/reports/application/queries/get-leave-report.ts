@@ -4,7 +4,7 @@ import { addDays } from "@/shared/kernel/day-amounts";
 import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
 import { DomainError } from "@/domain/errors";
 import type { YearDays } from "@/shared/kernel/leave-days";
-import { teamLabel } from "@/domain/person";
+import { teamLabel } from "@/shared/kernel/person-label";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listHolidayDates } from "@/modules/calendar";

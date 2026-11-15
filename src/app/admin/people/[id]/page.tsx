@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
+import { DELETION_GRACE_DAYS, getDeletionPreview, getPersonDetail, getPersonFormOptions } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { formatInstantDate } from "@/lib/format";
-import { getPersonDetail, getPersonFormOptions } from "@/server/services/admin-people";
-import { getDeletionPreview } from "@/server/services/admin-people-deletion";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
 import { ActionForm } from "@/components/forms/action-form";
@@ -22,13 +21,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
   const [detail, options] = await Promise.all([
-    orNotFound(getPersonDetail(ctx, actor, id)),
-    getPersonFormOptions(ctx, actor, id),
+    orNotFound(getPersonDetail(ctx, actor, id).then(unwrap)),
+    getPersonFormOptions(ctx, actor, id).then(unwrap),
   ]);
   const { person, year, balances, timezone } = detail;
   const isSelf = person.id === actor.id;
   // Deleting is the step after deactivating, so only a deactivated person's page offers it.
-  const deletion = person.isActive ? null : await getDeletionPreview(ctx, actor, person.id);
+  const deletion = person.isActive ? null : await getDeletionPreview(ctx, actor, person.id).then(unwrap);
   const scrubDate = person.scrubScheduledAt ? formatInstantDate(person.scrubScheduledAt, timezone) : null;
 
   return (

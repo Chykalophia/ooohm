@@ -34,7 +34,7 @@ import type { Actor } from "@/domain/actor";
 import { type AllowancePolicy, addDays, type LeaveTypeWithAllowance, resolveAllowancePolicy } from "@/modules/balances";
 import { CHANGE_PROCESSES, type PersonChangeSource, through } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { yearInTimeZone } from "@/lib/dates";
 import { formatDays, type RecountCause } from "@/lib/format";
 import type { Notification } from "@/modules/notifications";

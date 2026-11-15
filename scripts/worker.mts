@@ -2,7 +2,7 @@
  * The outbox worker: `pnpm worker` (the `worker` service in docker-compose).
  *
  * Four loops share one small connection pool. Each runs one step of the shared tick
- * (`runTick`, src/server/services/background-tick.ts), the same code the cron route and
+ * (`runTick`, src/server/jobs/background-tick.ts), the same code the cron route and
  * the app's inline mode run:
  *
  * - **dispatch**: fans new `events_outbox` rows out into webhook and adapter deliveries
@@ -39,8 +39,8 @@ import { log } from "../src/lib/log";
 import { createSafeFetch } from "../src/lib/safe-fetch";
 import { loadWorkerEnv } from "../src/lib/worker-env";
 import { adapterRegistry } from "../src/server/integrations/registry";
-import { ping } from "../src/server/repositories/health";
-import { runTick, type TickStep } from "../src/server/services/background-tick";
+import { ping } from "../src/shared/lib/db/health";
+import { runTick, type TickStep } from "../src/server/jobs/background-tick";
 import { scriptContext } from "./script-context.mts";
 
 /** How long one loop pass may keep starting new work before the loop checks in again. */

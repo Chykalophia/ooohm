@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
-import { personLabel } from "@/domain/person";
-import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
+import { personLabel } from "@/shared/kernel/person-label";
+import { DELETION_GRACE_DAYS, listPeople } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { formatInstantDate, ROLE_LABEL } from "@/lib/format";
-import { listPeople } from "@/server/services/admin-people";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Item, ItemList } from "@/components/ui/card";
@@ -43,11 +43,8 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   const notice = noticeSchema.parse(params.notice);
   const departmentId = readParam(departmentParamSchema, params.department) ?? "";
   const { cursor, number } = readPageParams(params);
-  const list = await listPeople(
-    ctx,
-    actor,
-    { status: showInactive ? "all" : "active", query, departmentId: departmentId || undefined },
-    cursor,
+  const list = unwrap(
+    await listPeople(ctx, actor, { status: showInactive ? "all" : "active", query, departmentId: departmentId || undefined }, cursor),
   );
   const { people, departments, timezone } = list;
   const pager = pagerLinks("/admin/people", list, number, { keep: { q: query, department: departmentId, inactive: showInactive ? "1" : undefined } });

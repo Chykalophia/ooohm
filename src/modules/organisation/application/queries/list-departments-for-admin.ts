@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import type { ServiceContext } from "@/server/context";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";
 import { listDepartmentsWithCounts } from "@/modules/organisation/infrastructure/drizzle-departments.repository";

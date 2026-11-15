@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
 import { formatDays, formatLeaveDates } from "@/lib/format";
-import { getTeamMember } from "@/server/services/team-member";
+import { getTeamMember, type TeamMemberDTO } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { BalanceSummary } from "@/components/leave/balance-summary";
@@ -23,7 +24,7 @@ const UPCOMING_HEADING = "upcoming-heading";
 /** The teammate, loaded once per request for both the tab title and the page. */
 const loadMember = cache(async (id: string) => {
   const page = await requireMemberPage();
-  return { page, member: page.actor ? await getTeamMember(page.ctx, page.actor, id) : null };
+  return { page, member: page.actor ? await getTeamMember(page.ctx, page.actor, id).then(unwrap) : null };
 });
 
 /** The tab names the teammate (WCAG 2.4.2); if they can't be loaded, the page itself answers. */
@@ -36,7 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 }
 
-type Member = Awaited<ReturnType<typeof getTeamMember>>;
+type Member = TeamMemberDTO;
 type Entry = Member["upcoming"][number];
 
 /**

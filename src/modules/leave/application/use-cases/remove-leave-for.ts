@@ -3,7 +3,7 @@ import type { Actor } from "@/domain/actor";
 import { resolveAllowancePolicy } from "@/modules/balances";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { todayInTimeZone } from "@/lib/dates";
 import type { Notification } from "@/modules/notifications";
 import { attempt, type ServiceResult, unwrap } from "@/shared/lib/result";

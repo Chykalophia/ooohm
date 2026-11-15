@@ -5,10 +5,12 @@ import * as schema from "@/db/schema";
 import * as notifications from "@/modules/notifications";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { invitePerson } from "@/server/services/admin-people";
+import { invitePerson as invitePersonResult } from "@/modules/people";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 // The email editor returns ServiceResults; these unwrap them, so the calls and assertions below stay plain.

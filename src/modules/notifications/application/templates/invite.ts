@@ -1,6 +1,6 @@
 import "server-only";
 import type { EmailCopy } from "@/domain/email-template";
-import { displayName } from "@/domain/person";
+import { displayName } from "@/shared/kernel/person-label";
 import { buttons, DEFAULT_EMAIL_ACCENT, type EmailAccent, emailDocument, escapeHtml, heading, link, paragraph } from "@/lib/email-layout";
 import type { EmailContent } from "./content";
 import { type CopyTemplate, type CopyVariable, fillMessage, fillSubject, resolveCopy } from "./copy";

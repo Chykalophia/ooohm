@@ -12,7 +12,7 @@ import type { PageRequest } from "@/domain/paging";
 import type { Notification } from "@/modules/notifications";
 import type { AuditEntry, OutboxEvent } from "@/shared/lib/db/change-log";
 import type { LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
-import type { PersonRow } from "@/server/repositories/users";
+import type { PersonRow } from "@/shared/lib/db/members";
 import type { AllowancePolicy, BalanceInputs, BalanceSummary, LeaveAssessment, LeaveDraft, LeaveTypeWithAllowance } from "@/modules/balances";
 import type { IdGenerator } from "@/shared/lib/id-generator";
 import type { ApprovalDecision, ApprovalMode } from "@/shared/kernel/approval";

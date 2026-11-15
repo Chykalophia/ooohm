@@ -5,12 +5,11 @@ import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import type { ServiceContext } from "@/server/context";
 import { lockCompany } from "@/shared/lib/db/company-lock";
-import { countLevelMembers } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { removeRulesOf } from "@/modules/organisation/application/allowance-rule-removal";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import { deleteLevel as deleteLevelRow, lockLevel } from "@/modules/organisation/infrastructure/drizzle-levels.repository";
+import { countLevelMembers, deleteLevel as deleteLevelRow, lockLevel } from "@/modules/organisation/infrastructure/drizzle-levels.repository";
 import { levelPayload } from "@/modules/organisation/application/level-changes";
 import { canManageLevels } from "@/modules/organisation/application/policies";
 

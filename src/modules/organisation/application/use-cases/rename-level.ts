@@ -3,7 +3,7 @@ import type { Actor } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
-import { normalizeLevelName } from "@/domain/people";
+import { normalizeLevelName } from "@/shared/kernel/names";
 import type { ServiceContext } from "@/server/context";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { inTransaction } from "@/shared/lib/unit-of-work";

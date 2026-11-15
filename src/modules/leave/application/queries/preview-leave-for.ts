@@ -2,7 +2,7 @@ import "server-only";
 import type { Actor } from "@/domain/actor";
 import { type LeaveDraft, remainingAfter, type RequestCost } from "@/modules/balances";
 import { isUuid } from "@/domain/ids";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 import { assessFor, checkAddFor } from "../leave-for";
 import type { LeaveDeps } from "../ports";

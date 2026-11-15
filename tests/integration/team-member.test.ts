@@ -4,11 +4,13 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { isDomainError } from "@/domain/errors";
-import { getTeamMember } from "@/server/services/team-member";
+import { getTeamMember as getTeamMemberResult } from "@/modules/people";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/server/services/company-settings";
 import { unwrap } from "@/shared/lib/result";
+
+const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);

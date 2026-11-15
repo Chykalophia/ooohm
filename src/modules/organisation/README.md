@@ -69,5 +69,8 @@ On the caller's transaction, throwing `DomainError` to roll it back:
   change: `company-changes.ts`, `department-changes.ts`, `level-changes.ts`, `leave-type-changes.ts`,
   `allowance-rule-removal.ts`, `logo-ref.ts`.
 - The pure rules stay in `src/domain` (`company-settings`, `appearance`, `company-logo`, `leave-type-settings`,
-  `color-mode`, and `normalizeDepartmentName` / `normalizeLevelName` in `people`): the schema, client components,
+  `color-mode`; `normalizeDepartmentName` / `normalizeLevelName` are in `src/shared/kernel/names.ts`): the schema, client components,
   `src/lib` and the TimeOff mapping use them too, and none of those can import a server-only module index.
+- A person read (a department's manager, the names of a level's members) goes through the shared member directory,
+  `src/shared/lib/db/members.ts`, never `@/modules/people`; the member counts that block a department's or level's
+  removal are organisation's own (`countDepartmentMembers`, `countLevelMembers`).

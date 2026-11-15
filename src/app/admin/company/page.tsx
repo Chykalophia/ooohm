@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { APPROVAL_MODES, readApprovalMode } from "@/shared/kernel/approval";
 import { ALLOWANCE_POLICY_LABELS, APPROVAL_MODE_LABELS, COMPANY_NAME_MAX_LENGTH, ISO_WEEKDAYS } from "@/domain/company-settings";
 import { COLLEAGUE_VISIBILITY, COLLEAGUE_VISIBILITY_LABELS, readColleagueVisibility } from "@/domain/calendar-visibility";
-import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
+import { DELETION_GRACE_DAYS } from "@/modules/people";
 import { getCompanySettings } from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";

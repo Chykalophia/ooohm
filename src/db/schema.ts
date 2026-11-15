@@ -219,7 +219,7 @@ export const user = pgTable(
     isActive: boolean("is_active").notNull().default(true),
     /**
      * Set when an admin deleted the person. The row stays as a tombstone, so every
-     * foreign key to it holds; its name and email are replaced (see `@/domain/person-deletion`).
+     * foreign key to it holds; its name and email are replaced (see `src/modules/people/domain/person-deletion.ts`).
      */
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     /** How they were deleted: `scrubbed` (nothing about them kept) or `records_kept` (history kept under the tombstone). */

@@ -150,3 +150,9 @@ export async function clearDepartmentsManagedBy(tx: Transaction, companyId: stri
 export async function deleteDepartment(tx: Transaction, companyId: string, id: string): Promise<void> {
   await tx.delete(departments).where(and(eq(departments.id, id), eq(departments.companyId, companyId)));
 }
+
+/** How many people (active or not) are in a department. */
+export async function countDepartmentMembers(ex: Executor, departmentId: string): Promise<number> {
+  const [row] = await ex.select({ n: sql<number>`count(*)::int` }).from(user).where(eq(user.departmentId, departmentId));
+  return row?.n ?? 0;
+}

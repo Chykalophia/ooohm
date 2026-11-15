@@ -10,7 +10,7 @@ import { resolveBackgroundMode } from "@/lib/background-mode";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { nonEmptyEnv } from "@/lib/integration-env";
 import { loadWorkerEnv } from "@/lib/worker-env";
-import { createTickScheduler } from "@/server/services/background-tick";
+import { createTickScheduler } from "@/server/jobs/background-tick";
 
 describe("database configuration", () => {
   test("a Postgres URL: direct, prepared statements on, a normal pool; migrations use the unpooled URL when given", () => {

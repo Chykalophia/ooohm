@@ -6,17 +6,7 @@ import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { INVITE_SUBJECT } from "@/modules/notifications/application/templates/invite";
-import {
-  deactivatePerson,
-  getPersonDetail,
-  getPersonFormOptions,
-  INVITE_LIMIT,
-  invitePerson,
-  listPeople,
-  reactivatePerson,
-  resendInvite,
-  updatePerson,
-} from "@/server/services/admin-people";
+import { deactivatePerson as deactivatePersonResult, getPersonDetail as getPersonDetailResult, getPersonFormOptions as getPersonFormOptionsResult, INVITE_LIMIT, invitePerson as invitePersonResult, listPeople as listPeopleResult, reactivatePerson as reactivatePersonResult, resendInvite as resendInviteResult, updatePerson as updatePersonResult } from "@/modules/people";
 import * as calendarModule from "@/modules/calendar";
 import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deleteWebhookEndpoint as deleteWebhookEndpointResult, revokeApiKey as revokeApiKeyResult } from "@/modules/integrations";
 import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
@@ -25,6 +15,15 @@ import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { captureStderr, companyAudit, companyEvents, decidable, type PersonSpec, seedCompany, setAllowance, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
+const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
+const getPersonFormOptions = (...args: Parameters<typeof getPersonFormOptionsResult>) => getPersonFormOptionsResult(...args).then(unwrap);
+const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
+const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
+const reactivatePerson = (...args: Parameters<typeof reactivatePersonResult>) => reactivatePersonResult(...args).then(unwrap);
+const resendInvite = (...args: Parameters<typeof resendInviteResult>) => resendInviteResult(...args).then(unwrap);
+const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
 
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);

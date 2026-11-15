@@ -13,7 +13,7 @@ import { ROOT } from "./files";
 const PROBE = "__fitness_probe__";
 const probes: Record<string, string> = {
   [`src/domain/${PROBE}/impure.ts`]: `import { eq } from "drizzle-orm";\nexport const probe = eq;\n`,
-  [`src/app/${PROBE}/skips-layer.ts`]: `import * as repo from "@/server/repositories/users";\nexport const probe = repo;\n`,
+  [`src/app/${PROBE}/skips-layer.ts`]: `import * as repo from "@/shared/lib/db/members";\nexport const probe = repo;\n`,
   [`src/components/${PROBE}/reaches-server.ts`]: `import { serviceContext } from "@/server/runtime";\nexport const probe = serviceContext;\n`,
   [`src/lib/${PROBE}/a.ts`]: `import { b } from "./b";\nexport const a = () => b;\n`,
   [`src/lib/${PROBE}/b.ts`]: `import { a } from "./a";\nexport const b = () => a;\n`,

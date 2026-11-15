@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { type DomainError, isDomainError } from "@/domain/errors";
-import { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport } from "@/server/services/admin-people-import";
+import { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { adminStateAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
 import { type ImportState, previewRows } from "./import-state";
@@ -52,7 +53,7 @@ export async function peopleImportAction(_prev: ImportState, formData: FormData)
       }
 
       const check = async (problem?: string): Promise<ImportState> => {
-        const plan = await previewPeopleImport(ctx, actor, csv);
+        const plan = unwrap(await previewPeopleImport(ctx, actor, csv));
         return {
           status: "preview",
           id: randomUUID(),
@@ -70,7 +71,7 @@ export async function peopleImportAction(_prev: ImportState, formData: FormData)
 
       try {
         if (input.intent === "check") return await check();
-        const result = await importPeople(ctx, actor, { csv, sendInvites: input.sendInvites });
+        const result = unwrap(await importPeople(ctx, actor, { csv, sendInvites: input.sendInvites }));
         // The page keeps showing the outcome; this only drops cached copies of other
         // pages (People), so going back shows the new people.
         refresh();

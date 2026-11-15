@@ -16,7 +16,7 @@ import {
   type Unattributed,
 } from "@/domain/events";
 import type { ServiceContext } from "@/server/context";
-import { lockMember } from "@/server/repositories/users";
+import { lockMember } from "@/shared/lib/db/members";
 import { recordChange } from "@/shared/lib/db/change-log";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import type { CalendarFeedRow } from "@/modules/calendar/infrastructure/drizzle-calendar-feeds.repository";

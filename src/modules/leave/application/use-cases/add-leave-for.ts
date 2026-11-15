@@ -2,7 +2,7 @@ import "server-only";
 import type { Actor } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import type { Notification } from "@/modules/notifications";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { createDateRange } from "../../domain/date-range";

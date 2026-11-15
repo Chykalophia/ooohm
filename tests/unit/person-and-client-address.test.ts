@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { earliestOverlappingStart, MAX_REQUEST_SPAN_DAYS } from "@/shared/kernel/leave-range";
 import { spanInDays } from "@/domain/calendar-date";
-import { personLabel, teamLabel } from "@/domain/person";
+import { personLabel, teamLabel } from "@/shared/kernel/person-label";
 import { clientAddress, SHARED_CLIENT } from "@/lib/client-address";
 
 const person = (name: string, email = "ana.lima@acme.example") => ({ name, email });

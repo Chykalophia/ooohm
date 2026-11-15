@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { API_KEY_NAME_MAX_LENGTH, listApiKeys } from "@/modules/integrations";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { formatInstantDateTime } from "@/lib/format";
 import { unwrap } from "@/shared/lib/result";
 import { revokeApiKeyAction, createApiKeyAction } from "@/app/admin/api-keys/actions";

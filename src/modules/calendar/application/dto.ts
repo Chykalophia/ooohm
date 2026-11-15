@@ -1,7 +1,7 @@
 import "server-only";
 import type { TeamCalendarEntry } from "@/domain/calendar";
 import type { FeedKind } from "@/domain/calendar-feed";
-import { teamLabel } from "@/domain/person";
+import { teamLabel } from "@/shared/kernel/person-label";
 
 /** A team row as the calendar repository reads it: the entry, plus the email its label falls back on. */
 export type TeamEntrySource = TeamCalendarEntry & { personEmail: string };

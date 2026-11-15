@@ -3,7 +3,7 @@ import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
-import { findMember } from "@/server/repositories/users";
+import { findMember } from "@/shared/lib/db/members";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { lockCompany } from "@/shared/lib/db/company-lock";
 import { lockDepartment, setDepartmentManagerRow } from "@/modules/organisation/infrastructure/drizzle-departments.repository";

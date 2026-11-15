@@ -10,7 +10,7 @@ import { type Balance, loadBalances, recarryMemberLeaveType, resolveAllowancePol
 import type { UserChangeSource } from "@/domain/change-source";
 import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
 import { insertAuditEntries, listAllowancesOf } from "@/server/repositories/imports";
-import { lockMember } from "@/server/repositories/users";
+import { lockMember } from "@/shared/lib/db/members";
 import type { AuditEntry } from "@/shared/lib/db/change-log";
 import type { ExpectedBalance, ImportPlan, PlannedAllowance } from "@/modules/import/domain/timeoff/plan/types";
 import type { Reconciliation, ReconciliationMismatch, ReconciliationRow } from "@/modules/import/application/report";

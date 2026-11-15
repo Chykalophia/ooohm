@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { log } from "@/lib/log";
 import { serviceContext } from "@/server/runtime";
 import { approveFromEmail } from "@/modules/approvals";

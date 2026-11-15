@@ -1,0 +1,233 @@
+import "server-only";
+/**
+ * The company's members as every module reads them: the member locks, the people an
+ * approval, a balance or an email needs, and the person row that the people module, the
+ * first install, the inbound sync and the TimeOff import write. The admin list, edits
+ * and deletes are the people module's own repositories; these are the reads and writes
+ * the modules people builds on share, so none of them imports people.
+ */
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { user } from "@/db/schema";
+import type { Executor, Transaction } from "@/db/types";
+import type { Role } from "@/domain/actor";
+
+const approvalFields = {
+  id: user.id,
+  role: user.role,
+  canSelfApprove: user.canSelfApprove,
+  managerId: user.managerId,
+  departmentId: user.departmentId,
+  isActive: user.isActive,
+  createdAt: user.createdAt,
+};
+
+/**
+ * Takes the member lock ({@link lockMember}) of each of `userIds`, in id order so two
+ * callers never wait on each other's half.
+ */
+export async function lockMembers(tx: Transaction, companyId: string, userIds: readonly string[]): Promise<void> {
+  if (userIds.length === 0) return;
+  await tx
+    .select({ id: user.id })
+    .from(user)
+    .where(and(eq(user.companyId, companyId), inArray(user.id, [...userIds]), isNull(user.deletedAt)))
+    .orderBy(asc(sql`${user.id}`))
+    .for("no key update");
+}
+
+/**
+ * Reads a company member and holds a row lock on them until the transaction ends.
+ * Serialises concurrent submissions by the same person, so two overlapping requests
+ * sent at once cannot both pass the overlap check.
+ *
+ * The lock is `FOR NO KEY UPDATE`, not `FOR UPDATE`: it still conflicts with itself,
+ * but not with the `FOR KEY SHARE` lock Postgres takes when another transaction
+ * inserts a row referencing this user (e.g. a request routed to them as approver).
+ * `FOR UPDATE` would deadlock two people who approve each other submitting at once.
+ *
+ * A deleted person (a tombstone) is not a member: nothing may be written for them, so
+ * they read as missing.
+ */
+export async function lockMember(tx: Transaction, companyId: string, userId: string) {
+  const [row] = await tx
+    .select(approvalFields)
+    .from(user)
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId), isNull(user.deletedAt)))
+    .for("no key update");
+  return row;
+}
+
+/** Several members of a company at once, as {@link findMember} reads them. */
+export async function findMembers(ex: Executor, companyId: string, userIds: readonly string[]) {
+  if (userIds.length === 0) return [];
+  return ex
+    .select(approvalFields)
+    .from(user)
+    .where(and(eq(user.companyId, companyId), inArray(user.id, [...userIds])));
+}
+
+export async function findMember(ex: Executor, companyId: string, userId: string) {
+  const [row] = await ex
+    .select(approvalFields)
+    .from(user)
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId)));
+  return row;
+}
+
+/** Active admins of a company, longest-standing first. */
+export async function listActiveAdmins(ex: Executor, companyId: string) {
+  return ex
+    .select(approvalFields)
+    .from(user)
+    .where(and(eq(user.companyId, companyId), eq(user.role, "admin"), eq(user.isActive, true)))
+    .orderBy(asc(user.createdAt), asc(user.id));
+}
+
+/** Active members of a company, oldest first. */
+export async function listActiveMembers(ex: Executor, companyId: string) {
+  return ex
+    .select({ id: user.id, createdAt: user.createdAt })
+    .from(user)
+    .where(and(eq(user.companyId, companyId), eq(user.isActive, true)))
+    .orderBy(asc(user.createdAt), asc(user.id));
+}
+
+/** Name and email for notification recipients, limited to one company. */
+export async function findContacts(ex: Executor, companyId: string, ids: readonly string[]) {
+  if (ids.length === 0) return [];
+  return ex
+    .select({ id: user.id, name: user.name, email: user.email, isActive: user.isActive })
+    .from(user)
+    .where(and(eq(user.companyId, companyId), inArray(user.id, [...ids])));
+}
+
+/** Everything the admin screens show and edit about a person. */
+export const personFields = {
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  departmentId: user.departmentId,
+  levelId: user.levelId,
+  managerId: user.managerId,
+  canSelfApprove: user.canSelfApprove,
+  isActive: user.isActive,
+  createdAt: user.createdAt,
+  scrubScheduledAt: user.scrubScheduledAt,
+};
+
+/** Not a tombstone: deleted people stay as rows (for their foreign keys) but are no longer people. */
+export const notDeleted = isNull(user.deletedAt);
+
+export type PersonRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  departmentId: string | null;
+  levelId: string | null;
+  managerId: string | null;
+  canSelfApprove: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  /** When a full scrub waiting out the company's grace period may run; `null` when none is scheduled. */
+  scrubScheduledAt: Date | null;
+};
+
+/** One person of the company with every admin field, or `undefined` (also for a tombstone). */
+export async function findPerson(ex: Executor, companyId: string, userId: string): Promise<PersonRow | undefined> {
+  const [row] = await ex
+    .select(personFields)
+    .from(user)
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId), notDeleted));
+  return row;
+}
+
+/** {@link findPerson}, holding the member lock (`FOR NO KEY UPDATE`, as {@link lockMember}) until commit. */
+export async function lockPerson(tx: Transaction, companyId: string, userId: string): Promise<PersonRow | undefined> {
+  const [row] = await tx
+    .select(personFields)
+    .from(user)
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId), notDeleted))
+    .for("no key update");
+  return row;
+}
+
+/**
+ * Names of every member, active or not, by name: for pickers and for naming people in the
+ * audit log. Tombstones (deleted people) are left out unless `includeDeleted`: a picker
+ * never offers them, but history still names them ("Former employee #3f9a2c").
+ */
+export async function listPeopleNames(ex: Executor, companyId: string, options: { includeDeleted?: boolean } = {}) {
+  return ex
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      isActive: user.isActive,
+      role: user.role,
+      deleted: sql<boolean>`${user.deletedAt} is not null`,
+    })
+    .from(user)
+    .where(and(eq(user.companyId, companyId), options.includeDeleted ? undefined : notDeleted))
+    .orderBy(asc(sql`lower(${user.name})`), asc(user.email));
+}
+
+export async function insertPerson(
+  tx: Transaction,
+  values: {
+    id: string;
+    companyId: string;
+    email: string;
+    name: string;
+    role: Role;
+    departmentId: string | null;
+    levelId?: string | null;
+    managerId: string | null;
+    canSelfApprove: boolean;
+    /** Defaults to true (an admin's invite); an inbound sync may create people inactive. */
+    isActive?: boolean;
+  },
+): Promise<PersonRow> {
+  const [row] = await tx
+    .insert(user)
+    .values({ ...values, emailVerified: false, isActive: values.isActive ?? true })
+    .returning(personFields);
+  return row;
+}
+
+/** The account with this email (already lowercased), in any company, with its company. */
+export async function findPersonByEmail(ex: Executor, email: string): Promise<(PersonRow & { companyId: string | null }) | undefined> {
+  const [row] = await ex
+    .select({ ...personFields, companyId: user.companyId })
+    .from(user)
+    .where(eq(user.email, email));
+  return row;
+}
+
+export async function updatePerson(
+  tx: Transaction,
+  companyId: string,
+  userId: string,
+  set: Partial<Pick<PersonRow, "name" | "role" | "departmentId" | "levelId" | "managerId" | "canSelfApprove" | "isActive">>,
+): Promise<PersonRow> {
+  const [row] = await tx
+    .update(user)
+    .set(set)
+    .where(and(eq(user.id, userId), eq(user.companyId, companyId)))
+    .returning(personFields);
+  return row;
+}
+
+/**
+ * A person by id alone, whatever their company, with what an `Actor` is built from:
+ * for a link that names its person (the approve link in an email) and so carries no
+ * session. Deleted people (tombstones) read as missing.
+ */
+export async function findActorById(ex: Executor, userId: string) {
+  const [row] = await ex
+    .select({ id: user.id, companyId: user.companyId, role: user.role, canSelfApprove: user.canSelfApprove, isActive: user.isActive })
+    .from(user)
+    .where(and(eq(user.id, userId), isNull(user.deletedAt)));
+  return row;
+}

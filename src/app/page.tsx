@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatExpiring } from "@/lib/format";
-import { hasPasskey } from "@/server/services/account";
+import { hasPasskey } from "@/modules/people";
 import { shouldSuggestCalendarFeed } from "@/modules/calendar";
 import { getDashboard } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";

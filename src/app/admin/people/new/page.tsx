@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { EMAIL_MAX_LENGTH } from "@/domain/people";
-import { getPersonFormOptions } from "@/server/services/admin-people";
+import { EMAIL_MAX_LENGTH } from "@/shared/kernel/names";
+import { getPersonFormOptions } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { BackLink } from "@/components/ui/section";
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Invite someone · Admin · OOOhm" };
 
 export default async function InvitePage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const { departments, levels, managers } = await getPersonFormOptions(ctx, actor, null);
+  const { departments, levels, managers } = await getPersonFormOptions(ctx, actor, null).then(unwrap);
 
   return (
     <AdminShell

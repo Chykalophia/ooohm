@@ -2,7 +2,7 @@ import "server-only";
 import { auditActionLabel, describeAuditChange } from "@/domain/audit";
 import { type ChangeSourceKind, changeSourceLabel, recordedChangeSource } from "@/domain/change-source";
 import type { PageCursor } from "@/domain/paging";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import type { AuditPageSize } from "./schemas";
 
 /** One row as the viewer shows it. */

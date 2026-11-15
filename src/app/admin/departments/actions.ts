@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
+import { DEPARTMENT_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { MAX_OFF_LIMIT } from "@/modules/leave";
 import { createDepartment, deleteDepartment, renameDepartment, setDepartmentLimit } from "@/modules/organisation";
 import { setDepartmentManager } from "@/server/services/department-manager";

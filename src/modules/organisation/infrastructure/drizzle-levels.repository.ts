@@ -89,3 +89,9 @@ export async function renameLevel(tx: Transaction, companyId: string, id: string
 export async function deleteLevel(tx: Transaction, companyId: string, id: string): Promise<void> {
   await tx.delete(levels).where(and(eq(levels.id, id), eq(levels.companyId, companyId)));
 }
+
+/** How many people (active or not) are at a level. */
+export async function countLevelMembers(ex: Executor, levelId: string): Promise<number> {
+  const [row] = await ex.select({ n: sql<number>`count(*)::int` }).from(user).where(eq(user.levelId, levelId));
+  return row?.n ?? 0;
+}

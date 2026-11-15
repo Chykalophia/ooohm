@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PEOPLE_IMPORT_MAX_ROWS } from "@/domain/people-import";
+import { PEOPLE_IMPORT_MAX_ROWS } from "@/modules/people";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { BackLink } from "@/components/ui/section";

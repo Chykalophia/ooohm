@@ -4,7 +4,7 @@ import { entriesCostingDaysIn } from "@/domain/calendar";
 import { coverageBreach, describeCoverageBreach } from "../../domain/coverage";
 import { describeOverlap, overlapsFor } from "../../domain/overlap";
 import { formatShortDay } from "@/lib/format";
-import { teamLabel } from "@/domain/person";
+import { teamLabel } from "@/shared/kernel/person-label";
 import { canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { findCompanySettings, listHolidays, listTeamEntries, loadCalendarScope } from "@/modules/calendar";
 import { findDepartmentLimits } from "@/modules/organisation";

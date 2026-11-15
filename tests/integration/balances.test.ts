@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Actor } from "@/domain/actor";
 import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
-import { getPersonDetail } from "@/server/services/admin-people";
+import { getPersonDetail as getPersonDetailResult } from "@/modules/people";
 import * as calendarModule from "@/modules/calendar";
 import { shouldSuggestCalendarFeed } from "@/modules/calendar";
 import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
@@ -14,6 +14,8 @@ import * as balancesModule from "@/modules/balances";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+
+const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
 
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);

@@ -8,7 +8,7 @@ import { addDays } from "@/shared/kernel/day-amounts";
 import type { CalendarDate } from "@/domain/calendar-date";
 import { eachDate, isoWeekday } from "@/domain/calendar-date";
 import { monthOf, type YearMonth } from "@/domain/calendar";
-import { toCsv } from "@/domain/csv";
+import { toCsv } from "@/shared/kernel/csv";
 import type { WorkCalendar, YearDays } from "@/shared/kernel/leave-days";
 import type { DayPortion, LeaveRange, LeaveStatus } from "@/shared/kernel/leave-range";
 

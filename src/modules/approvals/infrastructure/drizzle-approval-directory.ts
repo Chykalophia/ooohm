@@ -3,7 +3,7 @@ import type { Executor } from "@/db/types";
 import { activeContacts } from "@/modules/leave";
 import { findCompanySettings } from "@/modules/calendar";
 import { findLeaveType, listAllLeaveTypes } from "@/modules/organisation";
-import { findActorById } from "@/server/repositories/users";
+import { findActorById } from "@/shared/lib/db/members";
 import type { ApprovalDirectory } from "../application/ports";
 
 /** The {@link ApprovalDirectory} on Drizzle, bound to `ex`. */

@@ -532,7 +532,7 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 
 ### Screens
 
-- `/setup` (`runFirstInstall`, `src/server/services/install.ts`): the first install of an empty OOOhm, from the
+- `/setup` (`runFirstInstall`, `src/server/identity/install.ts`): the first install of an empty OOOhm, from the
   browser. Open only while `SETUP_TOKEN` is set and nothing is installed (no `installation` row, company or person);
   otherwise a 404. With the token it creates the company, the default leave types (PTO first) and the first admin
   (`can_self_approve`), audited as that admin `via: "first_install"`, writes the `installation` marker, and sends them
@@ -866,7 +866,7 @@ note, decision note or balance on any calendar screen or feed. This is enforced 
 calendar view and both feeds are built from `CalendarEntry` (`src/domain/calendar.ts`), and the repository's
 calendar queries (`src/modules/calendar/infrastructure/drizzle-calendar.repository.ts`) select only its fields. Notes are left out of the personal
 feed too, since a feed URL can travel further than the app. A person with a blank name is labelled by the part
-of their email before the `@` (`teamLabel`, `src/domain/person.ts`), never the full address, on the team view
+of their email before the `@` (`teamLabel`, `src/shared/kernel/person-label.ts`), never the full address, on the team view
 and in the team feed. Emails, which go only to the requester and their approver, still fall back to the full
 address (`personLabel`).
 
@@ -1045,6 +1045,13 @@ type DTOs name the type; the allowance settings balances compute from are read b
 (`src/server/repositories/leave-type-allowances.ts`), and a person's default always comes from
 `loadAllowanceDefaults`.
 
+`src/modules/people` (README there) owns Admin → People, a person's deletion and scheduled scrub, the people
+import, the teammate page and the account page. It sits near the top of the module graph (it imports approvals,
+balances, calendar, leave, integrations, organisation, audit and notifications), so the member reads every module
+needs (`findMember`, `lockMember`, `listActiveAdmins`, …) live in `src/shared/lib/db/members.ts`, not in people.
+The background tick, the daily jobs and retention are in `src/server/jobs/`; the first install is in
+`src/server/identity/install.ts`.
+
 ### People
 
 - **Invite** (`invitePerson`): creates the `user` row directly (email trimmed, lowercased and checked; name one
@@ -1068,7 +1075,7 @@ type DTOs name the type; the allowance settings balances compute from are read b
 - **Invite limit**: 30 invites and resends per admin per hour, counted from the audit log under the company
   lock (`rate_limited` beyond that), so it holds across restarts.
 - **Edit** (`updatePerson`): name, department, manager, role, self-approval. The email is the sign-in identity
-  and is not editable. Manager rules (`assertValidManager`, `src/domain/people.ts`): none is fine (an admin
+  and is not editable. Manager rules (`assertValidManager`, `src/modules/people/domain/people.ts`): none is fine (an admin
   approves); otherwise an active member of the company, not the person, and not someone who reports to them,
   directly or through others (the walk follows inactive people too, since reactivating one would close the
   loop). A current manager who has since been deactivated stays pickable and is kept when the form is saved
@@ -1241,8 +1248,8 @@ without React's automatic reset) and show the reason with `role="alert"` in `err
 
 ## People lifecycle and privacy (M8)
 
-A person moves through at most three states, each a deliberate admin action (`src/server/services/admin-people.ts`,
-`src/server/services/admin-people-deletion.ts`; rules in `src/domain/person-deletion.ts`):
+A person moves through at most three states, each a deliberate admin action (the people module's use cases,
+`src/modules/people/application/use-cases/`; rules in `src/modules/people/domain/person-deletion.ts`):
 
 | State | How | Signs in | Shows in People | Reversible |
 | --- | --- | --- | --- | --- |
@@ -1349,7 +1356,7 @@ for every year they have an allowance row or booked days (computed by the dashbo
 entries about them as the viewer words them (`listAuditEntriesAbout`: the names load once, then a thousand rows per
 query, at most the newest 10,000). Admins of the person's company only (anyone else, another company's id or a
 tombstone: a bare 404), `Cache-Control: no-store`, a file name by short id (never the name), cells that look like a
-formula prefixed with `'` (`src/domain/csv.ts`). Each download is audited as `user.records_exported` (an audit row
+formula prefixed with `'` (`src/shared/kernel/csv.ts`). Each download is audited as `user.records_exported` (an audit row
 and no event: nothing changed). Being a GET that writes and hands out personal data, it refuses a request another
 site started (`Sec-Fetch-Site` other than `same-origin` or `none`; `isCrossSiteRequest`) with a 404, so a link
 elsewhere cannot make a signed-in admin's browser download it. A full scrub deletes the export's audit row with the
@@ -1468,7 +1475,7 @@ codes, never a URL, secret, signature or body (`webhook-delivery.test.ts` checks
 
 ### Scheduled jobs
 
-`runDueJobs` (`src/server/services/scheduled-jobs.ts`) runs the daily jobs: `year_rollover` (the M3
+`runDueJobs` (`src/server/jobs/scheduled-jobs.ts`) runs the daily jobs: `year_rollover` (the M3
 `runYearRollover`), `integration_retention` and `scheduled_scrub` (`runDueScrubs`, full-scrub deletes whose grace
 period has ended; see [People lifecycle](#people-lifecycle-and-privacy-m8)). A worker claims a job with an atomic compare-and-set on its
 `scheduled_jobs` row (`UPDATE ... SET next_run_at = now + 1 h WHERE name = $1 AND next_run_at <= now`): of
@@ -1728,7 +1735,7 @@ integration test on it):
 
 ### Background modes
 
-Background work is one function, `runTick` (`src/server/services/background-tick.ts`): a bounded pass that
+Background work is one function, `runTick` (`src/server/jobs/background-tick.ts`): a bounded pass that
 dispatches outbox events, delivers due webhook deliveries, then due adapter deliveries, then runs a due daily job
 (and delivers what that job wrote), each step repeating while it finds work and the budget lasts (`OOOHM_TICK_BUDGET_MS`,
 15 s). When the budget runs out no new work starts; webhook attempts in flight finish (10 s at most) and an adapter

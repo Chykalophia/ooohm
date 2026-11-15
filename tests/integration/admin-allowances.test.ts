@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { sql } from "drizzle-orm";
-import { getPersonDetail } from "@/server/services/admin-people";
+import { getPersonDetail as getPersonDetailResult } from "@/modules/people";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
 
 // The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const setAllowanceOverride = (...args: Parameters<typeof balancesModule.setAllowanceOverride>) => balancesModule.setAllowanceOverride(...args).then(unwrap);

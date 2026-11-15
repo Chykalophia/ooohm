@@ -23,7 +23,7 @@ to 500 people, and one admin can import up to 500 an hour (separate from the 30-
 person is a `user.created` audit row and event, and each new department a `department.created`, attributed to the
 admin `via: "people_import"`. Invite emails go out after commit when the admin leaves **Email each person their
 invite now** ticked; otherwise people sign in from the sign-in page when they're ready. The rules live in
-`src/domain/people-import.ts`, the use case in `src/server/services/admin-people-import.ts`.
+`src/modules/people/domain/people-import.ts`, the use case in `src/modules/people/application/use-cases/import-people.ts`.
 
 ## Importing from TimeOff.Management
 

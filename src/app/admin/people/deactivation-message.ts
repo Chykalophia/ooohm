@@ -1,5 +1,5 @@
 import { formatCount } from "@/lib/format";
-import type { DeactivationResult } from "@/server/services/admin-people";
+import type { DeactivationResult } from "@/modules/people";
 
 /**
  * What the admin reads after deactivating someone: what moved, and any API keys or

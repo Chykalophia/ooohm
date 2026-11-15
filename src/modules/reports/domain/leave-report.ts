@@ -3,14 +3,14 @@
  * type, and how that compares with earlier years. Pure functions over rows a service
  * loaded; see `buildLeaveReport`.
  */
-import { type Actor, isAdmin } from "./actor";
-import { addDays } from "./allowance-policy";
-import type { CalendarDate } from "./calendar-date";
-import { eachDate, isoWeekday } from "./calendar-date";
-import { monthOf, type YearMonth } from "./calendar";
-import { toCsv } from "./csv";
-import type { WorkCalendar, YearDays } from "./leave-days";
-import type { DayPortion, LeaveRange, LeaveStatus } from "./leave-request";
+import { type Actor, isAdmin } from "@/domain/actor";
+import { addDays } from "@/domain/allowance-policy";
+import type { CalendarDate } from "@/domain/calendar-date";
+import { eachDate, isoWeekday } from "@/domain/calendar-date";
+import { monthOf, type YearMonth } from "@/domain/calendar";
+import { toCsv } from "@/domain/csv";
+import type { WorkCalendar, YearDays } from "@/domain/leave-days";
+import type { DayPortion, LeaveRange, LeaveStatus } from "@/domain/leave-request";
 
 /** How many years the trend shows, ending with the report's year. */
 export const REPORT_TREND_YEARS = 5;

@@ -14,7 +14,7 @@ import {
   reportCsv,
   reportScopeFor,
   splitLeaveDaysByMonth,
-} from "@/domain/reports";
+} from "@/modules/reports/domain/leave-report";
 
 const MON_FRI = [1, 2, 3, 4, 5];
 const calendar = { workingDays: MON_FRI, holidays: ["2026-11-26"] };

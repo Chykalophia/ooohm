@@ -5,7 +5,8 @@ import * as schema from "@/db/schema";
 import { getCompanySettings, updateCompanyAppearance, updateCompanySettings } from "@/server/services/admin-company";
 import { getAppearance } from "@/server/services/appearance";
 import { createDepartment, deleteDepartment, listDepartmentsForAdmin, renameDepartment } from "@/server/services/admin-departments";
-import { createLevel, deleteLevel, listLevelsForAdmin } from "@/server/services/admin-levels";
+import * as organisation from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
 import {
   addHoliday,
   addHolidayRange,
@@ -31,6 +32,11 @@ import { isUniqueViolation } from "@/server/repositories/errors";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, requestDaysOf, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The level use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const createLevel = (...args: Parameters<typeof organisation.createLevel>) => organisation.createLevel(...args).then(unwrap);
+const deleteLevel = (...args: Parameters<typeof organisation.deleteLevel>) => organisation.deleteLevel(...args).then(unwrap);
+const listLevelsForAdmin = (...args: Parameters<typeof organisation.listLevelsForAdmin>) => organisation.listLevelsForAdmin(...args).then(unwrap);
 
 const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
 

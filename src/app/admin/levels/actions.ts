@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { LEVEL_NAME_MAX_LENGTH } from "@/domain/people";
-import { createLevel, deleteLevel, renameLevel } from "@/server/services/admin-levels";
+import { createLevel, deleteLevel, renameLevel } from "@/modules/organisation";
+import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -20,10 +21,7 @@ export async function createLevelAction(_prev: FormState, formData: FormData): P
     "level_create",
     formData,
     z.object({ name: nameField }),
-    async (ctx, actor, { name }) => {
-      const row = await createLevel(ctx, actor, name);
-      return `Added ${row.name}.`;
-    },
+    async (ctx, actor, { name }) => map(await createLevel(ctx, actor, name), (level) => `Added ${level.name}.`),
     MESSAGES,
   );
 }
@@ -33,10 +31,7 @@ export async function renameLevelAction(_prev: FormState, formData: FormData): P
     "level_rename",
     formData,
     z.object({ id: formFields.id, name: nameField }),
-    async (ctx, actor, { id, name }) => {
-      await renameLevel(ctx, actor, id, name);
-      return "Renamed.";
-    },
+    async (ctx, actor, { id, name }) => map(await renameLevel(ctx, actor, id, name), () => "Renamed."),
     MESSAGES,
   );
 }
@@ -46,10 +41,7 @@ export async function deleteLevelAction(_prev: FormState, formData: FormData): P
     "level_delete",
     formData,
     z.object({ id: formFields.id }),
-    async (ctx, actor, { id }) => {
-      await deleteLevel(ctx, actor, id);
-      return "Deleted.";
-    },
+    async (ctx, actor, { id }) => map(await deleteLevel(ctx, actor, id), () => "Deleted."),
     MESSAGES,
   );
 }

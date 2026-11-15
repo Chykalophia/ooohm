@@ -1,0 +1,487 @@
+exports[`toLeaveReportDTO > returns exactly the fields the page shows 1`] = `
+{
+  "nav": {
+    "year": 2026,
+    "current": 2026
+  },
+  "departments": [
+    {
+      "id": "dev",
+      "name": "Dev"
+    }
+  ],
+  "department": {
+    "id": "dev",
+    "name": "Dev"
+  },
+  "scope": {
+    "kind": "company"
+  },
+  "report": {
+    "year": 2026,
+    "showsBalances": true,
+    "leaveTypes": [
+      {
+        "id": "vac",
+        "name": "Vacation",
+        "color": "#0f766e"
+      }
+    ],
+    "totals": {
+      "approvedDays": 2,
+      "pendingDays": 0,
+      "peopleOff": 1,
+      "headcount": 2,
+      "daysPerPerson": 1,
+      "requests": {
+        "approved": 1,
+        "pending": 0,
+        "rejected": 0,
+        "cancelled": 0
+      },
+      "medianDecisionHours": 3,
+      "decisions": 1
+    },
+    "months": [
+      {
+        "month": "2026-01",
+        "byType": [],
+        "total": 0,
+        "ahead": false
+      },
+      {
+        "month": "2026-02",
+        "byType": [
+          {
+            "leaveTypeId": "vac",
+            "days": 2
+          }
+        ],
+        "total": 2,
+        "ahead": false
+      },
+      {
+        "month": "2026-03",
+        "byType": [],
+        "total": 0,
+        "ahead": false
+      },
+      {
+        "month": "2026-04",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      },
+      {
+        "month": "2026-05",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      },
+      {
+        "month": "2026-06",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      },
+      {
+        "month": "2026-07",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      },
+      {
+        "month": "2026-08",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      },
+      {
+        "month": "2026-09",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      },
+      {
+        "month": "2026-10",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      },
+      {
+        "month": "2026-11",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      },
+      {
+        "month": "2026-12",
+        "byType": [],
+        "total": 0,
+        "ahead": true
+      }
+    ],
+    "previousYearMonths": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "runningTotal": {
+      "days": [
+        0,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "previous": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "trend": [
+      {
+        "year": 2022,
+        "days": 0
+      },
+      {
+        "year": 2023,
+        "days": 0
+      },
+      {
+        "year": 2024,
+        "days": 0
+      },
+      {
+        "year": 2025,
+        "days": 0
+      },
+      {
+        "year": 2026,
+        "days": 2
+      }
+    ],
+    "byType": [
+      {
+        "id": "vac",
+        "name": "Vacation",
+        "color": "#0f766e",
+        "leaveTypeId": "vac",
+        "days": 2,
+        "requests": 1
+      }
+    ],
+    "byDepartment": [
+      {
+        "departmentId": "dev",
+        "name": "Dev",
+        "headcount": 1,
+        "days": 2,
+        "daysPerPerson": 2
+      },
+      {
+        "departmentId": null,
+        "name": "No department",
+        "headcount": 1,
+        "days": 0,
+        "daysPerPerson": 0
+      }
+    ],
+    "people": [
+      {
+        "userId": "ana",
+        "name": "Ana",
+        "departmentName": "Dev",
+        "isActive": true,
+        "byType": {
+          "vac": 2
+        },
+        "approvedDays": 2,
+        "pendingDays": 0,
+        "remaining": 23
+      },
+      {
+        "userId": "bo",
+        "name": "Bo",
+        "departmentName": null,
+        "isActive": true,
+        "byType": {},
+        "approvedDays": 0,
+        "pendingDays": 0,
+        "remaining": null
+      }
+    ]
+  }
+}
+`;
+
+exports[`toLeaveReportDTO > the page's view model reads from the DTO alone 1`] = `
+{
+  "year": 2026,
+  "previousYear": 2025,
+  "description": "Time off for everyone in Dev: when it was taken, of which kind, and how it compares with earlier years.",
+  "exportHref": "/reports/export?year=2026&department=dev",
+  "yearNav": {
+    "year": 2026,
+    "min": 1900,
+    "max": 2027,
+    "href": "/reports?year=2025&department=dev"
+  },
+  "departmentNav": [
+    {
+      "href": "/reports?year=2026",
+      "label": "Everyone"
+    },
+    {
+      "href": "/reports?year=2026&department=dev",
+      "label": "Dev",
+      "current": "page"
+    }
+  ],
+  "stats": [
+    {
+      "label": "Days off",
+      "value": 2,
+      "detail": "1 person took time off"
+    },
+    {
+      "label": "Per person",
+      "value": 1,
+      "detail": "Across 2 people"
+    },
+    {
+      "label": "Days waiting",
+      "value": 0,
+      "detail": "0 requests"
+    },
+    {
+      "label": "Decision time",
+      "value": "3 hours",
+      "detail": "Median of 1 decision"
+    }
+  ],
+  "hasMonths": true,
+  "monthColumns": [
+    {
+      "label": "Jan",
+      "title": "January 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": false
+    },
+    {
+      "label": "Feb",
+      "title": "February 2026",
+      "segments": [
+        {
+          "key": "vac",
+          "name": "Vacation",
+          "color": "#0f766e",
+          "days": 2
+        }
+      ],
+      "total": 2,
+      "compare": 0,
+      "ahead": false
+    },
+    {
+      "label": "Mar",
+      "title": "March 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": false
+    },
+    {
+      "label": "Apr",
+      "title": "April 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    },
+    {
+      "label": "May",
+      "title": "May 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    },
+    {
+      "label": "Jun",
+      "title": "June 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    },
+    {
+      "label": "Jul",
+      "title": "July 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    },
+    {
+      "label": "Aug",
+      "title": "August 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    },
+    {
+      "label": "Sep",
+      "title": "September 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    },
+    {
+      "label": "Oct",
+      "title": "October 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    },
+    {
+      "label": "Nov",
+      "title": "November 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    },
+    {
+      "label": "Dec",
+      "title": "December 2026",
+      "segments": [],
+      "total": 0,
+      "compare": 0,
+      "ahead": true
+    }
+  ],
+  "monthKey": [
+    {
+      "id": "vac",
+      "name": "Vacation",
+      "color": "#0f766e"
+    }
+  ],
+  "anyAhead": false,
+  "showsRunningTotal": true,
+  "runningTotal": {
+    "labels": [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ],
+    "days": [
+      0,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "previous": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "takenMonths": 3,
+    "label": "2026",
+    "compareLabel": "2025"
+  },
+  "monthsAhead": true,
+  "trend": [
+    {
+      "year": 2022,
+      "days": 0
+    },
+    {
+      "year": 2023,
+      "days": 0
+    },
+    {
+      "year": 2024,
+      "days": 0
+    },
+    {
+      "year": 2025,
+      "days": 0
+    },
+    {
+      "year": 2026,
+      "days": 2
+    }
+  ],
+  "trendText": "2022: 0 days, 2023: 0 days, 2024: 0 days, 2025: 0 days, 2026: 2 days",
+  "byType": [
+    {
+      "key": "vac",
+      "label": "Vacation",
+      "value": 2,
+      "valueLabel": "2 days",
+      "detail": "1 request",
+      "color": "#0f766e"
+    }
+  ],
+  "byDepartment": null
+}
+`;

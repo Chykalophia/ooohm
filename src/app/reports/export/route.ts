@@ -1,11 +1,9 @@
 import { toActor } from "@/domain/actor";
-import { isDomainError } from "@/domain/errors";
 import { currentUser } from "@/lib/auth";
 import { isCrossSiteRequest } from "@/lib/fetch-site";
 import { log } from "@/lib/log";
 import { serviceContext } from "@/server/runtime";
-import { exportLeaveReport } from "@/server/services/reports";
-import { readReportQuery, searchParamsRecord } from "@/app/_lib/report-input";
+import { exportLeaveReport, readReportQuery, searchParamsRecord } from "@/modules/reports";
 
 /** Holds balances and names: never stored by a browser or a proxy. */
 const PRIVATE = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
@@ -30,7 +28,13 @@ export async function GET(request: Request): Promise<Response> {
   const query = readReportQuery(searchParamsRecord(new URL(request.url).searchParams));
 
   try {
-    const { filename, csv } = await exportLeaveReport(serviceContext(), actor, query);
+    const result = await exportLeaveReport(serviceContext(), actor, query);
+    if (!result.ok) {
+      if (result.error.code === "not_found") return bare(404);
+      log.error({ code: result.error.code }, "report_export_failed");
+      return bare(500);
+    }
+    const { filename, csv } = result.value;
     return new Response(csv, {
       headers: {
         ...PRIVATE,
@@ -40,7 +44,6 @@ export async function GET(request: Request): Promise<Response> {
       },
     });
   } catch (err) {
-    if (isDomainError(err, "not_found")) return bare(404);
     log.error({ err }, "report_export_failed");
     return bare(500);
   }

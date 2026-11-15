@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { PageCursor, Paged } from "@/domain/paging";
 import type { PagerLinks } from "@/components/navigation/pager";
-import { readParam } from "./calendar-input";
+import { readParam } from "@/shared/lib/search-params";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

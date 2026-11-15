@@ -18,6 +18,13 @@ const probes: Record<string, string> = {
   [`src/lib/${PROBE}/a.ts`]: `import { b } from "./b";\nexport const a = () => b;\n`,
   [`src/lib/${PROBE}/b.ts`]: `import { a } from "./a";\nexport const b = () => a;\n`,
   [`src/lib/${PROBE}/vendor.ts`]: `import nodemailer from "nodemailer";\nexport const probe = nodemailer;\n`,
+  // Two planted modules: `a` is reached past its index, `b` breaks its own layers.
+  [`src/modules/${PROBE}a/application/queries/thing.ts`]: `export const thing = 1;\n`,
+  [`src/modules/${PROBE}a/index.ts`]: `export { thing } from "./application/queries/thing";\n`,
+  [`src/app/${PROBE}/deep-import.ts`]: `import { thing } from "@/modules/${PROBE}a/application/queries/thing";\nexport const probe = thing;\n`,
+  [`src/modules/${PROBE}b/application/across.ts`]: `import { thing } from "@/modules/${PROBE}a/application/queries/thing";\nexport const probe = thing;\n`,
+  [`src/modules/${PROBE}b/infrastructure/repo.ts`]: `export const repo = 1;\n`,
+  [`src/modules/${PROBE}b/domain/impure-layer.ts`]: `import { repo } from "../infrastructure/repo";\nexport const probe = repo;\n`,
 };
 
 type Cruise = { summary: { totalCruised: number; violations: { rule: { name: string }; from: string; to: string }[] } };
@@ -35,7 +42,8 @@ function cruise(paths: string[]): Cruise {
 }
 
 after(() => {
-  for (const path of Object.keys(probes)) rmSync(dirname(join(ROOT, path)), { recursive: true, force: true });
+  // Each probe's top folder is the one named after PROBE.
+  for (const path of Object.keys(probes)) rmSync(join(ROOT, path.slice(0, path.indexOf("/", path.indexOf(PROBE)))), { recursive: true, force: true });
 });
 
 test("each dependency rule reports a planted violation", () => {
@@ -45,12 +53,15 @@ test("each dependency rule reports a planted violation", () => {
   }
   const { summary } = cruise(Object.keys(probes));
   const fired = (rule: string, from: string) =>
-    summary.violations.some((v) => v.rule.name === rule && v.from.includes(`${PROBE}/${from}`));
+    summary.violations.some((v) => v.rule.name === rule && v.from.includes(PROBE) && v.from.endsWith(`/${from}`));
   assert.ok(fired("domain-is-pure", "impure.ts"), "domain → drizzle-orm not reported");
   assert.ok(fired("app-not-to-infrastructure", "skips-layer.ts"), "app → repository not reported");
   assert.ok(fired("components-not-to-server", "reaches-server.ts"), "component → server not reported");
   assert.ok(fired("no-circular", "a.ts") || fired("no-circular", "b.ts"), "cycle not reported");
   assert.ok(fired("vendor-sdk-only-in-infrastructure", "vendor.ts"), "vendor SDK outside infrastructure not reported");
+  assert.ok(fired("no-deep-import-from-outside", "deep-import.ts"), "app → a module's application file not reported");
+  assert.ok(fired("no-deep-import-across-modules", "application/across.ts"), "module → another module's internals not reported");
+  assert.ok(fired("module-layers", "domain/impure-layer.ts"), "a module's domain → its infrastructure not reported");
 });
 
 test("the cruise covers the whole source tree", () => {

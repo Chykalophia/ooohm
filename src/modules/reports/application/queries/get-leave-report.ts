@@ -5,6 +5,14 @@ import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
 import { DomainError } from "@/domain/errors";
 import type { YearDays } from "@/domain/leave-days";
 import { teamLabel } from "@/domain/person";
+import { todayInTimeZone } from "@/lib/dates";
+import type { ServiceContext } from "@/server/context";
+import { listHolidayDates } from "@/server/repositories/calendar";
+import { findCompany } from "@/server/repositories/companies";
+import { listDepartments } from "@/server/repositories/departments";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { loadBalances } from "@/server/services/balances";
+import { attempt, type ServiceResult } from "@/shared/lib/result";
 import {
   buildLeaveReport,
   canSeeReportBalances,
@@ -12,32 +20,11 @@ import {
   type LeaveReport,
   REPORT_TREND_YEARS,
   type ReportRequest,
-  reportCsv,
   reportScopeFor,
-} from "@/domain/reports";
-import { todayInTimeZone } from "@/lib/dates";
-import type { ServiceContext } from "@/server/context";
-import { listHolidayDates } from "@/server/repositories/calendar";
-import { findCompany } from "@/server/repositories/companies";
-import { listDepartments } from "@/server/repositories/departments";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
-import { listReportPeople, listReportRequestDays } from "@/server/repositories/reports";
-import { loadBalances } from "./balances";
-
-/** Which slice of the leave a report shows. */
-export interface LeaveReportQuery {
-  /** Anything outside the calendar's years, or nothing, means this year. */
-  year?: number;
-  /** A department of the actor's company; anything else means everyone in scope. */
-  departmentId?: string;
-}
-
-/** Where a report sits and where its year links go. */
-export interface ReportNav {
-  year: number;
-  /** The year holding today, in the company's time zone. */
-  current: number;
-}
+} from "../../domain/leave-report";
+import { listReportPeople, listReportRequestDays } from "../../infrastructure/drizzle-reports.repository";
+import { type LeaveReportDTO, type ReportNav, toLeaveReportDTO } from "../dto";
+import type { LeaveReportQuery } from "../schemas";
 
 type RequestDayRow = Awaited<ReturnType<typeof listReportRequestDays>>[number];
 
@@ -52,6 +39,23 @@ function toReportRequests(rows: readonly RequestDayRow[]): ReportRequest[] {
   return [...byId.values()];
 }
 
+type BalanceOf = NonNullable<Awaited<ReturnType<typeof loadBalances>>>;
+
+/** Each person's days left in `year`, summed over the leave types they are tracked on; `null` with none tracked. */
+function daysLeft(people: readonly { id: string }[], types: readonly { id: string; archived: boolean }[], balanceOf: BalanceOf, year: number) {
+  return new Map(
+    people.map((p) => {
+      const tracked = types.flatMap((t) => {
+        const b = balanceOf(p.id, t.id, year);
+        // As on Home, a retired type counts only for someone who still has days of it.
+        if (t.archived && b.used + b.pending === 0) return [];
+        return b.tracked ? [b.remaining] : [];
+      });
+      return [p.id, tracked.length > 0 ? addDays(...tracked) : null] as const;
+    }),
+  );
+}
+
 /**
  * The leave report for admins (the whole company) and managers (their direct reports):
  * days taken and pending in a year, by month, leave type, department and person, the
@@ -64,9 +68,14 @@ function toReportRequests(rows: readonly RequestDayRow[]): ReportRequest[] {
  * of holidays and, with balances, the allowance rows and booked-day sums, in parallel.
  * Six without balances.
  *
- * @throws DomainError `not_found` for anyone but admins and managers, `no_company`.
+ * Fails with `not_found` for anyone but admins and managers, and with `no_company`.
  */
-export async function getLeaveReport(ctx: ServiceContext, actor: Actor, query: LeaveReportQuery = {}) {
+export async function getLeaveReport(ctx: ServiceContext, actor: Actor, query: LeaveReportQuery = {}): Promise<ServiceResult<LeaveReportDTO>> {
+  return attempt(async () => toLeaveReportDTO(await loadLeaveReport(ctx, actor, query)));
+}
+
+/** @throws DomainError where {@link getLeaveReport} fails. */
+async function loadLeaveReport(ctx: ServiceContext, actor: Actor, query: LeaveReportQuery) {
   if (!canViewReports(actor)) throw new DomainError("not_found");
   const scope = reportScopeFor(actor);
   const managerId = scope.kind === "team" ? scope.managerId : null;
@@ -95,20 +104,7 @@ export async function getLeaveReport(ctx: ServiceContext, actor: Actor, query: L
     showsBalances ? loadBalances(ctx.db, { companyId: actor.companyId, allowancePolicy: company.allowancePolicy, leaveTypes: types, userIds, years: [year] }) : null,
   ]);
   const requests = toReportRequests(rows);
-
-  const remaining = balanceOf
-    ? new Map(
-        people.map((p) => {
-          const tracked = types.flatMap((t) => {
-            const b = balanceOf(p.id, t.id, year);
-            // As on Home, a retired type counts only for someone who still has days of it.
-            if (t.archived && b.used + b.pending === 0) return [];
-            return b.tracked ? [b.remaining] : [];
-          });
-          return [p.id, tracked.length > 0 ? addDays(...tracked) : null] as const;
-        }),
-      )
-    : null;
+  const remaining = balanceOf ? daysLeft(people, types, balanceOf, year) : null;
 
   // Archived types only where someone still has leave of them in the trend's years.
   const used = new Set(requests.map((r) => r.leaveTypeId));
@@ -127,15 +123,4 @@ export async function getLeaveReport(ctx: ServiceContext, actor: Actor, query: L
   });
   const nav: ReportNav = { year, current };
   return { nav, departments, department, scope, report };
-}
-
-/**
- * {@link getLeaveReport} as a CSV download: one row per person.
- *
- * @throws DomainError as {@link getLeaveReport}.
- */
-export async function exportLeaveReport(ctx: ServiceContext, actor: Actor, query: LeaveReportQuery = {}) {
-  const { report, department } = await getLeaveReport(ctx, actor, query);
-  const slug = department ? `-${department.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : "";
-  return { filename: `ooohm-leave-report-${report.year}${slug}.csv`, csv: reportCsv(report) };
 }

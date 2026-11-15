@@ -4,9 +4,14 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { isDomainError } from "@/domain/errors";
-import { exportLeaveReport, getLeaveReport } from "@/server/services/reports";
+import { exportLeaveReport as exportLeaveReportResult, getLeaveReport as getLeaveReportResult } from "@/modules/reports";
+import { unwrap } from "@/shared/lib/result";
 import { addLeaveType, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The queries return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getLeaveReport = (...args: Parameters<typeof getLeaveReportResult>) => getLeaveReportResult(...args).then(unwrap);
+const exportLeaveReport = (...args: Parameters<typeof exportLeaveReportResult>) => exportLeaveReportResult(...args).then(unwrap);
 
 // The test clock is 2026-11-01 15:00 UTC: Nov 1 in Chicago, so the report's year is 2026.
 

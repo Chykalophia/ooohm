@@ -26,6 +26,7 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 | Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/notifications`, `lib` (not `env`, `db`, `auth`) |
 | Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
 | Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
+| Modules | `src/modules/<m>/**` | A feature's use cases, queries, policies, DTOs, rules, repositories and presenters (`src/modules/README.md`) | other modules' `index.ts` only; inside, its own layers as `module-layers` allows |
 | Infrastructure | `src/lib/**`, `src/db/**` | Env, logging, mail transport, auth, formatting, schema, the connection pool | `domain` (pure functions and types, e.g. `toActor` for `requireActor`) |
 
 Rules of thumb:
@@ -946,8 +947,8 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
 
 ## Reports
 
-`/reports` (`getLeaveReport`, `src/server/services/reports.ts`; the rules are pure functions in
-`src/domain/reports.ts`) shows how much time off was taken in a year, for admins and managers only
+`/reports` (`getLeaveReport`, the `src/modules/reports` module; the rules are pure functions in
+`src/modules/reports/domain/leave-report.ts`) shows how much time off was taken in a year, for admins and managers only
 (`canViewReports`): anyone else gets the 404 page, and the header shows the **Reports** link only to them.
 
 - **Scope** (`reportScopeFor`): an admin sees the whole company; a manager sees the people who report to them

@@ -15,7 +15,7 @@ import { formatInstantDateTime } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";
 import { listAuditPage } from "@/server/repositories/audit-log";
 import { listDepartments } from "@/server/repositories/departments";
-import { listLevels } from "@/server/repositories/levels";
+import { listLevels } from "@/modules/organisation";
 import { findCompany } from "@/server/repositories/companies";
 import { listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { listPeopleNames } from "@/server/repositories/users";

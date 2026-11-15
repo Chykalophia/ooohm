@@ -15,14 +15,13 @@ import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { normalizeAllowanceRule, type Placement } from "@/domain/allowance-rules";
 import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES, type AllowanceRuleEventPayload, type Unattributed } from "@/domain/events";
+import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import {
   type AllowanceRuleRow,
   deleteAllowanceRule,
-  deleteAllowanceRulesOf,
   findAllowanceRule,
   findAllowanceRuleFor,
   insertAllowanceRule,
@@ -35,10 +34,11 @@ import { lockCompany } from "@/server/repositories/companies";
 import { findDepartment, listDepartments } from "@/server/repositories/departments";
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { findLeaveType, listAllLeaveTypes } from "@/server/repositories/leave-types";
-import { findLevel, listLevels } from "@/server/repositories/levels";
 import { lockMembers } from "@/server/repositories/users";
+import { findLevel, listLevels } from "@/modules/organisation";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
 import { recordAllowanceChange } from "./allowance-changes";
+import { allowanceRulePayload as payload, allowanceRuleSnapshot as snapshot } from "./allowance-rule-removal";
 import { type AllowanceDefaults, loadAllowanceDefaults } from "./balances";
 import { inTransaction } from "./notify";
 
@@ -50,14 +50,6 @@ export interface AllowanceRuleInput extends Placement {
 export interface AllowanceRuleResult extends AllowanceRuleRow {
   /** People's allowance rows that were following the default and moved with the change. */
   allowancesUpdated: number;
-}
-
-function snapshot(rule: AllowanceRuleRow) {
-  return { leaveTypeId: rule.leaveTypeId, departmentId: rule.departmentId, levelId: rule.levelId, days: rule.days };
-}
-
-function payload(rule: AllowanceRuleRow): Unattributed<AllowanceRuleEventPayload> {
-  return { ruleId: rule.id, ...snapshot(rule) };
 }
 
 /**
@@ -194,24 +186,6 @@ async function membersAt(tx: Transaction, actor: Actor, target: Placement): Prom
   const userIds = await listMembersAt(tx, actor.companyId, target);
   await lockMembers(tx, actor.companyId, userIds);
   return userIds;
-}
-
-/**
- * Removes every rule of a department or level about to be deleted, recording
- * `allowance_rule.removed` for each (the foreign key would drop them silently). Nobody
- * is placed there any more, so no allowance moves.
- */
-export async function removeRulesOf(tx: Transaction, actor: Actor, target: { departmentId: string } | { levelId: string }): Promise<void> {
-  for (const rule of await deleteAllowanceRulesOf(tx, actor.companyId, target)) {
-    await recordAdminChange(tx, actor, {
-      type: ADMIN_EVENT_TYPES.allowanceRuleRemoved,
-      entityType: "allowance_rule",
-      entityId: rule.id,
-      before: snapshot(rule),
-      after: null,
-      payload: payload(rule),
-    });
-  }
 }
 
 /** Locks the company and checks the actor, then this year in the company's time zone. */

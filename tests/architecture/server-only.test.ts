@@ -23,9 +23,13 @@ const LOADED_OUTSIDE_NEXT = new Set(["src/db/schema.ts"]);
  */
 export const MISSING_SERVER_ONLY = new Set<string>([]);
 
+/** A module's application, infrastructure and index.ts run on the server; its domain and ui may not. */
+const isModuleServerFile = (path: string) => /^src\/modules\/[^/]+\/(application\/|infrastructure\/|index\.ts$)/.test(path);
+
 function serverFiles(): string[] {
   return ["src/server", "src/db", "src/lib"]
     .flatMap((dir) => listFiles(dir, /\.tsx?$/))
+    .concat(listFiles("src/modules", /\.tsx?$/).filter(isModuleServerFile))
     .filter((path) => !CLIENT_SAFE.has(path) && !LOADED_OUTSIDE_NEXT.has(path) && !path.endsWith(".d.ts"));
 }
 

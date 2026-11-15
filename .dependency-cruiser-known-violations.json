@@ -10,6 +10,69 @@
   },
   {
     "type": "dependency",
+    "from": "src/modules/reports/domain/leave-report.ts",
+    "to": "src/domain/actor.ts",
+    "rule": {
+      "severity": "error",
+      "name": "module-domain-is-pure"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/reports/domain/leave-report.ts",
+    "to": "src/domain/allowance-policy.ts",
+    "rule": {
+      "severity": "error",
+      "name": "module-domain-is-pure"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/reports/domain/leave-report.ts",
+    "to": "src/domain/calendar-date.ts",
+    "rule": {
+      "severity": "error",
+      "name": "module-domain-is-pure"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/reports/domain/leave-report.ts",
+    "to": "src/domain/calendar.ts",
+    "rule": {
+      "severity": "error",
+      "name": "module-domain-is-pure"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/reports/domain/leave-report.ts",
+    "to": "src/domain/csv.ts",
+    "rule": {
+      "severity": "error",
+      "name": "module-domain-is-pure"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/reports/domain/leave-report.ts",
+    "to": "src/domain/leave-days.ts",
+    "rule": {
+      "severity": "error",
+      "name": "module-domain-is-pure"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/reports/domain/leave-report.ts",
+    "to": "src/domain/leave-request.ts",
+    "rule": {
+      "severity": "error",
+      "name": "module-domain-is-pure"
+    }
+  },
+  {
+    "type": "dependency",
     "from": "src/app/api/auth/[...all]/route.ts",
     "to": "node_modules/.pnpm/better-auth@1.7.15_drizzle-kit@0.31.11_drizzle-orm@0.45.4_@electric-sql+pglite@0.5.14_k_92d8329bec5ec4d4d32c1b8716a18cb0/node_modules/better-auth/dist/integrations/next-js.d.mts",
     "rule": {

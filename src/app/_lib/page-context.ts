@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Actor } from "@/domain/actor";
 import { canAdminister } from "@/domain/admin-permissions";
 import { isDomainError } from "@/domain/errors";
-import { canViewReports } from "@/domain/reports";
+import { canViewReports } from "@/modules/reports";
 import { type ColorMode, colorModeOrDefault } from "@/domain/color-mode";
 import { requireActor } from "@/lib/auth";
 import type { ServiceContext } from "@/server/context";

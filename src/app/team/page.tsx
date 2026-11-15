@@ -10,7 +10,8 @@ import { PillNav } from "@/components/navigation/pill-nav";
 import { Card } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { cx, linkedRow, quietLink, textLink } from "@/components/ui/styles";
-import { departmentParamSchema, monthParamSchema, readParam } from "@/app/_lib/calendar-input";
+import { monthParamSchema } from "@/app/_lib/calendar-input";
+import { departmentParamSchema, readParam } from "@/shared/lib/search-params";
 import { requireMemberPage } from "@/app/_lib/page-context";
 
 export const metadata: Metadata = { title: "Team · OOOhm" };

@@ -12,7 +12,11 @@ triggers), only constraints.
 
 ## Decision
 
-- CI runs `drizzle-kit generate` and fails if it would produce a new migration (the `db diff` equivalent).
+- CI runs `drizzle-kit generate` and fails if it would produce a new migration. This catches drift between
+  `src/db/schema.ts` and the committed migrations and their snapshots only; it never looks at a live database.
+- Live drift (someone editing Neon by hand) is a separate check, closer to `supabase db diff`: a scheduled job
+  applies `drizzle/` to a fresh database, dumps both it and production with `pg_dump --schema-only`, and fails on a
+  difference. It runs against Neon with a read-only role, not on every PR.
 - The database keeps integrity: foreign keys, `CHECK` constraints, unique indexes and (if ADR-0004's option is taken)
   RLS. Workflows and branching rules stay in use cases. A trigger or function that branches on business state needs
   its own ADR.
@@ -20,4 +24,4 @@ triggers), only constraints.
 ## Consequences
 
 - An edited schema without a migration can't merge.
-- Environments (Neon, docker, PGlite) can't drift through hand edits unnoticed.
+- A hand edit to a live database is caught by the scheduled schema comparison, not by the PR check.

@@ -9,9 +9,9 @@ empty at A8.
 | # | Check | Tool | Added | Strict (empty baseline) by |
 | --- | --- | --- | --- | --- |
 | F1 | Domain imports nothing outside its domain (no `next/*`, `drizzle-orm`, `better-auth`, `node:*`) | dependency-cruiser + existing ESLint zone | A0 | A0 (0 today) |
-| F2 | `src/app` never imports repositories, `src/db` runtime, Drizzle or a module's `infrastructure/` | dependency-cruiser | A0 | A0 (0 today) |
-| F3 | Vendor SDKs only in infrastructure (`src/db`, repositories / `modules/*/infrastructure`, `server/identity`, `server/admin`, runtime) | dependency-cruiser | A0 | A0 (2 accepted edges, ADR-0005) |
-| F4 | `no-circular: error` | dependency-cruiser + `madge --circular` | A0 | A1 (5 today) |
+| F2 | `src/app` never imports repositories, anything in `src/db` but its types, a database or auth SDK, or a module's `infrastructure/` | dependency-cruiser | A0 | A0 (1 accepted edge: the Better Auth mount route, ADR-0005) |
+| F3 | Vendor SDKs only in infrastructure (`src/db`, `lib/auth`, `lib/auth-client`, `lib/mail/smtp`, repositories / `modules/*/infrastructure`, `server/identity`, `server/admin`, runtime; no blanket `src/lib` exemption) | dependency-cruiser | A0 | A0 (1 accepted edge, ADR-0005) |
+| F4 | `no-circular: error` | dependency-cruiser (A0, baselined); `madge --circular` joins in A1, once it reports 0 | A0 | A1 (5 today) |
 | F5 | `import "server-only"` in every server file | `tests/architecture/server-only.test.ts` | A0 | A1 (~120 files today) |
 | F6 | Every exported server action goes through the authenticated pipeline | `tests/architecture/actions-are-guarded.test.ts` | A0 | A0 (2 allow-listed token actions) |
 | F7 | Every route handler authenticates or is on the public list | `tests/architecture/routes-are-guarded.test.ts` | A0 | A0 |
@@ -22,7 +22,7 @@ empty at A8.
 | F12 | `actions.ts` imports only `@/modules/*`, `@/app/_lib/*`, `zod` | dependency-cruiser | A7 | A7 |
 | F13 | Event payloads match their recorded contracts | `tests/contracts/*` | A3 / A6 | A6 |
 | F14 | Tenant isolation for every repository function | `tests/integration/tenancy.test.ts` | A8 | A8 |
-| F15 | No schema drift (`drizzle-kit generate` produces nothing) | integration test + CI step | A8 | A8 |
+| F15 | No drift between `schema.ts` and committed migrations (`drizzle-kit generate` produces nothing); live Neon drift by a scheduled `pg_dump --schema-only` comparison | integration test + CI step; scheduled job | A8 | A8 |
 | F16 | No secret reaches the client bundle (`grep` `.next/static` for `BETTER_AUTH_SECRET`, `WEBHOOK_ENCRYPTION_KEY`, `CRON_SECRET` values set to sentinels in the CI build) | CI step | A0 | A0 |
 | F17 | `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` in `src` | `tsc -p tsconfig.src.json` | A8 | A8 |
 | F18 | Better Auth `cookieCache` stays off unless an ADR says otherwise | `tests/unit/auth-config.test.ts` | A0 | A0 |
@@ -34,7 +34,7 @@ empty at A8.
 1. `pnpm install --frozen-lockfile`
 2. `pnpm typecheck`
 3. `pnpm lint` (includes the size warnings; errors from A7)
-4. `pnpm arch` (dependency-cruiser with `--ignore-known`) and `pnpm madge` (cycles)
+4. `pnpm arch` (dependency-cruiser with `--ignore-known`) (cycles are enforced here through the baseline); from A1 also `pnpm madge`, which has no baseline and runs once the cycles are gone
 5. `pnpm test` (unit + `tests/architecture`)
 6. `pnpm test:integration:embedded` (PGlite)
 7. `pnpm test:integration` against a `postgres:16` service container
@@ -56,17 +56,27 @@ module.exports = {
     { name: "no-circular", severity: "error", from: {}, to: { circular: true } },
     {
       name: "domain-is-pure",
-      comment: "Domain code imports only domain code and the shared Result type (reference §2, ADR-0003).",
+      comment: "Today's domain and the shared kernel import only each other and the shared Result type (reference §2, ADR-0003).",
       severity: "error",
-      from: { path: "^src/(domain|modules/[^/]+/domain|shared/kernel)/" },
-      to: { pathNot: ["^src/(domain|modules/[^/]+/domain|shared/kernel)/", "^src/shared/lib/result\\.ts$"] },
+      from: { path: "^src/(domain|shared/kernel)/" },
+      to: { pathNot: ["^src/(domain|shared/kernel)/", "^src/shared/lib/result\\.ts$"] },
+    },
+    {
+      name: "module-domain-is-pure",
+      comment: "A module's domain imports only its own domain, the kernel and Result; never another module's domain. $1 is the module the import starts in.",
+      severity: "error",
+      from: { path: "^src/modules/([^/]+)/domain/" },
+      to: { pathNot: ["^src/modules/$1/domain/", "^src/shared/kernel/", "^src/shared/lib/result\\.ts$"] },
     },
     {
       name: "app-not-to-infrastructure",
-      comment: "Pages, actions and routes call services/modules, never the database (layer skipping).",
+      comment: "Pages, actions and routes call services/modules, never the database or the auth SDK (layer skipping).",
       severity: "error",
       from: { path: "^src/app/" },
-      to: { path: ["^src/server/repositories/", "^src/modules/[^/]+/infrastructure/", "^src/db/(index|connect|schema)", "node_modules/(drizzle-orm|postgres)/"] },
+      to: {
+        path: ["^src/server/repositories/", "^src/modules/[^/]+/infrastructure/", "^src/db/", "node_modules/(drizzle-orm|postgres|@electric-sql|better-auth|nodemailer)/"],
+        pathNot: "^src/db/types\\.ts$",
+      },
     },
     {
       name: "components-not-to-server",
@@ -82,9 +92,19 @@ module.exports = {
     },
     {
       name: "vendor-sdk-only-in-infrastructure",
+      comment: "Only the named infrastructure files may import a vendor SDK; any other src/lib utility is checked.",
       severity: "error",
-      from: { path: "^src/", pathNot: "^src/(lib|db|server/(repositories|runtime\\.ts|admin|identity)|modules/[^/]+/infrastructure)" },
-      to: { path: "node_modules/(nodemailer|better-auth|postgres|@electric-sql|drizzle-orm)/" },
+      from: {
+        path: "^src/",
+        pathNot: [
+          "^src/db/",
+          "^src/lib/(auth|auth-client)\\.ts$",
+          "^src/lib/mail/smtp\\.ts$",
+          "^src/server/(repositories/|runtime\\.ts$|admin/|identity/)",
+          "^src/modules/[^/]+/infrastructure/",
+        ],
+      },
+      to: { path: "node_modules/(nodemailer|better-auth|@better-auth|postgres|@electric-sql|drizzle-orm)/" },
     },
     // Added in A2. Two rules, because only `from.path` can capture a group: `$1` in `to` refers to the module the
     // import starts in, so a module's own layers stay reachable and every other module only through index.ts.
@@ -109,14 +129,18 @@ module.exports = {
 
 ## 4.4 Baseline measured on 2026-11-15
 
+Measured with **exactly** the draft config above (dependency-cruiser 16, 395 modules, 2,111 dependencies, 8 reported
+violations: 6 cycle edges and the one accepted auth-route edge, which two rules report).
+
 | Rule | Violations |
 | --- | ---: |
 | `no-circular` | 5 cycles (6 edges reported) |
 | `domain-is-pure` | 0 |
-| `app-not-to-infrastructure` | 1 (`api/auth/[...all]` → `better-auth/next-js`, accepted) |
+| `app-not-to-infrastructure` | 1 (`api/auth/[...all]` → `better-auth/next-js`, accepted, ADR-0005) |
 | `components-not-to-server` | 0 |
 | `application-not-to-concrete-infrastructure` | 0 |
-| `vendor-sdk-only-in-infrastructure` | 1 (`lib/auth.ts` → `drizzle-orm`, accepted: it is infrastructure) |
+| `vendor-sdk-only-in-infrastructure` | 1 (the same `api/auth/[...all]` edge; `lib/auth.ts` → `drizzle-orm` is allowed because the rule names `lib/auth.ts` as infrastructure) |
+| `module-domain-is-pure` | 0 (no modules yet; checked on a fixture: `leave/domain` → `approvals/domain` is reported) |
 | Informational: service → repository edges | 165 |
 | Informational: service → service edges | 101 |
 | Files without `server-only` under `src/server`, `src/db`, server `src/lib` | ~120 |

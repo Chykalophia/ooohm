@@ -33,6 +33,6 @@ have pure rules.
 | RLS on every exposed table, tested with pgTAP | A generated tenant-isolation suite over every repository function. RLS on `app.company_id` is recommended as defence in depth, to be decided at A8, and tested with SQL assertions (PGlite has no pgTAP) | 0004 |
 | Service-role client only in `src/server/admin/` | A separate owner database role and URL, opened only from `src/server/admin/db.ts`, used by migrations, seed and import. The app role is DML-only and cannot rewrite `audit_log` | 0006 |
 | `getClaims()`/`getUser()`, never `getSession()` | Better Auth `getSession()` with the cookie cache **off**, which reads the session table on every request. A test pins that setting | 0005 |
-| `supabase db diff` in CI, migrations only | drizzle-kit drift check in CI. No business logic in the database | 0011 |
+| `supabase db diff` in CI, migrations only | drizzle-kit schema-vs-migrations check in CI, plus a scheduled live schema comparison against Neon. No business logic in the database | 0011 |
 | Generated Supabase types only in `infrastructure/` | Drizzle `$inferSelect` row types never leave a module's `infrastructure/` (fitness check F11) | 0009 |
 | `@supabase/*` only in infrastructure | `drizzle-orm`, `postgres`, PGlite, `better-auth` and `nodemailer` only in infrastructure (F3) | 0005, 0009 |

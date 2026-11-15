@@ -18,6 +18,11 @@ and mappings are good and are a public contract for messages.
   Tier 2 domain helpers may keep throwing `DomainError`, which the use case converts with `fromDomainError`.
 - During the migration the pipeline and API handler accept both a returned `err` and a thrown `DomainError`, mapping
   them identically (a unit test pins this). The throw path is removed in A8.
+- **Results and transactions.** `inTransaction` commits whenever its callback resolves, so an `err` must never be
+  returned from inside a callback that has already written. Inside a unit of work, an expected failure is thrown as a
+  `DomainError` so the transaction rolls back; the use case catches it **after** the transaction settles and returns
+  `err` (`fromDomainError`). A use case may return `err` directly only before it opens the transaction or after it
+  settles. A unit test pins this: a use case that writes, then fails, leaves no row and returns `err`.
 - We will not adopt `neverthrow` or Effect now; a later ADR may.
 
 ## Consequences

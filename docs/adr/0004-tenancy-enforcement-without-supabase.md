@@ -29,3 +29,5 @@ today: `company_id` always comes from the actor, every repository query is scope
 - RLS adds a second net for that mistake at the cost of a session variable per transaction and policy maintenance on
   every new table; we decide with measured overhead in hand.
 - Single-company self-hosted installs pay nothing extra for the tests; RLS can stay on for them too.
+- The two-role split (point 2) applies to every Postgres deployment. Embedded PGlite is the one exception: it runs
+  as a single built-in superuser, so it keeps one handle (ADR-0006). The tenant-isolation suite still runs on it.

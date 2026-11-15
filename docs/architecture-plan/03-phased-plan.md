@@ -42,14 +42,17 @@ Nine phases, **A0 to A8**, each shipped as one or more PRs that keep the app's b
 
 **Steps**
 
+0. Change `pnpm test` to `tsx … --test "tests/unit/**/*.test.ts" "tests/architecture/**/*.test.ts"` so the new
+   architecture tests run with the unit suite (and in CI) without dropping any unit test.
 1. Add devDependencies `dependency-cruiser` and `madge`; commit `.dependency-cruiser.cjs`
    ([draft](04-fitness-functions.md#draft-dependency-cruiser-config)) with `no-circular: error` and a recorded baseline
-   of the 5 cycles and 2 accepted vendor edges.
+   of the 5 cycles and the one accepted Better Auth mount-route edge.
 2. Add `pnpm arch` (`depcruise src --config --ignore-known`) and `pnpm arch:baseline`.
 3. Add ESLint size rules as **warnings** with today's offenders suppressed: `max-lines` 100 for `actions.ts` /
    `route.ts`, `max-lines-per-function` 50 for `src/server/**`, `src/domain/**`, actions and routes, `max-lines` 500
    for use-case files. `.tsx` components get `max-lines-per-function` 150 (markup is long by nature; logic is not).
-4. Add `.github/workflows/ci.yml`: install → `typecheck` → `lint` → `arch` → `test` → `test:integration:embedded` →
+4. Add `.github/workflows/ci.yml`: install → `typecheck` → `lint` → `arch` (cycles enforced here, through the
+   dependency-cruiser baseline; `madge` joins CI in A1, once it can report 0) → `test` → `test:integration:embedded` →
    `test:integration` against a Postgres 16 service → `build` (dummy secrets, as in the repo memory notes). Required
    on `main`.
 5. Add `ARCHITECTURE.md`, the AGENTS.md "Architecture standard" section and ADRs 0001–0012 (this PR).
@@ -100,7 +103,10 @@ guarded-actions and guarded-routes checks, size-limit warnings.
 4. Add `ids: IdGenerator` to `ServiceContext`; replace the 7 `randomUUID()` call sites in services.
 5. Branded IDs in `src/shared/kernel/ids.ts`, adopted at the edges first (`toActor`, route params, zod schemas with
    `.brand()`), then inward module by module.
-6. Add `import "server-only"` to every server file (mechanical; shrink the A0 allow-list to zero).
+6. Add `--conditions=react-server` to every script invocation that lacks it (`db:migrate`, `db:seed`, and both
+   commands in `vercel-build`), and prove it with a test that runs `scripts/seed.mts --if-production` against PGlite.
+   Only then add `import "server-only"` to every server file (mechanical; shrink the A0 allow-list to zero).
+7. Add `pnpm madge` (`madge --circular --extensions ts,tsx src`) to CI now that it reports 0.
 
 **Exit criteria**
 
@@ -277,7 +283,8 @@ module has a README; service-to-service edges (101 today) are 0; cross-module ed
 4. Per-person rate limit on server actions in the pipeline (cross-cutting), reusing `src/lib/rate-limit.ts`.
 
 **Exit:** no action/route file over 100 lines, no function over 50 outside `.tsx`; every module's `index.ts`
-exports DTOs only; component tests run in CI.
+exports only use cases, queries, DTO types and policies (ADR-0009), never a row type or anything from
+`infrastructure/` (F11); component tests run in CI.
 
 ---
 
@@ -292,16 +299,18 @@ exports DTOs only; component tests run in CI.
   `app.company_id` to A, and asserts `SELECT`/`UPDATE`/`DELETE` on every company-scoped table cannot see B; and that a
   connection without `app.company_id` sees nothing. Runs on Postgres and PGlite.
 - Migration drift (`tests/integration/migrations.test.ts`, extend): `drizzle-kit generate` against `schema.ts` produces
-  no new migration (the stack's equivalent of `supabase db diff`, ADR-0011).
+  no new migration. This checks schema files against committed migrations only (ADR-0011); live-database drift is a
+  separate scheduled `pg_dump --schema-only` comparison against Neon.
 - Playwright journeys (`tests/e2e/*.spec.ts`), one per role, on `pnpm start:embedded`: employee requests and cancels
   leave; manager approves from the inbox and from the email link (Mailpit); admin invites a person, edits an allowance,
   adds a holiday; plus a tenant-isolation journey (an id from another company is a 404).
 
 **Steps**
 
-1. Database roles (ADR-0006): `ooohm_owner` for migrations, seed, worker and import (`src/server/admin/db.ts`);
-   `ooohm_app` (no DDL, no `audit_log` UPDATE/DELETE) for requests. On Neon: two roles, two connection strings;
-   PGlite and docker-compose get the same two roles from a migration.
+1. Database roles (ADR-0006): `ooohm_owner` for migrations, seed and import (`src/server/admin/db.ts`);
+   `ooohm_app` (no DDL, no `audit_log` UPDATE/DELETE) for requests, the cron route and the worker. Every Postgres
+   deployment (Neon, docker-compose) must set `DATABASE_ADMIN_URL`; docker-compose creates both roles in its init step.
+   Embedded PGlite is the one exception and keeps a single handle (ADR-0006).
 2. RLS as defence in depth, if accepted (ADR-0004): enable on every company-scoped table with explicit per-operation
    policies on `current_setting('app.company_id', true)`, set with `set_config(..., true)` at the start of
    `inTransaction` (transaction-scoped, so it is safe behind Neon's PgBouncer pooler).
@@ -314,7 +323,8 @@ exports DTOs only; component tests run in CI.
 - All fitness functions are errors with **empty baselines**.
 - Tenant-isolation, RLS (if adopted), drift and e2e suites run in CI and are required.
 - `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` across `src`.
-- Every module: README, `index.ts` exporting DTOs, use cases returning `ServiceResult`, tests per its tier.
+- The two-role split holds on every Postgres deployment; PGlite is the recorded exception (ADR-0004, ADR-0006).
+- Every module: README, `index.ts` exporting only use cases, queries, DTO types and policies, use cases returning `ServiceResult`, tests per its tier.
 - DORA baseline recorded (A0) and re-measured: lead time not worse, change-failure rate not worse. If layering slows
   lead time without lowering failures, simplify (reference §28).
 

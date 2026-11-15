@@ -86,7 +86,7 @@ Measured with dependency-cruiser 16 using the rules in
 | Services import `db`/`env`/`auth`/`mail` or a vendor SDK | **0** | Services import only `@/db/types` (type-only) |
 | Vendor SDK (`drizzle-orm`, `better-auth`, `nodemailer`, `postgres`, PGlite) outside `src/lib`, `src/db`, repositories, runtime | **0** | |
 | `src/app/api/auth/[...all]/route.ts` → `better-auth/next-js` | 1 | Accepted: the auth framework's own mount point (ADR-0005) |
-| `src/lib/auth.ts` → `drizzle-orm` | 1 | Accepted: the Better Auth adapter is infrastructure; moves to `src/server/identity/infrastructure` |
+| `src/lib/auth.ts` → `drizzle-orm` | 1 | Allowed: the vendor rule names `lib/auth.ts` as infrastructure (the Better Auth adapter); moves to `src/server/identity/infrastructure` |
 | Circular dependencies | **5** | below |
 | Service → concrete repository | 165 edges | Allowed at Tier 2 ("CRUD slices call the repository directly"); replaced by ports only in Tier 3 modules |
 | Service → another service (no module boundary) | 101 edges | Becomes "cross-module through `index.ts` only" |
@@ -177,7 +177,11 @@ importer (1), `src/db/**` (7) and the server-side `src/lib` files (`env`, `integ
 `feed-token`, `setup-token`, `email-link-token`, `safe-fetch`, `rate-limit`, …). Today ESLint's component rules stop a
 client import of these, but the build would not.
 
-Scripts and tests already run with `--conditions=react-server`, so adding `server-only` everywhere breaks nothing.
+Tests, the worker, the rollover and the TimeOff import run with `--conditions=react-server`, so `server-only` loads
+there. **`db:migrate`, `db:seed` and `vercel-build` (`tsx scripts/migrate.mts` / `scripts/seed.mts`) do not**, and
+both scripts import `src/db/config`, `src/db/connect` (and the seed `src/db/schema`) directly. Adding `server-only`
+to those modules without adding the condition to those invocations would make the production build fail before the
+seed's `--if-production` check. A1 adds the condition to every script invocation first.
 
 ## 1.7 Errors and results
 

@@ -21,7 +21,7 @@ Better Auth adapter and the session hook.
 - Every server action goes through the authenticated pipeline; the two token-credentialed actions (email approve,
   first-install setup) are allow-listed with the service that verifies their token.
 - If a Next.js proxy is ever added it does optimistic redirects only; authorization stays in the use case.
-- The auth mount route and the Better Auth adapter are accepted vendor edges in the dependency-cruiser config.
+- The auth mount route is the one accepted vendor edge in the dependency-cruiser baseline; `src/lib/auth.ts` (the Better Auth adapter) is named as infrastructure in the rule, so it is allowed, not baselined.
 
 ## Consequences
 

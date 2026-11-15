@@ -1,14 +1,20 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
 import { type Actor, isAdmin } from "@/domain/actor";
-import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { isCalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
-import { canDecide, decidesByAssignment } from "@/domain/leave-permissions";
-import { normalizeNote } from "@/domain/leave-request";
 import { isCursorInstant, type PageCursor, readPage } from "@/domain/paging";
-import { assertTransition } from "@/domain/request-status";
+import {
+  activeContacts,
+  alsoOffFor,
+  assertTransition,
+  canDecide,
+  decidesByAssignment,
+  normalizeNote,
+  recordLeaveChange,
+  summarize,
+} from "@/modules/leave";
 import type { ServiceContext } from "@/server/context";
 import {
   countInbox,
@@ -21,10 +27,7 @@ import {
 } from "@/server/repositories/leave-requests";
 import { findCompanySettings } from "@/server/repositories/calendar";
 import { findLeaveType } from "@/server/repositories/leave-types";
-import { findMember } from "@/server/repositories/users";
-import { loadApprovalContext } from "./approval-routing";
-import { alsoOffFor } from "./also-off";
-import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
+import { currentApprover } from "./approval-routing";
 import { commitThenNotify } from "@/modules/notifications";
 
 export type Decision = "approve" | "reject";
@@ -56,17 +59,6 @@ const SETTLED_KEY = [isCursorInstant, isUuid] as const;
 
 function scopeFor(actor: Actor): InboxScope {
   return { companyId: actor.companyId, deciderId: actor.id, isAdmin: isAdmin(actor) };
-}
-
-/**
- * Who the approval rule (minus self-approval) picks for `requesterId`'s pending
- * requests now, read inside `tx`: five reads at most. Also who is told when someone
- * cancels heads-up time off.
- */
-export async function currentApprover(tx: Transaction, companyId: string, requesterId: string): Promise<string | null> {
-  const requester = await findMember(tx, companyId, requesterId);
-  if (!requester) return null;
-  return reassignApprover(new ManagerApprovalRule(), await loadApprovalContext(tx, companyId, requester));
 }
 
 /**

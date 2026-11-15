@@ -9,12 +9,15 @@ import { adapterRegistry } from "@/server/integrations/registry";
 import { deliverDueAdapterEvents } from "@/server/services/adapter-delivery";
 import { applyInboundSync } from "@/server/services/inbound-sync";
 import { listAdapters, syncAdapterNow } from "@/server/services/integrations";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
 import { createWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const T0 = new Date("2026-11-02T15:00:00Z");
 

@@ -165,7 +165,9 @@ const layers = [
     files: ["src/domain/**/*.ts"],
     paths: next,
     patterns: [
-      { group: ["@/*", "!@/domain", "!@/domain/*"], message: "The domain imports only from src/domain." },
+      // The shared kernel is the domain every module shares (domain-is-pure in .dependency-cruiser.cjs allows it).
+      { group: ["@/*", "!@/domain", "!@/domain/*", "!@/shared"], message: "The domain imports only from src/domain and src/shared/kernel." },
+      { group: ["@/shared/*", "!@/shared/kernel"], message: "The domain imports only from src/domain and src/shared/kernel." },
       { group: ["../*"], message: "The domain imports only from src/domain." },
       { group: ["next/*", "react", "react-dom", "server-only", "better-auth", "better-auth/*", "nodemailer", "node:*"], message: "The domain is pure: no framework or I/O." },
       drizzle,

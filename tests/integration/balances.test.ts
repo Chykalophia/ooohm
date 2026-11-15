@@ -8,10 +8,15 @@ import { getPersonDetail } from "@/server/services/admin-people";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary, previewLeaveRequest } from "@/server/services/balances";
 import { issueCalendarFeed, shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
-import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
+import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 // Dates: 2026-11-02 is a Monday; 2026-11-26 (Thu) is the seeded holiday. The test clock
 // is 2026-11-01, so "this year" is 2026.

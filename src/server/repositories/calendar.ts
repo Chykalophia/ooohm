@@ -3,7 +3,7 @@ import { and, asc, between, eq, gte, inArray, lte, or, type SQL, sql } from "dri
 import { companies, departments, holidays, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 import type { CalendarScope } from "@/domain/calendar-visibility";
-import { ACTIVE_STATUSES, earliestOverlappingStart } from "@/domain/leave-request";
+import { ACTIVE_STATUSES, earliestOverlappingStart } from "@/shared/kernel/leave-range";
 
 const settingsFields = {
   timezone: companies.timezone,

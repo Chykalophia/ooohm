@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { auditActionLabel, auditFieldLabel, describeAuditChange, diffAuditSnapshots, isAuditAction } from "@/domain/audit";
 import { ADMIN_EVENT_TYPES, ALLOWANCE_AUDIT_ACTIONS, CALENDAR_FEED_EVENT_TYPES, leaveAuditAction } from "@/domain/events";
-import { LEAVE_STATUSES } from "@/domain/leave-request";
+import { LEAVE_STATUSES } from "@/shared/kernel/leave-range";
 
 const names = {
   person: (id: string) => ({ u1: "Ana", u2: "Ben" })[id],

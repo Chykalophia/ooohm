@@ -3,13 +3,19 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { isDomainError } from "@/domain/errors";
-import { cancelLeaveRequest, getDashboard } from "@/server/services/leave-requests";
-import { addLeaveFor, previewLeaveFor, removeLeaveFor } from "@/server/services/leave-on-behalf";
+import { addLeaveFor as addLeaveForResult, cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, previewLeaveFor as previewLeaveForResult, removeLeaveFor as removeLeaveForResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { runYearRollover } from "@/server/services/rollover";
 import { getTeamMember } from "@/server/services/team-member";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, auditFor, companyAudit, eventsFor, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const addLeaveFor = (...args: Parameters<typeof addLeaveForResult>) => addLeaveForResult(...args).then(unwrap);
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const previewLeaveFor = (...args: Parameters<typeof previewLeaveForResult>) => previewLeaveForResult(...args).then(unwrap);
+const removeLeaveFor = (...args: Parameters<typeof removeLeaveForResult>) => removeLeaveForResult(...args).then(unwrap);
 
 // Dates: 2026-11-02 is a Monday; 2026-11-26 (Thu) is the seeded holiday.
 const now = new Date("2026-11-01T12:00:00Z");

@@ -31,7 +31,7 @@ import { listPendingSelfRouted } from "@/server/repositories/leave-requests";
 import { emailsInUse, insertPerson, listPeopleNames, type PersonRow } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { beginAdminChange, inviteEmail, inviterName, personPayload, personSnapshot } from "./admin-people";
-import { rerouteApprovals } from "./approval-routing";
+import { rerouteApprovals } from "./approval-reroute";
 import { commitThenNotify, type Notification } from "@/modules/notifications";
 
 /** Most people one admin may add by import in {@link PEOPLE_IMPORT_WINDOW_MINUTES}. */

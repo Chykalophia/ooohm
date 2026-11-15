@@ -3,13 +3,14 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import * as notifications from "@/modules/notifications";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
 import { invitePerson } from "@/server/services/admin-people";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 // The email editor returns ServiceResults; these unwrap them, so the calls and assertions below stay plain.
 const listEmailsForAdmin = (...a: Parameters<typeof notifications.listEmailsForAdmin>) => notifications.listEmailsForAdmin(...a).then(unwrap);
 const getEmailForAdmin = (...a: Parameters<typeof notifications.getEmailForAdmin>) => notifications.getEmailForAdmin(...a).then(unwrap);

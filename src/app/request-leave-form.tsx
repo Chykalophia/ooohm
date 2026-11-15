@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PendingLabel } from "@/components/ui/ooo-dots";
-import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { type FormState, IDLE, nextFormKey } from "@/components/forms/form-state";
 import { DateField } from "@/components/forms/date-field";
 import { FormStatus } from "@/components/forms/form-status";

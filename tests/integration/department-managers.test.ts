@@ -6,12 +6,15 @@ import { createDepartment, listDepartmentsForAdmin, setDepartmentManager } from 
 import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
 import { deletePerson } from "@/server/services/admin-people-deletion";
 import { decideLeaveRequest } from "@/server/services/approvals";
-import { addLeaveFor } from "@/server/services/leave-on-behalf";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { addLeaveFor as addLeaveForResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { getTeamMember } from "@/server/services/team-member";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const addLeaveFor = (...args: Parameters<typeof addLeaveForResult>) => addLeaveForResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
 const NOW = new Date("2026-11-03T09:00:00Z");

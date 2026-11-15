@@ -5,8 +5,8 @@
 import { addDays } from "@/domain/allowance-policy";
 import type { CalendarDate } from "@/domain/calendar-date";
 import { isCalendarDate } from "@/domain/calendar-date";
-import { splitLeaveDaysByYear, type YearDays } from "@/domain/leave-days";
-import { type LeaveRange, type LeaveStatus, NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { splitLeaveDaysByYear, type YearDays } from "@/shared/kernel/leave-days";
+import { type LeaveRange, type LeaveStatus, NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { isTimeOffApproved, timeOffDeductedDays } from "../balance";
 import { TIMEOFF_STATUS, type TimeOffLeave, type TimeOffLeaveType } from "../source";
 import type { CalendarPlan } from "./calendars";

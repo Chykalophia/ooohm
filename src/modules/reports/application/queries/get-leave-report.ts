@@ -3,7 +3,7 @@ import type { Actor } from "@/domain/actor";
 import { addDays } from "@/domain/allowance-policy";
 import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
 import { DomainError } from "@/domain/errors";
-import type { YearDays } from "@/domain/leave-days";
+import type { YearDays } from "@/shared/kernel/leave-days";
 import { teamLabel } from "@/domain/person";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";

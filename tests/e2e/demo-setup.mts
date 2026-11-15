@@ -22,9 +22,12 @@ import { createSecretBox } from "../../src/lib/integration-crypto";
 import type { ServiceContext } from "../../src/server/context";
 import { createAdapterRegistry } from "../../src/server/integrations/adapter";
 import { createApiKey } from "../../src/server/services/api-keys";
-import { submitLeaveRequest } from "../../src/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "../../src/modules/leave";
+import { unwrap } from "../../src/shared/lib/result";
 import { createWebhookEndpoint } from "../../src/server/services/webhooks";
 import { uuidGenerator } from "../../src/shared/lib/id-generator";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const [command, ...args] = process.argv.slice(2);
 const handle = await openDatabase(resolveDatabaseConfig(process.env), { purpose: "the e2e demo setup", max: 2 });

@@ -18,7 +18,8 @@ import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "
 import type { ServiceContext } from "@/server/context";
 import { type CompanyRow, findCompany, lockCompany, updateCompany } from "@/server/repositories/companies";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
-import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "./leave-recount";
+import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { commitThenNotify } from "@/modules/notifications";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 
@@ -114,7 +115,7 @@ export async function updateCompanySettings(
     }));
     const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);
     if (!changed || !workingDaysChanged) return { result: { company: after, recount: NOTHING_RECOUNTED }, notify: [] };
-    const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "working_days", previous: before.workingDays });
+    const { outcome, notify } = unwrap(await recountLeave(tx, ctx, actor, { kind: "working_days", previous: before.workingDays }));
     return { result: { company: after, recount: outcome }, notify };
   });
 }

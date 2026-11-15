@@ -3,30 +3,14 @@ import { and, asc, count, eq, getTableColumns, gt, gte, inArray, isNull, lte, ne
 import { alias } from "drizzle-orm/pg-core";
 import { auditLog, departments, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { LeaveStatus } from "@/domain/leave-request";
+import type { LeaveStatus } from "@/shared/kernel/leave-range";
 import type { PageRequest } from "@/domain/paging";
-import { activeInRange } from "./calendar";
 import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 
 export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
-export type NewLeaveRequest = typeof leaveRequests.$inferInsert;
-
-export async function insertLeaveRequest(ex: Executor, values: NewLeaveRequest): Promise<LeaveRequestRow> {
-  const [row] = await ex.insert(leaveRequests).values(values).returning();
-  return row;
-}
-
-/** A request of the company; one of another company reads as missing (`undefined`). */
-export async function findLeaveRequest(ex: Executor, companyId: string, id: string) {
-  const [row] = await ex
-    .select()
-    .from(leaveRequests)
-    .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId)));
-  return row;
-}
 
 /**
- * {@link findLeaveRequest}, holding the row `FOR UPDATE` until commit: for a change whose
+ * A request of the company (one of another company reads as missing), holding the row `FOR UPDATE` until commit: for a change whose
  * audit row records the request before it. A recount that holds the row is waited for,
  * so "before" shows its days rather than the ones it replaced (the change's own update
  * would wait on the same lock anyway; this takes it before the read instead of after).
@@ -38,18 +22,6 @@ export async function lockLeaveRequest(tx: Transaction, companyId: string, id: s
     .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId)))
     .for("update");
   return row;
-}
-
-/**
- * How many requests, in any status, the person created in the last `minutes`,
- * measured on the database clock that also stamps `created_at`.
- */
-export async function countRecentRequests(ex: Executor, userId: string, minutes: number): Promise<number> {
-  const [row] = await ex
-    .select({ n: count() })
-    .from(leaveRequests)
-    .where(and(eq(leaveRequests.userId, userId), gt(leaveRequests.createdAt, sql`now() - make_interval(mins => ${minutes})`)));
-  return row?.n ?? 0;
 }
 
 /** The requester's pending/approved requests whose dates intersect `[from, to]`. */
@@ -197,53 +169,6 @@ export async function hasApprovedRequest(ex: Executor, companyId: string, userId
 /** The key part values of a `[start_date, created_at, id]` page key. */
 const dateInstantId = ([date, at, id]: string[]) => [sql`${date}::date`, sql`${at}::timestamptz`, sql`${id}::uuid`];
 
-/** What a person sees of their own request, with the leave type and approver named. */
-const ownRequestFields = {
-  id: leaveRequests.id,
-  cursor: cursorInstant(leaveRequests.createdAt),
-  startDate: leaveRequests.startDate,
-  endDate: leaveRequests.endDate,
-  dayPortion: leaveRequests.dayPortion,
-  days: leaveRequests.days,
-  status: leaveRequests.status,
-  note: leaveRequests.note,
-  decisionNote: leaveRequests.decisionNote,
-  createdAt: leaveRequests.createdAt,
-  decidedAt: leaveRequests.decidedAt,
-  leaveTypeName: leaveTypes.name,
-  leaveTypeColor: leaveTypes.color,
-  approverId: leaveRequests.approverId,
-  approverName: approver.name,
-};
-
-/**
- * A page of a person's own requests, latest dates first (then latest sent), with
- * display names resolved. Keyed on `[start_date, created_at, id]`; `cursor` is
- * `created_at` as {@link cursorInstant} prints it.
- */
-export async function listRequestsForUser(ex: Executor, companyId: string, userId: string, limit: number, page?: PageRequest) {
-  const keyset = keysetPage("desc", [leaveRequests.startDate, leaveRequests.createdAt, leaveRequests.id], page, dateInstantId);
-  return ex
-    .select(ownRequestFields)
-    .from(leaveRequests)
-    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
-    .leftJoin(approver, eq(approver.id, leaveRequests.approverId))
-    .where(and(eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId), keyset.where))
-    .orderBy(...keyset.orderBy)
-    .limit(limit);
-}
-
-/** One of a person's own requests, as {@link listRequestsForUser} reads them, or `undefined` (someone else's included). */
-export async function findRequestOfUser(ex: Executor, companyId: string, userId: string, id: string) {
-  const [row] = await ex
-    .select(ownRequestFields)
-    .from(leaveRequests)
-    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveRequests.leaveTypeId))
-    .leftJoin(approver, eq(approver.id, leaveRequests.approverId))
-    .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId), eq(leaveRequests.userId, userId)));
-  return row;
-}
-
 /** Who is asking for the inbox, and whether they see every pending request in the company. */
 export interface InboxScope {
   companyId: string;
@@ -279,7 +204,7 @@ function inboxWhere(scope: InboxScope): SQL | undefined {
  * A page of the pending requests the inbox shows for `scope`, earliest start first (then
  * first sent), with requester (and their department), leave type and assigned approver
  * names joined in: at most `limit` rows, one query. Keyed on `[start_date, created_at,
- * id]` like {@link listRequestsForUser}.
+ * id]` like a person's own requests.
  */
 export async function listInbox(ex: Executor, scope: InboxScope, limit: number, page?: PageRequest) {
   const keyset = keysetPage("asc", [leaveRequests.startDate, leaveRequests.createdAt, leaveRequests.id], page, dateInstantId);
@@ -317,48 +242,6 @@ export async function listInbox(ex: Executor, scope: InboxScope, limit: number, 
 export async function countInbox(ex: Executor, scope: InboxScope): Promise<number> {
   const [row] = await ex.select({ n: count() }).from(leaveRequests).where(inboxWhere(scope));
   return row?.n ?? 0;
-}
-
-/**
- * Locks and returns the company's pending and approved requests that include any of
- * `dates`, or (with `{ from }`) every one ending on or after `from`; oldest start first.
- * Locked `FOR UPDATE`, so a decision, cancel or reassignment of one of them waits until
- * the caller's transaction ends. Requests on none of the dates are neither read nor
- * locked, even between two of them.
- */
-export async function lockActiveRequestsOnDates(
-  tx: Transaction,
-  companyId: string,
-  dates: readonly string[] | { from: string },
-): Promise<LeaveRequestRow[]> {
-  let where: SQL | undefined;
-  if ("from" in dates) {
-    where = and(
-      eq(leaveRequests.companyId, companyId),
-      inArray(leaveRequests.status, ["pending", "approved"]),
-      gte(leaveRequests.endDate, dates.from),
-    );
-  } else {
-    if (dates.length === 0) return [];
-    const sorted = [...dates].sort();
-    where = and(
-      activeInRange(companyId, sorted[0], sorted[sorted.length - 1]),
-      or(...sorted.map((d) => and(lte(leaveRequests.startDate, d), gte(leaveRequests.endDate, d)))),
-    );
-  }
-  return tx.select().from(leaveRequests).where(where).orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id)).for("update");
-}
-
-/** Sets a request's total `days`; its per-year split is replaced separately ({@link replaceRequestDays}). */
-export async function updateRequestDays(tx: Transaction, companyId: string, id: string, days: number): Promise<LeaveRequestRow> {
-  const [row] = await tx
-    .update(leaveRequests)
-    .set({ days })
-    .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId)))
-    .returning();
-  // The caller locked the row earlier in this transaction, so it is there; fail loudly if not.
-  if (!row) throw new Error(`leave request ${id} missing while its days were updated`);
-  return row;
 }
 
 /** The two audit actions that record a decision on a request. */
@@ -441,34 +324,3 @@ export async function findRequestForReview(ex: Executor, companyId: string, id: 
   return row;
 }
 
-/**
- * Each approver's median time from request to decision, in hours, over the requests
- * assigned to them that were decided since `since` (by them, or by an admin stepping
- * in: either way, it is how long a request routed to them waited): only approvers with at least `minSamples` such decisions,
- * and never a request routed to its own requester (self-approval decides instantly).
- * One grouped query.
- */
-export async function medianDecisionHours(ex: Executor, q: { companyId: string; approverIds: readonly string[]; since: Date; minSamples: number }) {
-  if (q.approverIds.length === 0) return [];
-  return ex
-    .select({
-      // Never null: the filter below keeps only the listed approvers.
-      approverId: sql<string>`${leaveRequests.approverId}`,
-      hours:
-        sql<number>`percentile_cont(0.5) within group (order by extract(epoch from (${leaveRequests.decidedAt} - ${leaveRequests.createdAt})) / 3600)`.mapWith(
-          Number,
-        ),
-    })
-    .from(leaveRequests)
-    .where(
-      and(
-        eq(leaveRequests.companyId, q.companyId),
-        inArray(leaveRequests.approverId, [...q.approverIds]),
-        inArray(leaveRequests.status, ["approved", "rejected"]),
-        gte(leaveRequests.decidedAt, q.since),
-        ne(leaveRequests.userId, leaveRequests.approverId),
-      ),
-    )
-    .groupBy(leaveRequests.approverId)
-    .having(sql`count(*) >= ${q.minSamples}`);
-}

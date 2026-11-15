@@ -4,7 +4,7 @@ import { after, before, describe, test } from "node:test";
 import { and, asc, eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import type { LeaveStatus } from "@/domain/leave-request";
+import type { LeaveStatus } from "@/shared/kernel/leave-range";
 import { issueCalendarFeed, listCalendarFeeds, renderCalendarFeed, revokeCalendarFeed } from "@/server/services/calendar-feeds";
 import { only, parseIcs, unescapeText } from "../support/ics-parser";
 import { rejectsWith } from "./assertions";

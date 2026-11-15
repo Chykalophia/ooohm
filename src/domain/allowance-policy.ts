@@ -8,8 +8,8 @@
  * number, which is also how per-request costs are stored (`leave_request_days.year`).
  */
 import { DomainError, type BalanceShortfallDetails } from "./errors";
-import { splitLeaveDaysByYear, type WorkCalendar, type YearDays } from "./leave-days";
-import type { LeaveRange } from "./leave-request";
+import { splitLeaveDaysByYear, type WorkCalendar, type YearDays } from "@/shared/kernel/leave-days";
+import type { LeaveRange } from "@/shared/kernel/leave-range";
 
 /** The policy key v1 ships, and the column default. */
 export const ANNUAL_CALENDAR_YEAR = "annual_calendar_year";

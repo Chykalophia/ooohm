@@ -3,12 +3,14 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { createDepartment, listDepartmentsForAdmin, setDepartmentLimit } from "@/server/services/admin-departments";
-import { draftCoverage } from "@/server/services/also-off";
+import { draftCoverage, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { getApprovalTriage } from "@/server/services/approvals";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const NOW = new Date("2026-11-03T09:00:00Z");
 

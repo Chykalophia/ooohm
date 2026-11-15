@@ -14,7 +14,8 @@ import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
 import { readTimeOffSqlite } from "@/modules/import/infrastructure/timeoff-sqlite-reader";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary } from "@/server/services/balances";
-import { cancelLeaveRequest, getDashboard } from "@/server/services/leave-requests";
+import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { runYearRollover } from "@/server/services/rollover";
 import { importTimeOff, type TimeOffImportInput } from "@/modules/import";
 import { DatabaseSync } from "node:sqlite";
@@ -31,6 +32,9 @@ import {
 import { rejectsWith } from "./assertions";
 import { decidable, requestsOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
 
 const TABLES = {
   user: schema.user,

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MAX_OFF_LIMIT } from "@/domain/coverage";
+import { MAX_OFF_LIMIT } from "@/modules/leave";
 import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
 import { formatCount } from "@/lib/format";
 import { listDepartmentManagerChoices, listDepartmentsForAdmin } from "@/server/services/admin-departments";

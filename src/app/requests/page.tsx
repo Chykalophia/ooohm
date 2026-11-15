@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { listMyRequests } from "@/server/services/leave-requests";
+import { listMyRequests } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { Pager } from "@/components/navigation/pager";
@@ -21,7 +22,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
   if (!page.actor) return <NoCompany nav={page.nav} current="requests" />;
 
   const { cursor, number } = readPageParams(await searchParams);
-  const requests = await listMyRequests(page.ctx, page.actor, cursor);
+  const requests = unwrap(await listMyRequests(page.ctx, page.actor, cursor));
   const pager = pagerLinks("/requests", requests, number);
 
   return (

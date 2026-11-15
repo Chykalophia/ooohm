@@ -5,7 +5,7 @@
 import { type CalendarDate, fromEpochDay, toEpochDay } from "@/domain/calendar-date";
 import { isSupportedTimeZone } from "@/domain/company-settings";
 import { DomainError } from "@/domain/errors";
-import { type DayPortion, type LeaveRange, type LeaveStatus, MAX_REQUEST_SPAN_DAYS } from "@/domain/leave-request";
+import { type DayPortion, type LeaveRange, type LeaveStatus, MAX_REQUEST_SPAN_DAYS } from "@/shared/kernel/leave-range";
 import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH, MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
 import { oneLine } from "@/domain/text";
 import { TIMEOFF_DAY_PART, TIMEOFF_STATUS, type TimeOffCompany, type TimeOffLeave, type TimeOffLeaveType, type TimeOffSnapshot, type TimeOffUser } from "../source";

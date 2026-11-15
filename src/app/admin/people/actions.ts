@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { ROLES } from "@/domain/actor";
-import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { EMAIL_MAX_LENGTH, PERSON_NAME_MAX_LENGTH } from "@/domain/people";
 import { isDomainError } from "@/domain/errors";
 import { DELETION_MODES, type DeletionBlockers, type DeletionMode, deletionBlockersOf } from "@/domain/person-deletion";

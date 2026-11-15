@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { listLeaveRequestsForApi } from "@/server/services/api-v1";
+import { listLeaveRequestsForApi } from "@/modules/leave";
 import { parseQuery } from "@/app/api/v1/_lib/handler";
 import { leaveRequestsQuery } from "@/app/api/v1/_lib/query";
 import { apiGet } from "@/app/api/v1/_lib/api-get";

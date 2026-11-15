@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import type { LeaveStatus } from "@/domain/leave-request";
+import type { LeaveStatus } from "@/shared/kernel/leave-range";
 import { violatedConstraint } from "@/shared/lib/db/errors";
 import { getMonthCalendar, getTeamCalendar, getYearCalendar } from "@/server/services/calendar";
 import { seedCompany } from "./fixtures";

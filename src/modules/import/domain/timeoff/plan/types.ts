@@ -4,8 +4,8 @@
  */
 import type { Role } from "@/domain/actor";
 import type { CalendarDate } from "@/domain/calendar-date";
-import type { YearDays } from "@/domain/leave-days";
-import type { DayPortion, LeaveStatus } from "@/domain/leave-request";
+import type { YearDays } from "@/shared/kernel/leave-days";
+import type { DayPortion, LeaveStatus } from "@/shared/kernel/leave-range";
 import type { TimeOffYearBalance } from "../balance";
 import type { TimeOffCompany, TimeOffLeave, TimeOffLeaveType, TimeOffUser } from "../source";
 

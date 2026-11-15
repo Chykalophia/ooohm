@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { IDLE } from "@/components/forms/form-state";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { useFormAction } from "@/components/forms/use-form-action";

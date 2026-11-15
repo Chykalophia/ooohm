@@ -1813,6 +1813,8 @@ backup retention is what bounds how long a deleted person's data survives ([host
 | `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import`; past-year leave refused for the requester and an admin, in the company's time zone, including an imported 2025 request; the background tick: inline after a change (and not after a refused one), a due retry, three ticks at once, the budget, daily jobs; deleting people (`person-deletion.test.ts`): both modes (exactly which rows go and stay, the counts in the one audit row, the one `user.deleted` event), every guard, the grace option (scheduled, undo, the daily job, attribution), re-inviting a released address, a kept-records delete withdrawing their pending request, outbox, delivery, import and settings-label redaction including a pending delivery that must not leak and one in flight when the delete commits, a namesake untouched (free text included), the CSV export, and a no-trace scan of every text, varchar, json(b) and text[] column of every table (read from `information_schema`, so new tables are covered) for the name parts and email after a full scrub | `TEST_DATABASE_URL` |
 | `pnpm test:integration:embedded` | The same suites on embedded PGlite (`TEST_DATABASE_URL=pglite:memory`: an in-memory database per file, migrated as embedded mode migrates). Two tests that need two connections at once are skipped (`needsServer`) | nothing |
 | `pnpm test:components` | Component tests in `tests/components/` (React Testing Library on jsdom): the request form's preview and half-day rules, the decision form and approval card (decide, collapse, where focus goes), the date picker, cancel with undo, the delete-person dialog and the email editor | nothing |
+| `pnpm db:check-drift` | `drizzle-kit generate` against a scratch copy of `drizzle/`: fails, printing the SQL, when `src/db/schema.ts` has a change no committed migration makes (ADR-0011; also run by `tests/architecture/schema-drift.test.ts`) | nothing |
+| `pnpm test:e2e` | Playwright journeys in `tests/e2e/*.spec.ts` on the built app under `pnpm start:embedded` (see below) | `pnpm build`, Playwright with Chromium |
 
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
 IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,
@@ -1854,6 +1856,26 @@ docker run -d --rm --name ooohm-test -e POSTGRES_PASSWORD=pw -p 127.0.0.1:55502:
 TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:integration
 docker stop ooohm-test
 ```
+
+**Tenant isolation** (`tests/integration/tenancy.test.ts`, ADR-0004). Two companies share one database. Every
+function a module's index, `src/server/jobs`, `src/server/identity` or the shared reads in `src/shared/lib/db`
+(`members.ts`, `admin-standing.ts`, `leave-requests.ts`, `leave-type-allowances.ts`, `company-creation.ts`) export, and every `/api/v1` route, is called by the
+first company's admin, people, API key or company id with the second company's ids. After each call the second
+company's rows in every table (by `company_id`, or through its people and requests) are exactly as seeded, nothing
+of it (an id, an email, a name) is in what came back or in any email or sign-in link sent, and none of the first
+company's rows points at it. `tests/support/tenancy-coverage.ts` lists which exports have a case and gives the
+reason for every other one (pure, a system job over every company, scoped by its caller); a new export or route
+that is in neither list fails `tests/architecture/tenancy-coverage.test.ts`, and a listed case that is not run fails
+the suite. When you add an export, add its case (or its reason) there.
+
+**End-to-end journeys** (`pnpm test:e2e`, after `pnpm build`). `tests/e2e/support/app.ts` runs
+`pnpm start:embedded` on a fresh embedded data directory and a free port, with the app's ordinary production
+settings, and sends its mail to a small SMTP server in the test process (`tests/e2e/support/mail-sink.ts`). Each
+person signs in the way people do: the sign-in page, the emailed magic link, opened in Chromium. There is no
+test-only sign-in. The journeys (`journeys.spec.ts`): a stranger gets no sign-in email; an admin invites a manager
+and an employee; the employee requests a day; the manager approves it from Approvals and the employee's balance
+counts it as used; the employee cancels it and gets it back. Playwright is loaded from the machine
+(`require("playwright")`; CI installs it globally and sets `NODE_PATH`), not from the lockfile, and records no trace.
 
 The harness gives tests driver-neutral helpers: `t.query` (raw SQL as a tagged template), `t.withLogger` (a second
 handle that counts queries) and `t.migrate`. `t.client` (postgres.js itself) is only for the tests skipped on PGlite.

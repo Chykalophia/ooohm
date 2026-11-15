@@ -66,7 +66,8 @@ On the production server the commands run in the `migrate` container; see [deplo
 | `--accept-mismatch` | Commit even when a current-year balance differs from TimeOff's. |
 
 Exit codes: `0` for a dry run or a committed import, `1` when it was refused or rolled back, `2` for bad options.
-It needs only `DATABASE_URL`.
+It needs only the database settings, and connects as the database owner: `DATABASE_ADMIN_URL` on Postgres
+([deploy.md](deploy.md#database-roles)).
 
 **Requirements.** Node.js 22.13 or later, for the built-in `node:sqlite` module (no native add-on to install).
 The Docker image uses `node:22-alpine` (22.23 when this was written), so the `migrate` container has it. Node

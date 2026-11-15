@@ -10,7 +10,8 @@ import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, integrationEnvShape, nonEmp
  * secrets, and docker-compose gives it none.
  */
 const schema = z.object({
-  // Checked in full by resolveDatabaseConfig, like the app's.
+  // The app role's connection, checked in full by resolveDatabaseConfig like the app's. The
+  // worker never connects as the owner (DATABASE_ADMIN_URL).
   DATABASE_URL: z.string().optional(),
   ...integrationEnvShape,
   /** How often an idle loop looks for work, in milliseconds. Busy loops go again at once. */

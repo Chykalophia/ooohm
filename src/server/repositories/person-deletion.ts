@@ -34,6 +34,7 @@ import {
   webhookDeliveries,
   webhookEndpoints,
 } from "@/db/schema";
+import { executeRows } from "@/db/rows";
 import type { Executor, Transaction } from "@/db/types";
 import type { DeletionCounts, DeletionMode } from "@/domain/person-deletion";
 
@@ -168,21 +169,15 @@ export async function deleteAllowancesOf(tx: Transaction, userId: string): Promi
 /**
  * Deletes the audit rows about the person: every row whose subject they are, and every
  * row whose entity is their account. Rows where they acted on someone else stay (those
- * belong to the other person). @returns How many.
+ * belong to the other person). The app's database role cannot delete audit rows, so this
+ * goes through `ooohm_erase_audit_about` (drizzle/0030), which does only this.
+ * @returns How many.
  */
 export async function deleteAuditAbout(tx: Transaction, companyId: string, userId: string): Promise<number> {
   // The company filter lets each arm use an index (company and subject; entity), so the
   // log, which has no retention, is never read whole.
-  const rows = await tx
-    .delete(auditLog)
-    .where(
-      and(
-        eq(auditLog.companyId, companyId),
-        or(eq(auditLog.subjectUserId, userId), and(eq(auditLog.entityType, "user"), eq(auditLog.entityId, userId))),
-      ),
-    )
-    .returning({ id: auditLog.id });
-  return rows.length;
+  const [row] = await executeRows<{ erased: number }>(tx, sql`select public.ooohm_erase_audit_about(${companyId}::uuid, ${userId}::text) as erased`);
+  return Number(row?.erased ?? 0);
 }
 
 /**
@@ -364,8 +359,14 @@ export async function listAuditMentioning(ex: Executor, companyId: string, needl
     );
 }
 
+/** Replaces an audit row's snapshots, through `ooohm_redact_audit_snapshots` (drizzle/0030), since the app role cannot update audit rows. */
 export async function setAuditSnapshots(tx: Transaction, id: string, values: { before: unknown; after: unknown }): Promise<void> {
-  await tx.update(auditLog).set(values).where(eq(auditLog.id, id));
+  await tx.execute(sql`select public.ooohm_redact_audit_snapshots(${id}::uuid, ${jsonbOrNull(values.before)}, ${jsonbOrNull(values.after)})`);
+}
+
+/** A snapshot as a jsonb parameter, with `null` as SQL NULL, the way the query builder writes a jsonb column. */
+function jsonbOrNull(value: unknown): SQL {
+  return value === null || value === undefined ? sql`null::jsonb` : sql`${JSON.stringify(value)}::jsonb`;
 }
 
 /** The company's leave requests whose note or decision note mentions any of `needles`. */

@@ -1645,11 +1645,23 @@ instance runs on Vercel with Neon ([deploy-vercel.md](deploy-vercel.md)). This i
 names; the app (`src/db/index.ts`), every script, the worker and the test harness go through these two, so pooler,
 pool-size and embedded handling cannot differ between them.
 
+Postgres is used as two roles (ADR-0006, [deploy.md](deploy.md#database-roles)). The app, the cron route, the worker
+and the rollover job connect as the app role with `DATABASE_URL` (`resolveDatabaseConfig`): rows only, no DDL, and
+`audit_log` only `SELECT` and `INSERT`. Migrations, the seed and the TimeOff import connect as the owner with
+`DATABASE_ADMIN_URL` (`resolveAdminDatabaseConfig`, required on Postgres, with no fallback to
+`DATABASE_URL_UNPOOLED`), opened only by `src/server/admin/db.ts` (`openAdminDatabase`, `migrateAsOwner`), which
+dependency-cruiser keeps out of reach of the rest of `src` (rule `admin-db-only-from-scripts`). `deploy/db-roles.sql`
+creates the roles and their grants (`pnpm db:roles`); `migrateAsOwner` runs it again in grants-only mode after every
+migration. Deleting a person erases and redacts audit rows through two `SECURITY DEFINER` functions owned by the
+owner (`drizzle/0030_audit_erasure_functions.sql`), the app's only way to touch an existing audit row. Embedded
+PGlite has one built-in user: both configs resolve to its single handle.
+
 - **Postgres** (`DATABASE_URL=postgres://...`, any Postgres 15+). postgres.js honours `sslmode` and the other URL
   parameters. A transaction pooler (Neon's `-pooler` host, Supabase's port 6543, or `DATABASE_POOLER=transaction`)
   gets `prepare: false`, since each transaction may land on another server connection. On a serverless host (`VERCEL`
   or `DATABASE_SERVERLESS=true`) the pool is 3 connections with a 20-second idle timeout (`DATABASE_POOL_MAX`
-  overrides). Migrations connect to `DATABASE_URL_UNPOOLED` when set: DDL and the migrator want a real session.
+  overrides). Migrations connect to `DATABASE_ADMIN_URL`, which should be a direct connection: DDL and the migrator
+  want a real session.
 - **Embedded** (`OOOHM_DB=embedded`, or `DATABASE_URL=pglite:<dir>`): PGlite (Postgres 18 compiled to WebAssembly)
   with drizzle's `pglite` driver, data in `OOOHM_DATA_DIR` (default `./data/pglite`). PGlite and that driver are
   imported at run time only in this mode, with `webpackIgnore`, so they are neither bundled nor traced into the
@@ -1715,7 +1727,8 @@ instance counts separately, so they are approximate. The submit limit is counted
 
 `pnpm db:migrate` everywhere; compose runs it in `migrate`, embedded mode also on start. On Vercel the `vercel-build`
 script runs `scripts/migrate.mts --if-production && scripts/seed.mts --if-production && next build`: migrations run
-only when `VERCEL_ENV` is `production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never
+only when `VERCEL_ENV` is `production`, over `DATABASE_ADMIN_URL` (a production build without it fails, naming the
+variable and deploy.md), and a failure fails the build, so new code never
 goes live on an old schema. The seed then runs only on a production build with `SEED_ADMIN_EMAIL` set and no company
 yet, so it creates the first admin once and later builds skip it (`SEED_ON_DEPLOY=force` overrides for one deploy). Preview builds never migrate or seed; keeping previews off the production database is a deployment setting
 ([deploy-vercel.md](deploy-vercel.md#2-keep-previews-away-from-the-production-database)).
@@ -1774,7 +1787,8 @@ where focus is.
 Integration tests: point `TEST_DATABASE_URL` at a Postgres 17 server where the user may create databases.
 Each test file creates `ooohm_test_<random>`, runs the Drizzle migrations from `drizzle/`, and drops it at
 the end, so files run in parallel without sharing state. Without the variable the suites are skipped with a
-message. A throwaway server:
+message. `db-roles.test.ts` also creates and drops its own owner and app roles (named after a random suffix), so the
+user must be a superuser for it; it is skipped on PGlite. A throwaway server:
 
 ```bash
 docker run -d --rm --name ooohm-test -e POSTGRES_PASSWORD=pw -p 127.0.0.1:55502:5432 postgres:17-alpine

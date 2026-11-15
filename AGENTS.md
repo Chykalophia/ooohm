@@ -42,8 +42,9 @@ pnpm dev            # local dev (needs Postgres + .env)
 pnpm typecheck      # tsc --noEmit
 pnpm lint
 pnpm db:generate    # after editing src/db/schema.ts — commit the generated SQL in drizzle/
-pnpm db:migrate
-pnpm db:seed        # idempotent; uses SEED_ADMIN_EMAIL
+pnpm db:roles       # idempotent: creates/repairs the owner and app roles (deploy/db-roles.sql)
+pnpm db:migrate     # as the owner (DATABASE_ADMIN_URL), then refreshes the app role's grants
+pnpm db:seed        # idempotent; uses SEED_ADMIN_EMAIL; as the owner
 pnpm job:rollover   # idempotent year rollover (carryover + new-year allowances)
 pnpm worker         # outbox worker: webhooks, adapter deliveries, daily rollover + retention
 pnpm import:timeoff -- --file <x.sqlite> --company <id> --actor <admin email> [--apply]   # one-time TimeOff import (dry run by default)
@@ -75,12 +76,12 @@ Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
 - `src/app/api/v1/**`: the REST API. Routes are one line through `_lib/api-get.ts` → `_lib/handler.ts` (auth, rate limits, errors); keep `_lib/openapi.ts` in sync (a test checks).
 - `src/domain/**`: pure rules (approval rule, day counting, status machine, permissions, `DomainError`). No I/O, Next, Drizzle or env.
 - `src/server/context.ts` / `src/server/runtime.ts`: the injected `ServiceContext` type and the app's composition root.
-- `src/db/config.ts` / `src/db/connect.ts`: the one place a database is chosen and opened (Postgres with pooler detection, or embedded PGlite with its directory lock). Scripts, the worker and tests open it there too. Raw `execute()` results differ by driver: use the query builder, or `executeRows` (`src/db/rows.ts`).
+- `src/db/config.ts` / `src/db/connect.ts`: the one place a database is chosen and opened (Postgres with pooler detection, or embedded PGlite with its directory lock). Scripts, the worker and tests open it there too. Postgres is two roles (ADR-0006, docs/deploy.md#database-roles): the app, the cron route, the worker and the rollover job use the app role (`DATABASE_URL`: rows only, no DDL, `audit_log` insert-only); migrate, seed and the TimeOff import use the owner (`DATABASE_ADMIN_URL`, required on Postgres), opened only by `src/server/admin/db.ts`, which nothing else in `src` may import. Embedded PGlite keeps one handle. A new table needs nothing: default privileges and `pnpm db:migrate`'s re-grant cover it. Never give the app a way to change audit rows other than the owner's functions in `drizzle/0030`. Raw `execute()` results differ by driver: use the query builder, or `executeRows` (`src/db/rows.ts`).
 - `src/db/schema.ts`: every table. Better Auth's tables (`user`, `session`, `account`, `verification`) live here too.
 - `src/lib/auth.ts`: Better Auth config, `issueSignInLink()` (invite links, wired into `ServiceContext`), `requireUser()` and `requireActor()`, the entry points for pages and actions (`currentUser()` for route handlers, which answer 401 instead of redirecting).
-- `src/lib/env.ts`: validated env vars. Add new ones here, in `.env.example`, and in `docker-compose.yml`. Values are trimmed on read.
+- `src/lib/env.ts`: validated env vars. Add new ones here, in `.env.example`, and in `docker-compose.yml`. Values are trimmed on read. The owner's `DATABASE_ADMIN_URL` (and `DATABASE_SUPERUSER_URL`, `OOOHM_DB_*` for `pnpm db:roles`) are the exception: read only in `src/server/admin/db.ts`, never in the app's or the worker's environment.
 - Background work is one function, `runTick` (`src/server/services/background-tick.ts`), run by the worker, `/api/cron/tick`, the inline after-change tick (`ctx.wake`, via the `inTransaction` / `commitThenNotify` seam in `notify.ts`) or embedded mode's timer (`src/instrumentation-node.ts`). A service that records changes opens its transaction with `inTransaction(ctx, ...)` (or `commitThenNotify`), never `ctx.db.transaction`, so inline mode sees its events.
-- `scripts/*.mts`: migrate, seed and the year rollover (`pnpm job:rollover`), run in that order by the `migrate` compose service; and the outbox worker (`pnpm worker`, the `worker` service), which delivers webhooks and runs the daily jobs. The worker reads `src/lib/worker-env.ts`, never `env.ts`. `import-timeoff.mts` is the one-time TimeOff importer.
+- `scripts/*.mts`: the database roles (`pnpm db:roles`), migrate, seed and the year rollover (`pnpm job:rollover`), run in that order by the `migrate` compose service; and the outbox worker (`pnpm worker`, the `worker` service), which delivers webhooks and runs the daily jobs. The worker reads `src/lib/worker-env.ts`, never `env.ts`. `import-timeoff.mts` is the one-time TimeOff importer.
 - `site/`: the marketing landing page, a static site deployed apart from the app (no build step). `site/demo/` records its videos from the real app with demo data. See `site/README.md`.
 - `docs/guide/`: the product guide, screen by screen, with every setting and email; `site/docs/` is built from it (`node site/demo/build-docs.mjs`) and its screenshots come from `site/demo/docs-screens.mjs`. Update the page (and its shot) with any change to a screen, a setting or an email. See `site/README.md`.
 - `docs/api.md`: the public integration reference (auth, endpoints, events and payloads, webhooks, signatures). Update it with any event or API change.

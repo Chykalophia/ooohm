@@ -29,7 +29,7 @@ src/
   server/
     context.ts              # ServiceContext type (ports: db, mailer, clock, ids, secrets, …)
     runtime.ts              # composition root: builds the context and the module services, per request
-    admin/                  # privileged database handle (migrations, worker, cron, import) — ADR-0006
+    admin/                  # the database owner's handle (migrations, seed, import) — ADR-0006
     identity/               # Better Auth config, requireActor, passkeys (cross-cutting authN)
     jobs/                   # runTick, scheduled jobs, retention, outbox dispatch
   shared/

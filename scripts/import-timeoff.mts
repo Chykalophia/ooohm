@@ -8,16 +8,15 @@
  * A dry run by default: everything is imported and reconciled inside a transaction that
  * is then rolled back, and the full report is printed. `--apply` commits, in the same
  * single transaction, only when every current-year balance matches TimeOff's. See
- * docs/import.md for the mapping and the runbook. Needs only the database settings.
+ * docs/import.md for the mapping and the runbook. Needs only the database settings: it
+ * connects as the owner (DATABASE_ADMIN_URL on Postgres; docs/deploy.md#database-roles).
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
-import { resolveDatabaseConfig } from "../src/db/config";
-import { openDatabase } from "../src/db/connect";
 import { isDomainError } from "../src/domain/errors";
-import { nonEmptyEnv } from "../src/lib/integration-env";
+import { adminDatabaseConfig, openAdminDatabase } from "../src/server/admin/db";
 import { readTimeOffSqlite } from "../src/server/importers/timeoff/sqlite-reader";
 import { importTimeOff, type TimeOffImportReport } from "../src/server/services/timeoff-import";
 import { scriptContext } from "./script-context.mts";
@@ -80,7 +79,7 @@ if (timeoffCompany !== undefined && !/^\d+$/.test(timeoffCompany)) fail("--timeo
 
 let config;
 try {
-  config = resolveDatabaseConfig(nonEmptyEnv(process.env));
+  config = adminDatabaseConfig();
 } catch (err) {
   fail(err instanceof Error ? err.message : String(err));
 }
@@ -93,7 +92,7 @@ try {
 }
 const source = { sha256: createHash("sha256").update(bytes).digest("hex"), fileName: basename(options.file) };
 
-const handle = await openDatabase(config, { purpose: "pnpm import:timeoff", max: 2 });
+const handle = await openAdminDatabase({ config, purpose: "pnpm import:timeoff", max: 2 });
 const ctx = scriptContext(handle.db, "importer");
 
 function pad(value: string, width: number, right = false): string {

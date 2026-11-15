@@ -16,8 +16,12 @@ x-logging: &logging
     max-size: "10m"
     max-file: "5"
 
-# POSTGRES_PASSWORD is placed inside a URL, so keep it URL-safe: `openssl rand -hex 24`.
-x-database-url: &database-url postgres://ooohm:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD (openssl rand -hex 24)}@db:5432/ooohm
+# The database passwords are placed inside URLs, so keep them URL-safe: `openssl rand -hex 24`,
+# a different one each. Three roles (docs/deploy.md#database-roles): `ooohm` (POSTGRES_USER,
+# the superuser, used only by the migrate service to create the other two), `ooohm_owner`
+# (owns the schema: migrations and the seed) and `ooohm_app` (rows only, and the audit log
+# only grows: the app, the worker and the rollover job).
+x-database-url: &database-url postgres://ooohm_app:${OOOHM_DB_APP_PASSWORD:?Set OOOHM_DB_APP_PASSWORD (openssl rand -hex 24)}@db:5432/ooohm
 
 x-hardening: &hardening
   cap_drop: [ALL]
@@ -45,9 +49,10 @@ services:
     mem_limit: 1g
     logging: *logging
 
-  # Migrations, the first-run seed and the idempotent year rollover, then exits. It runs
-  # on every `up`, so an upgrade migrates before the new app starts. Only DATABASE_URL and
-  # SEED_*: never the auth secret, SMTP or OAuth credentials.
+  # The database roles, migrations (as the owner), the first-run seed and the idempotent
+  # year rollover, then exits. It runs on every `up`, so an upgrade migrates before the new
+  # app starts. Only the database URLs and SEED_*: never the auth secret, SMTP or OAuth
+  # credentials. The only service that holds the superuser's and the owner's passwords.
   migrate:
     build:
       context: ..
@@ -55,9 +60,13 @@ services:
     command:
       - sh
       - -c
-      - pnpm db:migrate && pnpm db:seed && { pnpm job:rollover || echo "Year rollover failed (see above); the app starts anyway." >&2; }
+      - pnpm db:roles && pnpm db:migrate && pnpm db:seed && { pnpm job:rollover || echo "Year rollover failed (see above); the app starts anyway." >&2; }
     environment:
+      DATABASE_SUPERUSER_URL: postgres://ooohm:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD (openssl rand -hex 24)}@db:5432/ooohm
+      DATABASE_ADMIN_URL: postgres://ooohm_owner:${OOOHM_DB_OWNER_PASSWORD:?Set OOOHM_DB_OWNER_PASSWORD (openssl rand -hex 24)}@db:5432/ooohm
       DATABASE_URL: *database-url
+      OOOHM_DB_OWNER_PASSWORD: ${OOOHM_DB_OWNER_PASSWORD:?Set OOOHM_DB_OWNER_PASSWORD (openssl rand -hex 24)}
+      OOOHM_DB_APP_PASSWORD: ${OOOHM_DB_APP_PASSWORD:?Set OOOHM_DB_APP_PASSWORD (openssl rand -hex 24)}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:?Set SEED_ADMIN_EMAIL (the first admin)}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
       SEED_COMPANY_NAME: ${SEED_COMPANY_NAME:-}

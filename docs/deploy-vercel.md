@@ -13,9 +13,12 @@ off, and the Neon integration is connected. The integration set `DATABASE_URL` (
 ## 1. Check the database variables (5 min)
 
 **Project → Settings → Environment Variables** should list `DATABASE_URL` and `DATABASE_URL_UNPOOLED` (Neon also adds
-`PG*` and `POSTGRES_*` variables; OOOhm ignores them). Nothing else to do: OOOhm sees the `-pooler` host and turns
-prepared statements off for it, keeps its pool small on Vercel (3 connections per instance, closed after 20 idle
-seconds), and runs migrations over `DATABASE_URL_UNPOOLED`.
+`PG*` and `POSTGRES_*` variables; OOOhm ignores them). OOOhm sees the `-pooler` host and turns prepared statements off
+for it, and keeps its pool small on Vercel (3 connections per instance, closed after 20 idle seconds).
+
+Then split the database into its two roles: create the app role `ooohm_app`, point `DATABASE_URL` at it (pooled), and
+add `DATABASE_ADMIN_URL`, the owner `neondb_owner`'s direct URL, which migrations and the seed use. The steps are in
+[deploy.md](deploy.md#database-roles). Without `DATABASE_ADMIN_URL` the production build stops at the migrations.
 
 Set **Settings → Functions → Function Region** to the region of the Neon project (Neon's console shows it, e.g.
 `aws-us-east-2` → Vercel `iad1` or `cle1`). Every page makes several queries, so a function far from its database
@@ -28,7 +31,7 @@ and write production data, with that branch's code. Two safeguards:
 
 1. **Preview deployments are off** (the primary safeguard). Confirm it under **Project → Settings → Git** (and
    **Environments**): no preview deployments are built for branches or pull requests. Leave it that way.
-2. If you ever turn previews on, first **remove `DATABASE_URL` and `DATABASE_URL_UNPOOLED` from the Preview
+2. If you ever turn previews on, first **remove `DATABASE_URL`, `DATABASE_ADMIN_URL` and `DATABASE_URL_UNPOOLED` from the Preview
    environment** (edit each variable and untick Preview), or give Preview a separate database. Without them a
    preview starts but cannot reach any data.
 
@@ -126,7 +129,8 @@ server-action origin check use it.
 
 ## 6. First deploy and migration (10 min)
 
-Deploy `main` (push, or **Deployments → Redeploy** on the latest commit). The build log shows `Migrations applied.`
+Deploy `main` (push, or **Deployments → Redeploy** on the latest commit). The build log shows `Migrations applied;
+the app role's grants are up to date.`
 before `next build`. A preview build would print `Skipping migrations: VERCEL_ENV is "preview"`. If the build stops
 with a database error, the deployment is not promoted and the previous one keeps serving.
 
@@ -171,7 +175,7 @@ In the browser, once email works (step 9: the first admin signs in with an email
   production build with `SEED_ADMIN_EMAIL` set and while no company exists, so later builds skip it. (`SEED_ON_DEPLOY=force`
   for one deploy seeds an existing instance anyway; it only fills gaps.)
 - **Or run it yourself:** with the production variables loaded (below),
-  `DATABASE_URL="$DATABASE_URL_UNPOOLED" SEED_ADMIN_EMAIL=<your email> SEED_COMPANY_NAME=<company> pnpm db:seed`.
+  `SEED_ADMIN_EMAIL=<your email> SEED_COMPANY_NAME=<company> pnpm db:seed` (it connects with `DATABASE_ADMIN_URL`).
 
 For step 10 you need the production variables locally anyway:
 
@@ -213,13 +217,13 @@ Read [import.md](import.md) and [deploy.md step 11](deploy.md#11-import-from-tim
 the commands differ. With `~/ooohm-prod.env` loaded (end of step 8) and the exported `timeoff.sqlite` on your machine:
 
 ```bash
-psql "$DATABASE_URL_UNPOOLED" -c "select id, name from companies"      # the company setup created
-DATABASE_URL="$DATABASE_URL_UNPOOLED" pnpm import:timeoff -- --file ~/timeoff.sqlite --company <id> \
+psql "$DATABASE_ADMIN_URL" -c "select id, name from companies"      # the company setup created
+pnpm import:timeoff -- --file ~/timeoff.sqlite --company <id> \
   --actor <your email> --report ~/ooohm-dry-run.json
 # Read the report: every current-year row must say Diff 0. Then the same with --apply.
 ```
 
-Back up first (step 11). The import runs as one transaction over the direct connection. Delete `timeoff.sqlite`, the
+Back up first (step 11). The import runs as one transaction over the owner's direct connection (`DATABASE_ADMIN_URL`). Delete `timeoff.sqlite`, the
 reports and `~/ooohm-prod.env` from your machine after cutover.
 
 Then, in the app, **Admin → Leave types: drag PTO to the top.** The import keeps TimeOff's order, and the first
@@ -241,8 +245,8 @@ Two layers:
    #!/usr/bin/env bash
    # /usr/local/bin/ooohm-neon-backup (chmod 700), run nightly by cron or a systemd timer
    set -euo pipefail
-   export DATABASE_URL_UNPOOLED="$(cat /root/ooohm-neon-url)"   # chmod 600; the direct URL, no newline
-   export PG_DUMP='pg_dump -d "$DATABASE_URL_UNPOOLED"'
+   export DATABASE_ADMIN_URL="$(cat /root/ooohm-neon-url)"   # chmod 600; the owner's direct URL, no newline
+   export PG_DUMP='pg_dump -d "$DATABASE_ADMIN_URL"'
    export BACKUP_DIR=/var/backups/ooohm RETENTION_DAYS=30
    exec /srv/ooohm/deploy/backup.sh
    ```
@@ -253,8 +257,8 @@ Backups bound how long a deleted person's data survives: keep every copy (dumps,
 window) at 30 days or less. See [hosting.md](hosting.md#backups-bound-how-long-deleted-data-survives).
 
 To restore: create a Neon branch or a new database, `pg_restore` the dump into it with `deploy/restore.sh`'s steps
-(or `gzip -dc <file> | pg_restore -d "<new direct URL>" --no-owner`), check it, then point `DATABASE_URL` and
-`DATABASE_URL_UNPOOLED` at it and redeploy.
+(or `gzip -dc <file> | pg_restore -d "<new direct URL>" --no-owner`), check it, run `pnpm db:roles` against it
+([deploy.md](deploy.md#database-roles)), then point `DATABASE_URL` and `DATABASE_ADMIN_URL` at it and redeploy.
 
 ## 12. Cutover checklist
 

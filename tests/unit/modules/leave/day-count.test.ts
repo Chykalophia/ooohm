@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { isDomainError } from "@/domain/errors";
-import { countLeaveDays, nextWorkingDay, splitLeaveDaysByYear, type WorkCalendar } from "@/domain/leave-days";
-import type { LeaveRange } from "@/domain/leave-request";
+import { countLeaveDays, nextWorkingDay, splitLeaveDaysByYear, type WorkCalendar } from "@/shared/kernel/leave-days";
+import type { LeaveRange } from "@/shared/kernel/leave-range";
 
 const monToFri: WorkCalendar = { workingDays: [1, 2, 3, 4, 5], holidays: [] };
 const full = (startDate: string, endDate: string): LeaveRange => ({ startDate, endDate, dayPortion: "full" });

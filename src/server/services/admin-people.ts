@@ -32,7 +32,7 @@ import { personLabel } from "@/domain/person";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { rerouteApprovals } from "./approval-routing";
+import { rerouteApprovals } from "./approval-reroute";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
 import { findCompany, lockCompany } from "@/server/repositories/companies";

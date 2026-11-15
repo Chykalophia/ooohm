@@ -8,7 +8,8 @@ import { RETRY_DELAYS_MS } from "@/domain/integrations";
 import { verifyWebhookSignature } from "@/lib/integration-crypto";
 import { TransportError, type WebhookFetch } from "@/lib/safe-fetch";
 import { claimDueDeliveries, recordDeliveryOutcome } from "@/server/repositories/webhooks";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
 import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
 import {
@@ -22,6 +23,8 @@ import {
 } from "@/server/services/webhooks";
 import { companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestContext, type TestDatabase } from "./harness";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const T0 = new Date("2026-11-02T15:00:00Z");
 

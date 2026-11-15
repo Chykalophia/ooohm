@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { isDomainError } from "@/domain/errors";
-import { LEAVE_STATUSES, type LeaveStatus } from "@/domain/leave-request";
-import { assertCancellableOn, assertTransition, canCancelOn, canTransition, isCancellable, isClosedYearLeave } from "@/domain/request-status";
+import { LEAVE_STATUSES, type LeaveStatus } from "@/shared/kernel/leave-range";
+import { assertCancellableOn, assertTransition, canCancelOn, canTransition, isCancellable, isClosedYearLeave } from "@/modules/leave/domain/leave-status";
 
 const ALLOWED = new Set(["pending>approved", "pending>rejected", "pending>cancelled", "approved>cancelled"]);
 

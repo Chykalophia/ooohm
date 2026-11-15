@@ -30,7 +30,8 @@ import { decideLeaveRequest } from "@/server/services/approvals";
 import { getAuditLog } from "@/server/services/audit-log";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { getTeamCalendar } from "@/server/services/calendar";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
 import { DAILY_JOBS, runDueJobs } from "@/server/services/scheduled-jobs";
 import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
@@ -38,6 +39,8 @@ import { createWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const NOW = new Date("2026-11-02T15:00:00Z");
 const DAY = 86_400_000;

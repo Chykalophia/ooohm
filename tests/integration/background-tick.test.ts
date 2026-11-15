@@ -7,12 +7,16 @@ import type { EventEnvelope } from "@/domain/integrations";
 import type { WebhookFetch } from "@/lib/safe-fetch";
 import { runTick } from "@/server/services/background-tick";
 import { setAllowanceOverride } from "@/server/services/admin-allowances";
-import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-requests";
+import { cancelLeaveRequest as cancelLeaveRequestResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { runDueJobs } from "@/server/services/scheduled-jobs";
 import { createWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const T0 = new Date("2026-11-02T15:00:00Z");
 

@@ -9,8 +9,8 @@ import type { CalendarDate } from "@/domain/calendar-date";
 import { eachDate, isoWeekday } from "@/domain/calendar-date";
 import { monthOf, type YearMonth } from "@/domain/calendar";
 import { toCsv } from "@/domain/csv";
-import type { WorkCalendar, YearDays } from "@/domain/leave-days";
-import type { DayPortion, LeaveRange, LeaveStatus } from "@/domain/leave-request";
+import type { WorkCalendar, YearDays } from "@/shared/kernel/leave-days";
+import type { DayPortion, LeaveRange, LeaveStatus } from "@/shared/kernel/leave-range";
 
 /** How many years the trend shows, ending with the report's year. */
 export const REPORT_TREND_YEARS = 5;

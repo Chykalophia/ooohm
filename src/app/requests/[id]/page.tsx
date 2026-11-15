@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { formatDays, formatInstantDateTime, formatLeaveDates } from "@/lib/format";
-import { getMyRequest } from "@/server/services/leave-requests";
+import { getMyRequest } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { StatusBadge } from "@/components/leave/status-badge";
@@ -32,7 +33,7 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
   if (!page.actor) return <NoCompany nav={page.nav} current="requests" />;
 
   const { id } = await params;
-  const { request: r, timezone } = await orNotFound(getMyRequest(page.ctx, page.actor, id));
+  const { request: r, timezone } = await orNotFound(getMyRequest(page.ctx, page.actor, id).then(unwrap));
   const me = page.actor.id;
   const dates = formatLeaveDates(r.startDate, r.endDate, r.dayPortion);
   const approver = r.approverId === me ? "You (you approve your own requests)" : (r.approverName ?? "Nobody yet");

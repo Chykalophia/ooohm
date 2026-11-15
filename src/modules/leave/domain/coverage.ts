@@ -4,7 +4,7 @@
  * the approver sees it before deciding. Pending requests count as well as approved ones,
  * because both are on the calendar.
  */
-import { eachDate, isoWeekday } from "./calendar-date";
+import { eachDate, isoWeekday } from "@/domain/calendar-date";
 
 /** The most a department's limit can be set to. */
 export const MAX_OFF_LIMIT = 999;

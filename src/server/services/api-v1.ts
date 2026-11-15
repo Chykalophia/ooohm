@@ -14,10 +14,10 @@ import type { CalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { type ApiClient, assertScope, buildEnvelope, type EventEnvelope } from "@/domain/integrations";
-import type { LeaveStatus } from "@/domain/leave-request";
+import type { LeaveStatus } from "@/shared/kernel/leave-range";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { listBalanceSubjects, listLeaveRequestsPage, listUsersPage } from "@/server/repositories/api-reads";
+import { listBalanceSubjects, listUsersPage } from "@/server/repositories/api-reads";
 import { listAllowances, sumBookedDays } from "@/server/repositories/balances";
 import { findCompanySettings } from "@/server/repositories/calendar";
 import { listHolidayRows } from "@/server/repositories/holidays";
@@ -39,7 +39,7 @@ function encodeCursor(value: Record<string, string>): string {
 }
 
 /** @throws DomainError `invalid_input` for a cursor this service did not make. */
-function decodeCursor<K extends string>(cursor: string, keys: readonly K[]): Record<K, string> {
+export function decodeCursor<K extends string>(cursor: string, keys: readonly K[]): Record<K, string> {
   try {
     const value: unknown = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
     if (value && typeof value === "object" && keys.every((k) => typeof (value as Record<string, unknown>)[k] === "string")) {
@@ -51,13 +51,13 @@ function decodeCursor<K extends string>(cursor: string, keys: readonly K[]): Rec
   throw new DomainError("invalid_input", "That cursor is not valid.");
 }
 
-function page<R, T>(rows: readonly R[], limit: number, map: (row: R) => T, cursorOf: (row: R) => Record<string, string>): Page<T> {
+export function page<R, T>(rows: readonly R[], limit: number, map: (row: R) => T, cursorOf: (row: R) => Record<string, string>): Page<T> {
   const more = rows.length > limit;
   const shown = more ? rows.slice(0, limit) : rows;
   return { data: shown.map(map), nextCursor: more ? encodeCursor(cursorOf(shown[shown.length - 1])) : null };
 }
 
-const iso = (d: Date | null) => (d ? d.toISOString() : null);
+export const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 async function companyYear(ctx: ServiceContext, client: ApiClient, year: number | undefined) {
   const settings = await findCompanySettings(ctx.db, client.companyId);
@@ -117,52 +117,6 @@ export async function listLeaveTypesForApi(ctx: ServiceContext, client: ApiClien
       archived: t.archivedAt !== null,
     })),
   };
-}
-
-export interface LeaveRequestQuery {
-  from?: CalendarDate;
-  to?: CalendarDate;
-  userId?: string;
-  status?: LeaveStatus;
-  cursor?: string;
-  limit: number;
-}
-
-/**
- * Leave requests overlapping `[from, to]` (either bound optional), optionally one
- * person's or one status, by start date then id. One query.
- *
- * @throws DomainError `invalid_input` for a bad cursor or `to` before `from`.
- */
-export async function listLeaveRequestsForApi(ctx: ServiceContext, client: ApiClient, q: LeaveRequestQuery) {
-  assertScope(client, "read");
-  if (q.from && q.to && q.to < q.from) throw new DomainError("invalid_input", "`to` is before `from`.");
-  let after: { startDate: string; id: string } | undefined;
-  if (q.cursor) {
-    const c = decodeCursor(q.cursor, ["s", "i"]);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(c.s) || !isUuid(c.i)) throw new DomainError("invalid_input", "That cursor is not valid.");
-    after = { startDate: c.s, id: c.i };
-  }
-  const rows = await listLeaveRequestsPage(ctx.db, { companyId: client.companyId, ...q, after });
-  return page(
-    rows,
-    q.limit,
-    (r) => ({
-      id: r.id,
-      userId: r.userId,
-      leaveTypeId: r.leaveTypeId,
-      startDate: r.startDate,
-      endDate: r.endDate,
-      dayPortion: r.dayPortion,
-      days: r.days,
-      status: r.status,
-      approverId: r.approverId,
-      decidedAt: iso(r.decidedAt),
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
-    }),
-    (r) => ({ s: r.startDate, i: r.id }),
-  );
 }
 
 export interface ApiBalance {

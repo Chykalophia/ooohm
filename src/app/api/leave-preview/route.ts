@@ -7,8 +7,8 @@ import { log } from "@/lib/log";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { serviceContext } from "@/server/runtime";
 import { previewLeaveRequest } from "@/server/services/balances";
-import { previewLeaveFor } from "@/server/services/leave-on-behalf";
-import { draftCoverage } from "@/server/services/also-off";
+import { draftCoverage, previewLeaveFor } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { type LeavePreviewResponse, leaveDraftSchema, readDraftFields } from "@/app/_lib/leave-input";
 import { addForMessages } from "@/app/_lib/leave-for-messages";
 import { messageFor, messageForError } from "@/app/_lib/run-action";
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   };
   try {
     if (forUserId) {
-      const { cost, personName } = await previewLeaveFor(ctx, actor, forUserId, parsed.data);
+      const { cost, personName } = unwrap(await previewLeaveFor(ctx, actor, forUserId, parsed.data));
       return reply({ ok: true, message: await withCoverage(formatRequestCost(cost, personName), forUserId), cost });
     }
     const cost = await previewLeaveRequest(ctx, actor, parsed.data);

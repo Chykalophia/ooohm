@@ -1,15 +1,14 @@
 import "server-only";
 import type { Executor } from "@/db/types";
 import { entriesCostingDaysIn } from "@/domain/calendar";
-import { coverageBreach, describeCoverageBreach } from "@/domain/coverage";
-import { describeOverlap, overlapsFor } from "@/domain/overlap";
+import { coverageBreach, describeCoverageBreach } from "../../domain/coverage";
+import { describeOverlap, overlapsFor } from "../../domain/overlap";
 import { formatShortDay } from "@/lib/format";
 import { teamLabel } from "@/domain/person";
 import { canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { findCompanySettings, listHolidays, listTeamEntries } from "@/server/repositories/calendar";
-import { findDepartment, findDepartmentLimits } from "@/server/repositories/departments";
-import { findPerson } from "@/server/repositories/users";
-import { loadCalendarScope } from "./calendar-scope";
+import { findDepartmentLimits } from "@/server/repositories/departments";
+import { loadCalendarScope } from "@/server/services/calendar-scope";
 
 /** A request an approver is about to decide, with the requester's department (if any). */
 export interface AlsoOffRequest {
@@ -102,29 +101,4 @@ export async function alsoOffFor(
     lines.set(r.id, { others: overlaps.length, line: describeOverlap(overlaps, r.departmentName), coverage });
   }
   return lines;
-}
-
-/**
- * The coverage warning for a draft of `userId`'s, for the request form's live preview:
- * the same line their approver would read ({@link alsoOffFor}), or `null` when it stays
- * within their department's limit, or they have no department or it has no limit.
- */
-export async function draftCoverage(
-  ex: Executor,
-  companyId: string,
-  userId: string,
-  draft: { startDate: string; endDate?: string | null },
-): Promise<string | null> {
-  const person = await findPerson(ex, companyId, userId);
-  const department = person?.departmentId ? await findDepartment(ex, companyId, person.departmentId) : undefined;
-  if (!department || department.maxOff === null) return null;
-  const request = {
-    id: "draft",
-    userId,
-    departmentId: department.id,
-    departmentName: department.name,
-    startDate: draft.startDate,
-    endDate: draft.endDate || draft.startDate,
-  };
-  return (await alsoOffFor(ex, companyId, [request])).get("draft")?.coverage ?? null;
 }

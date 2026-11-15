@@ -3,7 +3,7 @@ import { and, asc, eq, gte, inArray, lt, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { allowances, leaveRequestDays, leaveRequests } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { YearDays } from "@/domain/leave-days";
+import type { YearDays } from "@/shared/kernel/leave-days";
 
 export type AllowanceRow = typeof allowances.$inferSelect;
 export type NewAllowance = typeof allowances.$inferInsert;

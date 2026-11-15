@@ -6,7 +6,7 @@ import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { isDomainError } from "@/domain/errors";
 import { getCompanySettings, updateCompanySettings } from "@/server/services/admin-company";
-import { alsoOffFor } from "@/server/services/also-off";
+import { alsoOffFor } from "@/modules/leave";
 import { getApprovalTriage } from "@/server/services/approvals";
 import { getMonthCalendar, getTeamCalendar } from "@/server/services/calendar";
 import { issueCalendarFeed, renderCalendarFeed } from "@/server/services/calendar-feeds";

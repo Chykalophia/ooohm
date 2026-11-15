@@ -27,11 +27,14 @@ import {
 } from "@/server/services/admin-leave-types";
 import { getPersonDetail, getPersonFormOptions, listPeople } from "@/server/services/admin-people";
 import { getBalanceSummary } from "@/server/services/balances";
-import { getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
+import { getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, requestDaysOf, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 // The level use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const createLevel = (...args: Parameters<typeof organisation.createLevel>) => organisation.createLevel(...args).then(unwrap);

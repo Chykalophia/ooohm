@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import type { FormState } from "@/components/forms/form-state";
 import { formFields } from "@/app/_lib/form-fields";

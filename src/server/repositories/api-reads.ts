@@ -4,7 +4,7 @@ import { departments, leaveRequests, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import type { CalendarDate } from "@/domain/calendar-date";
-import { earliestOverlappingStart, type LeaveStatus } from "@/domain/leave-request";
+import { earliestOverlappingStart, type LeaveStatus } from "@/shared/kernel/leave-range";
 
 /**
  * Read queries of the REST API (`/api/v1`). Each page is one query, keyset-paged on an
@@ -47,72 +47,6 @@ export async function listUsersPage(ex: Executor, input: { companyId: string; af
     .where(and(eq(user.companyId, input.companyId), isNull(user.deletedAt), input.afterId ? gt(user.id, input.afterId) : undefined))
     .orderBy(asc(user.id))
     .limit(input.limit + 1);
-}
-
-/** A leave request as the API shows it: never the requester's note or the decision note. */
-export type ApiLeaveRequestRow = {
-  id: string;
-  userId: string;
-  leaveTypeId: string;
-  startDate: CalendarDate;
-  endDate: CalendarDate;
-  dayPortion: "full" | "am" | "pm";
-  days: number;
-  status: LeaveStatus;
-  approverId: string | null;
-  decidedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface LeaveRequestPageQuery {
-  companyId: string;
-  /** Requests that end on or after this date. */
-  from?: CalendarDate;
-  /** Requests that start on or before this date. */
-  to?: CalendarDate;
-  userId?: string;
-  status?: LeaveStatus;
-  after?: { startDate: CalendarDate; id: string };
-  limit: number;
-}
-
-/**
- * A page of the company's leave requests overlapping `[from, to]`, by `(start_date, id)`,
- * after the cursor. Served by `leave_requests_company_start_id_idx`; with `from`, the
- * scan also starts no earlier than a request that long could begin
- * (`earliestOverlappingStart`), as the calendar's range queries do.
- */
-export async function listLeaveRequestsPage(ex: Executor, q: LeaveRequestPageQuery): Promise<ApiLeaveRequestRow[]> {
-  return ex
-    .select({
-      id: leaveRequests.id,
-      userId: leaveRequests.userId,
-      leaveTypeId: leaveRequests.leaveTypeId,
-      startDate: leaveRequests.startDate,
-      endDate: leaveRequests.endDate,
-      dayPortion: leaveRequests.dayPortion,
-      days: leaveRequests.days,
-      status: leaveRequests.status,
-      approverId: leaveRequests.approverId,
-      decidedAt: leaveRequests.decidedAt,
-      createdAt: leaveRequests.createdAt,
-      updatedAt: leaveRequests.updatedAt,
-    })
-    .from(leaveRequests)
-    .where(
-      and(
-        eq(leaveRequests.companyId, q.companyId),
-        q.to ? lte(leaveRequests.startDate, q.to) : undefined,
-        q.from ? gte(leaveRequests.endDate, q.from) : undefined,
-        q.from ? gte(leaveRequests.startDate, earliestOverlappingStart(q.from)) : undefined,
-        q.userId ? eq(leaveRequests.userId, q.userId) : undefined,
-        q.status ? eq(leaveRequests.status, q.status) : undefined,
-        q.after ? sql`(${leaveRequests.startDate}, ${leaveRequests.id}) > (${q.after.startDate}::date, ${q.after.id}::uuid)` : undefined,
-      ),
-    )
-    .orderBy(asc(leaveRequests.startDate), asc(leaveRequests.id))
-    .limit(q.limit + 1);
 }
 
 /**

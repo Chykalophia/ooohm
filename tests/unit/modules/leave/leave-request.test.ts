@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { isDomainError } from "@/domain/errors";
-import { type LeaveRange, normalizeNote, NOTE_MAX_LENGTH, rangesOverlap } from "@/domain/leave-request";
+import { normalizeNote } from "@/modules/leave/domain/note";
+import { type LeaveRange, NOTE_MAX_LENGTH, rangesOverlap } from "@/shared/kernel/leave-range";
 
 const r = (startDate: string, endDate: string, dayPortion: LeaveRange["dayPortion"] = "full"): LeaveRange => ({
   startDate,

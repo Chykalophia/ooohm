@@ -1,5 +1,9 @@
-import { type CalendarDate, fromEpochDay, isCalendarDate, spanInDays, toEpochDay } from "./calendar-date";
-import { DomainError } from "./errors";
+/**
+ * The vocabulary of a leave request that every module shares: day portions, statuses,
+ * the date range and its shape checks.
+ */
+import { type CalendarDate, fromEpochDay, isCalendarDate, spanInDays, toEpochDay } from "@/domain/calendar-date";
+import { DomainError } from "@/domain/errors";
 
 export const DAY_PORTIONS = ["full", "am", "pm"] as const;
 /** Which part of a day a request covers. `am`/`pm` are half days and single-day only. */
@@ -52,20 +56,6 @@ export function assertValidRange(range: LeaveRange): void {
   if (range.endDate < range.startDate) throw new DomainError("invalid_date_range");
   if (spanInDays(range.startDate, range.endDate) > MAX_REQUEST_SPAN_DAYS) throw new DomainError("range_too_long");
   if (range.dayPortion !== "full" && range.startDate !== range.endDate) throw new DomainError("half_day_multi_day");
-}
-
-/**
- * Trims free text and turns blank into `null`. `field` names the form field it came
- * from, so an error can point at it (a request's `note`, a decision's `reason`).
- *
- * @throws DomainError `invalid_input` when longer than {@link NOTE_MAX_LENGTH}.
- */
-export function normalizeNote(note: string | null | undefined, field = "note"): string | null {
-  const trimmed = note?.trim() ?? "";
-  if (trimmed.length > NOTE_MAX_LENGTH) {
-    throw new DomainError("invalid_input", `Notes are limited to ${NOTE_MAX_LENGTH} characters.`, { field });
-  }
-  return trimmed === "" ? null : trimmed;
 }
 
 /**

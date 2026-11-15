@@ -9,9 +9,12 @@ import type { Database } from "@/db/types";
 import { applyDatabaseRoles, migrateAsOwner } from "@/server/admin/db";
 import { deactivatePerson } from "@/server/services/admin-people";
 import { deletePerson } from "@/server/services/admin-people-deletion";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 /**
  * The owner and app roles (ADR-0006, deploy/db-roles.sql), on a Postgres server only:

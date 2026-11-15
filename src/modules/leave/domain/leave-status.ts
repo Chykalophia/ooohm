@@ -1,5 +1,5 @@
-import { DomainError } from "./errors";
-import type { LeaveStatus } from "./leave-request";
+import { DomainError } from "@/domain/errors";
+import type { LeaveStatus } from "@/shared/kernel/leave-range";
 
 /**
  * The leave request state machine. Rejected and cancelled are terminal; an approved

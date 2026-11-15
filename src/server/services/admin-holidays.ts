@@ -35,7 +35,8 @@ import {
   renameHolidays as renameHolidayRows,
 } from "@/server/repositories/holidays";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { type HolidayFact, type RecountOutcome, recountLeave } from "./leave-recount";
+import { type HolidayFact, type RecountOutcome, recountLeave } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { commitThenNotify, inTransaction } from "./notify";
 
 function payload(row: HolidayRow): Unattributed<HolidayEventPayload> {
@@ -111,7 +112,7 @@ export async function addHoliday(
       const [row] = await insertHolidays(tx, actor.companyId, [{ date: input.date, name }]);
       if (!row) throw new DomainError("already_exists");
       await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, { before: null, after: row });
-      const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: [fact(row)], removed: [] });
+      const { outcome, notify } = unwrap(await recountLeave(tx, ctx, actor, { kind: "holidays", added: [fact(row)], removed: [] }));
       return { result: { holiday: row, recount: outcome }, notify };
     });
   } catch (err) {
@@ -152,7 +153,7 @@ export async function addHolidayRange(
     for (const row of added) await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, { before: null, after: row });
     const taken = new Set(added.map((row) => row.date));
     const skipped = dates.filter((date) => !taken.has(date));
-    const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: added.map(fact), removed: [] });
+    const { outcome, notify } = unwrap(await recountLeave(tx, ctx, actor, { kind: "holidays", added: added.map(fact), removed: [] }));
     return { result: { added, skipped, recount: outcome }, notify };
   });
 }
@@ -176,7 +177,7 @@ export async function addUsFederalHolidays(
     await beginCalendarChange(tx, actor);
     const added = await insertHolidays(tx, actor.companyId, usFederalHolidays(year));
     for (const row of added) await record(tx, actor, ADMIN_EVENT_TYPES.holidayCreated, { before: null, after: row });
-    const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: added.map(fact), removed: [] });
+    const { outcome, notify } = unwrap(await recountLeave(tx, ctx, actor, { kind: "holidays", added: added.map(fact), removed: [] }));
     return { result: { added, recount: outcome }, notify };
   });
 }
@@ -251,7 +252,7 @@ export async function deleteHolidays(ctx: ServiceContext, actor: Actor, ids: rea
     const deleted = await deleteHolidayRows(tx, actor.companyId, wanted);
     if (deleted.length !== wanted.length) throw new DomainError("not_found");
     for (const row of deleted) await record(tx, actor, ADMIN_EVENT_TYPES.holidayDeleted, { before: row, after: null });
-    const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "holidays", added: [], removed: deleted.map(fact) });
+    const { outcome, notify } = unwrap(await recountLeave(tx, ctx, actor, { kind: "holidays", added: [], removed: deleted.map(fact) }));
     return { result: outcome, notify };
   });
 }

@@ -3,10 +3,15 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { decideLeaveRequest } from "@/server/services/approvals";
-import { cancelLeaveRequest, getDashboard, SUBMIT_LIMIT, submitLeaveRequest } from "@/server/services/leave-requests";
+import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, SUBMIT_LIMIT, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { auditFor, eventsFor, requestsOf, seedCompany, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 // Dates: 2026-11-02 is a Monday; 2026-11-26 (Thu) is the seeded holiday.
 

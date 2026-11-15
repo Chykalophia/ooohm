@@ -8,10 +8,13 @@ import { peopleImportSampleCsv } from "@/domain/people-import";
 import { INVITE_SUBJECT } from "@/server/notifications/templates/invite";
 import { invitePerson } from "@/server/services/admin-people";
 import { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport } from "@/server/services/admin-people-import";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 async function peopleOf(db: Database, companyId: string) {
   const rows = await db.select().from(schema.user).where(eq(schema.user.companyId, companyId));

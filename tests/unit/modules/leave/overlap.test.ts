@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { describeOverlap, type Overlap, overlapsFor, type TeamLeave } from "@/domain/overlap";
+import { describeOverlap, type Overlap, overlapsFor, type TeamLeave } from "@/modules/leave/domain/overlap";
 
 const leave = (userId: string, startDate: string, endDate: string, extra: Partial<TeamLeave> = {}): TeamLeave => ({
   userId,

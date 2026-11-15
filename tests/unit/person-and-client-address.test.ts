@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { earliestOverlappingStart, MAX_REQUEST_SPAN_DAYS } from "@/domain/leave-request";
+import { earliestOverlappingStart, MAX_REQUEST_SPAN_DAYS } from "@/shared/kernel/leave-range";
 import { spanInDays } from "@/domain/calendar-date";
 import { personLabel, teamLabel } from "@/domain/person";
 import { clientAddress, SHARED_CLIENT } from "@/lib/client-address";

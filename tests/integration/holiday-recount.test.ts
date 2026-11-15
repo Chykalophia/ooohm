@@ -8,10 +8,14 @@ import { updateCompanySettings } from "@/server/services/admin-company";
 import { addHoliday, addUsFederalHolidays, deleteHoliday } from "@/server/services/admin-holidays";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary } from "@/server/services/balances";
-import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-requests";
+import { cancelLeaveRequest as cancelLeaveRequestResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, auditFor, decidable, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 // The test clock is 2026-11-01, so 2026 is the open year and 2025 is closed.
 // 2026-12-21 is a Monday; the fixture's only holiday is 2026-11-26 ("Thanksgiving").

@@ -1,6 +1,6 @@
 "use client";
 
-import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { REQUEST_FORM_ID } from "@/components/layout/anchors";
 import { Section } from "@/components/ui/section";
 import { ChipSelect } from "@/components/ui/chip-select";

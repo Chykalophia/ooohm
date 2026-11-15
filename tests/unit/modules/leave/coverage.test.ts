@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { coverageBreach, describeCoverageBreach } from "@/domain/coverage";
+import { coverageBreach, describeCoverageBreach } from "@/modules/leave/domain/coverage";
 import { formatShortDay } from "@/lib/format";
 
 // Mon 2026-03-02 .. Fri 2026-03-06; weekends are 03-07 and 03-08.

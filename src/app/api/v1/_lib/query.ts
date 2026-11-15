@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isCalendarDate } from "@/domain/calendar-date";
-import { LEAVE_STATUSES } from "@/domain/leave-request";
+import { LEAVE_STATUSES } from "@/shared/kernel/leave-range";
 import { API_DEFAULT_PAGE_SIZE, API_MAX_PAGE_SIZE } from "@/server/services/api-v1";
 
 /** Query parameter schemas of `/api/v1`. The OpenAPI document describes the same rules. */

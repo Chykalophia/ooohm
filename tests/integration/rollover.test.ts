@@ -4,11 +4,15 @@ import { and, asc, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary, previewLeaveRequest } from "@/server/services/balances";
-import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-requests";
+import { cancelLeaveRequest as cancelLeaveRequestResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { runYearRollover } from "@/server/services/rollover";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 /** Rollover runs over every company in the database, so this file owns its own. */
 describe("year rollover", { skip }, () => {

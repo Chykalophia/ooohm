@@ -53,12 +53,18 @@ Nine phases, **A0 to A8**, each shipped as one or more PRs that keep the app's b
    `test:integration` against a Postgres 16 service → `build` (dummy secrets, as in the repo memory notes). Required
    on `main`.
 5. Add `ARCHITECTURE.md`, the AGENTS.md "Architecture standard" section and ADRs 0001–0012 (this PR).
+6. Record the DORA baseline in `docs/architecture-plan/dora-baseline.md`, from GitHub and Vercel history for the
+   90 days before A0 merges: deployments to production per week (Vercel `ooohm` production deployments), median
+   lead time from a PR's first commit to its merge (merged PRs on `main`), change-failure rate (production
+   deployments followed within 7 days by a revert, rollback or a PR titled or labelled as a fix for it), and time to
+   restore (from that deployment to the fix's merge). The same queries are re-run at the end of A3 and A8.
 
 **Exit criteria**
 
 - CI runs on every PR and is required for merge; all jobs green on `main`.
 - `pnpm arch` passes with the baseline and fails on a planted violation (the fitness test proves it).
 - ADR-0001 … 0012 accepted or amended by the owner.
+- `dora-baseline.md` committed with the four numbers and the queries that produced them.
 
 **Fitness functions added:** dependency-cruiser (all rules, baseline), `no-circular: error`, server-only check,
 guarded-actions and guarded-routes checks, size-limit warnings.
@@ -116,7 +122,7 @@ Pilots: **reports** (a pure query module: read model, DTOs, no writes) and **org
 
 **Tests first**
 
-- Fitness (red): new dependency-cruiser rules `no-deep-module-import` (anything outside `src/modules/<m>/` may import
+- Fitness (red): new dependency-cruiser rules `no-deep-import-from-outside` + `no-deep-import-across-modules` (anything outside `src/modules/<m>/` may import
   only `@/modules/<m>`, i.e. its `index.ts`) and `module-layers` (`ui` → `application`; `application` →
   `domain`; `infrastructure` → `application` | `domain`; `domain` → nothing outside it; `application` may not import
   `infrastructure` **except** through the composition root in Tier 3, and directly in Tier 2 for repositories).
@@ -140,7 +146,7 @@ Pilots: **reports** (a pure query module: read model, DTOs, no writes) and **org
 
 - `src/app/reports/page.tsx` ≤ 150 lines; it imports only `@/modules/reports` and `@/shared/*`.
 - Both pilot modules have a README stating their public API; nothing imports their internals.
-- `no-deep-module-import` and `module-layers` are errors with an empty baseline for `src/modules/**`.
+- `no-deep-import-*` and `module-layers` are errors with an empty baseline for `src/modules/**`.
 
 ---
 

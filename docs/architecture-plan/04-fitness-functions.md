@@ -16,7 +16,7 @@ empty at A8.
 | F6 | Every exported server action goes through the authenticated pipeline | `tests/architecture/actions-are-guarded.test.ts` | A0 | A0 (2 allow-listed token actions) |
 | F7 | Every route handler authenticates or is on the public list | `tests/architecture/routes-are-guarded.test.ts` | A0 | A0 |
 | F8 | Size limits: action/route file ≤ 100 lines; function ≤ 50 (server, domain, actions, routes); use-case file ≤ 500; `.tsx` function ≤ 150 | ESLint `max-lines`, `max-lines-per-function` | A0 (warn) | A7 (error) |
-| F9 | Cross-module imports only through `@/modules/<m>` (`index.ts`) | dependency-cruiser `no-deep-module-import` | A2 | A6 |
+| F9 | Cross-module imports only through `@/modules/<m>` (`index.ts`) | dependency-cruiser `no-deep-import-from-outside`, `no-deep-import-across-modules` | A2 | A6 |
 | F10 | Layers inside a module (`ui → application → domain`, `infrastructure → application/domain`) | dependency-cruiser `module-layers` | A2 | A6 |
 | F11 | No `Row` / `$inferSelect` type exported from a module's `index.ts` | `tests/architecture/no-rows-exported.test.ts` (TypeScript compiler API) | A2 | A7 |
 | F12 | `actions.ts` imports only `@/modules/*`, `@/app/_lib/*`, `zod` | dependency-cruiser | A7 | A7 |
@@ -56,10 +56,10 @@ module.exports = {
     { name: "no-circular", severity: "error", from: {}, to: { circular: true } },
     {
       name: "domain-is-pure",
-      comment: "Domain code imports only domain code (reference §2).",
+      comment: "Domain code imports only domain code and the shared Result type (reference §2, ADR-0003).",
       severity: "error",
       from: { path: "^src/(domain|modules/[^/]+/domain|shared/kernel)/" },
-      to: { pathNot: "^src/(domain|modules/[^/]+/domain|shared/kernel)/" },
+      to: { pathNot: ["^src/(domain|modules/[^/]+/domain|shared/kernel)/", "^src/shared/lib/result\\.ts$"] },
     },
     {
       name: "app-not-to-infrastructure",
@@ -86,9 +86,15 @@ module.exports = {
       from: { path: "^src/", pathNot: "^src/(lib|db|server/(repositories|runtime\\.ts|admin|identity)|modules/[^/]+/infrastructure)" },
       to: { path: "node_modules/(nodemailer|better-auth|postgres|@electric-sql|drizzle-orm)/" },
     },
-    // Added in A2:
-    // { name: "no-deep-module-import", from: { path: "^src/", pathNot: "^src/modules/([^/]+)/" },
+    // Added in A2. Two rules, because only `from.path` can capture a group: `$1` in `to` refers to the module the
+    // import starts in, so a module's own layers stay reachable and every other module only through index.ts.
+    // (Checked on a fixture tree with dependency-cruiser 16 before this plan was written.)
+    // { name: "no-deep-import-from-outside", severity: "error",
+    //   from: { path: "^src/", pathNot: "^src/modules/" },
     //   to: { path: "^src/modules/[^/]+/.+", pathNot: "^src/modules/[^/]+/index\\.ts$" } },
+    // { name: "no-deep-import-across-modules", severity: "error",
+    //   from: { path: "^src/modules/([^/]+)/" },
+    //   to: { path: "^src/modules/[^/]+/.+", pathNot: ["^src/modules/$1/", "^src/modules/[^/]+/index\\.ts$"] } },
     // { name: "module-layers", ... }
   ],
   options: {

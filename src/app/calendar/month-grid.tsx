@@ -7,7 +7,8 @@ import { formatLeaveDates, formatLongDate } from "@/lib/format";
 import { IDLE } from "@/components/forms/form-state";
 import { LeaveChip } from "@/components/leave/leave-chip";
 import { cx, selectClass, subtleButton } from "@/components/ui/styles";
-import { type LeaveTypeOption, LeavePreviewLine, SubmitRow, useLeavePreview, useRequestAction } from "@/app/request-leave-form";
+import { type LeaveTypeOption, LeavePreviewLine, SubmitRow, useRequestAction } from "@/app/request-leave-form";
+import { useLeavePreview } from "@/app/use-leave-preview";
 
 const WEEKDAYS = [
   ["Mon", "Monday"],

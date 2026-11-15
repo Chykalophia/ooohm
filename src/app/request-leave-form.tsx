@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PendingLabel } from "@/components/ui/ooo-dots";
 import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { type FormState, IDLE, nextFormKey } from "@/components/forms/form-state";
@@ -11,7 +11,7 @@ import { ADD_LEAVE_FORM_ID, REQUEST_FORM_ID } from "@/components/layout/anchors"
 import { ChoiceChip, Fieldset, SelectField, TextAreaField } from "@/components/ui/fields";
 import { Section } from "@/components/ui/section";
 import { cx, errorText, primaryButton } from "@/components/ui/styles";
-import type { LeavePreviewResponse } from "./_lib/leave-input";
+import { type LeavePreview, useLeavePreview } from "./use-leave-preview";
 import { addLeaveForAction, requestLeaveAction } from "./actions";
 import { showsPreview } from "./request-preview";
 
@@ -27,8 +27,6 @@ const PORTIONS: { value: Portion; label: string }[] = [
   { value: "pm", label: "Afternoon" },
 ];
 
-/** How long the form waits after the last change before asking for a preview. */
-const PREVIEW_DELAY_MS = 300;
 const PREVIEW_ID = "leave-preview";
 
 /**
@@ -251,45 +249,4 @@ export function LeavePreviewLine({ preview, shown, className = "text-sm" }: { pr
       {shown && preview.message}
     </p>
   );
-}
-
-type Draft = { leaveTypeId: string; startDate: string; endDate: string; dayPortion: Portion };
-type Preview = { query: string; ok: boolean; message: string };
-
-/** A preview's sentence, whether the draft can be sent, and whether it matches the draft as it is now. */
-export type LeavePreview = { message: string; ok: boolean; current: boolean };
-
-/**
- * Asks the server what the draft would cost and leave ("This request takes 3 days.
- * Afterwards you'd have 12 days left for 2026."), or why it can't be requested, using the same computation as
- * submit. Debounced; a newer draft aborts the older request, so answers never arrive
- * out of order. While a newer answer is on its way, the last one stays, marked busy.
- *
- * @param forUserId Someone else the time off is for (`for=`): what it would cost them.
- */
-export function useLeavePreview(draft: Draft, forUserId?: string): LeavePreview {
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const complete = draft.leaveTypeId !== "" && draft.startDate !== "";
-  const query = new URLSearchParams(forUserId ? { ...draft, for: forUserId } : draft).toString();
-
-  useEffect(() => {
-    if (!complete) return;
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/leave-preview?${query}`, { signal: controller.signal, cache: "no-store" });
-        const body = (await res.json()) as LeavePreviewResponse;
-        setPreview({ query, ok: body.ok, message: body.message });
-      } catch {
-        if (!controller.signal.aborted) setPreview({ query, ok: false, message: "The preview isn't available right now." });
-      }
-    }, PREVIEW_DELAY_MS);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [complete, query]);
-
-  if (!complete || !preview) return { message: "", ok: true, current: true };
-  return { message: preview.message, ok: preview.ok, current: preview.query === query };
 }

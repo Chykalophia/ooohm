@@ -13,7 +13,7 @@ import { cancelDeletionAction } from "@/app/admin/people/actions";
 import { cx, linkedRow, nativeCheck, primaryButton, quietLink, textLink } from "@/components/ui/styles";
 import { SelectField, TextField } from "@/components/ui/fields";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { departmentParamSchema, readParam } from "@/app/_lib/calendar-input";
+import { departmentParamSchema, readParam } from "@/shared/lib/search-params";
 import { pagerLinks, readPageParams } from "@/app/_lib/paging";
 import { Pager } from "@/components/navigation/pager";
 

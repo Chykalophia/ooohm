@@ -4,7 +4,8 @@ import { and, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { listAllowanceRulesForAdmin, removeAllowanceRule, setAllowanceRule } from "@/server/services/admin-allowance-rules";
 import { createDepartment, deleteDepartment } from "@/server/services/admin-departments";
-import { createLevel, deleteLevel, listLevelsForAdmin, renameLevel } from "@/server/services/admin-levels";
+import * as organisation from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
 import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
 import { deletePerson } from "@/server/services/admin-people-deletion";
 import { getBalanceSummary } from "@/server/services/balances";
@@ -13,6 +14,12 @@ import { runYearRollover } from "@/server/services/rollover";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The level use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const createLevel = (...args: Parameters<typeof organisation.createLevel>) => organisation.createLevel(...args).then(unwrap);
+const deleteLevel = (...args: Parameters<typeof organisation.deleteLevel>) => organisation.deleteLevel(...args).then(unwrap);
+const listLevelsForAdmin = (...args: Parameters<typeof organisation.listLevelsForAdmin>) => organisation.listLevelsForAdmin(...args).then(unwrap);
+const renameLevel = (...args: Parameters<typeof organisation.renameLevel>) => organisation.renameLevel(...args).then(unwrap);
 
 const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
 const NOW = new Date("2026-11-03T09:00:00Z");

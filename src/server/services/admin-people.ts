@@ -37,7 +37,7 @@ import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/server/repositories/audit-log";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
 import { findDepartment, listDepartments } from "@/server/repositories/departments";
-import { findLevel, listLevels } from "@/server/repositories/levels";
+import { findLevel, listLevels } from "@/modules/organisation";
 import { followDefaults } from "./admin-allowance-rules";
 import { isUniqueViolation } from "@/server/repositories/errors";
 import { countLiveEndpoints } from "@/server/repositories/webhooks";

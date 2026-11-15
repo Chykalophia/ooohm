@@ -12,7 +12,7 @@ export function listFiles(dir: string, pattern: RegExp): string[] {
       const path = join(abs, name);
       if (statSync(path).isDirectory()) {
         // fitness.test.ts plants rule-breaking probes here while it runs; other scans skip them.
-        if (name !== "__fitness_probe__") walk(path);
+        if (!name.startsWith("__fitness_probe__")) walk(path);
       }
       else if (pattern.test(name)) out.push(relative(ROOT, path).split("\\").join("/"));
     }

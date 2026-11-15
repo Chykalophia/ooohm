@@ -4,7 +4,7 @@ import { z } from "zod";
 import { formatInstantFull, formatInstantShort, formatShortDate } from "@/lib/format";
 import { AUDIT_PAGE_SIZE, AUDIT_PAGE_SIZES, AUDIT_SEARCH_MAX_LENGTH, type AuditLogEntry, getAuditLog } from "@/server/services/audit-log";
 import { AdminShell } from "@/app/admin/admin-shell";
-import { readParam } from "@/app/_lib/calendar-input";
+import { readParam } from "@/shared/lib/search-params";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { listHref, pagerLinks, readPageParams } from "@/app/_lib/paging";
 import { PageSizeNav } from "@/components/navigation/page-size-nav";

@@ -33,6 +33,7 @@ for processes outside Next) is the only place that wires concrete implementation
 | `src/server/integrations/**`, `importers/**` | Ports / infrastructure | Adapter seam; one-time import readers |
 | `src/domain/**` | Domain | Pure rules and types; no I/O |
 | `src/lib/**`, `src/db/**` | Infrastructure + cross-cutting | Env, auth, logging, mail, crypto; schema and connection |
+| `src/modules/<m>/**` | All four, inside the module | `reports` and `organisation` (levels) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
 
 ## Where code is going
 
@@ -46,6 +47,9 @@ src/shared/              kernel/ (shared domain types), lib/ (result, log, env, 
 The modules are leave, approvals and balances (Tier 3), plus calendar, holidays, people, organisation,
 notifications, integrations, reports, audit and import (Tier 2). See
 [02-target-modules-and-tiers.md](docs/architecture-plan/02-target-modules-and-tiers.md).
+
+Outside a module, code imports only `@/modules/<m>` (its `index.ts`); `pnpm arch` enforces it and the layers inside
+each module.
 
 **Rule for new code during the transition:** when a module already exists in `src/modules/`, put the code there.
 When it doesn't, follow today's layout. Either way, a use case takes `(ctx, actor, input)`, authorizes it, and

@@ -29,7 +29,7 @@ import { isUniqueViolation } from "@/server/repositories/errors";
 import { listPendingRequestsInDepartment } from "@/server/repositories/leave-requests";
 import { countDepartmentMembers, findMember, listPeopleNames } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { removeRulesOf } from "./admin-allowance-rules";
+import { removeRulesOf } from "./allowance-rule-removal";
 import { rerouteApprovals } from "./approval-routing";
 import { commitThenNotify, inTransaction } from "./notify";
 

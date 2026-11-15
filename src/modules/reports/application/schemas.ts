@@ -1,6 +1,15 @@
-import { departmentParamSchema, readParam, yearParamSchema } from "./calendar-input";
+import "server-only";
+import { departmentParamSchema, readParam, yearParamSchema } from "@/shared/lib/search-params";
 
 type Params = Record<string, string | string[] | undefined>;
+
+/** Which slice of the leave a report shows. */
+export interface LeaveReportQuery {
+  /** Anything outside the calendar's years, or nothing, means this year. */
+  year?: number;
+  /** A department of the actor's company; anything else means everyone in scope. */
+  departmentId?: string;
+}
 
 /** A URL's query as a page's `searchParams` gives it: a repeated key becomes an array. */
 export function searchParamsRecord(params: URLSearchParams): Params {

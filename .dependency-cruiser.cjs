@@ -13,10 +13,11 @@ module.exports = {
     },
     {
       name: "module-domain-is-pure",
-      comment: "A module's domain imports only its own domain, the kernel and Result; never another module's domain. $1 is the module the import starts in.",
+      comment:
+        "A module's domain imports only its own domain, the kernel and Result; never another module's domain. $1 is the module the import starts in. src/domain counts as kernel while it still holds shared pure rules (domain-is-pure keeps it pure); its files move to shared/kernel or their module.",
       severity: "error",
       from: { path: "^src/modules/([^/]+)/domain/" },
-      to: { pathNot: ["^src/modules/$1/domain/", "^src/shared/kernel/", "^src/shared/lib/result\\.ts$"] },
+      to: { pathNot: ["^src/modules/$1/domain/", "^src/shared/kernel/", "^src/domain/", "^src/shared/lib/result\\.ts$"] },
     },
     {
       name: "app-not-to-infrastructure",
@@ -56,16 +57,52 @@ module.exports = {
       },
       to: { path: "node_modules/(nodemailer|better-auth|@better-auth|postgres|@electric-sql|drizzle-orm)/" },
     },
-    // Added in A2. Two rules, because only `from.path` can capture a group: `$1` in `to` refers to the module the
-    // import starts in, so a module's own layers stay reachable and every other module only through index.ts.
-    // (Checked on a fixture tree with dependency-cruiser 16 before this plan was written.)
-    // { name: "no-deep-import-from-outside", severity: "error",
-    //   from: { path: "^src/", pathNot: "^src/modules/" },
-    //   to: { path: "^src/modules/[^/]+/.+", pathNot: "^src/modules/[^/]+/index\\.ts$" } },
-    // { name: "no-deep-import-across-modules", severity: "error",
-    //   from: { path: "^src/modules/([^/]+)/" },
-    //   to: { path: "^src/modules/[^/]+/.+", pathNot: ["^src/modules/$1/", "^src/modules/[^/]+/index\\.ts$"] } },
-    // { name: "module-layers", ... }
+    // Module boundaries (F9). Two rules, because only `from.path` can capture a group: `$1` in `to` is the module
+    // the import starts in, so a module's own files stay reachable and every other module only through index.ts.
+    {
+      name: "no-deep-import-from-outside",
+      comment: "Code outside src/modules imports a module only through its index.ts (ADR-0009).",
+      severity: "error",
+      from: { path: "^src/", pathNot: "^src/modules/" },
+      to: { path: "^src/modules/[^/]+/.+", pathNot: "^src/modules/[^/]+/index\\.ts$" },
+    },
+    {
+      name: "no-deep-import-across-modules",
+      comment: "A module imports another module only through that module's index.ts (ADR-0009).",
+      severity: "error",
+      from: { path: "^src/modules/([^/]+)/" },
+      to: { path: "^src/modules/[^/]+/.+", pathNot: ["^src/modules/$1/", "^src/modules/[^/]+/index\\.ts$"] },
+    },
+    // Layers inside a module (F10): one rule name, several shapes; $1 is the module the import starts in.
+    // Tier 2 application code calls its own infrastructure (repositories) directly; Tier 3 goes through ports.
+    {
+      name: "module-layers",
+      comment: "A module's domain imports none of its application, infrastructure or ui.",
+      severity: "error",
+      from: { path: "^src/modules/([^/]+)/domain/" },
+      to: { path: "^src/modules/$1/(application|infrastructure|ui)/" },
+    },
+    {
+      name: "module-layers",
+      comment: "A module's application and infrastructure never import its ui.",
+      severity: "error",
+      from: { path: "^src/modules/([^/]+)/(application|infrastructure)/" },
+      to: { path: "^src/modules/$1/ui/" },
+    },
+    {
+      name: "module-layers",
+      comment: "A module's ui never imports its infrastructure: it renders what application returns.",
+      severity: "error",
+      from: { path: "^src/modules/([^/]+)/ui/" },
+      to: { path: "^src/modules/$1/infrastructure/" },
+    },
+    {
+      name: "module-layers",
+      comment: "In a Tier 3 module, application reaches infrastructure only through its ports, wired in the composition root.",
+      severity: "error",
+      from: { path: "^src/modules/(leave|approvals|balances)/application/" },
+      to: { path: "^src/modules/$1/infrastructure/" },
+    },
   ],
   options: {
     tsConfig: { fileName: "tsconfig.json" },

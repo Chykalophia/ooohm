@@ -18,5 +18,5 @@ import { canManageAppearance } from "@/modules/organisation/application/policies
  */
 export async function updateCompanyAppearance(ctx: ServiceContext, actor: Actor, input: AppearanceInput): Promise<ServiceResult<CompanyDTO>> {
   if (!canManageAppearance(actor)) return err("forbidden");
-  return attempt(() => inTransaction(ctx, async (tx) => (await changeCompany(tx, actor, () => normalizeAppearance(input))).after));
+  return attempt(() => inTransaction(ctx, actor.companyId, async (tx) => (await changeCompany(tx, actor, () => normalizeAppearance(input))).after));
 }

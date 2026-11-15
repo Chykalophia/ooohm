@@ -23,7 +23,7 @@ export async function renameLevel(ctx: ServiceContext, actor: Actor, id: string,
   return attempt(async () => {
     const name = normalizeLevelName(rawName);
     return withUniqueName(() =>
-      inTransaction(ctx, async (tx) => {
+      inTransaction(ctx, actor.companyId, async (tx) => {
         await assertActiveAdmin(tx, actor);
         const before = await lockLevel(tx, actor.companyId, id);
         if (!before) throw new DomainError("not_found");

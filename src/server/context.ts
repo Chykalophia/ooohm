@@ -21,7 +21,13 @@ export type Mailer = (message: MailMessage) => Promise<void>;
  * `@/server/runtime`; integration tests build their own against a throwaway database.
  */
 export interface ServiceContext {
+  /**
+   * The database. Bound to one company once the context is scoped to it (`forTenant`,
+   * `@/shared/lib/tenant`); unscoped, row-level security shows it no company's rows.
+   */
   db: Database;
+  /** The company `db` is bound to (`forTenant`), or `undefined` before one is known. */
+  tenant?: string | undefined;
   mailer: Mailer;
   /**
    * Schedules work to run after the current transaction has committed and, in the

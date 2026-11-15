@@ -85,14 +85,15 @@ function planCompany(company: BalancesCompany, now: Date, fromYear: number | und
 }
 
 /** Rolls every active member of one company over, each in their own unit of work. */
-async function rollCompany(deps: BalancesDeps, { company, policy, currentYear, closingYear }: CompanyPlan): Promise<RollCounts & { members: number }> {
+async function rollCompany(all: BalancesDeps, { company, policy, currentYear, closingYear }: CompanyPlan): Promise<RollCounts & { members: number }> {
+  const deps = all.tenant(company.id);
   const { directory } = deps.read;
   const [types, members] = await Promise.all([directory.activeLeaveTypes(company.id), directory.activeMembers(company.id)]);
   const counting = types.filter((t) => t.countsAgainstAllowance);
   let carried = 0;
   let created = 0;
   for (const member of members) {
-    const changes = await deps.unitOfWork((store) =>
+    const changes = await deps.unitOfWork(company.id, (store) =>
       rollMember(store, {
         companyId: company.id,
         timezone: company.timezone,

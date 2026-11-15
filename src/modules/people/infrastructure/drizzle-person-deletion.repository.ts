@@ -11,7 +11,7 @@ import "server-only";
  * per delete, a rare admin action over a small team's history, so they do without
  * indexes of their own. Everything else here goes through an index on the person.
  */
-import { and, asc, count, eq, inArray, isNotNull, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   account,
@@ -460,27 +460,6 @@ export async function findScrubRequest(ex: Executor, companyId: string, userId: 
 export interface DueScrubCursor {
   at: Date;
   id: string;
-}
-
-/**
- * Scheduled scrubs due at `now`, across companies, soonest first, after `cursor` when
- * given (keyset paging, so scrubs that cannot run yet never hide the ones behind them).
- * Served by `user_scrub_scheduled_idx`.
- */
-export async function listDueScrubs(ex: Executor, now: Date, limit: number, cursor?: DueScrubCursor) {
-  return ex
-    .select({ id: user.id, companyId: user.companyId, scrubScheduledAt: user.scrubScheduledAt })
-    .from(user)
-    .where(
-      and(
-        isNotNull(user.scrubScheduledAt),
-        lte(user.scrubScheduledAt, now),
-        isNull(user.deletedAt),
-        cursor ? sql`(${user.scrubScheduledAt}, ${user.id}) > (${cursor.at.toISOString()}::timestamptz, ${cursor.id})` : undefined,
-      ),
-    )
-    .orderBy(asc(user.scrubScheduledAt), asc(user.id))
-    .limit(limit);
 }
 
 const approver = alias(user, "approver");

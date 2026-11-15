@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { addMonths, isYearMonth, monthOf, type YearMonth } from "@/shared/kernel/calendar";
 import { DomainError } from "@/shared/kernel/errors";
@@ -39,6 +40,7 @@ export interface YearNav {
  * @throws DomainError `no_company` when the actor's company is missing.
  */
 export async function calendarViewer(ctx: ServiceContext, actor: Actor) {
+  ctx = forTenant(ctx, actor.companyId);
   const viewer = await findCalendarViewer(ctx.db, actor.companyId, actor.id);
   if (!viewer) throw new DomainError("no_company");
   const person = { id: actor.id, role: actor.role, managerId: viewer.managerId, departmentId: viewer.departmentId };

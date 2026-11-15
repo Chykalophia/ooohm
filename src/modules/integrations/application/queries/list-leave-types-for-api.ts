@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { ServiceContext } from "@/server/context";
 import { listAllLeaveTypes } from "@/modules/organisation";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
@@ -20,6 +21,7 @@ export interface ApiLeaveType {
 
 /** Every leave type, archived ones too (flagged), in display order. One query. Fails with `forbidden`. */
 export async function listLeaveTypesForApi(ctx: ServiceContext, client: ApiClient): Promise<ServiceResult<{ data: ApiLeaveType[] }>> {
+  ctx = forTenant(ctx, client.companyId);
   return attempt(async () => {
     assertScope(client, "read");
     const rows = await listAllLeaveTypes(ctx.db, client.companyId);

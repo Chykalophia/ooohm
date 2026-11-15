@@ -18,7 +18,7 @@ import { inTransaction } from "@/shared/lib/unit-of-work";
 export async function cancelScheduledDeletion(ctx: ServiceContext, actor: Actor, userId: string): Promise<ServiceResult<boolean>> {
   if (!canDeletePeople(actor)) return err("forbidden");
   return attempt(() =>
-    inTransaction(ctx, async (tx) => {
+    inTransaction(ctx, actor.companyId, async (tx) => {
       await beginAdminChange(tx, actor);
       const person = await lockPerson(tx, actor.companyId, userId);
       if (!person) throw new DomainError("not_found");

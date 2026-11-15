@@ -30,7 +30,7 @@ import {
 } from "../support/timeoff-fixture";
 import { rejectsWith } from "./assertions";
 import { decidable, requestsOf } from "./fixtures";
-import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { createOwnerTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import { first } from "../support/present";
 
 const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
@@ -139,7 +139,7 @@ describe("TimeOff import", { skip }, () => {
   test("a dry run computes the whole import and leaves the database untouched", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     const beforeCounts = await rowCounts(db);
 
     const report = await importTimeOff(ctx, fixture({ companyId }));
@@ -155,7 +155,7 @@ describe("TimeOff import", { skip }, () => {
   test("apply imports everyone and every balance equals TimeOff's, through the dashboard's own balance code", async () => {
     const db = await freshDb();
     const { companyId, adminId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     const outboxBefore = await db.$count(schema.eventsOutbox);
 
     const report = await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true }));
@@ -347,7 +347,7 @@ describe("TimeOff import", { skip }, () => {
   test("the same file cannot be imported twice, not even as a dry run", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     const input = fixture({ companyId }, undefined, { apply: true });
     assert.equal((await importTimeOff(ctx, input)).outcome, "applied");
     const counts = await rowCounts(db);
@@ -361,7 +361,7 @@ describe("TimeOff import", { skip }, () => {
   test("a newer export of the same data into an imported company is refused, even with --force", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     assert.equal((await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true }))).outcome, "applied");
     const counts = await rowCounts(db);
 
@@ -394,7 +394,7 @@ describe("TimeOff import", { skip }, () => {
   test("the fixture carried forward to a later year still reconciles to zero in that year", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db, { now: new Date("2028-03-01T15:00:00Z") });
+    const ctx = createOwnerTestContext(db, { now: new Date("2028-03-01T15:00:00Z") });
     const file = path.join(dir, `timeoff-${++fileNo}.sqlite`);
     const data = buildTimeOffFixtureThrough(file, 2028);
     assert.deepEqual(
@@ -424,7 +424,7 @@ describe("TimeOff import", { skip }, () => {
   test("the uncarried fixture imported in a later year mismatches on carry-over and rolls back", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db, { now: new Date("2027-01-15T15:00:00Z") });
+    const ctx = createOwnerTestContext(db, { now: new Date("2027-01-15T15:00:00Z") });
     const report = await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true }));
     assert.equal(report.outcome, "rolled_back");
     assert.ok(report.reconciliation.currentYearMismatches > 0);
@@ -435,7 +435,7 @@ describe("TimeOff import", { skip }, () => {
   test("a current-year mismatch rolls the whole apply back; --accept-mismatch commits it", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     // Dec 31 (afternoon) to Jan 2: TimeOff takes half a day off the 2026 part too, OOOhm does not.
     const quirk = (d: FixtureData) =>
       void fixtureLeave(d, { userId: U.dave, leaveTypeId: T.holiday, start: "2025-12-31", end: "2026-01-02", status: 2, dayPartStart: 3 });
@@ -501,7 +501,7 @@ describe("TimeOff import", { skip }, () => {
   test("a holiday the company already has, and TimeOff does not, shows as a mismatch instead of passing silently", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     await db.insert(schema.holidays).values({ companyId, date: "2026-03-10", name: "Company day" });
 
     const report = await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true }));
@@ -516,7 +516,7 @@ describe("TimeOff import", { skip }, () => {
 
   test("the import must leave an active admin: a new company with no TimeOff admin is refused", async () => {
     const db = await freshDb();
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     const noAdmins = (d: FixtureData) => d.users.forEach((u) => (u.admin = 0));
     await rejectsWith(importTimeOff(ctx, fixture({ createCompany: "Chykalophia" }, noAdmins, { apply: true })), "import_refused");
     assert.equal(await db.$count(schema.companies), 0, "the new company was rolled back too");
@@ -553,7 +553,7 @@ describe("TimeOff import", { skip }, () => {
 
   test("into a seeded company the seed admin is enough", async () => {
     const db = await freshDb();
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     const { companyId } = await seedFreshDeploy(db);
     const report = await importTimeOff(
       ctx,
@@ -564,7 +564,7 @@ describe("TimeOff import", { skip }, () => {
 
   test("--create-company is refused once a company exists: v1 runs one company per deployment", async () => {
     const db = await freshDb();
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     const { companyId } = await seedFreshDeploy(db);
     const counts = await rowCounts(db);
     const otherEmails = (d: FixtureData) => {
@@ -589,7 +589,7 @@ describe("TimeOff import", { skip }, () => {
   test("--actor must be an active admin of the target company after the import; otherwise nothing is written", async () => {
     const db = await freshDb();
     const { companyId, adminId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     const other = first(await db.insert(schema.companies).values({ name: "Other" }).returning());
     await db
       .insert(schema.user)
@@ -641,7 +641,7 @@ describe("TimeOff import", { skip }, () => {
   test("a company that already has leave or members is refused unless --force; emails of another company are left out", async () => {
     const db = await freshDb();
     const { companyId, adminId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     await db.insert(schema.user).values({ id: randomUUID(), email: "someone@example.org", name: "Someone", companyId });
     const other = first(await db.insert(schema.companies).values({ name: "Other" }).returning());
     await db.insert(schema.user).values({ id: randomUUID(), email: "paula@example.com", name: "Paula elsewhere", companyId: other.id });
@@ -666,14 +666,14 @@ describe("TimeOff import", { skip }, () => {
   test("several allowance types without --merge-pool-types are refused with the options", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     await assert.rejects(importTimeOff(ctx, fixture({ companyId }, undefined, { mergePoolTypes: false })), /--merge-pool-types/);
   });
 
   test("an existing person with the same email is updated, never demoted", async () => {
     const db = await freshDb();
     const { companyId, adminId } = await seedFreshDeploy(db, "bob@example.com");
-    const ctx = createTestContext(db);
+    const ctx = createOwnerTestContext(db);
     // Bob runs it: TimeOff has him as a manager, but he stays the admin he already is.
     const report = await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true, actorEmail: "bob@example.com" }));
     assert.equal(report.outcome, "applied");
@@ -696,7 +696,7 @@ describe("TimeOff import", { skip }, () => {
   test("an imported 2025 request shows no Cancel button and cannot be cancelled; one ending in 2026 is over, so it can't either", async () => {
     const db = await freshDb();
     const { companyId } = await seedFreshDeploy(db);
-    const ctx = createTestContext(db); // today: 2026-11-01
+    const ctx = createOwnerTestContext(db); // today: 2026-11-01
     await importTimeOff(ctx, fixture({ companyId }, undefined, { apply: true }));
     const actorFor = async (email: string) => {
       const row = first(await db.select().from(schema.user).where(eq(schema.user.email, email)));

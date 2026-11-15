@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import { DomainError } from "@/shared/kernel/errors";
 import { buildEnvelope, type EventEnvelope } from "@/shared/kernel/event-envelope";
 import { isUuid } from "@/shared/kernel/uuid";
@@ -21,6 +22,7 @@ export async function listEventsForApi(
   client: ApiClient,
   q: { after?: string | undefined; limit: number },
 ): Promise<ServiceResult<{ data: EventEnvelope[]; hasMore: boolean }>> {
+  ctx = forTenant(ctx, client.companyId);
   return attempt(async () => {
     assertScope(client, "read");
     if (q.after !== undefined && (!isUuid(q.after) || !(await companyEventExists(ctx.db, client.companyId, q.after)))) {

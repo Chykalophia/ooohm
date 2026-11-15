@@ -18,9 +18,10 @@ async function linkActor(deps: ApprovalDeps, approverId: string): Promise<Actor 
  * Checks a link and reads its request: the {@link EmailApproval} to show, and the
  * approver acting through the link when there is one. The link speaks only for the
  * person it was sent to, and only while the request is still theirs: once it moves to
- * someone else the link shows nothing about it, decided or not.
+ * someone else the link shows nothing about it, decided or not. The approver's company is
+ * found from the link's person (a pre-tenant read); `deps` comes back scoped to it.
  */
-export async function resolveLink(deps: ApprovalDeps, token: string): Promise<{ approval: EmailApproval; actor?: Actor }> {
+export async function resolveLink(deps: ApprovalDeps, token: string): Promise<{ approval: EmailApproval; actor?: Actor; deps?: ApprovalDeps }> {
   if (!deps.linkKey) return { approval: { state: "invalid" } };
   const check = verifyApproveToken(deps.linkKey, token, deps.now());
   if (!check.ok) return { approval: { state: check.reason } };
@@ -28,10 +29,12 @@ export async function resolveLink(deps: ApprovalDeps, token: string): Promise<{ 
   if (!isUuid(requestId)) return { approval: { state: "invalid" } };
   const actor = await linkActor(deps, approverId);
   if (!actor) return { approval: { state: "not_yours" } };
-  const request = await deps.read.requests.findForReview(actor.companyId, requestId);
+  // From here on, everything reads and writes in the approver's company.
+  const scoped = deps.tenant(actor.companyId);
+  const request = await scoped.read.requests.findForReview(actor.companyId, requestId);
   if (!request) return { approval: { state: "invalid" } };
   if (request.approverId !== actor.id) return { approval: { state: "not_yours" } };
   if (request.status !== "pending") return { approval: { state: "decided", request } };
   // The full rule (the approval rule still picks them) runs on approve; this is the cheap part.
-  return { approval: { state: "ready", request }, actor };
+  return { approval: { state: "ready", request }, actor, deps: scoped };
 }

@@ -12,6 +12,7 @@ import type { PageCursor } from "@/shared/kernel/paging";
 import type { ServiceContext } from "@/server/context";
 import type { CompanySettingsInput } from "@/shared/kernel/company-settings";
 import { commitThenNotify } from "@/modules/notifications";
+import { forTenant } from "@/shared/lib/tenant";
 import { saveCompanySettings } from "@/modules/organisation";
 import type { LeaveDraft } from "@/modules/balances";
 import { activeContactsIn, type LeaveChange, recordLeaveChangeIn, recordReassignmentIn } from "./application/leave-changes";
@@ -80,7 +81,7 @@ export function leaveStore(ex: Executor): LeaveStore {
   };
 }
 
-/** The use cases' dependencies for one service call. */
+/** The use cases' dependencies for one service call; reads run for the company `ctx` is scoped to, if any. */
 export function leaveDeps(ctx: ServiceContext): LeaveDeps {
   return {
     clock: { now: () => ctx.now() },
@@ -92,19 +93,19 @@ export function leaveDeps(ctx: ServiceContext): LeaveDeps {
   };
 }
 
-/** The leave module's use cases and queries, bound to `ctx`. */
+/** The leave module's use cases and queries, bound to `ctx`; each runs for its actor's (or API key's) company. */
 export function leaveModule(ctx: ServiceContext) {
-  const deps = leaveDeps(ctx);
+  const deps = (companyId: string) => leaveDeps(forTenant(ctx, companyId));
   return {
-    submitLeaveRequest: (actor: Actor, input: SubmitLeaveInput) => submit(deps, actor, input),
-    cancelLeaveRequest: (actor: Actor, requestId: string) => cancel(deps, actor, requestId),
-    addLeaveFor: (actor: Actor, userId: string, input: SubmitLeaveInput) => addFor(deps, actor, userId, input),
-    removeLeaveFor: (actor: Actor, requestId: string, reason: string) => removeFor(deps, actor, requestId, reason),
-    previewLeaveFor: (actor: Actor, userId: string, draft: LeaveDraft) => previewFor(deps, actor, userId, draft),
-    getDashboard: (actor: Actor) => dashboard(deps, actor),
-    listMyRequests: (actor: Actor, page?: PageCursor) => myRequests(deps, actor, page),
-    getMyRequest: (actor: Actor, id: string) => myRequest(deps, actor, id),
-    listLeaveRequestsForApi: (client: ApiClient, q: LeaveRequestQuery) => apiLeaveRequests(deps, client, q),
+    submitLeaveRequest: (actor: Actor, input: SubmitLeaveInput) => submit(deps(actor.companyId), actor, input),
+    cancelLeaveRequest: (actor: Actor, requestId: string) => cancel(deps(actor.companyId), actor, requestId),
+    addLeaveFor: (actor: Actor, userId: string, input: SubmitLeaveInput) => addFor(deps(actor.companyId), actor, userId, input),
+    removeLeaveFor: (actor: Actor, requestId: string, reason: string) => removeFor(deps(actor.companyId), actor, requestId, reason),
+    previewLeaveFor: (actor: Actor, userId: string, draft: LeaveDraft) => previewFor(deps(actor.companyId), actor, userId, draft),
+    getDashboard: (actor: Actor) => dashboard(deps(actor.companyId), actor),
+    listMyRequests: (actor: Actor, page?: PageCursor) => myRequests(deps(actor.companyId), actor, page),
+    getMyRequest: (actor: Actor, id: string) => myRequest(deps(actor.companyId), actor, id),
+    listLeaveRequestsForApi: (client: ApiClient, q: LeaveRequestQuery) => apiLeaveRequests(deps(client.companyId), client, q),
   };
 }
 
@@ -124,7 +125,7 @@ export const listLeaveRequestsForApi = (ctx: ServiceContext, client: ApiClient, 
  * holds `lockCompany`). The caller unwraps the result, so a failure rolls `tx` back.
  */
 export function recountLeave(tx: Transaction, ctx: ServiceContext, actor: Actor, change: CalendarChange) {
-  return recount(leaveDeps(ctx), leaveStore(tx), actor, change);
+  return recount(leaveDeps(forTenant(ctx, actor.companyId)), leaveStore(tx), actor, change);
 }
 
 /**
@@ -132,6 +133,7 @@ export function recountLeave(tx: Transaction, ctx: ServiceContext, actor: Actor,
  * transaction: organisation's `saveCompanySettings` step, then {@link recountLeave}.
  */
 export function updateCompanySettings(ctx: ServiceContext, actor: Actor, input: CompanySettingsInput) {
+  ctx = forTenant(ctx, actor.companyId);
   const leave = leaveDeps(ctx);
   return updateSettings(
     {

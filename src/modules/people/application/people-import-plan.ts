@@ -3,7 +3,7 @@ import "server-only";
 import type { Executor } from "@/db/types";
 import { listDepartments } from "@/modules/organisation";
 import { type ImportFacts, type PeopleImportPlan, planPeopleImport, readPeopleCsv } from "@/modules/people/domain/people-import";
-import { emailsInUse } from "@/modules/people/infrastructure/drizzle-people.repository";
+import { emailsInUse } from "@/shared/lib/db/pre-tenant";
 import { listPeopleNames } from "@/shared/lib/db/members";
 
 /** A plan, with the headers of the file's columns that the import ignores. */
@@ -14,7 +14,7 @@ async function loadImportFacts(ex: Executor, companyId: string, emails: readonly
   const [people, taken, departments] = await Promise.all([listPeopleNames(ex, companyId), emailsInUse(ex, emails), listDepartments(ex, companyId)]);
   return {
     members: new Map(people.map((p) => [p.email, { id: p.id, isActive: p.isActive }])),
-    takenEmails: taken,
+    takenEmails: new Set(taken.keys()),
     departments: new Map(departments.map((d) => [d.name.toLowerCase(), { id: d.id, name: d.name }])),
   };
 }

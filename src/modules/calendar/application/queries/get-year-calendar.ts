@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { buildAgenda, buildMonthGrid, type CalendarEntry, MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR, monthGridBounds, type YearMonth } from "@/shared/kernel/calendar";
 import { DomainError } from "@/shared/kernel/errors";
@@ -45,5 +46,6 @@ export type YearCalendarDTO = Awaited<ReturnType<typeof loadYearCalendar>>;
  *   Fails with `no_company` when the actor's company is missing.
  */
 export async function getYearCalendar(ctx: ServiceContext, actor: Actor, year?: number): Promise<ServiceResult<YearCalendarDTO>> {
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(() => loadYearCalendar(ctx, actor, year));
 }

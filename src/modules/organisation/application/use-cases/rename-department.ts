@@ -27,7 +27,7 @@ export async function renameDepartment(ctx: ServiceContext, actor: Actor, id: st
   return attempt(async () => {
     const name = normalizeDepartmentName(rawName);
     return withUniqueDepartmentName(() =>
-      inTransaction(ctx, async (tx) => {
+      inTransaction(ctx, actor.companyId, async (tx) => {
         await assertActiveAdmin(tx, actor);
         const before = await lockDepartment(tx, actor.companyId, id);
         if (!before) throw new DomainError("not_found");

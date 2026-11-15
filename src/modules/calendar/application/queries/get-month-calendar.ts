@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { buildAgenda, buildMonthGrid, type CalendarViewEntry, monthGridBounds } from "@/shared/kernel/calendar";
 import { CALENDAR_FILTERS, type CalendarFilter, calendarFilterLabel, calendarFiltersFor, narrowCalendarScope } from "@/shared/kernel/calendar-visibility";
@@ -53,5 +54,6 @@ export type MonthCalendarDTO = Awaited<ReturnType<typeof loadMonthCalendar>>;
  *   `no_company` when the actor's company is missing.
  */
 export async function getMonthCalendar(ctx: ServiceContext, actor: Actor, month?: string, filter?: string): Promise<ServiceResult<MonthCalendarDTO>> {
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(() => loadMonthCalendar(ctx, actor, month, filter));
 }

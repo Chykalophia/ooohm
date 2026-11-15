@@ -4,7 +4,10 @@ import "server-only";
  */
 import { buildEnvelope } from "@/shared/kernel/event-envelope";
 import { log } from "@/lib/log";
+import type { Transaction } from "@/db/types";
 import type { ServiceContext } from "@/server/context";
+import { undispatchedEventCompanies } from "@/shared/lib/db/pre-tenant";
+import { withTenant } from "@/shared/lib/tenant";
 import type { Adapter } from "@/server/integrations/adapter";
 import { insertAdapterDeliveries, type NewAdapterDelivery } from "@/modules/integrations/infrastructure/drizzle-adapter-deliveries.repository";
 import { claimUndispatched, markDispatched } from "@/modules/integrations/infrastructure/drizzle-outbox.repository";
@@ -35,7 +38,9 @@ export interface DispatchResult {
 }
 
 /**
- * Claims up to `limit` undispatched outbox events, oldest first, and in one transaction:
+ * Claims up to `limit` undispatched outbox events, oldest first, and, in one transaction
+ * per company holding some of them (row-level security's tenant; which companies, and
+ * how many each, is a pre-tenant read):
  *
  * 1. creates a webhook delivery for every enabled, live endpoint of the event's company
  *    that subscribes to its type and existed when the event was written (an endpoint
@@ -52,39 +57,49 @@ export interface DispatchResult {
  */
 export async function dispatchOutboxBatch(ctx: ServiceContext, options: { limit?: number } = {}): Promise<DispatchResult> {
   const limit = options.limit ?? DISPATCH_BATCH_SIZE;
-  const adapters = ctx.adapters.list();
-  return ctx.db.transaction(async (tx) => {
-    const events = await claimUndispatched(tx, limit);
-    if (events.length === 0) return { events: 0, webhookDeliveries: 0, adapterDeliveries: 0 };
-    const now = ctx.now();
-    const companyIds = [...new Set(events.flatMap((e) => (e.companyId ? [e.companyId] : [])))];
-    const targets = await listDispatchTargets(tx, companyIds);
+  const result: DispatchResult = { events: 0, webhookDeliveries: 0, adapterDeliveries: 0 };
+  for (const share of await undispatchedEventCompanies(ctx.db, limit)) {
+    const done = await withTenant(ctx, share.companyId, (tx) => dispatchIn(ctx, tx, share.count));
+    result.events += done.events;
+    result.webhookDeliveries += done.webhookDeliveries;
+    result.adapterDeliveries += done.adapterDeliveries;
+  }
+  return result;
+}
 
-    const webhookRows: NewWebhookDelivery[] = [];
-    const adapterRows: NewAdapterDelivery[] = [];
-    for (const event of events) {
-      // Every recorded change has a company; a row without one has nobody to go to.
-      if (!event.companyId) continue;
-      const envelope = buildEnvelope({ ...event, companyId: event.companyId });
-      const body = JSON.stringify(envelope);
-      for (const target of targets) {
-        if (target.companyId !== event.companyId || !target.eventTypes.includes(event.type)) continue;
-        if (target.createdAt.getTime() > event.createdAt.getTime()) continue;
-        webhookRows.push({ companyId: event.companyId, endpointId: target.id, eventId: event.id, eventType: event.type, body, nextAttemptAt: now });
-      }
-      for (const adapter of adapters) {
-        if (adapterHandles(adapter, event.type, event.companyId)) {
-          adapterRows.push({ companyId: event.companyId, adapterId: adapter.id, eventId: event.id, nextAttemptAt: now });
-        }
+/** One company's part of {@link dispatchOutboxBatch}, inside its transaction `tx`. */
+async function dispatchIn(ctx: ServiceContext, tx: Transaction, limit: number): Promise<DispatchResult> {
+  const adapters = ctx.adapters.list();
+  const events = await claimUndispatched(tx, limit);
+  if (events.length === 0) return { events: 0, webhookDeliveries: 0, adapterDeliveries: 0 };
+  const now = ctx.now();
+  const companyIds = [...new Set(events.flatMap((e) => (e.companyId ? [e.companyId] : [])))];
+  const targets = await listDispatchTargets(tx, companyIds);
+
+  const webhookRows: NewWebhookDelivery[] = [];
+  const adapterRows: NewAdapterDelivery[] = [];
+  for (const event of events) {
+    // Every recorded change has a company; a row without one has nobody to go to.
+    if (!event.companyId) continue;
+    const envelope = buildEnvelope({ ...event, companyId: event.companyId });
+    const body = JSON.stringify(envelope);
+    for (const target of targets) {
+      if (target.companyId !== event.companyId || !target.eventTypes.includes(event.type)) continue;
+      if (target.createdAt.getTime() > event.createdAt.getTime()) continue;
+      webhookRows.push({ companyId: event.companyId, endpointId: target.id, eventId: event.id, eventType: event.type, body, nextAttemptAt: now });
+    }
+    for (const adapter of adapters) {
+      if (adapterHandles(adapter, event.type, event.companyId)) {
+        adapterRows.push({ companyId: event.companyId, adapterId: adapter.id, eventId: event.id, nextAttemptAt: now });
       }
     }
-    const webhookIds = await insertDeliveries(tx, webhookRows);
-    const adapterCount = await insertAdapterDeliveries(tx, adapterRows);
-    await markDispatched(
-      tx,
-      events.map((e) => e.id),
-      now,
-    );
-    return { events: events.length, webhookDeliveries: webhookIds.length, adapterDeliveries: adapterCount };
-  });
+  }
+  const webhookIds = await insertDeliveries(tx, webhookRows);
+  const adapterCount = await insertAdapterDeliveries(tx, adapterRows);
+  await markDispatched(
+    tx,
+    events.map((e) => e.id),
+    now,
+  );
+  return { events: events.length, webhookDeliveries: webhookIds.length, adapterDeliveries: adapterCount };
 }

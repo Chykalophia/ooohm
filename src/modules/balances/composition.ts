@@ -8,6 +8,7 @@ import "server-only";
 import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
+import { forTenant } from "@/shared/lib/tenant";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import type { AllowanceChange } from "./application/allowance-changes";
 import type { LeaveDraft } from "./application/dto";
@@ -44,23 +45,27 @@ export function balancesStore(ex: Executor): BalancesStore {
   };
 }
 
-/** The use cases' dependencies for one service call. */
+/** The use cases' dependencies for one service call; reads run for the company `ctx` is scoped to, if any. */
 export function balancesDeps(ctx: ServiceContext): BalancesDeps {
   return {
     clock: { now: () => ctx.now() },
     read: balancesStore(ctx.db),
-    unitOfWork: (work) => inTransaction(ctx, (tx) => work(balancesStore(tx))),
+    unitOfWork: (companyId, work) => inTransaction(ctx, companyId, (tx) => work(balancesStore(tx))),
+    tenant: (companyId) => balancesDeps(forTenant(ctx, companyId)),
   };
 }
 
+/** {@link balancesDeps} reading for the actor's company. */
+const depsFor = (ctx: ServiceContext, actor: Actor) => balancesDeps(forTenant(ctx, actor.companyId));
+
 // Use cases and queries, each `(ctx, …)` → ServiceResult.
-export const getBalanceSummary = (ctx: ServiceContext, actor: Actor, year?: number) => balanceSummary(balancesDeps(ctx), actor, year);
-export const previewLeaveRequest = (ctx: ServiceContext, actor: Actor, draft: LeaveDraft) => preview(balancesDeps(ctx), actor, draft);
-export const setAllowanceOverride = (ctx: ServiceContext, actor: Actor, input: AllowanceOverrideInput) => setOverride(balancesDeps(ctx), actor, input);
-export const setAllowanceRule = (ctx: ServiceContext, actor: Actor, input: AllowanceRuleInput) => setRule(balancesDeps(ctx), actor, input);
-export const removeAllowanceRule = (ctx: ServiceContext, actor: Actor, id: string) => removeRule(balancesDeps(ctx), actor, id);
-export const getAllowanceRulesForm = (ctx: ServiceContext, actor: Actor, leaveTypeId: string) => rulesForm(balancesDeps(ctx), actor, leaveTypeId);
-export const listAllowanceRulesForAdmin = (ctx: ServiceContext, actor: Actor, leaveTypeId: string) => rulesForAdmin(balancesDeps(ctx), actor, leaveTypeId);
+export const getBalanceSummary = (ctx: ServiceContext, actor: Actor, year?: number) => balanceSummary(depsFor(ctx, actor), actor, year);
+export const previewLeaveRequest = (ctx: ServiceContext, actor: Actor, draft: LeaveDraft) => preview(depsFor(ctx, actor), actor, draft);
+export const setAllowanceOverride = (ctx: ServiceContext, actor: Actor, input: AllowanceOverrideInput) => setOverride(depsFor(ctx, actor), actor, input);
+export const setAllowanceRule = (ctx: ServiceContext, actor: Actor, input: AllowanceRuleInput) => setRule(depsFor(ctx, actor), actor, input);
+export const removeAllowanceRule = (ctx: ServiceContext, actor: Actor, id: string) => removeRule(depsFor(ctx, actor), actor, id);
+export const getAllowanceRulesForm = (ctx: ServiceContext, actor: Actor, leaveTypeId: string) => rulesForm(depsFor(ctx, actor), actor, leaveTypeId);
+export const listAllowanceRulesForAdmin = (ctx: ServiceContext, actor: Actor, leaveTypeId: string) => rulesForAdmin(depsFor(ctx, actor), actor, leaveTypeId);
 export const runYearRollover = (ctx: ServiceContext, fromYear?: number) => rollover(balancesDeps(ctx), fromYear);
 
 // Reads and steps for other code's transactions, on the caller's executor; plain values, a `DomainError` throws.

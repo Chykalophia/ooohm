@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError, isDomainError } from "@/shared/kernel/errors";
 import { firstEditableAllowanceYear } from "@/shared/kernel/leave-type-settings";
@@ -36,6 +37,7 @@ export interface PersonDetailDTO {
  */
 export async function getPersonDetail(ctx: ServiceContext, actor: Actor, userId: string, year?: number): Promise<ServiceResult<PersonDetailDTO>> {
   if (!canManagePeople(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const [person, company, types] = await Promise.all([
       findPerson(ctx.db, actor.companyId, userId),

@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { findCompany } from "@/modules/organisation";
@@ -10,6 +11,7 @@ import { canManageWebhooks } from "@/modules/integrations/application/policies";
 /** The company's endpoints, oldest first, each with its latest delivery's status. Fails with `forbidden`. */
 export async function listWebhookEndpoints(ctx: ServiceContext, actor: Actor): Promise<ServiceResult<WebhookEndpointListDTO>> {
   if (!canManageWebhooks(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const [company, rows] = await Promise.all([findCompany(ctx.db, actor.companyId), listEndpoints(ctx.db, actor.companyId)]);
     return {

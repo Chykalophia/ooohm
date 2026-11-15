@@ -2,7 +2,7 @@ import "server-only";
 import type { LogoRef } from "@/shared/kernel/company-logo";
 import type { ServiceContext } from "@/server/context";
 import { log } from "@/lib/log";
-import { findDeploymentBrand } from "@/modules/organisation/infrastructure/drizzle-companies.repository";
+import { findDeploymentBrand } from "@/shared/lib/db/pre-tenant";
 import { logoRef } from "@/modules/organisation/application/logo-ref";
 
 /** `getCompanyLogo` for pages that render before anyone is known: the deployment company's. Never fails. */

@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { type PeopleImportPreview, planPeopleFile } from "@/modules/people/application/people-import-plan";
@@ -14,6 +15,7 @@ import { attempt, err, type ServiceResult } from "@/shared/lib/result";
  */
 export async function previewPeopleImport(ctx: ServiceContext, actor: Actor, csv: string): Promise<ServiceResult<PeopleImportPreview>> {
   if (!canImportPeople(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     await assertActiveAdmin(ctx.db, actor);
     return planPeopleFile(ctx.db, actor.companyId, csv);

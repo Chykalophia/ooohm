@@ -1,6 +1,7 @@
 import "server-only";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
+import { forTenant } from "@/shared/lib/tenant";
 import { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent } from "@/lib/email-layout";
 import { findCompany } from "@/modules/organisation";
 
@@ -13,7 +14,7 @@ import { findCompany } from "@/modules/organisation";
 export function emailAccentFor(ctx: ServiceContext, companyId: string): () => Promise<EmailAccent> {
   let accent: Promise<EmailAccent> | undefined;
   return () =>
-    (accent ??= findCompany(ctx.db, companyId).then((company) => emailAccent(company, ctx.appUrl), (err: unknown) => {
+    (accent ??= findCompany(forTenant(ctx, companyId).db, companyId).then((company) => emailAccent(company, ctx.appUrl), (err: unknown) => {
       log.warn({ err }, "email_accent_read_failed");
       return DEFAULT_EMAIL_ACCENT;
     }));

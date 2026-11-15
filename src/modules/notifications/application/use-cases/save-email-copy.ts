@@ -38,7 +38,7 @@ export async function saveEmailCopy(
       unwrap(await resetEmailCopy(ctx, actor, kind));
       return copy;
     }
-    return inTransaction(ctx, async (tx) => {
+    return inTransaction(ctx, actor.companyId, async (tx) => {
       // Serializes two admins saving at once, so each audit row's `before` is what it replaced.
       if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
       await assertActiveAdmin(tx, actor);

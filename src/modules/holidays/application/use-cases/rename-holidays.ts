@@ -24,7 +24,7 @@ export async function renameHolidays(ctx: ServiceContext, actor: Actor, ids: rea
   return attempt(async () => {
     const wanted = checkIds(ids);
     const name = normalizeHolidayName(rawName);
-    return inTransaction(ctx, async (tx) => {
+    return inTransaction(ctx, actor.companyId, async (tx) => {
       await assertActiveAdmin(tx, actor);
       const before = (await findHolidays(tx, actor.companyId, wanted)).map(toHolidayDTO);
       if (before.length !== wanted.length) throw new DomainError("not_found");

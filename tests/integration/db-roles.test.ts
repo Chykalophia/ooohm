@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@/db/schema";
+import { tenantDatabase } from "@/db/tenant";
 import type { Database } from "@/db/types";
 import { applyDatabaseRoles, migrateAsOwner } from "@/server/admin/db";
 import { deactivatePerson as deactivatePersonResult, deletePerson as deletePersonResult } from "@/modules/people";
@@ -62,6 +63,14 @@ async function dropRoles(server: postgres.Sql, roles: Roles): Promise<void> {
   for (const role of [roles.app, roles.owner]) await server.unsafe(`drop role if exists "${role}"`);
 }
 
+/** Runs `work` in one transaction of `app` for `companyId`, as services do (row-level security's tenant). */
+function asTenant<T>(app: postgres.Sql, companyId: string, work: (tx: postgres.TransactionSql) => Promise<T>): Promise<T> {
+  return app.begin(async (tx) => {
+    await tx`select set_config('app.company_id', ${companyId}, true)`;
+    return work(tx);
+  }) as Promise<T>;
+}
+
 /** Asserts what the app role can and cannot do on a migrated database. */
 async function assertAppRoleLimits(app: postgres.Sql): Promise<void> {
   // No DDL.
@@ -71,33 +80,36 @@ async function assertAppRoleLimits(app: postgres.Sql): Promise<void> {
   await assert.rejects(app`create index app_made_idx on companies (name)`, PERMISSION_DENIED);
   await assert.rejects(app`truncate audit_log`, PERMISSION_DENIED);
 
-  // Ordinary DML on app tables.
-  const company = first(await app`insert into companies (name) values ('Role Co') returning id`);
-  await app`update companies set name = 'Role Co 2' where id = ${company.id}`;
-  const { name } = first(await app`select name from companies where id = ${company.id}`);
+  // Ordinary DML on app tables, for the company the transaction is for (ADR-0004).
+  const tenant = randomUUID();
+  const company = first(await asTenant(app, tenant, (tx) => tx`insert into companies (id, name) values (${tenant}, 'Role Co') returning id`));
+  await asTenant(app, tenant, (tx) => tx`update companies set name = 'Role Co 2' where id = ${company.id}`);
+  const { name } = first(await asTenant(app, tenant, (tx) => tx`select name from companies where id = ${company.id}`));
   assert.equal(name, "Role Co 2");
 
   // The audit log only grows.
-  const row = first(await app`
+  const row = first(await asTenant(app, tenant, (tx) => tx`
     insert into audit_log (company_id, actor_kind, actor_process, action, entity_type, entity_id, after)
     values (${company.id}, 'system', 'db-roles test', 'test.inserted', 'company', ${company.id}, '{"n": 1}')
-    returning id`);
+    returning id`));
   assert.ok(row.id);
-  await assert.rejects(app`update audit_log set action = 'test.rewritten' where id = ${row.id}`, PERMISSION_DENIED);
-  await assert.rejects(app`delete from audit_log where id = ${row.id}`, PERMISSION_DENIED);
-  const kept = first(await app`select action from audit_log where id = ${row.id}`);
+  await assert.rejects(asTenant(app, tenant, (tx) => tx`update audit_log set action = 'test.rewritten' where id = ${row.id}`), PERMISSION_DENIED);
+  await assert.rejects(asTenant(app, tenant, (tx) => tx`delete from audit_log where id = ${row.id}`), PERMISSION_DENIED);
+  const kept = first(await asTenant(app, tenant, (tx) => tx`select action from audit_log where id = ${row.id}`));
   assert.equal(kept.action, "test.inserted");
 
   // Deleting the company still cascades to its audit rows: referential actions run as the table's owner.
-  await app`delete from companies where id = ${company.id}`;
-  assert.equal((await app`select 1 from audit_log where id = ${row.id}`).length, 0);
+  await asTenant(app, tenant, (tx) => tx`delete from companies where id = ${company.id}`);
+  assert.equal((await asTenant(app, tenant, (tx) => tx`select 1 from audit_log where id = ${row.id}`)).length, 0);
 }
 
 describe("database roles: a fresh install (roles first, then migrations as the owner)", { skip: skip || needsServer }, () => {
   const roles = newRoles();
   const database = `ooohm_roles_${randomUUID().replaceAll("-", "")}`;
   let server: postgres.Sql;
+  let owner: postgres.Sql;
   let app: postgres.Sql;
+  let ownerDb: Database;
   let appDb: Database;
 
   before(async () => {
@@ -113,12 +125,15 @@ describe("database roles: a fresh install (roles first, then migrations as the o
     const appUrl = urlFor(database, roles.app, roles.appPassword);
     const migrated = await migrateAsOwner({ purpose: "db-roles test", source: { DATABASE_ADMIN_URL: ownerUrl, DATABASE_URL: appUrl, OOOHM_DB_APP_ROLE: roles.app } });
     assert.deepEqual([migrated.grants, migrated.warnings], ["applied", []]);
+    owner = connect(ownerUrl);
+    ownerDb = drizzleOn(owner);
     app = connect(appUrl);
     appDb = drizzleOn(app);
   });
 
   after(async () => {
     await app?.end();
+    await owner?.end();
     await server?.unsafe(`drop database if exists "${database}" with (force)`);
     if (server) await dropRoles(server, roles);
     await server?.end();
@@ -134,33 +149,34 @@ describe("database roles: a fresh install (roles first, then migrations as the o
   });
 
   test("a leave request goes through the normal service over the app role's connection", async () => {
-    const co = await seedCompany(appDb, { manager: { role: "manager" }, ana: { managerKey: "manager" } });
+    const co = await seedCompany(ownerDb, { manager: { role: "manager" }, ana: { managerKey: "manager" } });
     const ctx = createTestContext(appDb);
     const req = await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: co.pto, startDate: "2026-11-23", endDate: "2026-11-25", dayPortion: "full" });
     assert.equal(req.status, "pending");
-    const audit = await appDb.select().from(schema.auditLog).where(eq(schema.auditLog.entityId, req.id));
+    const audit = await tenantDatabase(appDb, co.companyId).select().from(schema.auditLog).where(eq(schema.auditLog.entityId, req.id));
     assert.deepEqual(audit.map((a) => a.action), ["leave_request.requested"]);
   });
 
   test("deleting a person still erases and redacts their audit rows, through the owner's functions", async () => {
-    const co = await seedCompany(appDb, { boss: { role: "admin", canSelfApprove: true }, zebulon: { managerKey: "boss" } });
+    const co = await seedCompany(ownerDb, { boss: { role: "admin", canSelfApprove: true }, zebulon: { managerKey: "boss" } });
     const ctx = createTestContext(appDb);
+    const rows = tenantDatabase(appDb, co.companyId);
     const { boss, zebulon } = co.people;
     await submitLeaveRequest(ctx, zebulon, { leaveTypeId: co.pto, startDate: "2026-11-23", endDate: "2026-11-24", dayPortion: "full" });
     // A row about someone else that mentions them: it stays, with their address redacted.
-    const other = first(await appDb
+    const other = first(await rows
       .insert(schema.auditLog)
       .values({ companyId: co.companyId, actorKind: "system", actorProcess: "db-roles test", action: "test.note", entityType: "company", entityId: co.companyId, after: { note: `${zebulon.email} covers Friday` } })
       .returning());
     const about = and(eq(schema.auditLog.companyId, co.companyId), eq(schema.auditLog.subjectUserId, zebulon.id));
-    assert.ok((await appDb.select().from(schema.auditLog).where(about)).length >= 1, "their request is on record");
+    assert.ok((await rows.select().from(schema.auditLog).where(about)).length >= 1, "their request is on record");
 
     await deactivatePerson(ctx, boss, zebulon.id);
     const outcome = await deletePerson(ctx, boss, zebulon.id, { mode: "scrubbed", confirmName: "Zebulon" });
     assert.equal(outcome.outcome, "deleted");
-    const left = await appDb.select().from(schema.auditLog).where(about);
+    const left = await rows.select().from(schema.auditLog).where(about);
     assert.deepEqual(left.map((a) => a.action), ["user.deleted"], "the rows about them are gone; only the delete is on record");
-    const [redacted] = await appDb.select().from(schema.auditLog).where(eq(schema.auditLog.id, other.id));
+    const [redacted] = await rows.select().from(schema.auditLog).where(eq(schema.auditLog.id, other.id));
     assert.ok(redacted, "the row about someone else stays");
     assert.ok(!JSON.stringify(redacted.after).includes(zebulon.email), JSON.stringify(redacted.after));
     assert.match(JSON.stringify(redacted.after), /covers Friday/);

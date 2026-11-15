@@ -4,7 +4,9 @@
 --                        the seed and the TimeOff import connect as it (DATABASE_ADMIN_URL).
 --   app   (ooohm_app)    what the app, the cron route and the worker connect as (DATABASE_URL):
 --                        SELECT, INSERT, UPDATE and DELETE on every table, no DDL, and only
---                        SELECT and INSERT on audit_log.
+--                        SELECT and INSERT on audit_log. Row-level security holds it to one
+--                        company per transaction (ADR-0004); the `<table>_owner` policies the
+--                        migrations make for whoever ran them are pointed at the owner here.
 --
 -- Idempotent. `pnpm db:roles` runs it (the compose `migrate` service does, before migrating),
 -- and every `pnpm db:migrate` runs it again in grants-only mode as the owner, after the
@@ -120,6 +122,16 @@ BEGIN
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), app_role);
     EXECUTE format('GRANT USAGE ON SCHEMA public TO %I', app_role);
   END IF;
+
+  -- Row-level security (drizzle/0031): each tenant table's `<table>_owner` policy lets its
+  -- owner see every row. A migration names the role that ran it; point them at the owner,
+  -- in case another role migrated before the tables were handed over.
+  FOR r IN
+    SELECT p.schemaname, p.tablename, p.policyname FROM pg_policies p
+    WHERE p.schemaname = 'public' AND p.policyname = p.tablename || '_owner' AND p.roles <> ARRAY[owner_role]::name[]
+  LOOP
+    EXECUTE format('ALTER POLICY %I ON %I.%I TO %I', r.policyname, r.schemaname, r.tablename, owner_role);
+  END LOOP;
 
   -- What the app role may do today: rows on every table, but the audit log only grows.
   EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO %I', app_role);

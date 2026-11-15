@@ -21,7 +21,7 @@ import { canManageAppearance } from "@/modules/organisation/application/policies
 export async function updateCompanyLogo(ctx: ServiceContext, actor: Actor, bytes: Uint8Array): Promise<ServiceResult<CompanyDTO>> {
   if (!canManageAppearance(actor)) return err("forbidden");
   return attempt(() =>
-    inTransaction(ctx, async (tx) => {
+    inTransaction(ctx, actor.companyId, async (tx) => {
       const result = await changeCompany(tx, actor, () => {
         const image = readLogoImage(bytes);
         return {

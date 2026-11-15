@@ -160,6 +160,15 @@ anyone adds a passkey if the app will move between its subdomains: a passkey mad
 actor, never from input, and every query is scoped by it. A request id from another company is
 indistinguishable from one that does not exist (`not_found`).
 
+The database holds the same line (ADR-0004): row-level security shows the app role only the rows of the company its
+transaction names, and none without one. Services scope their context with `forTenant(ctx, actor.companyId)`
+(`src/shared/lib/tenant.ts`; an API key's company for the REST API), which binds `ctx.db` to the company: every
+transaction it opens, and every statement outside one, sets `app.company_id` first, below Drizzle, pipelined with
+the next statement. `inTransaction(ctx, companyId, …)` and `commitThenNotify(ctx, companyId, …)` scope themselves;
+the Tier 3 compositions bind their ports to the actor's company. What runs before a company is known (sign-in, an
+API key or feed token, an approve link, the worker's queues, the first install) reads through the narrow functions in
+`src/shared/lib/db/pre-tenant.ts`, then scopes to the company found. Jobs loop over companies.
+
 `actor` is `null` for a user not yet attached to a company; pages show a calm "ask an admin" message.
 
 ### Errors
@@ -1874,6 +1883,14 @@ company's rows points at it. `tests/support/tenancy-coverage.ts` lists which exp
 reason for every other one (pure, a system job over every company, scoped by its caller); a new export or route
 that is in neither list fails `tests/architecture/tenancy-coverage.test.ts`, and a listed case that is not run fails
 the suite. When you add an export, add its case (or its reason) there.
+
+**Row-level security** (`tests/integration/rls.test.ts`, ADR-0004). As the app role, in SQL, on both drivers: for
+every tenant table, a tenant sees exactly its own rows and cannot read, change, delete, insert or move another
+company's; with no tenant, or an empty one, nothing is visible or writable; the owner sees everything; the catalog's
+policies match the list; the app role is neither a superuser nor exempt; the pre-tenant and audit functions stay in
+their lane. On Postgres the integration harness connects services as a plain role (`ooohm_test_app`) with the app's
+grants, so every suite runs under the policies; on PGlite the app handle acts as `ooohm_app`. Seeding and the
+TimeOff import use the owner (`createOwnerTestContext`).
 
 **End-to-end journeys** (`pnpm test:e2e`, after `pnpm build`). `tests/e2e/support/app.ts` runs
 `pnpm start:embedded` on a fresh embedded data directory and a free port, with the app's ordinary production

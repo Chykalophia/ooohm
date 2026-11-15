@@ -26,7 +26,7 @@ export async function createApiKey(ctx: ServiceContext, actor: Actor, input: { n
   return attempt(async () => {
     const name = normalizeApiKeyName(input.name);
     const generated = generateApiKey();
-    const row = await inTransaction(ctx, async (tx) => {
+    const row = await inTransaction(ctx, actor.companyId, async (tx) => {
       await assertActiveAdmin(tx, actor);
       if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
       if ((await countLiveApiKeys(tx, actor.companyId)) >= MAX_API_KEYS) throw new DomainError("limit_reached");

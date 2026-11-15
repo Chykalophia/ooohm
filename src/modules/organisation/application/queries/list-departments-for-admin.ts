@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { personLabel } from "@/shared/kernel/person-label";
 import type { ServiceContext } from "@/server/context";
@@ -15,6 +16,7 @@ import { canManageDepartments } from "@/modules/organisation/application/policie
  */
 export async function listDepartmentsForAdmin(ctx: ServiceContext, actor: Actor): Promise<ServiceResult<DepartmentSummaryDTO[]>> {
   if (!canManageDepartments(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   const rows = await listDepartmentsWithCounts(ctx.db, actor.companyId);
   return ok(
     rows.map(({ managerEmail, managerName, ...row }) =>

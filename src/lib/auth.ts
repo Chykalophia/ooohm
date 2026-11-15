@@ -10,6 +10,8 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db, schema } from "@/db";
+import { authSchema, authUser } from "@/db/auth-schema";
+import { tenantDatabase } from "@/db/tenant";
 import { type Actor, toActor } from "@/shared/kernel/actor";
 import { DEFAULT_COLOR_MODE } from "@/shared/kernel/color-mode";
 import { env, googleEnabled } from "@/lib/env";
@@ -27,7 +29,7 @@ const linkCapture = createLinkCapture();
 async function signInAccent(companyId: string | null): Promise<EmailAccent> {
   if (!companyId) return DEFAULT_EMAIL_ACCENT;
   try {
-    const [company] = await db
+    const [company] = await tenantDatabase(db, companyId)
       .select({
         theme: schema.companies.theme,
         accentColor: schema.companies.accentColor,
@@ -56,16 +58,9 @@ export const auth = betterAuth({
   // Admins own people's names: a self-chosen name would reach approvers' inboxes and
   // emails, where it could impersonate a coworker or pose as instructions.
   disabledPaths: ["/update-user"],
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema: {
-      user: schema.user,
-      session: schema.session,
-      account: schema.account,
-      verification: schema.verification,
-      passkey: schema.passkey,
-    },
-  }),
+  // Sign-in runs before any company is known, so Better Auth reads its tables through
+  // the owner's views of them (src/db/auth-schema.ts), past row-level security.
+  database: drizzleAdapter(db, { provider: "pg", schema: authSchema }),
   user: {
     // Set by admins and the seed script, never by the person signing in.
     additionalFields: {
@@ -85,10 +80,7 @@ export const auth = betterAuth({
         // Deactivated people get no new session from any sign-in method, including a
         // magic link sent before they were deactivated. Returning false aborts the create.
         before: async (session) => {
-          const [owner] = await db
-            .select({ isActive: schema.user.isActive })
-            .from(schema.user)
-            .where(eq(schema.user.id, session.userId));
+          const [owner] = await db.select({ isActive: authUser.isActive }).from(authUser).where(eq(authUser.id, session.userId));
           return owner?.isActive ? undefined : false;
         },
       },
@@ -120,9 +112,9 @@ export const auth = betterAuth({
         after(async () => {
           try {
             const [existing] = await db
-              .select({ isActive: schema.user.isActive, companyId: schema.user.companyId })
-              .from(schema.user)
-              .where(eq(schema.user.email, email.toLowerCase()));
+              .select({ isActive: authUser.isActive, companyId: authUser.companyId })
+              .from(authUser)
+              .where(eq(authUser.email, email.toLowerCase()));
             // Only email people who have an active account, never strangers.
             if (!existing?.isActive) return;
 

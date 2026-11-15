@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
@@ -17,6 +18,7 @@ import { attempt, type ServiceResult } from "@/shared/lib/result";
  * Fails with `not_found` when the person no longer exists.
  */
 export async function getAccount(ctx: ServiceContext, actor: Actor): Promise<ServiceResult<AccountDTO>> {
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const me = await findPerson(ctx.db, actor.companyId, actor.id);
     if (!me) throw new DomainError("not_found");

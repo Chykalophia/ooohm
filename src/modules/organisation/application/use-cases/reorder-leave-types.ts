@@ -35,7 +35,7 @@ export async function reorderLeaveTypes(ctx: ServiceContext, actor: Actor, order
     return err("invalid_input");
   }
   return attempt(() =>
-    inTransaction(ctx, async (tx) => {
+    inTransaction(ctx, actor.companyId, async (tx) => {
       // Serialises reorders, so two at once cannot interleave their renumbering.
       if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
       await assertActiveAdmin(tx, actor);

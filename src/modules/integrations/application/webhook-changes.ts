@@ -80,7 +80,7 @@ export function normalizeEndpointInput(ctx: ServiceContext, input: WebhookEndpoi
  */
 export async function withEndpoint<T>(ctx: ServiceContext, actor: Actor, id: string, work: (tx: Transaction, row: WebhookEndpointRow) => Promise<T>): Promise<T> {
   if (!isUuid(id)) throw new DomainError("not_found");
-  return inTransaction(ctx, async (tx) => {
+  return inTransaction(ctx, actor.companyId, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const row = await lockEndpoint(tx, actor.companyId, id);
     if (!row) throw new DomainError("not_found");

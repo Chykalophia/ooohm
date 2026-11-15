@@ -7,7 +7,9 @@ import { hashToken } from "@/lib/token-hash";
 import type { ServiceContext } from "@/server/context";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";
 import { listPersonalEntries, listTeamEntries } from "@/modules/calendar/infrastructure/drizzle-calendar.repository";
-import { findLiveFeedByHash, touchFeed } from "@/modules/calendar/infrastructure/drizzle-calendar-feeds.repository";
+import { touchFeed } from "@/modules/calendar/infrastructure/drizzle-calendar-feeds.repository";
+import { findLiveFeedByHash } from "@/shared/lib/db/pre-tenant";
+import { forTenant } from "@/shared/lib/tenant";
 import { scopeOf } from "@/modules/calendar/application/calendar-scope";
 import { type RenderedFeed, toTeamEntry } from "@/modules/calendar/application/dto";
 
@@ -27,7 +29,8 @@ const TOUCH_INTERVAL_MS = 3_600_000;
  *
  * Two queries, or three when the `last_used_at` stamp is missing or over an hour old:
  * the token lookup, then the entries and the stamp in parallel; under department
- * scoping, one more before the entries, for the departments the owner manages.
+ * scoping, one more before the entries, for the departments the owner manages. The
+ * lookup is a pre-tenant read (ADR-0004); everything after it runs for the feed's company.
  *
  * @param options.admit Asked with the feed's id once the token is known to be live,
  *   before the entries are read; returning `false` stops there with `rate_limited`. The
@@ -44,6 +47,7 @@ export async function renderCalendarFeed(
   if (!feed) return ok(null);
   if (options.admit && !options.admit(feed.id)) return err("rate_limited");
 
+  const { db } = forTenant(ctx, feed.companyId);
   const now = ctx.now();
   const staleBefore = new Date(now.getTime() - TOUCH_INTERVAL_MS);
   const stale = feed.lastUsedAt === null || feed.lastUsedAt < staleBefore;
@@ -51,13 +55,13 @@ export async function renderCalendarFeed(
   const calendarName = feedCalendarName(feed.kind, feed.companyName);
   const [content] = await Promise.all([
     feed.kind === "personal"
-      ? listPersonalEntries(ctx.db, feed.companyId, feed.userId, from, to).then(
+      ? listPersonalEntries(db, feed.companyId, feed.userId, from, to).then(
           (entries): FeedContent => ({ kind: "personal", calendarName, entries }),
         )
-      : scopeOf(ctx.db, feed.companyId, { id: feed.userId, role: feed.ownerRole, managerId: feed.ownerManagerId, departmentId: feed.ownerDepartmentId }, feed)
-          .then((scope) => listTeamEntries(ctx.db, feed.companyId, from, to, { scope }))
+      : scopeOf(db, feed.companyId, { id: feed.userId, role: feed.ownerRole, managerId: feed.ownerManagerId, departmentId: feed.ownerDepartmentId }, feed)
+          .then((scope) => listTeamEntries(db, feed.companyId, from, to, { scope }))
           .then((rows): FeedContent => ({ kind: "team", calendarName, entries: rows.map(toTeamEntry) })),
-    stale ? touchFeed(ctx.db, feed.id, now, staleBefore) : undefined,
+    stale ? touchFeed(db, feed.id, now, staleBefore) : undefined,
   ]);
   return ok({ feedId: feed.id, kind: feed.kind, body: serializeCalendar(buildFeedCalendar(content, now)) });
 }

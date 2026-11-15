@@ -18,7 +18,7 @@ export async function removeAllowanceRule(deps: BalancesDeps, actor: Actor, id: 
   if (!canManageAllowanceRules(actor)) return err("forbidden");
   if (!isUuid(id)) return err("not_found");
   return attempt(() =>
-    deps.unitOfWork(async (store) => {
+    deps.unitOfWork(actor.companyId, async (store) => {
       const year = await thisYear(store, deps.clock, actor);
       const before = await store.rules.find(actor.companyId, id);
       if (!before) throw new DomainError("not_found");

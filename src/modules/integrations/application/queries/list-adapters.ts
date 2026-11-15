@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
@@ -12,6 +13,7 @@ import { canManageAdapters } from "@/modules/integrations/application/policies";
  */
 export async function listAdapters(ctx: ServiceContext, actor: Actor): Promise<ServiceResult<AdapterSummary[]>> {
   if (!canManageAdapters(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(() =>
     Promise.all(
       ctx.adapters.list().map(async (adapter) => ({

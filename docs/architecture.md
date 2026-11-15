@@ -400,7 +400,7 @@ address, and never fail the user's action.
    people who approve each other submitting at once would deadlock. Under the same lock, a person who has
    created 10 requests (any status) in the last 10 minutes is refused with `rate_limited`, which also caps
    the review and cancellation email one person can cause.
-3. Runs `assessLeaveRequest` (`src/server/services/balances.ts`), the same function the live preview runs:
+3. Runs `assessLeaveRequest` (`src/modules/balances/application/queries/assess-leave-request.ts`), the same function the live preview runs:
    1. Requires an active, non-archived leave type of the actor's company, and resolves the company's
       allowance policy.
    2. Counts days server-side, split by calendar year: working days (company `working_days`, ISO weekdays)
@@ -587,8 +587,10 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 
 ### Policy engine
 
-`AllowancePolicy` (`src/domain/allowance-policy.ts`) is pure and pluggable. `companies.allowance_policy` names
-the policy and `resolveAllowancePolicy(key)` looks it up; an unknown key throws `policy_unavailable` rather
+The balances module (`src/modules/balances`, Tier 3; README there) owns the `allowances` and `allowance_rules`
+tables, the policy and the rollover. `AllowancePolicy` (`domain/allowance-policy.ts`) is a pure, pluggable
+Strategy. `companies.allowance_policy` names the policy and `resolveAllowancePolicy(key)` looks it up in the
+policy registry (`domain/policy-registry.ts`; the keys are in `src/shared/kernel/allowance-policy-keys.ts`); an unknown key throws `policy_unavailable` rather
 than falling back, because a fallback would quietly compute wrong balances. A policy answers three questions:
 which periods a request draws from and what it costs in each (`periodsFor`), what a balance is (`balance`),
 and what carries into the next period (`carryover`). Periods are identified by a year number.
@@ -712,7 +714,8 @@ line in place of balances; everything else still renders.
 
 ### Year rollover
 
-`runYearRollover(ctx, fromYear?)` (`src/server/services/rollover.ts`) closes a year. For every company, active
+`runYearRollover(ctx, fromYear?)` (`src/modules/balances/application/use-cases/roll-over-year.ts`, one unit of
+work per member in `member-rollover.ts`) closes a year. For every company, active
 member and active leave type that counts against allowance with `carryover_enabled`, next year's
 `carried_over_days` becomes `clamp(remaining(fromYear) + carried out, 0, carryover_max_days)`, i.e. what was
 left before any earlier carry (no upper bound when the max is null). A missing next-year row is created from

@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import * as organisation from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
 import {
   addHoliday,
   addHolidayRange,
@@ -15,7 +16,6 @@ import {
   renameHolidays,
 } from "@/server/services/admin-holidays";
 import { getPersonDetail, getPersonFormOptions, listPeople } from "@/server/services/admin-people";
-import { getBalanceSummary } from "@/server/services/balances";
 import { getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { rejectsWith } from "./assertions";
@@ -23,6 +23,9 @@ import { companyAudit, companyEvents, requestDaysOf, seedCompany } from "./fixtu
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import { getAppearance } from "@/modules/organisation";
 import * as companySettings from "@/server/services/company-settings";
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const getCompanySettings = (...args: Parameters<typeof organisation.getCompanySettings>) => organisation.getCompanySettings(...args).then(unwrap);

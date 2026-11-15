@@ -8,7 +8,7 @@ import { type LeaveRequest, submitLeave } from "../domain/leave-request";
 import { recordEvent } from "./leave-changes";
 import type { LeaveDeps, LeaveStore } from "./ports";
 import type { ApprovalDecision } from "@/domain/approval-rule";
-import type { LeaveAssessment } from "@/server/services/balances";
+import type { LeaveAssessment } from "@/modules/balances";
 
 /** What a new request costs and who decides it. */
 export interface StoredPlan {

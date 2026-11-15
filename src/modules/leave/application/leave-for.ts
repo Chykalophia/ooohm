@@ -2,7 +2,7 @@ import "server-only";
 import type { Actor } from "@/domain/actor";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { personLabel } from "@/domain/person";
-import type { LeaveDraft } from "@/server/services/balances";
+import type { LeaveDraft } from "@/modules/balances";
 import { canAddLeaveFor, canSeeLeaveDetails, type PersonOwnership } from "../domain/leave-permissions";
 import type { LeaveDirectory, LeaveStore, Person } from "./ports";
 

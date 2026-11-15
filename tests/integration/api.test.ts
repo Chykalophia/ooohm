@@ -9,7 +9,7 @@ import { type ApiClient, createApiKey as createApiKeyResult, listBalancesForApi 
 import { createRateLimiter } from "@/lib/rate-limit";
 import { listLeaveRequestsForApi as listLeaveRequestsForApiResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { getBalanceSummary } from "@/server/services/balances";
+import * as balancesModule from "@/modules/balances";
 import { type ApiLimits, handleApiRequest, parseQuery, REQUESTS_PER_KEY_PER_MINUTE, UNAUTHORIZED_PER_CLIENT_PER_MINUTE } from "@/app/api/v1/_lib/handler";
 import { openApiDocument } from "@/app/api/v1/_lib/openapi";
 import { balancesQuery, eventsQuery, holidaysQuery, leaveRequestsQuery, usersQuery } from "@/app/api/v1/_lib/query";
@@ -25,6 +25,9 @@ const listHolidaysForApi = (...args: Parameters<typeof listHolidaysForApiResult>
 const listLeaveTypesForApi = (...args: Parameters<typeof listLeaveTypesForApiResult>) => listLeaveTypesForApiResult(...args).then(unwrap);
 const listUsersForApi = (...args: Parameters<typeof listUsersForApiResult>) => listUsersForApiResult(...args).then(unwrap);
 const revokeApiKey = (...args: Parameters<typeof revokeApiKeyResult>) => revokeApiKeyResult(...args).then(unwrap);
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
 
 const listLeaveRequestsForApi = (...args: Parameters<typeof listLeaveRequestsForApiResult>) => listLeaveRequestsForApiResult(...args).then(unwrap);
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);

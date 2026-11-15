@@ -37,7 +37,6 @@ import { countLiveApiKeys, countLiveEndpoints } from "@/modules/integrations";
 import { countRecentActions } from "@/modules/audit";
 import { findCompany, findDepartment, listDepartments, lockCompanyForChange } from "@/modules/organisation";
 import { findLevel, listLevels } from "@/modules/organisation";
-import { followDefaults } from "./admin-allowance-rules";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import {
   listPendingAssignedTo,
@@ -61,7 +60,7 @@ import {
 } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { cancelScheduledScrubIn } from "./admin-people-deletion";
-import { type BalanceSummary, loadAllowanceDefaults, summarizeBalances } from "./balances";
+import { type BalanceSummary, followDefaults, loadAllowanceDefaults, summarizeBalances } from "@/modules/balances";
 import { revokeFeedsOnDeactivation } from "./calendar-feeds";
 import { commitThenNotify, type Notification } from "@/modules/notifications";
 

@@ -2,11 +2,10 @@ import "server-only";
 /**
  * The ports leave's use cases depend on (Tier 3). Each is implemented against the
  * database in `infrastructure/` and in memory by the fakes in `tests/unit/modules/leave/fakes`;
- * `composition.ts` wires the real ones. Leave owns these interfaces: the approvals and
- * balances code that implements two of them depends on leave, never the other way.
+ * `composition.ts` wires the real ones. Leave owns these interfaces; its infrastructure
+ * adapts them onto the balances module and the approval routing, which never import leave.
  */
 import type { Role } from "@/domain/actor";
-import type { AllowancePolicy } from "@/domain/allowance-policy";
 import type { ApprovalContext } from "@/domain/approval-rule";
 import type { CalendarDate } from "@/domain/calendar-date";
 import type { ChangeSource } from "@/domain/change-source";
@@ -15,7 +14,7 @@ import type { Notification } from "@/modules/notifications";
 import type { AuditEntry, OutboxEvent } from "@/shared/lib/db/change-log";
 import type { LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
 import type { PersonRow } from "@/server/repositories/users";
-import type { BalanceSummary, LeaveAssessment, LeaveDraft, LeaveTypeWithAllowance, balanceInputs } from "@/server/services/balances";
+import type { AllowancePolicy, BalanceInputs, BalanceSummary, LeaveAssessment, LeaveDraft, LeaveTypeWithAllowance } from "@/modules/balances";
 import type { IdGenerator } from "@/shared/lib/id-generator";
 import type { YearDays } from "@/shared/kernel/leave-days";
 import type { DayPortion, LeaveRange, LeaveStatus } from "@/shared/kernel/leave-range";
@@ -152,7 +151,7 @@ export interface AllowanceReader {
   assess(person: { id: string; companyId: string }, draft: LeaveDraft): Promise<LeaveAssessment>;
   summarize(person: { id: string; companyId: string }, loaded: { allowancePolicy: string; types: readonly LeaveTypeWithAllowance[]; year: number }): Promise<BalanceSummary>;
   /** The balance inputs (allowances, booked days and defaults) for these people, types and years. */
-  balancesFor(companyId: string, scope: { userIds: string[]; leaveTypeIds: string[]; years: number[] }): Promise<ReturnType<typeof balanceInputs>>;
+  balancesFor(companyId: string, scope: { userIds: string[]; leaveTypeIds: string[]; years: number[] }): Promise<BalanceInputs>;
   /** Re-carries a closed year's unused days into the next, as the rollover would (the one write). */
   recarry(job: { companyId: string; timezone: string; policy: AllowancePolicy; member: Person; leaveType: LeaveTypeRow; closingYear: number; source: ChangeSource }): Promise<void>;
 }

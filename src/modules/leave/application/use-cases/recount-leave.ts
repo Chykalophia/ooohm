@@ -31,14 +31,13 @@ import "server-only";
  * calendar can commit unseen while a recount runs.
  */
 import type { Actor } from "@/domain/actor";
-import { type AllowancePolicy, addDays, resolveAllowancePolicy } from "@/domain/allowance-policy";
+import { type AllowancePolicy, addDays, type LeaveTypeWithAllowance, resolveAllowancePolicy } from "@/modules/balances";
 import { CHANGE_PROCESSES, type PersonChangeSource, through } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import { personLabel } from "@/domain/person";
 import { yearInTimeZone } from "@/lib/dates";
 import { formatDays, type RecountCause } from "@/lib/format";
 import type { Notification } from "@/modules/notifications";
-import type { LeaveTypeWithAllowance } from "@/server/services/balances";
 import type { YearDays } from "@/shared/kernel/leave-days";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import type { LeaveRequest } from "../../domain/leave-request";

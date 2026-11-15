@@ -2,7 +2,7 @@
  * Planning step: TimeOff's leaves as OOOhm requests, and where OOOhm counts a pooled
  * leave differently from TimeOff.
  */
-import { addDays } from "@/domain/allowance-policy";
+import { addDays } from "@/shared/kernel/day-amounts";
 import type { CalendarDate } from "@/domain/calendar-date";
 import { isCalendarDate } from "@/domain/calendar-date";
 import { splitLeaveDaysByYear, type YearDays } from "@/shared/kernel/leave-days";

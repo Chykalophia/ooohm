@@ -14,7 +14,8 @@ import type { ServiceContext } from "@/server/context";
 import { claimJob, finishJob } from "@/server/repositories/scheduled-jobs";
 import { runDueScrubs } from "./admin-people-deletion";
 import { pruneIntegrationData } from "./retention";
-import { runYearRollover } from "./rollover";
+import { runYearRollover } from "@/modules/balances";
+import { unwrap } from "@/shared/lib/result";
 
 const HOUR = 3_600_000;
 export const JOB_INTERVAL_MS = 24 * HOUR;
@@ -22,7 +23,7 @@ export const JOB_INTERVAL_MS = 24 * HOUR;
 export const JOB_RETRY_MS = HOUR;
 
 export const DAILY_JOBS: Readonly<Record<string, (ctx: ServiceContext) => Promise<Record<string, number>>>> = {
-  year_rollover: async (ctx) => ({ ...(await runYearRollover(ctx)) }),
+  year_rollover: async (ctx) => ({ ...unwrap(await runYearRollover(ctx)) }),
   integration_retention: async (ctx) => ({ ...(await pruneIntegrationData(ctx)) }),
   scheduled_scrub: async (ctx) => ({ ...(await runDueScrubs(ctx)) }),
 };

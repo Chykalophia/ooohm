@@ -13,10 +13,9 @@ import { toActor } from "@/domain/actor";
 import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
 import { readTimeOffSqlite } from "@/modules/import/infrastructure/timeoff-sqlite-reader";
 import { decideLeaveRequest } from "@/server/services/approvals";
-import { getBalanceSummary } from "@/server/services/balances";
 import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { runYearRollover } from "@/server/services/rollover";
+import * as balancesModule from "@/modules/balances";
 import { importTimeOff, type TimeOffImportInput } from "@/modules/import";
 import { DatabaseSync } from "node:sqlite";
 import { buildTimeOffFixtureThrough } from "../support/timeoff-carry-forward";
@@ -32,6 +31,10 @@ import {
 import { rejectsWith } from "./assertions";
 import { decidable, requestsOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
+const runYearRollover = (...args: Parameters<typeof balancesModule.runYearRollover>) => balancesModule.runYearRollover(...args).then(unwrap);
 
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);

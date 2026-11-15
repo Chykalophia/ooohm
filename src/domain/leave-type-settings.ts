@@ -3,7 +3,7 @@
  * allowance overrides. Every day amount is stored as `numeric(5,1)`, so amounts are
  * whole tenths of a day.
  */
-import { addDays } from "./allowance-policy";
+import { addDays } from "@/shared/kernel/day-amounts";
 import { DomainError } from "./errors";
 import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { oneLine } from "./text";

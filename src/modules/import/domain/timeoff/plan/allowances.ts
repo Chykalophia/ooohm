@@ -2,7 +2,7 @@
  * Planning step: the pool type's allowance rows, and TimeOff's balance for every person
  * and year the import must reproduce.
  */
-import { addDays } from "@/domain/allowance-policy";
+import { addDays } from "@/shared/kernel/day-amounts";
 import { MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
 import { isTimeOffApproved, timeOffDeductedDays, type TimeOffWorkCalendar, timeOffYearBalance, type TimeOffYearBalance } from "../balance";
 import type { TimeOffAdjustment, TimeOffDepartment, TimeOffLeave, TimeOffUser } from "../source";

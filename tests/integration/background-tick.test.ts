@@ -7,9 +7,9 @@ import { createWebhookEndpoint as createWebhookEndpointResult } from "@/modules/
 import { type EventEnvelope } from "@/domain/event-envelope";
 import type { WebhookFetch } from "@/lib/safe-fetch";
 import { runTick } from "@/server/services/background-tick";
-import { setAllowanceOverride } from "@/server/services/admin-allowances";
 import { cancelLeaveRequest as cancelLeaveRequestResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
 import { runDueJobs } from "@/server/services/scheduled-jobs";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
@@ -17,6 +17,9 @@ import { createTestContext, createTestDatabase, skip, type TestContext, type Tes
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const setAllowanceOverride = (...args: Parameters<typeof balancesModule.setAllowanceOverride>) => balancesModule.setAllowanceOverride(...args).then(unwrap);
 
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);

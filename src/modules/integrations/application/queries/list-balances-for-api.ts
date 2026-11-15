@@ -1,12 +1,10 @@
 import "server-only";
-import { resolveAllowancePolicy } from "@/domain/allowance-policy";
 import { DomainError } from "@/domain/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { listAllowances, sumBookedDays } from "@/server/repositories/balances";
 import { findCompanySettings } from "@/server/repositories/calendar";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
-import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "@/server/services/balances";
+import { allowanceYearsFor, balanceInputs, listAllowances, loadAllowanceDefaults, resolveAllowancePolicy, sumBookedDays } from "@/modules/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { type ApiClient, assertScope } from "@/modules/integrations/domain/integrations";
 import { listBalanceSubjects } from "@/modules/integrations/infrastructure/drizzle-api-reads.repository";

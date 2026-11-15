@@ -13,7 +13,7 @@ import type { PageCursor } from "@/domain/paging";
 import type { ServiceContext } from "@/server/context";
 import { approveLinkFor } from "@/server/services/approve-link";
 import { commitThenNotify } from "@/modules/notifications";
-import type { LeaveDraft } from "@/server/services/balances";
+import type { LeaveDraft } from "@/modules/balances";
 import { activeContactsIn, type LeaveChange, recordLeaveChangeIn, recordReassignmentIn } from "./application/leave-changes";
 import type { LeaveDeps, LeaveStore } from "./application/ports";
 import { alsoOffFor } from "./application/queries/also-off";

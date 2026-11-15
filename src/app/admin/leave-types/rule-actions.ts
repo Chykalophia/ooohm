@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
 import { formatCount } from "@/lib/format";
-import { removeAllowanceRule, setAllowanceRule } from "@/server/services/admin-allowance-rules";
+import { removeAllowanceRule, setAllowanceRule } from "@/modules/balances";
+import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -24,10 +25,7 @@ export async function setAllowanceRuleAction(_prev: FormState, formData: FormDat
     "allowance_rule_set",
     formData,
     z.object({ leaveTypeId: formFields.id, departmentId: formFields.optionalId, levelId: formFields.optionalId, days: formFields.number }),
-    async (ctx, actor, input) => {
-      const result = await setAllowanceRule(ctx, actor, input);
-      return `Saved.${moved(result.allowancesUpdated)}`;
-    },
+    async (ctx, actor, input) => map(await setAllowanceRule(ctx, actor, input), (result) => `Saved.${moved(result.allowancesUpdated)}`),
     MESSAGES,
   );
 }
@@ -37,10 +35,7 @@ export async function removeAllowanceRuleAction(_prev: FormState, formData: Form
     "allowance_rule_remove",
     formData,
     z.object({ id: formFields.id }),
-    async (ctx, actor, { id }) => {
-      const result = await removeAllowanceRule(ctx, actor, id);
-      return `Removed.${moved(result.allowancesUpdated)}`;
-    },
+    async (ctx, actor, { id }) => map(await removeAllowanceRule(ctx, actor, id), (result) => `Removed.${moved(result.allowancesUpdated)}`),
     MESSAGES,
   );
 }

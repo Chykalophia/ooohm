@@ -1,4 +1,4 @@
-import type { Balance } from "@/domain/allowance-policy";
+import type { Balance } from "@/modules/balances";
 import { normalizeHexColor } from "@/lib/color";
 import { formatBalanceTotal, formatBalanceUsage, formatDays } from "@/lib/format";
 import { Card } from "@/components/ui/card";

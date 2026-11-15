@@ -13,10 +13,10 @@ import { listFiles, read } from "./files";
 const ALLOWED: Record<string, string> = {
   "src/db/schema.ts": "the column and its check",
   "src/domain/leave-type-settings.ts": "normalizes the setting an admin enters",
-  "src/domain/allowance-policy.ts": "the policy, given the person's default by loadAllowanceDefaults",
-  "src/domain/allowance-rules.ts": "defaultAllowanceFor: a rule, else the type's own default",
-  "src/server/services/balances.ts": "loadAllowanceDefaults and typeDefaults",
-  "src/server/services/rollover.ts": "reads the types after loadAllowanceDefaults replaced their defaults",
+  "src/modules/balances/domain/annual-calendar-year-policy.ts": "the policy, given the person's default by loadAllowanceDefaults",
+  "src/modules/balances/domain/allowance-rules.ts": "defaultAllowanceFor and typeDefaults: a rule, else the type's own default",
+  "src/modules/balances/domain/rollover.ts": "reads the types after loadAllowanceDefaults replaced their defaults",
+  "src/modules/balances/application/member-rollover.ts": "reads the types after loadAllowanceDefaults replaced their defaults",
   "src/server/repositories/leave-type-allowances.ts": "the balance code's read of the setting",
   "src/modules/integrations/application/queries/list-leave-types-for-api.ts": "the API lists the type's own setting",
   "src/modules/import/application/": "writes the setting from the TimeOff export",
@@ -29,5 +29,5 @@ test("defaultAllowanceDays is read only where it is the type's own setting or th
   const readers = listFiles("src", /\.(ts|tsx)$/).filter((path) => /\.defaultAllowanceDays\b/.test(read(path)));
   assert.ok(readers.length > 0, "no file reads defaultAllowanceDays: the scan is broken");
   const unexpected = readers.filter((path) => !Object.keys(ALLOWED).some((allowed) => (allowed.endsWith("/") ? path.startsWith(allowed) : path === allowed)));
-  assert.deepEqual(unexpected, [], "read a person's default through loadAllowanceDefaults (src/server/services/balances.ts)");
+  assert.deepEqual(unexpected, [], "read a person's default through loadAllowanceDefaults (@/modules/balances)");
 });

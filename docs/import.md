@@ -153,7 +153,7 @@ on hand-worked examples), following TimeOff's rules:
 - remaining = total − used, or 0 for a year before the person started.
 
 **OOOhm's side** is computed after the import, inside the same transaction, by the same balance code the
-dashboard uses (`loadBalances` in `src/server/services/balances.ts`), and after running the year rollover's step
+dashboard uses (`loadBalances` from `@/modules/balances`), and after running the year rollover's step
 for last year, exactly as the nightly job will. The compared OOOhm figure is **total − approved days**: the balance
 OOOhm shows, plus the pending days (TimeOff's "new" leave, which TimeOff does not subtract and OOOhm does, showing
 them apart) and plus any days already carried into the next year (which OOOhm counts as spent in the year they

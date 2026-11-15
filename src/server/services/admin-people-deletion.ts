@@ -19,7 +19,7 @@ import "server-only";
  */
 import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { bySystem, CHANGE_PROCESSES, type ChangeSource } from "@/domain/change-source";
 import { type CsvCell, toCsv } from "@/domain/csv";
 import { DomainError } from "@/domain/errors";
@@ -58,7 +58,7 @@ import {
 import { personLabel } from "@/domain/person";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { recordAuditOnly, recordChange } from "@/server/repositories/change-log";
+import { recordAuditOnly, recordChange } from "@/shared/lib/db/change-log";
 import { type CompanyRow, findCompany, lockCompany } from "@/server/repositories/companies";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import {
@@ -99,10 +99,10 @@ import {
 } from "@/server/repositories/person-deletion";
 import { clearDepartmentsManagedBy } from "@/server/repositories/departments";
 import { findPerson, listActiveAdmins, lockPerson, type PersonRow } from "@/server/repositories/users";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { listAuditEntriesAbout } from "./audit-log";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
+import { listAuditEntriesAbout } from "@/modules/audit";
 import { loadBalances } from "./balances";
-import { inTransaction } from "./notify";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /** Most scheduled scrubs one daily run carries out; the rest wait for the next run. */
 export const SCRUBS_PER_RUN = 50;

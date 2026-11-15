@@ -18,21 +18,21 @@ import "server-only";
  */
 import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { CHANGE_PROCESSES, through } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { creationOrder, type ImportFacts, type PeopleImportPlan, planPeopleImport, readPeopleCsv } from "@/domain/people-import";
 import type { ServiceContext } from "@/server/context";
-import { countRecentActions } from "@/server/repositories/audit-log";
+import { countRecentActions } from "@/modules/audit";
 import { insertDepartment, listDepartments } from "@/server/repositories/departments";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { listPendingSelfRouted } from "@/server/repositories/leave-requests";
 import { emailsInUse, insertPerson, listPeopleNames, type PersonRow } from "@/server/repositories/users";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { beginAdminChange, inviteEmail, inviterName, personPayload, personSnapshot } from "./admin-people";
 import { rerouteApprovals } from "./approval-routing";
-import { commitThenNotify, type Notification } from "./notify";
+import { commitThenNotify, type Notification } from "@/modules/notifications";
 
 /** Most people one admin may add by import in {@link PEOPLE_IMPORT_WINDOW_MINUTES}. */
 export const PEOPLE_IMPORT_HOURLY_LIMIT = 500;

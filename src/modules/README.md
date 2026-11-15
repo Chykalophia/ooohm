@@ -29,7 +29,9 @@ Create only the folders a module needs. Server files (`application/`, `infrastru
 
 - **Use cases** authorize first (a policy, then `assertActiveAdmin` or similar inside the transaction), open their
   transaction with `inTransaction(ctx, …)` or `commitThenNotify`, record every change with `recordChange` /
-  `recordAdminChange` (audit + outbox), and return a `ServiceResult` (ADR-0003). Inside, they may still throw a
+  `recordAdminChange` (audit + outbox), and return a `ServiceResult` (ADR-0003). These are shared: `inTransaction` in
+  `src/shared/lib/unit-of-work.ts`, `assertActiveAdmin` and `recordAdminChange` in `src/shared/lib/admin-access.ts`,
+  `recordChange` in `src/shared/lib/db/change-log.ts`; `commitThenNotify` comes from `@/modules/notifications`. Inside, they may still throw a
   `DomainError` to roll back; `attempt()` turns it into a failure once the transaction has settled.
 - **Queries** read and return DTOs. One that can fail (not allowed, not found) returns a `ServiceResult`; a read
   other services use inside their own transaction takes an executor and returns plain values.

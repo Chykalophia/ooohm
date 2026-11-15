@@ -26,7 +26,7 @@ import { uuidGenerator } from "../../src/shared/lib/id-generator";
 import { getPersonDetail, listPeople } from "../../src/server/services/admin-people";
 import { listBalancesForApi, listEventsForApi, listLeaveRequestsForApi, listUsersForApi } from "../../src/server/services/api-v1";
 import { getApprovalNav, getApprovalTriage } from "../../src/server/services/approvals";
-import { getAuditLog } from "../../src/server/services/audit-log";
+import { getAuditLog } from "../../src/modules/audit";
 import { getMonthCalendar, getTeamCalendar } from "../../src/server/services/calendar";
 import { getDashboard } from "../../src/server/services/leave-requests";
 

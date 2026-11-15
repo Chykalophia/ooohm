@@ -47,7 +47,7 @@ import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
 import { findContacts } from "@/server/repositories/users";
 import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "./balances";
 import { recordRecount, summarize } from "./leave-changes";
-import type { Notification } from "./notify";
+import type { Notification } from "@/modules/notifications";
 
 /** A company holiday as a recount describes it. */
 export interface HolidayFact {

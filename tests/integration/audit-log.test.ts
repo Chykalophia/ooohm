@@ -8,10 +8,14 @@ import { type Adapter, createAdapterRegistry } from "@/server/integrations/adapt
 import { updateCompanySettings } from "@/server/services/admin-company";
 import { invitePerson, updatePerson } from "@/server/services/admin-people";
 import { encodePageKey, type PageCursor } from "@/domain/paging";
-import { AUDIT_PAGE_SIZE, getAuditLog } from "@/server/services/audit-log";
+import { AUDIT_PAGE_SIZE, getAuditLog as readAuditLog } from "@/modules/audit";
+import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+/** Reads the audit log and unwraps its ServiceResult, so the calls and assertions below stay plain. */
+const getAuditLog = (...a: Parameters<typeof readAuditLog>) => readAuditLog(...a).then(unwrap);
 
 /**
  * Writes audit rows straight to the table, all stamped with the same instant unless `at`

@@ -9,7 +9,7 @@ import {
   type Unattributed,
 } from "@/domain/events";
 import type { AllowanceRow } from "@/server/repositories/balances";
-import { recordChange } from "@/server/repositories/change-log";
+import { recordChange } from "@/shared/lib/db/change-log";
 
 /** The audited view of an allowance row. */
 function allowanceSnapshot(row: AllowanceRow) {

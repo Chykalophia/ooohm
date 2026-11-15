@@ -11,8 +11,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_EMAIL_ACCENT } from "../../src/lib/email-layout";
 import { renderSignInEmail } from "../../src/lib/sign-in-email";
-import { NOTIFICATION_TYPES, type NotificationKind } from "../../src/server/notifications/catalog";
-import { previewNotification } from "../../src/server/notifications/preview";
+import { NOTIFICATION_TYPES, type NotificationKind } from "../../src/modules/notifications/application/catalog";
+import { previewNotification } from "../../src/modules/notifications/application/preview";
 
 const out = process.argv[2];
 if (!out) throw new Error("Usage: docs-emails.mts <out dir>");

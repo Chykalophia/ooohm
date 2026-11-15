@@ -27,11 +27,11 @@ import {
   revokeLiveFeed,
   touchFeed,
 } from "@/server/repositories/calendar-feeds";
-import { recordChange } from "@/server/repositories/change-log";
+import { recordChange } from "@/shared/lib/db/change-log";
 import { hasApprovedRequest } from "@/server/repositories/leave-requests";
 import { lockMember } from "@/server/repositories/users";
 import { toTeamEntry } from "./calendar";
-import { inTransaction } from "./notify";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 import { scopeOf } from "./calendar-scope";
 
 /** A live feed as its owner sees it. The link itself is never shown again after issue. */

@@ -28,7 +28,7 @@ import {
 import { getPersonDetail, getPersonFormOptions, listPeople } from "@/server/services/admin-people";
 import { getBalanceSummary } from "@/server/services/balances";
 import { getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, requestDaysOf, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";

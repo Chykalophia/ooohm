@@ -10,7 +10,7 @@ import "server-only";
  * from then on, since balances are computed, not stored.
  */
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type AdminEventType, type LeaveTypeEventPayload, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
@@ -18,7 +18,7 @@ import { type LeaveTypeSettings, normalizeLeaveTypeSettings } from "@/domain/lea
 import type { Transaction } from "@/db/types";
 import type { ServiceContext } from "@/server/context";
 import { lockCompany } from "@/server/repositories/companies";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import {
   findLeaveTypeForAdmin,
   insertLeaveType,
@@ -28,8 +28,8 @@ import {
   nextLeaveTypeSortOrder,
   updateLeaveType as updateLeaveTypeRow,
 } from "@/server/repositories/leave-types";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
-import { inTransaction } from "./notify";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 export type { LeaveTypeRow };
 

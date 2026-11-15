@@ -5,12 +5,12 @@ import "server-only";
  * state.
  */
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { DomainError } from "@/domain/errors";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import type { Adapter, AdapterContext } from "@/server/integrations/adapter";
-import { assertActiveAdmin } from "./admin-access";
+import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { applyInboundSync, type InboundSyncResult } from "./inbound-sync";
 
 /** The longest a health check may take before the screen reports it as not responding. */

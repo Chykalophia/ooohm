@@ -25,7 +25,7 @@ import { findMember } from "@/server/repositories/users";
 import { loadApprovalContext } from "./approval-routing";
 import { alsoOffFor } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
-import { commitThenNotify } from "./notify";
+import { commitThenNotify } from "@/modules/notifications";
 
 export type Decision = "approve" | "reject";
 

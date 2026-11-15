@@ -25,7 +25,13 @@ module.exports = {
       severity: "error",
       from: { path: "^src/app/" },
       to: {
-        path: ["^src/server/repositories/", "^src/modules/[^/]+/infrastructure/", "^src/db/", "node_modules/(drizzle-orm|postgres|@electric-sql|better-auth|nodemailer)/"],
+        path: [
+          "^src/server/repositories/",
+          "^src/shared/lib/db/",
+          "^src/modules/[^/]+/infrastructure/",
+          "^src/db/",
+          "node_modules/(drizzle-orm|postgres|@electric-sql|better-auth|nodemailer)/",
+        ],
         pathNot: "^src/db/types\\.ts$",
       },
     },
@@ -33,12 +39,21 @@ module.exports = {
       name: "components-not-to-server",
       severity: "error",
       from: { path: "^src/(components|shared/ui)/" },
-      to: { path: ["^src/server/", "^src/db/", "^src/app/", "^src/modules/[^/]+/(application|infrastructure)/", "^src/lib/(env|auth)\\.ts$"] },
+      to: {
+        path: [
+          "^src/server/",
+          "^src/db/",
+          "^src/app/",
+          "^src/modules/[^/]+/(application|infrastructure)/",
+          "^src/shared/lib/(db/|unit-of-work\\.ts$|admin-access\\.ts$)",
+          "^src/lib/(env|auth)\\.ts$",
+        ],
+      },
     },
     {
       name: "application-not-to-concrete-infrastructure",
       severity: "error",
-      from: { path: "^src/(server/services|modules/[^/]+/application)/" },
+      from: { path: ["^src/(server/services|modules/[^/]+/application)/", "^src/shared/lib/(unit-of-work|admin-access)\\.ts$"] },
       to: { path: ["^src/db/(index|connect)", "^src/lib/(env|auth|mail)", "node_modules/(nodemailer|better-auth|next|postgres|@electric-sql)/"] },
     },
     {
@@ -52,6 +67,8 @@ module.exports = {
           "^src/lib/(auth|auth-client)\\.ts$",
           "^src/lib/mail/smtp\\.ts$",
           "^src/server/(repositories/|runtime\\.ts$|admin/|identity/)",
+          // The shared repository helpers (recordChange, keyset pages, driver errors) are infrastructure too.
+          "^src/shared/lib/db/",
           "^src/modules/[^/]+/infrastructure/",
         ],
       },

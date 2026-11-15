@@ -6,7 +6,7 @@ import type { Executor, Transaction } from "@/db/types";
 import type { LeaveStatus } from "@/domain/leave-request";
 import type { PageRequest } from "@/domain/paging";
 import { activeInRange } from "./calendar";
-import { cursorInstant, keysetPage } from "./keyset";
+import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 
 export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
 export type NewLeaveRequest = typeof leaveRequests.$inferInsert;

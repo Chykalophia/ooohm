@@ -17,7 +17,7 @@ import "server-only";
  */
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type AdminEventType, type HolidayEventPayload, type Unattributed } from "@/domain/events";
 import { assertHolidayDate, holidayRangeDates, isHolidayYear, normalizeHolidayName, usFederalHolidays } from "@/domain/holidays";
@@ -25,7 +25,7 @@ import { isUuid } from "@/domain/ids";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { findCompany, lockCompany } from "@/server/repositories/companies";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import {
   deleteHolidays as deleteHolidayRows,
   findHolidays,
@@ -34,9 +34,10 @@ import {
   listHolidayRows,
   renameHolidays as renameHolidayRows,
 } from "@/server/repositories/holidays";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { type HolidayFact, type RecountOutcome, recountLeave } from "./leave-recount";
-import { commitThenNotify, inTransaction } from "./notify";
+import { commitThenNotify } from "@/modules/notifications";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 function payload(row: HolidayRow): Unattributed<HolidayEventPayload> {
   return { holidayId: row.id, date: row.date, name: row.name };

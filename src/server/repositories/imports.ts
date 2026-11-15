@@ -10,7 +10,7 @@ import { allowances, auditLog, companies, departments, importRuns, leaveRequestD
 import type { Executor, Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import type { ChangeSource } from "@/domain/change-source";
-import { type AuditEntry, sourceColumns } from "./change-log";
+import { type AuditEntry, sourceColumns } from "@/shared/lib/db/change-log";
 import { type CompanyRow, companyFields } from "./companies";
 
 /** Rows per insert statement: well under Postgres's 65,535 bind parameters for the widest table here. */

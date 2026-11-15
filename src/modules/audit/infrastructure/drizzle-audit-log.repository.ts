@@ -4,7 +4,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { apiKeys, auditLog, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 import type { PageRequest } from "@/domain/paging";
-import { cursorInstant, keysetPage } from "./keyset";
+import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 
 /** Which audit rows to read; every filter is optional except the company. */
 export interface AuditQuery {

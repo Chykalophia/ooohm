@@ -6,7 +6,7 @@ import type { Executor, Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import type { PageRequest } from "@/domain/paging";
 import type { ColorMode } from "@/domain/color-mode";
-import { keysetPage } from "./keyset";
+import { keysetPage } from "@/shared/lib/db/keyset";
 
 const approvalFields = {
   id: user.id,

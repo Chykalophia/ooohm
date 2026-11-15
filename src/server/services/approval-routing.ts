@@ -13,7 +13,7 @@ import { listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { findMembers, listActiveAdmins } from "@/server/repositories/users";
 import { approveLinkFor } from "./approve-link";
 import { activeContacts, recordReassignment, summarize } from "./leave-changes";
-import type { Notification } from "./notify";
+import type { Notification } from "@/modules/notifications";
 
 /** A requester as the approval rule needs them: who they are, and who might decide for them. */
 export interface ApprovalRequesterRow extends ApprovalRequester {

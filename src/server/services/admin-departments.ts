@@ -5,7 +5,7 @@ import "server-only";
  * person's own manager, and fall back to their department's manager when they have none.
  */
 import type { Actor } from "@/domain/actor";
-import { assertCanAdminister } from "@/domain/admin-permissions";
+import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { DomainError } from "@/domain/errors";
 import { MAX_OFF_LIMIT } from "@/domain/coverage";
 import { ADMIN_EVENT_TYPES, type DepartmentEventPayload, type Unattributed } from "@/domain/events";
@@ -25,13 +25,14 @@ import {
   setDepartmentMaxOffRow,
 } from "@/server/repositories/departments";
 import { lockCompany } from "@/server/repositories/companies";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { listPendingRequestsInDepartment } from "@/server/repositories/leave-requests";
 import { countDepartmentMembers, findMember, listPeopleNames } from "@/server/repositories/users";
-import { assertActiveAdmin, recordAdminChange } from "./admin-access";
+import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { removeRulesOf } from "./allowance-rule-removal";
 import { rerouteApprovals } from "./approval-routing";
-import { commitThenNotify, inTransaction } from "./notify";
+import { commitThenNotify } from "@/modules/notifications";
+import { inTransaction } from "@/shared/lib/unit-of-work";
 
 function payload(row: DepartmentRow): Unattributed<DepartmentEventPayload> {
   return { departmentId: row.id, name: row.name, managerId: row.managerId, maxOff: row.maxOff };

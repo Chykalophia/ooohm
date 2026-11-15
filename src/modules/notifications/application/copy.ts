@@ -2,7 +2,7 @@ import "server-only";
 import { type EmailCopy, unknownVariables } from "@/domain/email-template";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { listEmailTemplates } from "@/server/repositories/email-templates";
+import { listEmailTemplates } from "@/modules/notifications/infrastructure/drizzle-email-templates.repository";
 import { isNotificationKind, NOTIFICATION_TYPES, type NotificationKind } from "./catalog";
 
 /** The variable names a type's copy may use. */

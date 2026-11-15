@@ -23,13 +23,17 @@ const LOADED_OUTSIDE_NEXT = new Set(["src/db/schema.ts"]);
  */
 export const MISSING_SERVER_ONLY = new Set<string>([]);
 
+/** Shared server code outside src/shared/lib/db: the unit of work and the admin checks. */
+const SHARED_SERVER_FILES = ["src/shared/lib/unit-of-work.ts", "src/shared/lib/admin-access.ts"];
+
 /** A module's application, infrastructure and index.ts run on the server; its domain and ui may not. */
 const isModuleServerFile = (path: string) => /^src\/modules\/[^/]+\/(application\/|infrastructure\/|index\.ts$)/.test(path);
 
 function serverFiles(): string[] {
-  return ["src/server", "src/db", "src/lib"]
+  return ["src/server", "src/db", "src/lib", "src/shared/lib/db"]
     .flatMap((dir) => listFiles(dir, /\.tsx?$/))
     .concat(listFiles("src/modules", /\.tsx?$/).filter(isModuleServerFile))
+    .concat(SHARED_SERVER_FILES)
     .filter((path) => !CLIENT_SAFE.has(path) && !LOADED_OUTSIDE_NEXT.has(path) && !path.endsWith(".d.ts"));
 }
 

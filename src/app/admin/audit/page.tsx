@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
 import { formatInstantFull, formatInstantShort, formatShortDate } from "@/lib/format";
-import { AUDIT_PAGE_SIZE, AUDIT_PAGE_SIZES, AUDIT_SEARCH_MAX_LENGTH, type AuditLogEntry, getAuditLog } from "@/server/services/audit-log";
+import { AUDIT_PAGE_SIZE, AUDIT_PAGE_SIZES, AUDIT_SEARCH_MAX_LENGTH, type AuditLogEntryDTO as AuditLogEntry, getAuditLog } from "@/modules/audit";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { readParam } from "@/shared/lib/search-params";
 import { requireAdminPage } from "@/app/_lib/page-context";
@@ -34,17 +35,19 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const { actor, ctx, nav } = await requireAdminPage();
   const params = await searchParams;
   const { cursor, number } = readPageParams(params);
-  const log = await getAuditLog(ctx, actor, {
-    query: searchParam.parse(params.q),
-    action: param.parse(params.action),
-    actorId: param.parse(params.actor),
-    subjectUserId: param.parse(params.person),
-    from: param.parse(params.from),
-    to: param.parse(params.to),
-    oldestFirst: params.order === "oldest",
-    size: Number(readParam(sizeParam, params.size) ?? AUDIT_PAGE_SIZE),
-    page: cursor,
-  });
+  const log = unwrap(
+    await getAuditLog(ctx, actor, {
+      query: searchParam.parse(params.q),
+      action: param.parse(params.action),
+      actorId: param.parse(params.actor),
+      subjectUserId: param.parse(params.person),
+      from: param.parse(params.from),
+      to: param.parse(params.to),
+      oldestFirst: params.order === "oldest",
+      size: Number(readParam(sizeParam, params.size) ?? AUDIT_PAGE_SIZE),
+      page: cursor,
+    }),
+  );
   const { filters, timezone } = log;
 
   // What every link on the page carries: the filters, then the view (order, rows), each

@@ -27,7 +27,8 @@ import {
   runDueScrubs,
 } from "@/server/services/admin-people-deletion";
 import { decideLeaveRequest } from "@/server/services/approvals";
-import { getAuditLog } from "@/server/services/audit-log";
+import { getAuditLog as readAuditLog } from "@/modules/audit";
+import { unwrap } from "@/shared/lib/result";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { getTeamCalendar } from "@/server/services/calendar";
 import { submitLeaveRequest } from "@/server/services/leave-requests";
@@ -38,6 +39,9 @@ import { createWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+/** Reads the audit log and unwraps its ServiceResult, so the calls and assertions below stay plain. */
+const getAuditLog = (...a: Parameters<typeof readAuditLog>) => readAuditLog(...a).then(unwrap);
 
 const NOW = new Date("2026-11-02T15:00:00Z");
 const DAY = 86_400_000;

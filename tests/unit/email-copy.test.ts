@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { normalizeEmailCopy } from "@/domain/email-template";
-import { renderInviteEmail } from "@/server/notifications/templates/invite";
-import { LEAVE_KINDS, type LeaveSummary, leaveVariables, renderLeaveEmail } from "@/server/notifications/templates/leave";
+import { renderInviteEmail } from "@/modules/notifications/application/templates/invite";
+import { LEAVE_KINDS, type LeaveSummary, leaveVariables, renderLeaveEmail } from "@/modules/notifications/application/templates/leave";
 
 const leave = (over: Partial<LeaveSummary> = {}): LeaveSummary => ({
   requesterName: "Ana Ruiz",

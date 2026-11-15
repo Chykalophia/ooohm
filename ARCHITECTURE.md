@@ -29,11 +29,11 @@ for processes outside Next) is the only place that wires concrete implementation
 | `src/components/**` | Presentation (UI kit) | Renders props; never loads data |
 | `src/server/services/**` | Application | Use cases, transactions, authorization against data, audit + outbox, email after commit |
 | `src/server/repositories/**` | Infrastructure | Drizzle queries only; each takes an executor first |
-| `src/server/notifications/**` | Application | Email catalog, pure templates, after-commit sender |
+| `src/shared/kernel/**`, `src/shared/lib/**` | Shared | Pure kernel rules; `ServiceResult`, the unit of work (`inTransaction`), admin checks, `recordChange` and other repository helpers (`lib/db/`) |
 | `src/server/integrations/**`, `importers/**` | Ports / infrastructure | Adapter seam; one-time import readers |
 | `src/domain/**` | Domain | Pure rules and types; no I/O |
 | `src/lib/**`, `src/db/**` | Infrastructure + cross-cutting | Env, auth, logging, mail, crypto; schema and connection |
-| `src/modules/<m>/**` | All four, inside the module | `reports` and `organisation` (levels) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
+| `src/modules/<m>/**` | All four, inside the module | `reports`, `organisation` (levels), `notifications` (emails, Admin → Emails) and `audit` (the audit log viewer) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
 
 ## Where code is going
 

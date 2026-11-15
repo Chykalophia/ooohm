@@ -9,10 +9,13 @@ TypeScript that can be tested without a browser, a server or a database.
 Dependencies point downward only. A layer never imports from one above it. `pnpm lint` enforces this table
 with per-directory `no-restricted-imports` rules in `eslint.config.mjs`; change both together. Those rules match
 import specifiers, so imports across directories use the `@/` alias and a parent-relative (`../`) import is a
-lint error everywhere under `src/`. `src/server/notifications/templates/**` (email templates) and `src/server/context.ts` (the
-`ServiceContext` type) sit just below services: no Next.js, database, schema, Drizzle, `env`, `auth`, services or
-repositories. The rest of `src/server/notifications` (the catalog of email types and the after-commit sender) sits
-beside services: it may read through repositories (the company accent) but never calls a service. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
+lint error everywhere under `src/`. `src/modules/notifications/application/templates/**` (email templates) and `src/server/context.ts` (the
+`ServiceContext` type) sit just below services: no Next.js, database, schema, Drizzle, `env`, `auth`, services,
+repositories or modules. The rest of `src/modules/notifications` (the catalog of email types, the after-commit sender
+and the email editor's use cases) sits beside services: it may read through repositories (the company accent) but
+never calls a service. `src/shared/lib/db/**` (`recordChange`, `keysetPage`, driver errors) and the notifications and
+audit modules' `infrastructure/` follow the repository rules; `src/shared/lib/unit-of-work.ts`, `admin-access.ts` and
+the audit module's `application/` follow the service rules. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
 one-time imports, M7: they read another system's files into domain records and never touch OOOhm's database)
 follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
 `scripts/*.mts` (migrate, seed, rollover, the outbox worker, the TimeOff import) are composition roots for
@@ -23,7 +26,7 @@ processes outside Next: the rollover, the worker and the TimeOff import build th
 | --- | --- | --- | --- |
 | Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | services, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
 | Shared UI | `src/components/**` | Reusable components and class recipes that render what a page passes in | domain types and pure functions, `lib` (not `env`, `db`, `auth`); never `src/app` or `src/server` |
-| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/notifications`, `lib` (not `env`, `db`, `auth`) |
+| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, modules' `index.ts`, `src/shared`, `lib` (not `env`, `db`, `auth`) |
 | Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
 | Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
 | Modules | `src/modules/<m>/**` | A feature's use cases, queries, policies, DTOs, rules, repositories and presenters (`src/modules/README.md`) | other modules' `index.ts` only; inside, its own layers as `module-layers` allows |
@@ -102,7 +105,7 @@ is skipped or shown twice because rows were added or removed in between (a row a
 earlier pages). The audit log, deliveries and the inbox read their indexes in order; people and a person's requests
 sort a company's (or a person's) rows, which stays small. The key travels as an opaque token in `?after=` /
 `?before=`; each list checks every part (a uuid, a date, an instant, or text up to a length and without NUL) and
-reads anything else as page 1. Repositories build the query with `keysetPage` (`src/server/repositories/keyset.ts`), services read
+reads anything else as page 1. Repositories build the query with `keysetPage` (`src/shared/lib/db/keyset.ts`), services read
 with `readPage`, and pages render `Pager` (Previous, Page N, Next) from `pagerLinks` (`src/app/_lib/paging.ts`),
 which keeps the list's filters. The page number is a label the links count, not an offset. Previous reaching the
 start with less than a page left shows the real first page; any other Previous reads one row past the page to know
@@ -163,7 +166,7 @@ its codes and command but not the server's reply, which quotes the recipient's a
 
 ### Audit log and events outbox
 
-Every state change calls `recordChange(tx, { source, audit, event })` (`src/server/repositories/change-log.ts`) in
+Every state change calls `recordChange(tx, { source, audit, event })` (`src/shared/lib/db/change-log.ts`) in
 the same transaction as the change; `source` says who or what made it ([below](#attribution-who-or-what-made-a-change)).
 The audit row names the person the change is about in
 `subject_user_id` (a request's requester, an allowance's or feed's owner, a person an admin edited; `null` for
@@ -335,7 +338,7 @@ time zone (`todayInTimeZone`).
 
 ### Email
 
-Every email a change sends goes through one module, `src/server/notifications`:
+Every email a change sends goes through one module, `src/modules/notifications` (its files below are in `application/`):
 
 - `catalog.ts` lists each notification type (`leave.requested`, `leave.approved`, …, `invite`) as a
   `NotificationType`: how to build its email from its data, and what to log if that fails.
@@ -345,12 +348,12 @@ Every email a change sends goes through one module, `src/server/notifications`:
   each send.
 
 A service's `work` callback returns `{ result, notify }` to `commitThenNotify(ctx, companyId, work)`, which returns
-`result` once the change commits; each notification is `{ type, to, data }`. A service never renders or sends an email itself. To add an email, write its template, add a catalog
+`result` once the change commits (`commit-then-notify.ts`, on `commitThen` in `src/shared/lib/unit-of-work.ts`); each notification is `{ type, to, data }`. A service never renders or sends an email itself. To add an email, write its template, add a catalog
 entry, and return it from the service. The sign-in link someone asks for on the sign-in page is the one email outside
 the module: Better Auth sends it (`src/lib/auth.ts`, template in `src/lib/sign-in-email.ts`), outside any change.
 `tests/unit/email-output.test.ts` pins every email's output; update its snapshot only for a deliberate change.
 
-**Admin → Emails** (`/admin/emails`, `src/server/services/admin-emails.ts`) lets an admin replace one email's subject
+**Admin → Emails** (`/admin/emails`; `listEmailsForAdmin`, `getEmailForAdmin`, `previewEmail`, `saveEmailCopy` and `resetEmailCopy` in `src/modules/notifications`, each returning a `ServiceResult`, admins only by `canEditEmailCopy`) lets an admin replace one email's subject
 and message with the company's own words. Each catalog type carries its editable copy (`EditableCopy`): a default
 subject and message written with `{{variable}}` placeholders, the variables it offers (`{{requester}}`, `{{dates}}`,
 `{{days}}`, …), and sample data for the editor's live preview. Rules (`src/domain/email-template.ts`):
@@ -983,11 +986,12 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
 ## Admin (M5)
 
 v1 runs one company per deployment. Every admin use case lives in `src/server/services/admin-*.ts` (people,
-departments, leave types, allowances, holidays, company) and `audit-log.ts`, and every one of them:
+departments, leave types, allowances, holidays, company) or a module (`organisation` for levels, `notifications` for
+Admin → Emails, `audit` for the audit log), and every one of them:
 
-- starts with `assertCanAdminister(actor)` (`src/domain/admin-permissions.ts`): admins only, refused with
-  `forbidden` whatever the page did;
-- for writes, re-reads the actor inside the transaction (`assertActiveAdmin`, `src/server/services/admin-access.ts`),
+- starts with `assertCanAdminister(actor)` (`src/shared/kernel/admin-permissions.ts`) or the module's policy built on
+  `canAdminister`: admins only, refused with `forbidden` whatever the page did;
+- for writes, re-reads the actor inside the transaction (`assertActiveAdmin`, `src/shared/lib/admin-access.ts`),
   so an admin demoted or deactivated a moment ago is already refused;
 - scopes every query by `actor.companyId`; an id from another company reads as `not_found`;
 - writes `audit_log` and an `events_outbox` row in the same transaction (`recordAdminChange`), and records
@@ -1673,7 +1677,7 @@ PGlite has one built-in user: both configs resolve to its single handle.
 The `Database` type is the driver-neutral `PgDatabase`. The query builder behaves the same on both drivers; what a raw
 `execute()` returns does not (postgres.js: an array of rows; PGlite: `{ rows }`), so the three statements the builder
 cannot express (the `UPDATE ... FROM ... SKIP LOCKED` delivery claims, the retention deletes) go through
-`executeRows` (`src/db/rows.ts`). Driver errors differ too: `violatedConstraint` (`src/server/repositories/errors.ts`)
+`executeRows` (`src/db/rows.ts`). Driver errors differ too: `violatedConstraint` (`src/shared/lib/db/errors.ts`)
 reads postgres.js's `constraint_name` and PGlite's `constraint` behind drizzle's wrapper.
 
 What embedded mode needed checking, and how each behaves on PGlite (`pnpm test:integration:embedded` runs every
@@ -1701,7 +1705,7 @@ Who calls it is `OOOHM_BACKGROUND` (`src/lib/background-mode.ts`):
 
 - `worker` (the default; compose sets it): `scripts/worker.mts` runs each step in its own loop.
 - `inline` (the default on Vercel and in embedded mode): **after a transaction that wrote outbox events commits**,
-  the services' after-commit seam (`inTransaction` and `commitThenNotify` in `src/server/services/notify.ts`, which every
+  the services' after-commit seam (`inTransaction` in `src/shared/lib/unit-of-work.ts` and `commitThenNotify` in `@/modules/notifications`, which every
   service the app calls goes through to record a change) calls `ctx.defer(ctx.wake)`. `recordChange` marks the transaction that wrote an event,
   so a refused or rolled-back change, or a read, wakes nothing. In the app `defer` is `after()`, so the tick runs after
   the response and Vercel keeps the function alive for it (`waitUntil`); it never blocks or fails the request, and an

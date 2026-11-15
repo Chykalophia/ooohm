@@ -35,7 +35,7 @@ import { approveLinkFor } from "./approve-link";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { alsoOffFor, alsoOffText } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
-import { commitThenNotify, type Notification } from "./notify";
+import { commitThenNotify, type Notification } from "@/modules/notifications";
 
 /** What a person fills in to ask for time off. */
 export interface SubmitLeaveInput extends LeaveDraft {

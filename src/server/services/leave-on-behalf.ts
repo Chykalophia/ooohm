@@ -19,7 +19,7 @@ import { findPerson, lockPerson, type PersonRow } from "@/server/repositories/us
 import { assessLeaveRequest, draftRange, type LeaveDraft } from "./balances";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";
 import { SUBMIT_LIMIT, SUBMIT_WINDOW_MINUTES, type SubmitLeaveInput } from "./leave-requests";
-import { commitThenNotify, type Notification } from "./notify";
+import { commitThenNotify, type Notification } from "@/modules/notifications";
 import { recarryMemberLeaveType } from "./rollover";
 
 /**

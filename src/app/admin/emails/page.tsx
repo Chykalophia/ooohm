@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { listEmailsForAdmin } from "@/server/services/admin-emails";
+import { listEmailsForAdmin } from "@/modules/notifications";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Item, ItemList } from "@/components/ui/card";
@@ -10,7 +11,7 @@ export const metadata: Metadata = { title: "Emails · Admin · OOOhm" };
 
 export default async function EmailsPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const emails = await listEmailsForAdmin(ctx, actor);
+  const emails = unwrap(await listEmailsForAdmin(ctx, actor));
 
   return (
     <AdminShell

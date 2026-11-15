@@ -7,7 +7,7 @@ Who's out, the calendar feed links (iCalendar) and the one rule of whose time of
 Leave, balances, reports, approvals, holidays and integrations read the calendar through this index (holiday
 dates, the company's calendar settings, leave entries, the scope), so the calendar imports no module but
 organisation (`tests/architecture/calendar-boundary.test.ts`). Code that needs the calendar and one of those
-stays outside it: the teammate page (`src/server/services/team-member.ts`) also reads balances and leave's
+stays outside it: the teammate page (`getTeamMember` in `@/modules/people`) also reads balances and leave's
 permissions.
 
 ## Owns

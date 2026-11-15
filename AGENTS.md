@@ -47,7 +47,8 @@ pnpm db:seed        # idempotent; uses SEED_ADMIN_EMAIL
 pnpm job:rollover   # idempotent year rollover (carryover + new-year allowances)
 pnpm worker         # outbox worker: webhooks, adapter deliveries, daily rollover + retention
 pnpm import:timeoff -- --file <x.sqlite> --company <id> --actor <admin email> [--apply]   # one-time TimeOff import (dry run by default)
-pnpm test           # unit tests (no database)
+pnpm test           # unit tests + tests/architecture (no database)
+pnpm arch           # dependency rules (.dependency-cruiser.cjs); fails on violations not in the baseline
 pnpm test:integration  # service tests; set TEST_DATABASE_URL (see docs/architecture.md#testing)
 pnpm test:integration:embedded  # the same on embedded PGlite (no server); keep both green
 pnpm start:embedded # after pnpm build: migrate, seed and serve on embedded PGlite (docs/hosting.md)

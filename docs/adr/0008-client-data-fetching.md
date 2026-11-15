@@ -1,6 +1,6 @@
 # ADR-0008: Server Components read; no client data library for now
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-14, with the plan in PR #102)
 - **Date:** 2026-11-15
 
 ## Context

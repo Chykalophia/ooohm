@@ -1,6 +1,6 @@
 # ADR-0002: Manual composition root through ServiceContext
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-14, with the plan in PR #102)
 - **Date:** 2026-11-15
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0012: CI gates every merge; boundary rules start from a recorded baseline
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-14, with the plan in PR #102)
 - **Date:** 2026-11-15
 
 ## Context

@@ -179,11 +179,36 @@ const themeTokens = {
   },
 };
 
+
+/**
+ * Size limits (F8, docs/architecture-plan/04-fitness-functions.md). Warnings until A7,
+ * when they become errors: thin actions and routes, short functions in logic layers.
+ */
+const sizeLimits = [
+  {
+    files: ["src/app/**/actions.ts", "src/app/**/*-actions.ts", "src/app/**/route.ts"],
+    rules: { "max-lines": ["warn", { max: 100, skipBlankLines: true, skipComments: true }] },
+  },
+  {
+    files: ["src/server/**/*.ts", "src/domain/**/*.ts", "src/modules/**/*.ts", "src/app/**/actions.ts", "src/app/**/route.ts"],
+    rules: { "max-lines-per-function": ["warn", { max: 50, skipBlankLines: true, skipComments: true, IIFEs: true }] },
+  },
+  {
+    files: ["src/server/services/**/*.ts", "src/modules/*/application/**/*.ts"],
+    rules: { "max-lines": ["warn", { max: 500, skipBlankLines: true, skipComments: true }] },
+  },
+  {
+    files: ["src/**/*.tsx"],
+    rules: { "max-lines-per-function": ["warn", { max: 150, skipBlankLines: true, skipComments: true }] },
+  },
+];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   ...layers,
   themeTokens,
+  ...sizeLimits,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

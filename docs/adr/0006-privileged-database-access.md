@@ -1,6 +1,6 @@
 # ADR-0006: Privileged database access lives in src/server/admin
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-14, with the plan in PR #102)
 - **Date:** 2026-11-15
 
 ## Context

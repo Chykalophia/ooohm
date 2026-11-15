@@ -1,5 +1,5 @@
 /**
- * End-to-end demo setup against a database (DATABASE_URL, or OOOHM_DB=embedded while the
+ * End-to-end demo setup against a database (DATABASE_ADMIN_URL, else DATABASE_URL, or OOOHM_DB=embedded while the
  * app is stopped), acting as the seeded admin (SEED_ADMIN_EMAIL) through the same services
  * the admin screens call:
  *
@@ -14,7 +14,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
-import { resolveDatabaseConfig } from "../../src/db/config";
+import { resolveAdminDatabaseConfig, resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as schema from "../../src/db/schema";
 import { toActor } from "../../src/shared/kernel/actor";
@@ -37,7 +37,10 @@ const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointR
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const [command, ...args] = process.argv.slice(2);
-const handle = await openDatabase(resolveDatabaseConfig(process.env), { purpose: "the e2e demo setup", max: 2 });
+// On Postgres, as the owner (DATABASE_ADMIN_URL) when it is set: it finds the admin before
+// any company is known, which row-level security hides from the app role.
+const config = process.env.DATABASE_ADMIN_URL?.trim() ? resolveAdminDatabaseConfig(process.env) : resolveDatabaseConfig(process.env);
+const handle = await openDatabase(config, { purpose: "the e2e demo setup", max: 2 });
 const { db } = handle;
 const ctx: ServiceContext = {
   db,

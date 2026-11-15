@@ -140,6 +140,21 @@ BEGIN
     EXECUTE format('GRANT SELECT, INSERT ON public.audit_log TO %I', app_role);
   END IF;
   EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %I', app_role);
+  -- Views: a view reads its tables as its owner, past row security, unless it is
+  -- security_invoker (a materialized view always does). The app role gets no rights on one
+  -- that reads as its owner, and writes through none (ADR-0004).
+  FOR r IN
+    SELECT c.oid::regclass AS rel,
+           coalesce((SELECT o.option_value::boolean FROM pg_options_to_table(c.reloptions) o WHERE o.option_name = 'security_invoker'), false) AS invoker
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')
+  LOOP
+    IF r.invoker THEN
+      EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON %s FROM %I', r.rel, app_role);
+    ELSE
+      EXECUTE format('REVOKE ALL ON %s FROM %I', r.rel, app_role);
+    END IF;
+  END LOOP;
   -- Functions run only for the roles granted them; the audit erasure functions are the app's
   -- one way to remove or redact audit rows (Admin -> People -> Delete).
   REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;

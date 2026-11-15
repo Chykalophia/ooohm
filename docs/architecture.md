@@ -167,7 +167,10 @@ transaction it opens, and every statement outside one, sets `app.company_id` fir
 the next statement. `inTransaction(ctx, companyId, …)` and `commitThenNotify(ctx, companyId, …)` scope themselves;
 the Tier 3 compositions bind their ports to the actor's company. What runs before a company is known (sign-in, an
 API key or feed token, an approve link, the worker's queues, the first install) reads through the narrow functions in
-`src/shared/lib/db/pre-tenant.ts`, then scopes to the company found. Jobs loop over companies.
+`src/shared/lib/db/pre-tenant.ts`, then scopes to the company found; Better Auth's adapter does the same for every
+operation (`src/lib/auth-adapter.ts`). Jobs loop over companies. A row's references (a person, leave type, department,
+level, endpoint, event) must name rows of its own company: a trigger per table refuses another company's id and a
+missing one alike (`drizzle/0032`).
 
 `actor` is `null` for a user not yet attached to a company; pages show a calm "ask an admin" message.
 
@@ -1888,7 +1891,8 @@ the suite. When you add an export, add its case (or its reason) there.
 every tenant table, a tenant sees exactly its own rows and cannot read, change, delete, insert or move another
 company's; with no tenant, or an empty one, nothing is visible or writable; the owner sees everything; the catalog's
 policies match the list; the app role is neither a superuser nor exempt; the pre-tenant and audit functions stay in
-their lane. On Postgres the integration harness connects services as a plain role (`ooohm_test_app`) with the app's
+their lane; every reference between tenant rows refuses another company's id and a missing one alike; Better Auth's
+old owner views are gone and every view the app role can use reads as its caller. On Postgres the integration harness connects services as a plain role (`ooohm_test_app`) with the app's
 grants, so every suite runs under the policies; on PGlite the app handle acts as `ooohm_app`. Seeding and the
 TimeOff import use the owner (`createOwnerTestContext`).
 

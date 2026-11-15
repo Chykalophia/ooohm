@@ -24,6 +24,7 @@ interface Seeded {
   requestId: string;
   endpointId: string;
   eventId: string;
+  apiKeyId: string;
 }
 
 /** How one tenant table is exercised: its rows of a company, a fresh row for it, and the column that names its tenant. */
@@ -137,6 +138,152 @@ const CASES: TableCase[] = [
     ],
     moveTo: (co) => ["user_id = $2", co.userId],
     touch: "counter = counter",
+  },
+];
+
+/** Views the app role may use although they read as their owner: none. */
+const VIEWS_READ_AS_OWNER: string[] = [];
+
+/** One column that names another row: a write of `co`'s that points it at `target`. */
+interface ReferenceCase {
+  name: string;
+  write: (co: Seeded, target: string) => [sql: string, params: unknown[]];
+  target: (other: Seeded) => string;
+  missing: () => string;
+}
+
+const person = (other: Seeded) => other.userId;
+const newPerson = () => `missing-${randomUUID()}`;
+const newId = () => randomUUID();
+const leaveRequest = (day: string) =>
+  `insert into leave_requests (company_id, user_id, leave_type_id, start_date, end_date, days) values ($1, $2, $3, '${day}', '${day}', 1)`;
+const delivery = "insert into webhook_deliveries (company_id, endpoint_id, event_id, event_type, body, next_attempt_at) values ($1, $2, $3, 'x', '{}', now())";
+const audit = (columns: string, values: string) => `insert into audit_log (company_id, action, entity_type, entity_id, ${columns}) values ($1, 'x', 'x', 'x', ${values})`;
+
+/**
+ * Every reference from one tenant row to another (ADR-0004 lists them). Not webhook_deliveries.event_id:
+ * a ping's event is in no outbox, only in the delivery's own body, so it names no row.
+ */
+const REFERENCES: ReferenceCase[] = [
+  { name: "leave_requests.user_id", target: person, missing: newPerson, write: (co, x) => [leaveRequest("2032-01-05"), [co.companyId, x, co.leaveTypeId]] },
+  { name: "leave_requests.leave_type_id", target: (o) => o.leaveTypeId, missing: newId, write: (co, x) => [leaveRequest("2032-01-06"), [co.companyId, co.userId, x]] },
+  { name: "leave_requests.approver_id", target: person, missing: newPerson, write: (co, x) => ["update leave_requests set approver_id = $2 where id = $1", [co.requestId, x]] },
+  { name: "leave_requests.user_id, changed", target: person, missing: newPerson, write: (co, x) => ["update leave_requests set user_id = $2 where id = $1", [co.requestId, x]] },
+  { name: "leave_request_days.request_id", target: (o) => o.requestId, missing: newId, write: (_co, x) => ["insert into leave_request_days (request_id, year, days) values ($1, 2042, 1)", [x]] },
+  { name: "user.manager_id", target: person, missing: newPerson, write: (co, x) => ['update "user" set manager_id = $2 where id = $1', [co.userId, x]] },
+  {
+    name: "user.manager_id, new person",
+    target: person,
+    missing: newPerson,
+    write: (co, x) => ["insert into \"user\" (id, name, email, company_id, manager_id) values ($2, 'N', $3, $1, $4)", [co.companyId, randomUUID(), `${randomUUID()}@example.com`, x]],
+  },
+  { name: "user.department_id", target: (o) => o.departmentId, missing: newId, write: (co, x) => ['update "user" set department_id = $2 where id = $1', [co.userId, x]] },
+  { name: "user.level_id", target: (o) => o.levelId, missing: newId, write: (co, x) => ['update "user" set level_id = $2 where id = $1', [co.userId, x]] },
+  {
+    name: "user.scrub_requested_by",
+    target: person,
+    missing: newPerson,
+    write: (co, x) => ['update "user" set is_active = false, scrub_scheduled_at = now(), scrub_requested_by = $2 where id = $1', [co.userId, x]],
+  },
+  { name: "departments.manager_id", target: person, missing: newPerson, write: (co, x) => ["update departments set manager_id = $2 where id = $1", [co.departmentId, x]] },
+  {
+    name: "allowance_rules.leave_type_id",
+    target: (o) => o.leaveTypeId,
+    missing: newId,
+    write: (co, x) => ["insert into allowance_rules (company_id, leave_type_id, level_id, days) values ($1, $2, $3, 4)", [co.companyId, x, co.levelId]],
+  },
+  {
+    name: "allowance_rules.department_id",
+    target: (o) => o.departmentId,
+    missing: newId,
+    write: (co, x) => ["update allowance_rules set department_id = $2 where company_id = $1", [co.companyId, x]],
+  },
+  {
+    name: "allowance_rules.level_id",
+    target: (o) => o.levelId,
+    missing: newId,
+    write: (co, x) => ["insert into allowance_rules (company_id, leave_type_id, level_id, days) values ($1, $2, $3, 4)", [co.companyId, co.leaveTypeId, x]],
+  },
+  { name: "allowances.user_id", target: person, missing: newPerson, write: (co, x) => ["insert into allowances (user_id, leave_type_id, year, days) values ($1, $2, 2046, 1)", [x, co.leaveTypeId]] },
+  {
+    name: "allowances.leave_type_id",
+    target: (o) => o.leaveTypeId,
+    missing: newId,
+    write: (co, x) => ["insert into allowances (user_id, leave_type_id, year, days) values ($1, $2, 2045, 1)", [co.userId, x]],
+  },
+  {
+    name: "calendar_feed_tokens.user_id",
+    target: person,
+    missing: newPerson,
+    write: (co, x) => ["insert into calendar_feed_tokens (company_id, user_id, kind, token_hash) values ($1, $2, 'team', $3)", [co.companyId, x, hex64()]],
+  },
+  {
+    name: "calendar_feed_tokens.user_id, changed",
+    target: person,
+    missing: newPerson,
+    write: (co, x) => ["update calendar_feed_tokens set user_id = $2 where company_id = $1", [co.companyId, x]],
+  },
+  { name: "webhook_deliveries.endpoint_id", target: (o) => o.endpointId, missing: newId, write: (co, x) => [delivery, [co.companyId, x, co.eventId]] },
+  {
+    name: "adapter_deliveries.event_id",
+    target: (o) => o.eventId,
+    missing: newId,
+    write: (co, x) => ["insert into adapter_deliveries (company_id, adapter_id, event_id, next_attempt_at) values ($1, $2, $3, now())", [co.companyId, `a-${randomUUID()}`, x]],
+  },
+  {
+    name: "api_keys.created_by",
+    target: person,
+    missing: newPerson,
+    write: (co, x) => ["insert into api_keys (company_id, name, prefix, key_hash, created_by) values ($1, 'k', 'ooohm_x', $3, $2)", [co.companyId, x, hex64()]],
+  },
+  {
+    name: "webhook_endpoints.created_by",
+    target: person,
+    missing: newPerson,
+    write: (co, x) => [
+      "insert into webhook_endpoints (id, company_id, url, event_types, secret_ciphertext, created_by) values ($3, $1, 'https://example.com', '{x}', 'v1', $2)",
+      [co.companyId, x, randomUUID()],
+    ],
+  },
+  { name: "audit_log.actor_id", target: person, missing: newPerson, write: (co, x) => [audit("actor_kind, actor_id", "'user', $2"), [co.companyId, x]] },
+  {
+    name: "audit_log.actor_requested_by",
+    target: person,
+    missing: newPerson,
+    write: (co, x) => [audit("actor_kind, actor_process, actor_requested_by", "'system', 'test', $2"), [co.companyId, x]],
+  },
+  {
+    name: "audit_log.subject_user_id",
+    target: person,
+    missing: newPerson,
+    write: (co, x) => [audit("actor_kind, actor_process, subject_user_id", "'system', 'test', $2"), [co.companyId, x]],
+  },
+  {
+    name: "audit_log.api_key_id",
+    target: (o) => o.apiKeyId,
+    missing: newId,
+    write: (co, x) => [audit("actor_kind, actor_id, api_key_id", "'api_key', $3, $2"), [co.companyId, x, co.userId]],
+  },
+  {
+    name: "session.user_id",
+    target: person,
+    missing: newPerson,
+    write: (_co, x) => ["insert into session (id, expires_at, token, user_id) values ($1, now(), $2, $3)", [randomUUID(), randomUUID(), x]],
+  },
+  {
+    name: "account.user_id",
+    target: person,
+    missing: newPerson,
+    write: (_co, x) => ["insert into account (id, account_id, provider_id, user_id) values ($1, $2, 'google', $3)", [randomUUID(), randomUUID(), x]],
+  },
+  {
+    name: "passkey.user_id",
+    target: person,
+    missing: newPerson,
+    write: (_co, x) => [
+      "insert into passkey (id, public_key, user_id, credential_id, counter, device_type, backed_up) values ($1, 'k', $3, $2, 0, 'singleDevice', false)",
+      [randomUUID(), randomUUID(), x],
+    ],
   },
 ];
 
@@ -284,6 +431,154 @@ describe("row-level security", { skip }, () => {
     assert.equal(Number(erased.rows[0]?.n), 0, "B's audit rows stay, whatever A's admin asks");
     assert.ok((await ownerCount(t, "audit_log", "company_id = $1", b.companyId)) > 0);
   });
+
+  describe("references to another company's rows (drizzle/0032)", () => {
+    for (const ref of REFERENCES) {
+      test(`${ref.name}: another company's id and a missing one get the same refusal`, async () => {
+        const [text, params] = ref.write(a, ref.target(b));
+        await assert.rejects(t.asApp(a.companyId, (q) => q(text, params)), REFUSED, "another company's id");
+        const [missing, missingParams] = ref.write(a, ref.missing());
+        await assert.rejects(t.asApp(a.companyId, (q) => q(missing, missingParams)), REFUSED, "a missing id: no existence probe");
+      });
+    }
+
+    test("a company's own references still go through", async () => {
+      const managed = await t.asApp(a.companyId, (q) =>
+        q('update "user" set manager_id = $2, department_id = $3, level_id = $4 where id = $1', [a.userId, a.userId, a.departmentId, a.levelId]),
+      );
+      assert.equal(managed.count, 1);
+      const approver = await t.asApp(a.companyId, (q) => q("update leave_requests set approver_id = $2 where id = $1", [a.requestId, a.userId]));
+      assert.equal(approver.count, 1);
+      const audited = await t.asApp(a.companyId, (q) =>
+        q("insert into audit_log (company_id, action, entity_type, entity_id, actor_kind, actor_id, subject_user_id) values ($1, 'x', 'x', 'x', 'user', $2, $2)", [
+          a.companyId,
+          a.userId,
+        ]),
+      );
+      assert.equal(audited.count, 1);
+      await t.ownerQuery('update "user" set manager_id = null, department_id = null, level_id = null where id = $1', [a.userId]);
+      await t.ownerQuery("update leave_requests set approver_id = null where id = $1", [a.requestId]);
+    });
+  });
+
+  describe("Better Auth's tables (drizzle/0032)", () => {
+    test("the owner's views of them are gone", async () => {
+      for (const view of ["auth_user", "auth_session", "auth_account", "auth_passkey"]) {
+        await assert.rejects(t.asApp(null, (q) => q(`select * from ${view}`)), { code: "42P01" }, view);
+      }
+    });
+
+    test("with no tenant, no person, session token or account token can be read, and no session written", async () => {
+      assert.equal((await t.asApp(null, (q) => q('select email, role from "user"'))).count, 0);
+      assert.equal((await t.asApp(null, (q) => q("select token from session"))).count, 0);
+      assert.equal((await t.asApp(null, (q) => q("select access_token, refresh_token, id_token from account"))).count, 0);
+      await assert.rejects(
+        t.asApp(null, (q) => q("insert into session (id, expires_at, token, user_id) values ($1, now() + interval '1 day', $2, $3)", [randomUUID(), randomUUID(), b.userId])),
+        REFUSED,
+      );
+    });
+
+    test("with company A's tenant, B's people and sessions cannot be promoted, moved, forged or ended", async () => {
+      assert.equal((await t.asApp(a.companyId, (q) => q("update \"user\" set role = 'admin' where id = $1", [b.userId]))).count, 0, "no admin for B");
+      assert.equal((await t.asApp(a.companyId, (q) => q('update "user" set company_id = $2 where id = $1', [b.userId, a.companyId]))).count, 0, "no move into A");
+      await assert.rejects(
+        t.asApp(a.companyId, (q) =>
+          q("insert into session (id, expires_at, token, user_id) values ($1, now() + interval '1 day', $2, $3)", [randomUUID(), randomUUID(), b.userId]),
+        ),
+        REFUSED,
+        "no forged session for B's person",
+      );
+      assert.equal((await t.asApp(a.companyId, (q) => q("delete from session where user_id = $1", [b.userId]))).count, 0, "B's sessions stay");
+      const [person] = await t.ownerQuery<{ role: string; company_id: string }>('select role, company_id from "user" where id = $1', [b.userId]);
+      assert.deepEqual(person, { role: "employee", company_id: b.companyId });
+      assert.ok((await ownerCount(t, "session", "user_id = $1", b.userId)) > 0);
+    });
+
+    test("the sign-in lookups find a company by a person, a session token, an account or a passkey, and nothing else", async () => {
+      const [session] = await t.ownerQuery<{ token: string }>("select token from session where user_id = $1", [a.userId]);
+      const [account] = await t.ownerQuery<{ id: string; account_id: string; provider_id: string }>("select id, account_id, provider_id from account where user_id = $1", [
+        a.userId,
+      ]);
+      const [passkey] = await t.ownerQuery<{ id: string; credential_id: string }>("select id, credential_id from passkey where user_id = $1", [a.userId]);
+      const [person] = await t.ownerQuery<{ email: string }>('select email from "user" where id = $1', [a.userId]);
+      assert.ok(session && account && passkey && person);
+      const rows = (text: string, params: unknown[]) => t.asApp(null, (q) => q(text, params)).then((r) => r.rows);
+      const active = [{ company_id: a.companyId, is_active: true }];
+      assert.deepEqual(await rows("select * from ooohm_auth_person($1, null)", [a.userId]), active);
+      assert.deepEqual(await rows("select * from ooohm_auth_person(null, $1)", [person.email]), active);
+      assert.deepEqual(await rows("select ooohm_auth_session_company($1) as c", [session.token]), [{ c: a.companyId }]);
+      assert.deepEqual(await rows("select ooohm_auth_account_company($1, null, null) as c", [account.id]), [{ c: a.companyId }]);
+      assert.deepEqual(await rows("select ooohm_auth_account_company(null, $1, $2) as c", [account.provider_id, account.account_id]), [{ c: a.companyId }]);
+      assert.deepEqual(await rows("select ooohm_auth_passkey_company($1, null) as c", [passkey.id]), [{ c: a.companyId }]);
+      assert.deepEqual(await rows("select ooohm_auth_passkey_company(null, $1) as c", [passkey.credential_id]), [{ c: a.companyId }]);
+      assert.deepEqual(await rows("select ooohm_auth_session_company($1) as c", [randomUUID()]), [{ c: null }]);
+      assert.deepEqual(await rows("select * from ooohm_auth_person(null, $1)", ["nobody@example.com"]), []);
+    });
+
+    test("every view the app role can use reads as its caller, and none takes its writes", async () => {
+      // A view the owner adds later gets rights from the grants refresh only if it reads as its caller.
+      await t.ownerQuery("create view rls_probe_owner_view as select id from companies");
+      await t.ownerQuery("create view rls_probe_invoker_view with (security_invoker) as select id from companies");
+      try {
+        await t.migrate();
+        const views = await t.asApp(null, (q) =>
+          q<{ relname: string; invoker: boolean; reads: boolean; writes: boolean }>(`
+            select c.relname,
+                   coalesce((select option_value::boolean from pg_options_to_table(c.reloptions) where option_name = 'security_invoker'), false) as invoker,
+                   has_table_privilege(current_user, c.oid, 'SELECT') as reads,
+                   has_table_privilege(current_user, c.oid, 'INSERT') or has_table_privilege(current_user, c.oid, 'UPDATE')
+                     or has_table_privilege(current_user, c.oid, 'DELETE') or has_table_privilege(current_user, c.oid, 'TRUNCATE') as writes
+            from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and c.relkind in ('v', 'm')
+            order by c.relname`),
+        );
+        const usable = views.rows.filter((v) => v.reads || v.writes);
+        assert.deepEqual(
+          usable.filter((v) => !v.invoker && !VIEWS_READ_AS_OWNER.includes(v.relname)).map((v) => v.relname),
+          [],
+          "a view the app role can use reads as its caller (security_invoker) or is listed",
+        );
+        assert.deepEqual(
+          views.rows.filter((v) => v.writes).map((v) => v.relname),
+          [],
+          "the app role writes through no view",
+        );
+        assert.ok(
+          usable.some((v) => v.relname === "rls_probe_invoker_view"),
+          "an invoker view stays readable",
+        );
+      } finally {
+        await t.ownerQuery("drop view rls_probe_owner_view");
+        await t.ownerQuery("drop view rls_probe_invoker_view");
+      }
+    });
+  });
+
+  describe("narrow pre-tenant lookups (drizzle/0032)", () => {
+    test("the email check answers with the addresses in use only", async () => {
+      const [person] = await t.ownerQuery<{ email: string }>('select email from "user" where id = $1', [b.userId]);
+      assert.ok(person);
+      const found = await t.asApp(a.companyId, (q) => q("select * from ooohm_emails_in_use($1)", [[person.email, "nobody@example.com"]]));
+      assert.deepEqual(found.rows, [{ email: person.email }], "no company id");
+    });
+
+    test("an approve link's person is found only for a request assigned to them", async () => {
+      await t.ownerQuery("update leave_requests set approver_id = $2 where id = $1", [a.requestId, a.userId]);
+      try {
+        const link = (userId: string, requestId: string) => t.asApp(null, (q) => q("select * from ooohm_link_person($1, $2)", [userId, requestId]));
+        assert.deepEqual((await link(a.userId, a.requestId)).rows, [{ id: a.userId, company_id: a.companyId, role: "employee", can_self_approve: false, is_active: true }]);
+        assert.equal((await link(a.userId, b.requestId)).count, 0, "not their request");
+        assert.equal((await link(b.userId, a.requestId)).count, 0, "not their assignment");
+        assert.equal((await link(a.userId, randomUUID())).count, 0, "no such request");
+      } finally {
+        await t.ownerQuery("update leave_requests set approver_id = null where id = $1", [a.requestId]);
+      }
+    });
+  });
+
+  test("every outbox event names its company (drizzle/0032)", async () => {
+    await assert.rejects(t.ownerQuery("insert into events_outbox (company_id, type, payload) values (null, 'x', '{}')"), { code: "23502" });
+  });
 });
 
 /** Every row of `co` in the case's table, as the owner selects them: by company, or through the parent. */
@@ -336,7 +631,7 @@ async function seed(t: TestDatabase): Promise<Seeded> {
     eventId,
   ]);
   await one("insert into adapter_deliveries (company_id, adapter_id, event_id, next_attempt_at) values ($1, 'a', $2, now()) returning id", [companyId, eventId]);
-  await one("insert into api_keys (company_id, name, prefix, key_hash) values ($1, 'k', 'ooohm_x', $2) returning id", [companyId, hex64()]);
+  const apiKeyId = (await one<{ id: string }>("insert into api_keys (company_id, name, prefix, key_hash) values ($1, 'k', 'ooohm_x', $2) returning id", [companyId, hex64()])).id;
   await one("insert into import_runs (company_id, source, source_sha256, source_file_name, counts, report) values ($1, 'timeoff', $2, 'f.sqlite', '{}', '{}') returning id", [
     companyId,
     hex64(),
@@ -348,5 +643,5 @@ async function seed(t: TestDatabase): Promise<Seeded> {
     userId,
     randomUUID(),
   ]);
-  return { companyId, userId, leaveTypeId, departmentId, levelId, requestId, endpointId, eventId };
+  return { companyId, userId, leaveTypeId, departmentId, levelId, requestId, endpointId, eventId, apiKeyId };
 }

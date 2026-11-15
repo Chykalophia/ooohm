@@ -1,7 +1,7 @@
 import "server-only";
 /**
  * The pre-tenant lookups (ADR-0004): the few reads that find a company before one is
- * known, through narrow SECURITY DEFINER functions (drizzle/0031_row_level_security.sql)
+ * known, through narrow SECURITY DEFINER functions (drizzle/0031 and 0032)
  * that read as the owner, past row-level security. Each is keyed by a secret (a key or
  * token hash, a signed link's person) or names only what its caller needs, and is called
  * only from here (tests/architecture/row-level-security.test.ts). Whatever the caller
@@ -9,7 +9,7 @@ import "server-only";
  *
  * They run on any executor, bound to a company or not.
  */
-import { sql } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import { executeRows } from "@/db/rows";
 import type { Executor } from "@/db/types";
 
@@ -73,14 +73,18 @@ export async function findLiveFeedByHash(ex: Executor, tokenHash: string) {
   );
 }
 
-/** The person a signed approve link names, as an actor's fields; a deleted person reads as missing. */
+/**
+ * The person a signed approve link names, as an actor's fields, only while the link's
+ * request (in their company) is assigned to them; a deleted person reads as missing.
+ */
 export async function findLinkPerson(
   ex: Executor,
   userId: string,
+  requestId: string,
 ): Promise<{ id: string; companyId: string | null; role: "employee" | "manager" | "admin"; canSelfApprove: boolean; isActive: boolean } | undefined> {
   const [row] = await executeRows<{ id: string; company_id: string | null; role: "employee" | "manager" | "admin"; can_self_approve: boolean; is_active: boolean }>(
     ex,
-    sql`select id, company_id, role, can_self_approve, is_active from ooohm_link_person(${userId})`,
+    sql`select id, company_id, role, can_self_approve, is_active from ooohm_link_person(${userId}, ${requestId}::uuid)`,
   );
   return row && { id: row.id, companyId: row.company_id, role: row.role, canSelfApprove: row.can_self_approve, isActive: row.is_active };
 }
@@ -177,20 +181,55 @@ export async function listDueScrubs(
 }
 
 /**
- * Of `emails` (already lowercased, as stored), those an account in any company uses, with
- * its company: an address belongs to one account, so an invite, a people import and a
- * sync must see the ones taken elsewhere.
+ * Of `emails` (already lowercased, as stored), those an account in any company uses: an
+ * address belongs to one account, so an invite, a people import and a sync must see the
+ * ones taken elsewhere. Only the addresses: nothing about whose they are.
  */
-export async function emailsInUse(ex: Executor, emails: readonly string[]): Promise<Map<string, string | null>> {
-  if (emails.length === 0) return new Map();
-  const rows = await executeRows<{ email: string; company_id: string | null }>(
+export async function emailsInUse(ex: Executor, emails: readonly string[]): Promise<Set<string>> {
+  if (emails.length === 0) return new Set();
+  const rows = await executeRows<{ email: string }>(
     ex,
-    sql`select email, company_id from ooohm_emails_in_use(array[${sql.join(
+    sql`select email from ooohm_emails_in_use(array[${sql.join(
       emails.map((e) => sql`${e}`),
       sql`, `,
     )}]::text[])`,
   );
-  return new Map(rows.map((r) => [r.email, r.company_id]));
+  return new Set(rows.map((r) => r.email));
+}
+
+/** Sign-in: a person's company and whether they are active, by id or by email (lowercased, as stored). */
+export async function findAuthPerson(ex: Executor, by: { userId: string } | { email: string }): Promise<{ companyId: string | null; isActive: boolean } | undefined> {
+  const userId = "userId" in by ? by.userId : null;
+  const email = "email" in by ? by.email : null;
+  const [row] = await executeRows<{ company_id: string | null; is_active: boolean }>(
+    ex,
+    sql`select company_id, is_active from ooohm_auth_person(${userId}::text, ${email}::text)`,
+  );
+  return row && { companyId: row.company_id, isActive: row.is_active };
+}
+
+async function companyOrNull(ex: Executor, query: SQL): Promise<string | null> {
+  const [row] = await executeRows<{ company_id: string | null }>(ex, query);
+  return row?.company_id ?? null;
+}
+
+/** Sign-in: the company of the person a session token belongs to. */
+export function findAuthSessionCompany(ex: Executor, token: string): Promise<string | null> {
+  return companyOrNull(ex, sql`select ooohm_auth_session_company(${token}::text) as company_id`);
+}
+
+/** Sign-in: the company of an account's person, by the account's id or by its provider's account id. */
+export function findAuthAccountCompany(ex: Executor, by: { id: string } | { providerId: string; accountId: string }): Promise<string | null> {
+  const id = "id" in by ? by.id : null;
+  const provider = "providerId" in by ? by : { providerId: null, accountId: null };
+  return companyOrNull(ex, sql`select ooohm_auth_account_company(${id}::text, ${provider.providerId}::text, ${provider.accountId}::text) as company_id`);
+}
+
+/** Sign-in: the company of a passkey's person, by the passkey's id or its credential id. */
+export function findAuthPasskeyCompany(ex: Executor, by: { id: string } | { credentialId: string }): Promise<string | null> {
+  const id = "id" in by ? by.id : null;
+  const credentialId = "credentialId" in by ? by.credentialId : null;
+  return companyOrNull(ex, sql`select ooohm_auth_passkey_company(${id}::text, ${credentialId}::text) as company_id`);
 }
 
 /** Whether any company or person exists, whichever company: the web setup stays closed then. */

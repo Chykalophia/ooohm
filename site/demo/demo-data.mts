@@ -2,13 +2,15 @@
  * Demo company for the marketing site's recordings: a small studio with a manager,
  * eight people, US holidays and a believable spread of requests around "today".
  * Run after `pnpm db:migrate && pnpm db:seed` with SEED_ADMIN_EMAIL=maya@example.com.
- * Writes rows directly (no audit trail), so never point it at a real database.
+ * Writes rows directly (no audit trail), so never point it at a real database. It writes as
+ * the database's owner (DATABASE_ADMIN_URL, else DATABASE_URL), since row-level security
+ * shows a connection without a company none of its rows.
  *
  *   pnpm tsx --env-file=.env site/demo/demo-data.mts
  */
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { resolveDatabaseConfig } from "../../src/db/config";
+import { resolveAdminDatabaseConfig, resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import { returnedRow } from "../../src/db/rows";
 import * as s from "../../src/db/schema";
@@ -17,9 +19,11 @@ import { usFederalHolidays } from "../../src/modules/holidays/domain/us-federal-
 import { splitLeaveDaysByYear } from "../../src/shared/kernel/leave-days";
 import { isLocalDatabase } from "./local-db.mjs";
 
-if (!isLocalDatabase(process.env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");
+const env = nonEmptyEnv(process.env);
+if (!isLocalDatabase(env.DATABASE_ADMIN_URL ?? env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");
 
-const handle = await openDatabase(resolveDatabaseConfig(nonEmptyEnv(process.env)), { purpose: "demo data", max: 1 });
+const config = env.DATABASE_ADMIN_URL ? resolveAdminDatabaseConfig(env) : resolveDatabaseConfig(env);
+const handle = await openDatabase(config, { purpose: "demo data", max: 1 });
 const { db } = handle;
 const YEAR = 2026;
 

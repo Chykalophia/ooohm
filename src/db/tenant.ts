@@ -221,17 +221,34 @@ export function embeddedRoleClient(base: EmbeddedClientLike, role: string = EMBE
 }
 
 /**
- * Runs `work` inside `tx`, a transaction for company `from`, for company `to`, then
- * switches back. For the one change that spans companies by design: a person's own
- * calendar link from a company they have left is turned off from their new one, and the
- * revoke is recorded in the company the link belonged to. Called only from there
+ * The company a transaction switched from ({@link switchTenantWithin}), read by
+ * `ooohm_acting_company()`: the audit log may name its people too (drizzle/0032).
+ */
+export const ACTING_COMPANY_SETTING = "app.acting_company_id";
+
+/**
+ * Runs `work` inside `tx`, a transaction for company `from`, for company `to` (with `from`
+ * as the acting company), then switches back, whether `work` succeeds or throws. For the
+ * one change that spans companies by design: a person's own calendar link from a company
+ * they have left is turned off from their new one, and the revoke is recorded in the
+ * company the link belonged to. Called only from there
  * (tests/architecture/row-level-security.test.ts).
+ *
+ * When `work` throws, its error is the one rethrown: switching back can then fail only
+ * because the transaction is aborted, and an aborted transaction runs nothing more.
  */
 export async function switchTenantWithin<T>(tx: Transaction, from: string, to: string, work: () => Promise<T>): Promise<T> {
   if (!isUuid(from) || !isUuid(to)) throw new Error("A tenant is a company id.");
   if (from === to) return work();
-  await tx.execute(sql`select set_config(${TENANT_SETTING}, ${to}, true)`);
-  const result = await work();
-  await tx.execute(sql`select set_config(${TENANT_SETTING}, ${from}, true)`);
+  await tx.execute(sql`select set_config(${TENANT_SETTING}, ${to}, true), set_config(${ACTING_COMPANY_SETTING}, ${from}, true)`);
+  const switchBack = () => tx.execute(sql`select set_config(${TENANT_SETTING}, ${from}, true), set_config(${ACTING_COMPANY_SETTING}, ${""}, true)`);
+  let result: T;
+  try {
+    result = await work();
+  } catch (err) {
+    await switchBack().catch(() => undefined);
+    throw err;
+  }
+  await switchBack();
   return result;
 }

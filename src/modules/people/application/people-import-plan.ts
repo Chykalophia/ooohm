@@ -14,7 +14,7 @@ async function loadImportFacts(ex: Executor, companyId: string, emails: readonly
   const [people, taken, departments] = await Promise.all([listPeopleNames(ex, companyId), emailsInUse(ex, emails), listDepartments(ex, companyId)]);
   return {
     members: new Map(people.map((p) => [p.email, { id: p.id, isActive: p.isActive }])),
-    takenEmails: new Set(taken.keys()),
+    takenEmails: taken,
     departments: new Map(departments.map((d) => [d.name.toLowerCase(), { id: d.id, name: d.name }])),
   };
 }

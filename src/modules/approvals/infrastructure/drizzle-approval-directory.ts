@@ -12,7 +12,7 @@ export function drizzleApprovalDirectory(ex: Executor): ApprovalDirectory {
     activeContacts: (companyId, ids) => activeContacts(ex, companyId, ids),
     leaveTypeName: async (companyId, id) => (await findLeaveType(ex, companyId, id))?.name,
     leaveTypeNames: async (companyId) => new Map((await listAllLeaveTypes(ex, companyId)).map((t) => [t.id, t.name])),
-    linkPerson: (userId) => findLinkPerson(ex, userId),
+    linkPerson: (userId, requestId) => findLinkPerson(ex, userId, requestId),
     timezone: async (companyId) => (await findCompanySettings(ex, companyId))?.timezone,
   };
 }

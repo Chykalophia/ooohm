@@ -1,7 +1,6 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins";
 import { passkey } from "@better-auth/passkey";
@@ -10,8 +9,9 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db, schema } from "@/db";
-import { authSchema, authUser } from "@/db/auth-schema";
 import { tenantDatabase } from "@/db/tenant";
+import { findAuthPerson } from "@/shared/lib/db/pre-tenant";
+import { tenantRoutedAdapter } from "@/lib/auth-adapter";
 import { type Actor, toActor } from "@/shared/kernel/actor";
 import { DEFAULT_COLOR_MODE } from "@/shared/kernel/color-mode";
 import { env, googleEnabled } from "@/lib/env";
@@ -58,9 +58,13 @@ export const auth = betterAuth({
   // Admins own people's names: a self-chosen name would reach approvers' inboxes and
   // emails, where it could impersonate a coworker or pose as instructions.
   disabledPaths: ["/update-user"],
-  // Sign-in runs before any company is known, so Better Auth reads its tables through
-  // the owner's views of them (src/db/auth-schema.ts), past row-level security.
-  database: drizzleAdapter(db, { provider: "pg", schema: authSchema }),
+  // Sign-in runs before any company is known, so each operation first finds the company
+  // of the person, session, account or passkey it names, then runs on the tables in that
+  // company, under row-level security (src/lib/auth-adapter.ts).
+  database: tenantRoutedAdapter(db, {
+    provider: "pg",
+    schema: { user: schema.user, session: schema.session, account: schema.account, verification: schema.verification, passkey: schema.passkey },
+  }),
   user: {
     // Set by admins and the seed script, never by the person signing in.
     additionalFields: {
@@ -80,8 +84,8 @@ export const auth = betterAuth({
         // Deactivated people get no new session from any sign-in method, including a
         // magic link sent before they were deactivated. Returning false aborts the create.
         before: async (session) => {
-          const [owner] = await db.select({ isActive: authUser.isActive }).from(authUser).where(eq(authUser.id, session.userId));
-          return owner?.isActive ? undefined : false;
+          const owner = await findAuthPerson(db, { userId: session.userId });
+          return owner?.isActive && owner.companyId ? undefined : false;
         },
       },
     },
@@ -111,12 +115,9 @@ export const auth = betterAuth({
         // and a send failure would turn into a 500 only for real users.
         after(async () => {
           try {
-            const [existing] = await db
-              .select({ isActive: authUser.isActive, companyId: authUser.companyId })
-              .from(authUser)
-              .where(eq(authUser.email, email.toLowerCase()));
-            // Only email people who have an active account, never strangers.
-            if (!existing?.isActive) return;
+            const existing = await findAuthPerson(db, { email: email.toLowerCase() });
+            // Only email people who have an active account in a company, never strangers.
+            if (!existing?.isActive || !existing.companyId) return;
 
             await sendMail({ to: email, ...renderSignInEmail(url, await signInAccent(existing.companyId)) });
           } catch (err) {

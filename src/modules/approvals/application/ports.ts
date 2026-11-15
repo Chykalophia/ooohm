@@ -79,8 +79,11 @@ export interface ApprovalDirectory {
   leaveTypeName(companyId: string, id: string): Promise<string | undefined>;
   /** Every leave type's name, archived ones too, by id. */
   leaveTypeNames(companyId: string): Promise<Map<string, string>>;
-  /** The person a signed link names, whichever company they are in (a pre-tenant read). */
-  linkPerson(userId: string): Promise<LinkPerson | undefined>;
+  /**
+   * The person a signed link names, whichever company they are in (a pre-tenant read),
+   * only while the link's request is assigned to them.
+   */
+  linkPerson(userId: string, requestId: string): Promise<LinkPerson | undefined>;
   timezone(companyId: string): Promise<string | undefined>;
 }
 

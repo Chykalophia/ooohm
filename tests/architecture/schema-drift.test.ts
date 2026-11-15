@@ -24,9 +24,9 @@ test("the check fails, showing the SQL, when the last migration is missing", () 
     cpSync(join(ROOT, "drizzle"), stale, { recursive: true });
     const journalPath = join(stale, "meta", "_journal.json");
     const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: { tag: string }[] };
-    // The newest migrations are a column (0029), SQL functions only (0030) and row-level
-    // security only (0031): drop all three.
-    const dropped = journal.entries.splice(-3);
+    // The newest migrations are a column (0029), SQL functions only (0030), row-level
+    // security only (0031) and its review fixes (0032): drop all four.
+    const dropped = journal.entries.splice(-4);
     for (const { tag } of dropped) {
       rmSync(join(stale, `${tag}.sql`));
       rmSync(join(stale, "meta", `${tag.slice(0, 4)}_snapshot.json`));

@@ -73,15 +73,13 @@ async function dispatchIn(ctx: ServiceContext, tx: Transaction, limit: number): 
   const events = await claimUndispatched(tx, limit);
   if (events.length === 0) return { events: 0, webhookDeliveries: 0, adapterDeliveries: 0 };
   const now = ctx.now();
-  const companyIds = [...new Set(events.flatMap((e) => (e.companyId ? [e.companyId] : [])))];
+  const companyIds = [...new Set(events.map((e) => e.companyId))];
   const targets = await listDispatchTargets(tx, companyIds);
 
   const webhookRows: NewWebhookDelivery[] = [];
   const adapterRows: NewAdapterDelivery[] = [];
   for (const event of events) {
-    // Every recorded change has a company; a row without one has nobody to go to.
-    if (!event.companyId) continue;
-    const envelope = buildEnvelope({ ...event, companyId: event.companyId });
+    const envelope = buildEnvelope(event);
     const body = JSON.stringify(envelope);
     for (const target of targets) {
       if (target.companyId !== event.companyId || !target.eventTypes.includes(event.type)) continue;

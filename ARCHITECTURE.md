@@ -81,7 +81,8 @@ Fitness checks that guard what no single test sees:
   `tests/architecture/tenancy-coverage.test.ts` fails when an export has neither a case nor an exemption with a reason.
 - Row-level security (ADR-0004) is the second net: `tests/integration/rls.test.ts` checks every tenant table's
   policies in SQL as the app role on both drivers, and `tests/architecture/row-level-security.test.ts` fails when a
-  `company_id` table lacks its policies or an unlisted `SECURITY DEFINER` function appears.
+  `company_id` table lacks its policies, an unlisted `SECURITY DEFINER` function appears, or a view would read as
+  its owner.
 - `pnpm db:check-drift` fails when `src/db/schema.ts` and the committed migrations in `drizzle/` disagree.
 - `pnpm test:e2e` (after `pnpm build`) drives the built app on `pnpm start:embedded` in Chromium: invite-only
   sign-in through the emailed link, inviting people, and a request from submission to approval and cancellation.

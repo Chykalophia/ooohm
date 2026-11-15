@@ -212,10 +212,13 @@ removes the audit rows about them and redacts their name elsewhere, through two 
 
 **Row-level security** (ADR-0004) holds the app role to one company at a time: every company-scoped table shows and
 takes only the rows of the company the transaction names (`app.company_id`, set by the app per transaction), and
-nothing without one. The owner gets past it (migrations, the seed, the import); the app role never does, so it must
-not have `BYPASSRLS` (`db-roles.sql` refuses such a role, as it refuses a superuser). The few lookups that run before
-a company is known (sign-in, API keys, feed links, approve links, the worker's queues) go through narrow functions the
-owner owns, listed in ADR-0004. Nothing to configure: `pnpm db:migrate` adds the policies, and `pnpm db:roles` points
+nothing without one, and a row can name only rows of its own company. The owner gets past it (migrations, the seed,
+the import); the app role does only through the narrow functions the owner owns (the few lookups that run before a
+company is known: sign-in, API keys, feed links, approve links, the worker's queues; listed in ADR-0004), so it must
+not have `BYPASSRLS` (`db-roles.sql` refuses such a role, as it refuses a superuser) and gets no rights on a view
+that reads as its owner. Row-level security contains bugs in the app's queries, not someone running their own SQL
+with the app role's credentials (they could name any company), and Better Auth's `verification` table (live sign-in
+tokens) has none: keep `DATABASE_URL` as secret as the owner's. Nothing to configure: `pnpm db:migrate` adds the policies, and `pnpm db:roles` points
 the owner's policies at `ooohm_owner` when an install that ran as one role is split. An install whose app still
 connects as the owner keeps working, but the policies do not hold it until it is split.
 

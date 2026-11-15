@@ -1844,8 +1844,8 @@ docker stop ooohm-test
 ```
 
 **Tenant isolation** (`tests/integration/tenancy.test.ts`, ADR-0004). Two companies share one database. Every
-function a module's index, `src/server/services`, `src/server/jobs`, `src/server/identity` or the shared member
-reads (`src/shared/lib/db/members.ts`, `admin-standing.ts`) export, and every `/api/v1` route, is called by the
+function a module's index, `src/server/jobs`, `src/server/identity` or the shared reads in `src/shared/lib/db`
+(`members.ts`, `admin-standing.ts`, `leave-requests.ts`, `leave-type-allowances.ts`, `company-creation.ts`) export, and every `/api/v1` route, is called by the
 first company's admin, people, API key or company id with the second company's ids. After each call the second
 company's rows in every table (by `company_id`, or through its people and requests) are exactly as seeded, nothing
 of it (an id, an email, a name) is in what came back or in any email or sign-in link sent, and none of the first

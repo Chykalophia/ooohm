@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { formatInstantDate } from "@/lib/format";
-import { type FeedSummary, listCalendarFeeds } from "@/server/services/calendar-feeds";
+import { type FeedSummary, listCalendarFeeds } from "@/modules/calendar";
+import { unwrap } from "@/shared/lib/result";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { Section } from "@/components/ui/section";
@@ -13,7 +14,7 @@ export default async function SubscriptionsPage() {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="calendar" />;
 
-  const { timezone, feeds } = await listCalendarFeeds(page.ctx, page.actor);
+  const { timezone, feeds } = unwrap(await listCalendarFeeds(page.ctx, page.actor));
   const statusOf = (feed: FeedSummary | null): FeedStatus | null =>
     feed && {
       since: formatInstantDate(feed.createdAt, timezone),

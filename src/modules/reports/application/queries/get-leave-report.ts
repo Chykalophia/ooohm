@@ -7,7 +7,7 @@ import type { YearDays } from "@/shared/kernel/leave-days";
 import { teamLabel } from "@/shared/kernel/person-label";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { listHolidayDates } from "@/server/repositories/calendar";
+import { listHolidayDates } from "@/modules/calendar";
 import { findCompany, listDepartments } from "@/modules/organisation";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { loadBalances } from "@/modules/balances";

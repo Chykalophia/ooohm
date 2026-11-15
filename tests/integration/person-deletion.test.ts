@@ -27,14 +27,17 @@ import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approv
 import { getAuditLog as readAuditLog } from "@/modules/audit";
 import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";
-import { issueCalendarFeed } from "@/server/services/calendar-feeds";
-import { getTeamCalendar } from "@/server/services/calendar";
+import * as calendarModule from "@/modules/calendar";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { DAILY_JOBS, runDueJobs } from "@/server/jobs/scheduled-jobs";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/server/services/company-settings";
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
+const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);

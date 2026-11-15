@@ -5,16 +5,7 @@ import * as schema from "@/db/schema";
 import * as organisation from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";
-import {
-  addHoliday,
-  addHolidayRange,
-  addUsFederalHolidays,
-  deleteHoliday,
-  deleteHolidays,
-  listHolidaysForAdmin,
-  renameHoliday,
-  renameHolidays,
-} from "@/server/services/admin-holidays";
+import * as holidaysModule from "@/modules/holidays";
 import { getPersonDetail, getPersonFormOptions, listPeople } from "@/server/services/admin-people";
 import { getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
@@ -49,6 +40,16 @@ const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>
 const createLevel = (...args: Parameters<typeof organisation.createLevel>) => organisation.createLevel(...args).then(unwrap);
 const deleteLevel = (...args: Parameters<typeof organisation.deleteLevel>) => organisation.deleteLevel(...args).then(unwrap);
 const listLevelsForAdmin = (...args: Parameters<typeof organisation.listLevelsForAdmin>) => organisation.listLevelsForAdmin(...args).then(unwrap);
+
+// The holiday use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const addHoliday = (...args: Parameters<typeof holidaysModule.addHoliday>) => holidaysModule.addHoliday(...args).then(unwrap);
+const addHolidayRange = (...args: Parameters<typeof holidaysModule.addHolidayRange>) => holidaysModule.addHolidayRange(...args).then(unwrap);
+const addUsFederalHolidays = (...args: Parameters<typeof holidaysModule.addUsFederalHolidays>) => holidaysModule.addUsFederalHolidays(...args).then(unwrap);
+const deleteHoliday = (...args: Parameters<typeof holidaysModule.deleteHoliday>) => holidaysModule.deleteHoliday(...args).then(unwrap);
+const deleteHolidays = (...args: Parameters<typeof holidaysModule.deleteHolidays>) => holidaysModule.deleteHolidays(...args).then(unwrap);
+const listHolidaysForAdmin = (...args: Parameters<typeof holidaysModule.listHolidaysForAdmin>) => holidaysModule.listHolidaysForAdmin(...args).then(unwrap);
+const renameHoliday = (...args: Parameters<typeof holidaysModule.renameHoliday>) => holidaysModule.renameHoliday(...args).then(unwrap);
+const renameHolidays = (...args: Parameters<typeof holidaysModule.renameHolidays>) => holidaysModule.renameHolidays(...args).then(unwrap);
 
 const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
 

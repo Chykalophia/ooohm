@@ -7,7 +7,7 @@ import "server-only";
 import type { Executor } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import { type CalendarScope, type CalendarScopeSettings, calendarScopeFor } from "@/domain/calendar-visibility";
-import { findCalendarViewer } from "@/server/repositories/calendar";
+import { findCalendarViewer } from "@/modules/calendar/infrastructure/drizzle-calendar.repository";
 import { listManagedDepartmentIds } from "@/modules/organisation";
 
 /**

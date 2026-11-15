@@ -11,7 +11,7 @@ import { isUuid } from "@/domain/ids";
 import { oneLine } from "@/domain/text";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { listHolidayRows } from "@/server/repositories/holidays";
+import { listHolidayRows } from "@/modules/calendar";
 import {
   countCompanyLeaveRequests,
   type ExistingAccount,

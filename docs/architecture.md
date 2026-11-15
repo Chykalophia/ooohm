@@ -804,8 +804,8 @@ CRON_TZ=America/Chicago
 
 **Whose time off a person sees.** One rule, in `domain/calendar-visibility.ts`: `calendarScopeFor(viewer,
 company)` returns a `CalendarScope` (`everyone`, `departments`, `team` or `self`), loaded by `scopeOf` /
-`loadCalendarScope` (`services/calendar-scope.ts`), and every reader filters by it: Who's out, the calendar's
-filters, `/team/[id]` (a 404 outside it) and the team calendar link (its owner's scope, read on every fetch). The SQL form is `scopeCondition` in `repositories/calendar.ts`, which `listTeamEntries` takes;
+`loadCalendarScope` (`@/modules/calendar`, the only caller; `tests/architecture/calendar-boundary.test.ts`), and every reader filters by it: Who's out, the calendar's
+filters, `/team/[id]` (a 404 outside it) and the team calendar link (its owner's scope, read on every fetch). The SQL form is `scopeCondition` in `src/modules/calendar/infrastructure/drizzle-calendar.repository.ts`, which `listTeamEntries` takes;
 `canSeeOnCalendar` is the same rule for one person. Admins and managers see everyone. Employees see what
 **Admin → Company → People can see the time off of** allows (`companies.colleague_visibility`): everyone (the
 default), their team (themself, their manager, the others who report to that manager, and their own direct
@@ -864,7 +864,7 @@ A member may see who is out, when, and the leave type's name and colour, for the
 allows (`calendarScopeFor`, above: everyone, unless an admin narrows it for employees). Nobody sees another person's request
 note, decision note or balance on any calendar screen or feed. This is enforced by shape, not by filtering: every
 calendar view and both feeds are built from `CalendarEntry` (`src/domain/calendar.ts`), and the repository's
-calendar queries (`src/server/repositories/calendar.ts`) select only its fields. Notes are left out of the personal
+calendar queries (`src/modules/calendar/infrastructure/drizzle-calendar.repository.ts`) select only its fields. Notes are left out of the personal
 feed too, since a feed URL can travel further than the app. A person with a blank name is labelled by the part
 of their email before the `@` (`teamLabel`, `src/domain/person.ts`), never the full address, on the team view
 and in the team feed. Emails, which go only to the requester and their approver, still fall back to the full
@@ -1029,6 +1029,11 @@ admin change re-routes). Leave asks who decides through its own `ApprovalRouter`
 `wireModules()` (`src/server/wiring.ts`) hands it over in every composition root (`runtime.ts`,
 `scripts/script-context.mts`, the integration harness), so approvals → leave is the only direction.
 
+`src/modules/calendar` (README there) owns the calendar views, the feed links and the calendar reads (holiday dates,
+the company's calendar settings, leave entries) that leave, balances, reports, approvals and integrations use, so it
+imports no module but organisation (`tests/architecture/calendar-boundary.test.ts`). `src/modules/holidays` owns
+the holiday edits; it imports leave for the recount, and reads holidays back through the calendar.
+
 `src/modules/organisation` (README there) owns the company row, departments, levels and the leave type catalog.
 Nearly every module reads it, so it imports no other module (`tests/architecture/organisation-boundary.test.ts`).
 Two admin changes reach further: new working days recount leave already sent, and a new department manager
@@ -1152,11 +1157,13 @@ with the same `summarizeBalances` the dashboard uses.
 ### Holidays
 
 List by year (2000 to 2100), add (one per date), rename, delete, and add the eleven US federal holidays for a
-year on their observed dates (`usFederalHolidays`, `src/domain/holidays.ts`: Saturday → Friday, Sunday → Monday,
+year on their observed dates (`usFederalHolidays`, `src/modules/holidays/domain/us-federal-holidays.ts`: Saturday → Friday, Sunday → Monday,
 so a Saturday New Year's Day belongs to Dec 31 of the year before), skipping dates that already have one. Adding
 or deleting holidays recounts the requests on those dates in open years
 ([Recount after a calendar change](#recount-after-a-calendar-change)); the confirmation says how many were
-recounted, how many now take no days, and who is now over a balance. Renaming changes no count.
+recounted, how many now take no days, and who is now over a balance. Renaming changes no count. The use cases are
+the holidays module's (`src/modules/holidays`, README there), each returning a `ServiceResult`, admins only by
+`canManageHolidays`; they call `recountLeave` from `@/modules/leave` in the same transaction.
 
 ### Company
 

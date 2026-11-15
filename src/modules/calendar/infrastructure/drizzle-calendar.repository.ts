@@ -1,9 +1,9 @@
 import "server-only";
-import { and, asc, between, eq, gte, inArray, lte, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, between, eq, inArray, or, type SQL, sql } from "drizzle-orm";
 import { companies, departments, holidays, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
 import type { CalendarScope } from "@/domain/calendar-visibility";
-import { ACTIVE_STATUSES, earliestOverlappingStart } from "@/shared/kernel/leave-range";
+import { activeInRange } from "@/shared/lib/db/active-leave";
 
 const settingsFields = {
   timezone: companies.timezone,
@@ -98,6 +98,15 @@ export async function listHolidays(ex: Executor, companyId: string, from: string
     .orderBy(asc(holidays.date));
 }
 
+/** The company's holidays from `from` to `to` inclusive, by date, with their ids. */
+export async function listHolidayRows(ex: Executor, companyId: string, from: string, to: string): Promise<{ id: string; date: string; name: string }[]> {
+  return ex
+    .select({ id: holidays.id, date: holidays.date, name: holidays.name })
+    .from(holidays)
+    .where(and(eq(holidays.companyId, companyId), between(holidays.date, from, to)))
+    .orderBy(asc(holidays.date));
+}
+
 /**
  * What a calendar may show of a request. No note, decision note or approver: calendars
  * are seen by people other than the requester and their approver.
@@ -114,25 +123,6 @@ const entryFields = {
   leaveTypeCode: leaveTypes.code,
   leaveTypeColor: leaveTypes.color,
 };
-
-/**
- * Pending or approved requests of the company whose dates intersect `[from, to]`.
- *
- * `end_date >= from` cannot bound a scan of `(company_id, start_date, end_date)`, so on
- * its own the scan would read the company's whole history before `to`. A request spans
- * at most `MAX_REQUEST_SPAN_DAYS` days (the `leave_requests_span_max` check), so
- * one that reaches `from` starts no earlier than {@link earliestOverlappingStart}: that
- * bound makes the index range two-sided.
- */
-export function activeInRange(companyId: string, from: string, to: string): SQL | undefined {
-  return and(
-    eq(leaveRequests.companyId, companyId),
-    inArray(leaveRequests.status, [...ACTIVE_STATUSES]),
-    gte(leaveRequests.startDate, earliestOverlappingStart(from)),
-    lte(leaveRequests.startDate, to),
-    gte(leaveRequests.endDate, from),
-  );
-}
 
 /** One person's pending and approved leave intersecting `[from, to]`. */
 export async function listPersonalEntries(ex: Executor, companyId: string, userId: string, from: string, to: string) {

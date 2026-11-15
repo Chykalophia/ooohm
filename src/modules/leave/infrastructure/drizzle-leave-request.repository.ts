@@ -4,7 +4,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { PageRequest } from "@/domain/paging";
-import { activeInRange } from "@/server/repositories/calendar";
+import { activeInRange } from "@/shared/lib/db/active-leave";
 import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
 import { earliestOverlappingStart, type LeaveStatus } from "@/shared/kernel/leave-range";

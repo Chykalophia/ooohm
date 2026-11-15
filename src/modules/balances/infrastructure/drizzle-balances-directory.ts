@@ -1,6 +1,6 @@
 import "server-only";
 import type { Executor, Transaction } from "@/db/types";
-import { findCompanySettings, listCompanies, listHolidayDates, listHolidays } from "@/server/repositories/calendar";
+import { findCompanySettings, listCompanies, listHolidayDates, listHolidays } from "@/modules/calendar";
 import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
 import { findActiveLeaveType, listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { listActiveMembers, lockMember, lockMembers } from "@/shared/lib/db/members";

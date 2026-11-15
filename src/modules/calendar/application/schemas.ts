@@ -1,3 +1,4 @@
+import "server-only";
 import { z } from "zod";
 import { CALENDAR_FILTERS } from "@/domain/calendar-visibility";
 import { isYearMonth } from "@/domain/calendar";

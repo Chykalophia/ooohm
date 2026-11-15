@@ -1,7 +1,7 @@
 import "server-only";
 import type { Executor } from "@/db/types";
 import { activeContacts } from "@/modules/leave";
-import { findCompanySettings } from "@/server/repositories/calendar";
+import { findCompanySettings } from "@/modules/calendar";
 import { findLeaveType, listAllLeaveTypes } from "@/modules/organisation";
 import { findActorById } from "@/shared/lib/db/members";
 import type { ApprovalDirectory } from "../application/ports";

@@ -4,7 +4,7 @@ import { type LeaveTypeSettingsDTO as LeaveTypeRow, addDepartment as insertDepar
  * Import steps: the company's settings, departments, leave types and holidays.
  */
 import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
-import { insertHolidays } from "@/server/repositories/holidays";
+import { insertHolidays } from "@/modules/holidays";
 import { countRequestsByLeaveType, listDepartmentsByName } from "@/server/repositories/imports";
 import { leaveTypeCodeFor } from "@/modules/import/domain/timeoff/plan/rules";
 import type { PlannedLeaveType } from "@/modules/import/domain/timeoff/plan/types";

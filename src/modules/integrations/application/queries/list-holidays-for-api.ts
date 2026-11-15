@@ -3,8 +3,7 @@ import type { CalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { findCompanySettings } from "@/server/repositories/calendar";
-import { listHolidayRows } from "@/server/repositories/holidays";
+import { findCompanySettings, listHolidayRows } from "@/modules/calendar";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { type ApiClient, assertScope } from "@/modules/integrations/domain/integrations";
 

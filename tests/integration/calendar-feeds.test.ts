@@ -5,11 +5,18 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { LeaveStatus } from "@/shared/kernel/leave-range";
-import { issueCalendarFeed, listCalendarFeeds, renderCalendarFeed, revokeCalendarFeed } from "@/server/services/calendar-feeds";
+import * as calendarModule from "@/modules/calendar";
+import { unwrap } from "@/shared/lib/result";
 import { only, parseIcs, unescapeText } from "../support/ics-parser";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
+const listCalendarFeeds = (...args: Parameters<typeof calendarModule.listCalendarFeeds>) => calendarModule.listCalendarFeeds(...args).then(unwrap);
+const renderCalendarFeed = (...args: Parameters<typeof calendarModule.renderCalendarFeed>) => calendarModule.renderCalendarFeed(...args).then(unwrap);
+const revokeCalendarFeed = (...args: Parameters<typeof calendarModule.revokeCalendarFeed>) => calendarModule.revokeCalendarFeed(...args).then(unwrap);
 
 // The test clock is 2026-11-01 15:00 UTC (Nov 1 in Chicago), so feeds cover
 // 2026-08-03 to 2028-05-02.

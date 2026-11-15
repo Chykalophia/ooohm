@@ -2,7 +2,7 @@ import "server-only";
 import { DomainError } from "@/domain/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { findCompanySettings } from "@/server/repositories/calendar";
+import { findCompanySettings } from "@/modules/calendar";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { allowanceYearsFor, balanceInputs, listAllowances, loadAllowanceDefaults, resolveAllowancePolicy, sumBookedDays } from "@/modules/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";

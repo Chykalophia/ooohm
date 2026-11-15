@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { isoWeekday } from "@/domain/calendar-date";
 import { isSupportedTimeZone, normalizeCompanySettings, normalizeWorkingDays } from "@/domain/company-settings";
 import { type DomainErrorCode, isDomainError } from "@/domain/errors";
-import { usFederalHolidays } from "@/domain/holidays";
+import { usFederalHolidays } from "@/modules/holidays/domain/us-federal-holidays";
 import {
   ALLOWANCE_YEAR_MAX,
   assertAllowanceYear,

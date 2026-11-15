@@ -28,10 +28,13 @@ import { getPersonDetail, listPeople } from "../../src/server/services/admin-peo
 import { listBalancesForApi as listBalancesForApiResult, listEventsForApi as listEventsForApiResult, listUsersForApi as listUsersForApiResult } from "../../src/modules/integrations";
 import { getApprovalNav, getApprovalTriage } from "../../src/modules/approvals";
 import { getAuditLog } from "../../src/modules/audit";
-import { getMonthCalendar, getTeamCalendar } from "../../src/server/services/calendar";
+import * as calendarModule from "../../src/modules/calendar";
 import { getDashboard as getDashboardResult, listLeaveRequestsForApi as listLeaveRequestsForApiResult } from "../../src/modules/leave";
 import { unwrap } from "../../src/shared/lib/result";
 
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);
+const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const listBalancesForApi = (...args: Parameters<typeof listBalancesForApiResult>) => listBalancesForApiResult(...args).then(unwrap);
 const listEventsForApi = (...args: Parameters<typeof listEventsForApiResult>) => listEventsForApiResult(...args).then(unwrap);

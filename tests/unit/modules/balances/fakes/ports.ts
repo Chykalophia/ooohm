@@ -238,7 +238,8 @@ export function balancesKit(now = new Date("2027-01-04T10:00:00Z")): BalancesKit
   const deps: BalancesDeps = {
     clock,
     read: store,
-    unitOfWork: async (work) => {
+    tenant: () => deps,
+    unitOfWork: async (_companyId, work) => {
       units.run++;
       const snapshot = {
         rows: new Map([...allowances.rows].map(([k, v]) => [k, { ...v }])),

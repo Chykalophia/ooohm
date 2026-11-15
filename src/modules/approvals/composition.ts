@@ -10,6 +10,7 @@ import type { Actor } from "@/shared/kernel/actor";
 import type { PageCursor } from "@/shared/kernel/paging";
 import type { ApprovalRouting, LeaveRequest } from "@/modules/leave";
 import { commitThenNotify } from "@/modules/notifications";
+import { forTenant } from "@/shared/lib/tenant";
 import { changeDepartmentManager } from "@/modules/organisation";
 import type { ServiceContext } from "@/server/context";
 import { approveLinkFor as signApproveLink } from "./application/approve-link";
@@ -40,7 +41,7 @@ export function approvalStore(ex: Executor): ApprovalStore {
   };
 }
 
-/** The use cases' dependencies for one service call. */
+/** The use cases' dependencies for one service call; reads run for the company `ctx` is scoped to, if any. */
 export function approvalDeps(ctx: ServiceContext): ApprovalDeps {
   return {
     linkKey: ctx.linkKey,
@@ -48,13 +49,17 @@ export function approvalDeps(ctx: ServiceContext): ApprovalDeps {
     now: () => ctx.now(),
     read: approvalStore(ctx.db),
     unitOfWork: (companyId, work) => commitThenNotify(ctx, companyId, (tx) => work(approvalStore(tx))),
+    tenant: (companyId) => approvalDeps(forTenant(ctx, companyId)),
   };
 }
 
-export const decideLeaveRequest = (ctx: ServiceContext, actor: Actor, input: DecideInput) => decide(approvalDeps(ctx), actor, input);
+/** {@link approvalDeps} reading for the actor's company. */
+const depsFor = (ctx: ServiceContext, actor: Actor) => approvalDeps(forTenant(ctx, actor.companyId));
+
+export const decideLeaveRequest = (ctx: ServiceContext, actor: Actor, input: DecideInput) => decide(depsFor(ctx, actor), actor, input);
 export const getApprovalTriage = (ctx: ServiceContext, actor: Actor, options?: { view?: ApprovalsView | undefined; page?: PageCursor | undefined; size?: number | undefined }) =>
-  triage(approvalDeps(ctx), actor, options);
-export const getApprovalNav = (ctx: ServiceContext, actor: Actor) => nav(approvalDeps(ctx), actor);
+  triage(depsFor(ctx, actor), actor, options);
+export const getApprovalNav = (ctx: ServiceContext, actor: Actor) => nav(depsFor(ctx, actor), actor);
 export const readEmailApproval = (ctx: ServiceContext, token: string) => readLink(approvalDeps(ctx), token);
 export const approveFromEmail = (ctx: ServiceContext, token: string) => approveLink(approvalDeps(ctx), token);
 
@@ -65,7 +70,7 @@ export const approveFromEmail = (ctx: ServiceContext, token: string) => approveL
 export const setDepartmentManager = (ctx: ServiceContext, actor: Actor, id: string, managerId: string | null) =>
   setManager(
     {
-      approvals: approvalDeps(ctx),
+      approvals: depsFor(ctx, actor),
       unitOfWork: (companyId, work) =>
         commitThenNotify(ctx, companyId, (tx) =>
           work(
@@ -90,7 +95,7 @@ export const approveLinkFor = (ctx: ServiceContext, requestId: string, approverI
  * `tx` (which holds `lockCompany`): see `reroutePending`. Send the returned emails after commit.
  */
 export function rerouteApprovals(ctx: ServiceContext, tx: Transaction, actor: Actor, requests: readonly LeaveRequest[]): Promise<Rerouted> {
-  return reroutePending(approvalDeps(ctx), approvalStore(tx), actor, requests);
+  return reroutePending(depsFor(ctx, actor), approvalStore(tx), actor, requests);
 }
 
 /** The approval rule's inputs for each requester, read in `ex`: the one routing loader. */

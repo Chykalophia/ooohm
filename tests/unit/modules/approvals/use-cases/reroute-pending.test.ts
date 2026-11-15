@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { reroutePending } from "@/modules/approvals/application/reroute-pending";
 import { type ApprovalKit, approvalKit } from "../fakes/ports";
+import { first } from "../../../../support/present";
 
 const ANA = "00000000-0000-4000-8000-0000000000b1";
 const MO = "00000000-0000-4000-8000-0000000000b2";
@@ -27,10 +28,10 @@ test("a deactivated approver's request moves to the oldest admin, with a review 
   set(kit, MO, { isActive: false });
   const { reassigned, notify } = await reroute(kit, [ANA, MO]);
   assert.equal(reassigned, 1);
-  const [moved] = kit.changes.written;
+  const moved = first(kit.changes.written);
   assert.deepEqual([moved.kind, moved.before?.approverId, moved.after.approverId], ["reassigned", MO, A1]);
   assert.deepEqual(notify.map((n) => [n.type, n.to]), [["leave.requested", "a1@example.test"]]);
-  assert.match((notify[0].data as { approveLink: string }).approveLink, /^https:\/\/ooohm\.test\/approve\//);
+  assert.match((first(notify).data as { approveLink: string }).approveLink, /^https:\/\/ooohm\.test\/approve\//);
 });
 
 test("a demoted admin's request moves to the next admin", async () => {
@@ -39,7 +40,7 @@ test("a demoted admin's request moves to the next admin", async () => {
   set(kit, A1, { role: "employee" });
   const { reassigned } = await reroute(kit, [ANA, A1]);
   assert.equal(reassigned, 1);
-  assert.equal(kit.changes.written[0].after.approverId, A2);
+  assert.equal(first(kit.changes.written).after.approverId, A2);
 });
 
 test("when the manager changes, the request follows the new manager", async () => {
@@ -47,7 +48,7 @@ test("when the manager changes, the request follows the new manager", async () =
   kit.add(LEE, "Lee", { role: "manager" });
   set(kit, ANA, { managerId: LEE });
   await reroute(kit, [ANA, MO]);
-  assert.equal(kit.changes.written[0].after.approverId, LEE);
+  assert.equal(first(kit.changes.written).after.approverId, LEE);
 });
 
 test("a new admin takes the request an only admin had routed to themself", async () => {
@@ -56,7 +57,7 @@ test("a new admin takes the request an only admin had routed to themself", async
   const before = await reroute(kit, [A1, A1]);
   assert.equal(before.reassigned, 0, "alone, the admin keeps their own request");
   kit.add(A2, "A2", { role: "admin", createdAt: new Date("2024-06-01T00:00:00Z") });
-  const [request] = [...kit.requests.rows.values()];
+  const request = first([...kit.requests.rows.values()]);
   const after = await reroutePending(kit.deps, kit.deps.read, kit.as(A1), [request]);
   assert.equal(after.reassigned, 1);
   assert.equal(kit.requests.rows.get(request.id)?.approverId, A2);
@@ -76,7 +77,7 @@ test("a request nobody can take keeps no approver and sends no email; one moved 
   kit.add(ANA, "Ana", { managerId: MO });
   const orphaned = await reroute(kit, [ANA, MO]);
   assert.deepEqual([orphaned.reassigned, orphaned.notify.length], [1, 0]);
-  assert.equal(kit.changes.written[0].after.approverId, null);
+  assert.equal(first(kit.changes.written).after.approverId, null);
 
   const kit2 = team();
   set(kit2, MO, { isActive: false });

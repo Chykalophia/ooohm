@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { setAllowanceOverride } from "@/modules/balances/application/use-cases/set-allowance-override";
 import { unwrap } from "@/shared/lib/result";
 import { ANA, actorFor, BOSS, balancesKit, type BalancesKit, leaveType, person, VACATION } from "../fakes/ports";
+import { first } from "../../../../support/present";
 
 function company(type = leaveType()): BalancesKit {
   const kit = balancesKit(new Date("2026-06-01T10:00:00Z"));
@@ -19,7 +20,7 @@ test("an edit writes an audit row with the admin's reason, and balance.adjusted 
   assert.deepEqual([row.days, row.adjustmentDays, row.carriedOverDays], [22, 1.5, 0]);
 
   assert.equal(kit.audit.entries.length, 1);
-  const audit = kit.audit.entries[0];
+  const audit = first(kit.audit.entries);
   assert.equal(audit.action, "allowance.edited");
   assert.equal(audit.subjectUserId, ANA);
   assert.deepEqual(audit.source, { kind: "user", userId: BOSS });
@@ -27,7 +28,7 @@ test("an edit writes an audit row with the admin's reason, and balance.adjusted 
   assert.equal((audit.after as { reason?: string }).reason, "Agreed at hiring", "the reason, trimmed, in the audit row");
 
   assert.deepEqual(kit.outbox.types(), ["balance.adjusted"]);
-  const payload = kit.outbox.events[0].payload as Record<string, unknown>;
+  const payload = first(kit.outbox.events).payload as Record<string, unknown>;
   assert.equal(payload.reason, "admin_edit");
   assert.ok(!JSON.stringify(payload).includes("Agreed at hiring"), "free text about a person never goes to other systems");
   assert.deepEqual([payload.days, payload.adjustmentDays, payload.carriedOverDays], [22, 1.5, 0]);

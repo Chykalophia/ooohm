@@ -32,7 +32,7 @@ export async function setLeaveTypeArchived(
   if (!canManageLeaveTypes(actor)) return err("forbidden");
   if (!isUuid(id)) return err("not_found");
   return attempt(() =>
-    inTransaction(ctx, async (tx) => {
+    inTransaction(ctx, actor.companyId, async (tx) => {
       if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
       await assertActiveAdmin(tx, actor);
       const found = await findLeaveTypeForAdmin(tx, actor.companyId, id);

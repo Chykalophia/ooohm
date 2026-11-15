@@ -12,6 +12,7 @@ import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave"
 import { unwrap } from "@/shared/lib/result";
 import { companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestContext, type TestDatabase } from "./harness";
+import { first, present } from "../support/present";
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
@@ -102,10 +103,10 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     const run = await deliverDueWebhooks(ctx, { fetch });
     assert.deepEqual(run, { attempted: 1, delivered: 1, retried: 0, failed: 0 });
     assert.equal(calls.length, 1);
-    const [call] = calls;
+    const call = first(calls);
     assert.equal(call.url, wanted.url);
 
-    const [event] = (await companyEvents(t.db, co.companyId, "leave.requested")).filter((e) => (e.payload as { requestId: string }).requestId === request.id);
+    const event = first((await companyEvents(t.db, co.companyId, "leave.requested")).filter((e) => (e.payload as { requestId: string }).requestId === request.id));
     const envelope = JSON.parse(call.body) as EventEnvelope<{ requestId: string; days: number }>;
     assert.deepEqual(Object.keys(envelope), ["id", "type", "version", "createdAt", "companyId", "data"]);
     assert.equal(envelope.id, event.id);
@@ -117,19 +118,19 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
 
     assert.equal(call.headers["OOOhm-Event-Id"], event.id);
     assert.equal(call.headers["OOOhm-Event-Type"], "leave.requested");
-    assert.equal(call.headers["OOOhm-Timestamp"], String(Math.floor(T0.getTime() / 1000)));
+    assert.equal(present(call.headers["OOOhm-Timestamp"]), String(Math.floor(T0.getTime() / 1000)));
     const verify = (secret: string) =>
       verifyWebhookSignature({
         secret,
         rawBody: call.body,
-        timestampHeader: call.headers["OOOhm-Timestamp"],
-        signatureHeader: call.headers["OOOhm-Signature"],
+        timestampHeader: present(call.headers["OOOhm-Timestamp"]),
+        signatureHeader: present(call.headers["OOOhm-Signature"]),
         nowSeconds: Math.floor(T0.getTime() / 1000) + 30,
       });
     assert.equal(verify(wanted.secret), true, "signed with the endpoint's secret");
     assert.equal(verify(disabled.secret), false);
 
-    const [row] = await deliveriesOf(wanted.id);
+    const row = first(await deliveriesOf(wanted.id));
     assert.equal(row.status, "delivered");
     assert.equal(row.attempts, 1);
     const listed = (await listWebhookEndpoints(ctx, co.people.boss)).endpoints;
@@ -229,7 +230,7 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     for (let attempt = 1; attempt <= 8; attempt++) {
       const run = await deliverDueWebhooks(ctx, deps);
       assert.equal(run.attempted, 1, `attempt ${attempt}`);
-      const [row] = await deliveriesOf(e.id);
+      const row = first(await deliveriesOf(e.id));
       assert.equal(row.attempts, attempt);
       assert.equal(row.lastStatusCode, 503);
       assert.equal(row.lastError, "HTTP 503");
@@ -267,7 +268,7 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     });
     const run = await deliverDueWebhooks(ctx, { fetch, timeoutMs: 50 });
     assert.deepEqual(run, { attempted: 3, delivered: 0, retried: 3, failed: 0 });
-    const errorOf = async (id: string) => (await deliveriesOf(id))[0];
+    const errorOf = async (id: string) => first(await deliveriesOf(id));
     assert.equal((await errorOf(slow.id)).lastError, "timeout");
     assert.equal((await errorOf(blocked.id)).lastError, "blocked_address");
     assert.equal((await errorOf(redirect.id)).lastError, "HTTP 301");
@@ -285,26 +286,26 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
       await deliverDueWebhooks(ctx, { fetch, now: () => clock.now });
       clock.now = new Date(clock.now.getTime() + 2 * 86_400_000);
     }
-    const [failed] = await deliveriesOf(e.id);
+    const failed = first(await deliveriesOf(e.id));
     assert.equal(failed.status, "failed");
 
     await assert.rejects(redeliverWebhook(ctx, co.people.ana, e.id, failed.id), /forbidden/);
     up = true;
     await redeliverWebhook(ctx, co.people.boss, e.id, failed.id);
-    const [queued] = await deliveriesOf(e.id);
+    const queued = first(await deliveriesOf(e.id));
     assert.equal(queued.status, "pending");
     assert.equal(queued.attempts, 0);
     assert.equal(queued.lastError, null);
     await assert.rejects(redeliverWebhook(ctx, co.people.boss, e.id, failed.id), /conflict/, "already queued");
 
     await deliverDueWebhooks(ctx, { fetch, now: () => clock.now });
-    const [done] = await deliveriesOf(e.id);
+    const done = first(await deliveriesOf(e.id));
     assert.equal(done.status, "delivered");
     assert.equal(done.attempts, 1);
-    assert.equal(calls.at(-1)!.headers["OOOhm-Event-Id"], calls[0].headers["OOOhm-Event-Id"]);
-    assert.equal(calls.at(-1)!.body, calls[0].body);
+    assert.equal(calls.at(-1)!.headers["OOOhm-Event-Id"], first(calls).headers["OOOhm-Event-Id"]);
+    assert.equal(calls.at(-1)!.body, first(calls).body);
 
-    const [event] = await companyEvents(t.db, co.companyId, "webhook_delivery.redelivered");
+    const event = first(await companyEvents(t.db, co.companyId, "webhook_delivery.redelivered"));
     assert.deepEqual(event.payload, { endpointId: e.id, deliveryId: failed.id, eventId: failed.eventId, eventType: "leave.requested", actorId: co.people.boss.id, actor: { type: "user", id: co.people.boss.id } });
   });
 
@@ -316,17 +317,17 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     const { fetch, calls } = recorder();
     await deliverDueWebhooks(ctx, { fetch });
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].url, e.url);
-    assert.equal(calls[0].headers["OOOhm-Event-Type"], "ping");
-    const envelope = JSON.parse(calls[0].body) as EventEnvelope<{ endpointId: string }>;
+    assert.equal(first(calls).url, e.url);
+    assert.equal(first(calls).headers["OOOhm-Event-Type"], "ping");
+    const envelope = JSON.parse(first(calls).body) as EventEnvelope<{ endpointId: string }>;
     assert.equal(envelope.type, "ping");
     assert.equal(envelope.data.endpointId, e.id);
-    assert.ok(verifyWebhookSignature({ secret: e.secret, rawBody: calls[0].body, timestampHeader: calls[0].headers["OOOhm-Timestamp"], signatureHeader: calls[0].headers["OOOhm-Signature"], nowSeconds: T0.getTime() / 1000 }));
-    const [row] = await deliveriesOf(e.id);
+    assert.ok(verifyWebhookSignature({ secret: e.secret, rawBody: first(calls).body, timestampHeader: present(first(calls).headers["OOOhm-Timestamp"]), signatureHeader: present(first(calls).headers["OOOhm-Signature"]), nowSeconds: T0.getTime() / 1000 }));
+    const row = first(await deliveriesOf(e.id));
     assert.equal(row.id, deliveryId);
     assert.equal(row.status, "delivered");
     assert.equal((await deliveriesOf(other.id)).length, 0);
-    const [pinged] = await companyEvents(t.db, co.companyId, "webhook_endpoint.pinged");
+    const pinged = first(await companyEvents(t.db, co.companyId, "webhook_endpoint.pinged"));
     assert.equal((pinged.payload as { endpointId: string }).endpointId, e.id);
   });
 
@@ -343,7 +344,7 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     const { fetch, calls } = recorder();
     await deliverDueWebhooks(ctx, { fetch });
     const check = (s: string) =>
-      verifyWebhookSignature({ secret: s, rawBody: calls[0].body, timestampHeader: calls[0].headers["OOOhm-Timestamp"], signatureHeader: calls[0].headers["OOOhm-Signature"], nowSeconds: clock.now.getTime() / 1000 });
+      verifyWebhookSignature({ secret: s, rawBody: first(calls).body, timestampHeader: present(first(calls).headers["OOOhm-Timestamp"]), signatureHeader: present(first(calls).headers["OOOhm-Signature"]), nowSeconds: clock.now.getTime() / 1000 });
     assert.equal(check(secret), true);
     assert.equal(check(e.secret), false);
   });
@@ -358,8 +359,8 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     assert.equal(await deleteWebhookEndpoint(ctx, co.people.boss, removed.id), 1);
     const { fetch, calls } = recorder();
     assert.equal((await deliverDueWebhooks(ctx, { fetch })).attempted, 0);
-    assert.equal((await deliveriesOf(paused.id))[0].status, "pending");
-    assert.equal((await deliveriesOf(removed.id))[0].status, "cancelled");
+    assert.equal(first(await deliveriesOf(paused.id)).status, "pending");
+    assert.equal(first(await deliveriesOf(removed.id)).status, "cancelled");
     await setWebhookEndpointEnabled(ctx, co.people.boss, paused.id, true);
     await deliverDueWebhooks(ctx, { fetch });
     assert.deepEqual(
@@ -373,16 +374,16 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     const e = await endpoint(co.people.boss, ["leave.requested"]);
     await submit(co);
     await dispatchOutboxBatch(ctx);
-    const [first] = await claimDueDeliveries(t.db, { now: T0, leaseUntil: new Date(T0.getTime() + 120_000), limit: 10 });
-    assert.equal(first.attempts, 1);
+    const firstClaim = first(await claimDueDeliveries(t.db, { now: T0, leaseUntil: new Date(T0.getTime() + 120_000), limit: 10 }));
+    assert.equal(firstClaim.attempts, 1);
     assert.equal((await claimDueDeliveries(t.db, { now: T0, leaseUntil: new Date(T0.getTime() + 120_000), limit: 10 })).length, 0, "leased");
     const later = new Date(T0.getTime() + 121_000);
-    const [second] = await claimDueDeliveries(t.db, { now: later, leaseUntil: new Date(later.getTime() + 120_000), limit: 10 });
+    const second = first(await claimDueDeliveries(t.db, { now: later, leaseUntil: new Date(later.getTime() + 120_000), limit: 10 }));
     assert.equal(second.attempts, 2);
     const delivered = { status: "delivered" as const, at: later, statusCode: 200, latencyMs: 5, excerpt: null };
-    assert.equal(await recordDeliveryOutcome(t.db, first, delivered), false, "the stale claim loses");
+    assert.equal(await recordDeliveryOutcome(t.db, firstClaim, delivered), false, "the stale claim loses");
     assert.equal(await recordDeliveryOutcome(t.db, second, delivered), true);
-    const [row] = await t.db.select().from(schema.webhookDeliveries).where(and(eq(schema.webhookDeliveries.endpointId, e.id)));
+    const row = first(await t.db.select().from(schema.webhookDeliveries).where(and(eq(schema.webhookDeliveries.endpointId, e.id))));
     assert.equal(row.status, "delivered");
   });
 
@@ -432,7 +433,7 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     }
     const logged = lines.join("");
     assert.match(logged, /webhook_delivery_retry_scheduled/);
-    for (const secretish of ["sekret-token", e.secret, calls[0].headers["OOOhm-Signature"].slice(3), calls[0].body]) {
+    for (const secretish of ["sekret-token", e.secret, present(first(calls).headers["OOOhm-Signature"]).slice(3), first(calls).body]) {
       assert.ok(!logged.includes(secretish), "nothing secret in the log");
     }
   });

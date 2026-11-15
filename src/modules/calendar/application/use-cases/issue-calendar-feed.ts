@@ -30,12 +30,12 @@ export async function issueCalendarFeed(ctx: ServiceContext, actor: Actor, kind:
       const now = ctx.now();
       const old = await revokeLiveFeed(tx, { userId: actor.id, kind }, now);
       if (old) {
-        await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, source: actor.source, reason: "regenerated" });
+        await recordFeedChange(tx, actor.companyId, { event: "revoked", before: { ...old, revokedAt: null }, after: old, source: actor.source, reason: "regenerated" });
       }
       const token = generateFeedToken();
       const tokenHint = feedTokenHint(token);
       const row = await insertFeed(tx, { companyId: actor.companyId, userId: actor.id, kind, tokenHash: hashToken(token), tokenHint, createdAt: now });
-      await recordFeedChange(tx, { event: "issued", before: null, after: row, source: actor.source, reason: null });
+      await recordFeedChange(tx, actor.companyId, { event: "issued", before: null, after: row, source: actor.source, reason: null });
       return { token, url: `${ctx.appUrl}${feedPath(token)}`, feed: { createdAt: row.createdAt, lastUsedAt: null, hint: tokenHint } };
     }),
   );

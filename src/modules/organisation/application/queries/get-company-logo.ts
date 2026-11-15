@@ -2,6 +2,7 @@ import "server-only";
 import type { LogoRef } from "@/shared/kernel/company-logo";
 import type { ServiceContext } from "@/server/context";
 import { log } from "@/lib/log";
+import { forTenant } from "@/shared/lib/tenant";
 import { findCompany } from "@/modules/organisation/infrastructure/drizzle-companies.repository";
 import { logoRef } from "@/modules/organisation/application/logo-ref";
 
@@ -11,7 +12,7 @@ import { logoRef } from "@/modules/organisation/application/logo-ref";
  */
 export async function getCompanyLogo(ctx: ServiceContext, companyId: string): Promise<LogoRef | null> {
   try {
-    return logoRef(await findCompany(ctx.db, companyId));
+    return logoRef(await findCompany(forTenant(ctx, companyId).db, companyId));
   } catch (err) {
     log.warn({ err }, "logo_read_failed");
     return null;

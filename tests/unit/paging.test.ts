@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { pagerLinks, readPageParams } from "@/app/_lib/paging";
 import { type PageCursor, type PageRequest, decodePageKey, encodePageKey, isCursorInstant, readPage, textPart } from "@/shared/kernel/paging";
+import { first } from "../support/present";
 
 /** A list sorted by its one key, read the way a repository reads it, counting reads. */
 function list(keys: string[]) {
@@ -10,7 +11,7 @@ function list(keys: string[]) {
   const read = async (request: PageRequest | undefined, limit: number) => {
     reads.push(request);
     if (!request) return sorted.slice(0, limit);
-    const [k] = request.key;
+    const k = first(request.key);
     return request.direction === "after"
       ? sorted.filter((x) => x > k).slice(0, limit)
       : sorted

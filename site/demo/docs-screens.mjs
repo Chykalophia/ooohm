@@ -21,7 +21,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, "..", "..");
 const OUT = join(here, "..", "docs", "images");
 const TMP = join(here, ".docs-frames");
-const DB = process.env.DATABASE_URL ?? "postgres://ooohm:ooohm@127.0.0.1:5432/ooohm";
+// As the owner: row-level security shows a connection without a company none of its rows.
+const DB = process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL ?? "postgres://ooohm:ooohm@127.0.0.1:5432/ooohm";
 if (!isLocalDatabase(DB)) throw new Error("docs-screens only runs against a local database.");
 
 const DESKTOP = { width: 1000, height: 760 };

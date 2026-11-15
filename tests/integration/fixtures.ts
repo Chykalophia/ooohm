@@ -6,6 +6,7 @@ import type { Actor, Role } from "@/shared/kernel/actor";
 import { byUser } from "@/shared/kernel/change-source";
 import type { ServiceContext } from "@/server/context";
 import { getApprovalTriage } from "@/modules/approvals";
+import { first, present } from "../support/present";
 
 export interface PersonSpec {
   role?: Role;
@@ -16,12 +17,14 @@ export interface PersonSpec {
   createdAt?: string;
 }
 
-export interface Company {
+export type SeededPerson = Actor & { email: string; name: string };
+
+export interface Company<K extends string = string> {
   companyId: string;
   /** Active, first by sort order: the default leave type. */
   pto: string;
   archived: string;
-  people: Record<string, Actor & { email: string; name: string }>;
+  people: Record<K, SeededPerson>;
 }
 
 /**
@@ -29,46 +32,54 @@ export interface Company {
  * (Thu 2026-11-26), Mon-Fri working days, and the given people. Every call makes a new
  * company, so tests in one file never see each other's rows.
  */
-export async function seedCompany(db: Database, people: Record<string, PersonSpec>): Promise<Company> {
-  const [company] = await db
-    .insert(schema.companies)
-    .values({ name: `Co ${randomUUID().slice(0, 8)}` })
-    .returning();
-  const [pto] = await db.insert(schema.leaveTypes).values({ companyId: company.id, code: "PTO", name: "PTO", sortOrder: 0 }).returning();
-  const [archived] = await db
-    .insert(schema.leaveTypes)
-    .values({ companyId: company.id, code: "OLD", name: "Old", sortOrder: 1, archivedAt: new Date() })
-    .returning();
+export async function seedCompany<K extends string>(db: Database, people: Record<K, PersonSpec>): Promise<Company<K>> {
+  const company = first(
+    await db
+      .insert(schema.companies)
+      .values({ name: `Co ${randomUUID().slice(0, 8)}` })
+      .returning(),
+  );
+  const pto = first(await db.insert(schema.leaveTypes).values({ companyId: company.id, code: "PTO", name: "PTO", sortOrder: 0 }).returning());
+  const archived = first(
+    await db
+      .insert(schema.leaveTypes)
+      .values({ companyId: company.id, code: "OLD", name: "Old", sortOrder: 1, archivedAt: new Date() })
+      .returning(),
+  );
   await db.insert(schema.holidays).values({ companyId: company.id, date: "2026-11-26", name: "Thanksgiving" });
 
-  const ids = Object.fromEntries(Object.keys(people).map((key) => [key, randomUUID()]));
-  const out: Company["people"] = {};
-  for (const [key, spec] of Object.entries(people)) {
-    const email = `${key.toLowerCase()}-${ids[key].slice(0, 8)}@example.com`;
+  const specs = Object.entries(people) as [K, PersonSpec][];
+  const ids = new Map<string, string>(specs.map(([key]) => [key, randomUUID()]));
+  const idOf = (key: string) => present(ids.get(key), `person ${key}`);
+  const out = {} as Record<K, SeededPerson>;
+  for (const [key, spec] of specs) {
+    const id = idOf(key);
+    const email = `${key.toLowerCase()}-${id.slice(0, 8)}@example.com`;
+    const name = key.charAt(0).toUpperCase() + key.slice(1);
     await db.insert(schema.user).values({
-      id: ids[key],
-      name: key[0].toUpperCase() + key.slice(1),
+      id,
+      name,
       email,
       companyId: company.id,
       role: spec.role ?? "employee",
       canSelfApprove: spec.canSelfApprove ?? false,
       isActive: spec.isActive ?? true,
-      createdAt: spec.createdAt ? new Date(spec.createdAt) : undefined,
+      ...(spec.createdAt ? { createdAt: new Date(spec.createdAt) } : {}),
     });
     out[key] = {
-      id: ids[key],
+      id,
       companyId: company.id,
       role: spec.role ?? "employee",
       canSelfApprove: spec.canSelfApprove ?? false,
-      source: byUser(ids[key]),
+      source: byUser(id),
       email,
-      name: key[0].toUpperCase() + key.slice(1),
+      name,
     };
   }
   // Managers are linked after everyone exists, so specs can reference each other.
-  for (const [key, spec] of Object.entries(people)) {
+  for (const [key, spec] of specs) {
     if (spec.managerKey) {
-      await db.update(schema.user).set({ managerId: ids[spec.managerKey] }).where(eq(schema.user.id, ids[key]));
+      await db.update(schema.user).set({ managerId: idOf(spec.managerKey) }).where(eq(schema.user.id, idOf(key)));
     }
   }
   return { companyId: company.id, pto: pto.id, archived: archived.id, people: out };
@@ -154,7 +165,7 @@ export interface LeaveTypeSpec {
 
 /** Adds a leave type with balance settings to a seeded company; returns its id. */
 export async function addLeaveType(db: Database, companyId: string, spec: LeaveTypeSpec): Promise<string> {
-  const [row] = await db
+  const rows = await db
     .insert(schema.leaveTypes)
     .values({
       companyId,
@@ -168,7 +179,7 @@ export async function addLeaveType(db: Database, companyId: string, spec: LeaveT
       archivedAt: spec.archived ? new Date() : null,
     })
     .returning();
-  return row.id;
+  return first(rows).id;
 }
 
 /** Sets (inserting or replacing) a person's allowance row for one type and year. */

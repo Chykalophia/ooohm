@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.src.json",
+    "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:check-drift": "tsx --conditions=react-server scripts/check-drift.mts",
     "db:migrate": "tsx --conditions=react-server --env-file-if-exists=.env scripts/migrate.mts",

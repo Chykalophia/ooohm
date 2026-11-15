@@ -10,6 +10,7 @@ import { isCursorInstant } from "@/shared/kernel/paging";
 import { personLabel } from "@/shared/kernel/person-label";
 import { formatInstantDateTime } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";
+import { forTenant } from "@/shared/lib/tenant";
 import { findCompany, listAllLeaveTypes, listDepartments } from "@/modules/organisation";
 import { listLevels } from "@/modules/organisation";
 import { listPeopleNames } from "@/shared/lib/db/members";
@@ -34,12 +35,13 @@ export const personId = (v: string | undefined) => (v && v.length <= 100 && !v.i
  * @throws DomainError `no_company`.
  */
 export async function loadAuditNaming(ctx: ServiceContext, companyId: string) {
+  const { db } = forTenant(ctx, companyId);
   const [company, people, departments, levels, leaveTypes] = await Promise.all([
-    findCompany(ctx.db, companyId),
-    listPeopleNames(ctx.db, companyId, { includeDeleted: true }),
-    listDepartments(ctx.db, companyId),
-    listLevels(ctx.db, companyId),
-    listAllLeaveTypes(ctx.db, companyId),
+    findCompany(db, companyId),
+    listPeopleNames(db, companyId, { includeDeleted: true }),
+    listDepartments(db, companyId),
+    listLevels(db, companyId),
+    listAllLeaveTypes(db, companyId),
   ]);
   if (!company) throw new DomainError("no_company");
   const peopleById = new Map(people.map((p) => [p.id, personLabel(p)]));

@@ -114,7 +114,7 @@ test("a half day is one year's 0.5, and the split always sums to the total", () 
     ["2026-01-01", "2027-01-01"],
     ["2026-12-31", "2026-12-31"],
     ["2026-06-01", "2026-06-30"],
-  ]) {
+  ] as const) {
     const split = splitLeaveDaysByYear(full(start, end), calendar);
     assert.equal(split.reduce((sum, s) => sum + s.days, 0), countLeaveDays(full(start, end), calendar), `${start}..${end}`);
     assert.ok(split.every((s) => s.days > 0));

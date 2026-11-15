@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { type DepartmentDTO, type LevelDTO, listDepartments, listLevels } from "@/modules/organisation";
@@ -23,6 +24,7 @@ export interface PersonFormOptionsDTO {
  */
 export async function getPersonFormOptions(ctx: ServiceContext, actor: Actor, personId: string | null): Promise<ServiceResult<PersonFormOptionsDTO>> {
   if (!canManagePeople(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const [departments, levels, { rows, lines }, names] = await Promise.all([
       listDepartments(ctx.db, actor.companyId),

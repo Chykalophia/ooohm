@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import type { ColorMode } from "@/shared/kernel/color-mode";
 import type { ServiceContext } from "@/server/context";
@@ -12,5 +13,6 @@ import { err, ok, type ServiceResult } from "@/shared/lib/result";
  * Fails with `forbidden` for a deactivated or deleted account.
  */
 export async function setColorMode(ctx: ServiceContext, actor: Actor, colorMode: ColorMode): Promise<ServiceResult<void>> {
+  ctx = forTenant(ctx, actor.companyId);
   return (await updateColorMode(ctx.db, actor.companyId, actor.id, colorMode)) ? ok(undefined) : err("forbidden");
 }

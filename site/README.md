@@ -68,8 +68,10 @@ node site/demo/render-film.mjs       # the tour, from the clips
 ```
 
 The scripts use the preinstalled Playwright (`NODE_PATH=$(npm root -g)` if it's installed globally),
-`ffmpeg`, and `psql` (the Postgres client). `--env-file=.env` points the recorder's `psql` calls at
-the app's `DATABASE_URL`. Sign-in goes through the real magic-link flow, reading the token from the local database.
+`ffmpeg`, and `psql` (the Postgres client). `--env-file=.env` points `demo-data.mts` and the recorders'
+`psql` calls at the owner's `DATABASE_ADMIN_URL` (else `DATABASE_URL`): row-level security shows the app
+role nothing without a company, so the demo data is written and read as the owner. Sign-in goes through the
+real magic-link flow, reading the token from the local database (sign-in tokens have no company, so `DATABASE_URL` is enough).
 Run `demo-data.mts` again before `record.mjs ask approve`, since those clips change requests as they go.
 It also writes four years of approved history (2022 to 2025) and this year up to October, from a fixed seed, so
 the Reports screen draws the same charts every time.

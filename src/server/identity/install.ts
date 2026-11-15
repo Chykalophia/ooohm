@@ -54,11 +54,13 @@ export async function runFirstInstall(
     throw new DomainError("forbidden");
   }
   const values = normalizeInstall(input);
-  return inTransaction(ctx, async (tx) => {
+  // Chosen here, so the transaction runs for the company it creates (row-level security's tenant).
+  const companyId = crypto.randomUUID();
+  return inTransaction(ctx, companyId, async (tx) => {
     await lockCompaniesTable(tx);
     if (await isInstalled(tx)) throw new DomainError("not_found");
 
-    const company = await insertCompany(tx, { name: values.companyName, timezone: values.timezone, workingDays: [1, 2, 3, 4, 5] });
+    const company = await insertCompany(tx, { id: companyId, name: values.companyName, timezone: values.timezone, workingDays: [1, 2, 3, 4, 5] });
     const admin = await insertPerson(tx, {
       id: ctx.ids.next(),
       companyId: company.id,

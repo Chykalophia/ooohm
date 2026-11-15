@@ -10,7 +10,7 @@ import { type PersonDTO, toPersonDTO } from "@/modules/people/application/dto";
 import { recordPersonChange } from "@/modules/people/application/person-changes";
 import { assertManagerFor, assertPlacement, type InviteInput, normalizePersonInput } from "@/modules/people/application/person-input";
 import { canManagePeople } from "@/modules/people/application/policies";
-import { emailInUse } from "@/modules/people/infrastructure/drizzle-people.repository";
+import { emailsInUse } from "@/shared/lib/db/pre-tenant";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { insertPerson } from "@/shared/lib/db/members";
 import { normalizeEmail } from "@/shared/kernel/names";
@@ -37,7 +37,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
       return await commitThenNotify(ctx, actor.companyId, async (tx) => {
         const company = await beginAdminChange(tx, actor);
         await assertUnderInviteLimit(tx, actor);
-        if (await emailInUse(tx, email)) throw new DomainError("already_exists");
+        if ((await emailsInUse(tx, [email])).has(email)) throw new DomainError("already_exists");
         await assertPlacement(tx, actor.companyId, fields);
         await assertManagerFor(tx, actor.companyId, null, fields.managerId);
 

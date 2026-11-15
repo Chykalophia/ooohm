@@ -22,7 +22,9 @@ import { join, relative, resolve } from "node:path";
 const ROOT = resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
 const flag = args.indexOf("--migrations");
-const source = resolve(ROOT, flag >= 0 ? args[flag + 1] : "drizzle");
+const folder = flag >= 0 ? args[flag + 1] : "drizzle";
+if (folder === undefined) throw new Error("--migrations needs a folder.");
+const source = resolve(ROOT, folder);
 const label = flag >= 0 ? source : "drizzle/";
 
 const scratch = mkdtempSync(join(tmpdir(), "ooohm-drift-"));

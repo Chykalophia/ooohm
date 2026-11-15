@@ -7,6 +7,7 @@ import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import { unwrap } from "@/shared/lib/result";
+import { first } from "../support/present";
 
 const getAccount = (...args: Parameters<typeof getAccountResult>) => getAccountResult(...args).then(unwrap);
 const setColorMode = (...args: Parameters<typeof setColorModeResult>) => setColorModeResult(...args).then(unwrap);
@@ -22,7 +23,7 @@ describe("your account", { skip }, () => {
 
   test("shows the person's own details: role, department and manager by name", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss" } });
-    const [ops] = await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Ops" }).returning();
+    const ops = first(await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Ops" }).returning());
     await t.db.update(schema.user).set({ departmentId: ops.id }).where(eq(schema.user.id, co.people.ana.id));
     const ctx = createTestContext(t.db);
 
@@ -50,10 +51,10 @@ describe("your account", { skip }, () => {
 
     const audit = await companyAudit(t.db, co.companyId, "user.updated");
     assert.equal(audit.length, 1, "saving the same name records nothing");
-    assert.equal(audit[0].actorId, ana.id, "the person is the actor");
-    assert.equal(audit[0].subjectUserId, ana.id);
-    assert.deepEqual([(audit[0].before as { name: string }).name, (audit[0].after as { name: string }).name], ["Ana", "Ana Test"]);
-    assert.deepEqual(audit[0].after, { ...(audit[0].before as object), name: "Ana Test" }, "only the name changed");
+    assert.equal(first(audit).actorId, ana.id, "the person is the actor");
+    assert.equal(first(audit).subjectUserId, ana.id);
+    assert.deepEqual([(first(audit).before as { name: string }).name, (first(audit).after as { name: string }).name], ["Ana", "Ana Test"]);
+    assert.deepEqual(first(audit).after, { ...(first(audit).before as object), name: "Ana Test" }, "only the name changed");
     assert.deepEqual(await getAccount(ctx, ana), {
       name: "Ana Test",
       email: ana.email,
@@ -63,7 +64,7 @@ describe("your account", { skip }, () => {
       passkeys: [],
       timezone: "America/Chicago",
     });
-    const [event] = await companyEvents(t.db, co.companyId, "user.updated");
+    const event = first(await companyEvents(t.db, co.companyId, "user.updated"));
     assert.deepEqual((event.payload as { actor: unknown }).actor, { type: "user", id: ana.id });
   });
 
@@ -81,7 +82,7 @@ describe("your account", { skip }, () => {
     const other = await seedCompany(t.db, { cy: {} });
     const ctx = createTestContext(t.db);
     const modeOf = async (id: string) =>
-      (await t.db.select({ mode: schema.user.colorMode }).from(schema.user).where(eq(schema.user.id, id)))[0].mode;
+      first(await t.db.select({ mode: schema.user.colorMode }).from(schema.user).where(eq(schema.user.id, id))).mode;
 
     assert.equal(await modeOf(co.people.ana.id), "light", "the default");
     await setColorMode(ctx, co.people.ana, "dark");

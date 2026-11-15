@@ -14,6 +14,7 @@ import { runDueJobs } from "@/server/jobs/scheduled-jobs";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
@@ -109,8 +110,8 @@ describe("background tick: one bounded pass, inline after a change, safe to run 
     const { fetch, received } = receiver(() => status);
     await submitLeaveRequest(ctx, co.people.ana, { leaveTypeId: co.pto, startDate: "2026-11-10", dayPortion: "full" });
 
-    const first = await runTick(ctx, { fetch });
-    assert.deepEqual([first.events, first.webhooks.attempted, first.webhooks.retried], [1, 1, 1]);
+    const firstTick = await runTick(ctx, { fetch });
+    assert.deepEqual([firstTick.events, firstTick.webhooks.attempted, firstTick.webhooks.retried], [1, 1, 1]);
     status = 200;
     const early = await runTick(ctx, { fetch });
     assert.equal(early.webhooks.attempted, 0, "the retry waits for its time");
@@ -119,7 +120,7 @@ describe("background tick: one bounded pass, inline after a change, safe to run 
     const due = await runTick(ctx, { fetch });
     assert.deepEqual([due.webhooks.attempted, due.webhooks.delivered], [1, 1]);
     assert.deepEqual(received, ["leave.requested", "leave.requested"]);
-    const [delivery] = await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.endpointId, endpoint.id));
+    const delivery = first(await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.endpointId, endpoint.id)));
     assert.deepEqual([delivery.status, delivery.attempts], ["delivered", 2]);
   });
 

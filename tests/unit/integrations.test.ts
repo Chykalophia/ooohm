@@ -29,6 +29,7 @@ import { hashToken } from "@/lib/token-hash";
 import { loadWorkerEnv } from "@/lib/worker-env";
 import { createAdapterRegistry, type Adapter } from "@/server/integrations/adapter";
 import { adapterRegistry } from "@/server/integrations/registry";
+import { present } from "../support/present";
 
 const code = (fn: () => unknown) => {
   try {
@@ -97,8 +98,8 @@ describe("secrets at rest (AES-256-GCM)", () => {
     const box = createSecretBox(key);
     const sealed = box.seal("whsec_abc", "endpoint-1");
     const [v, iv, body, tag] = sealed.split(".");
-    const flipped = Buffer.from(body, "base64url");
-    flipped[0] ^= 1;
+    const flipped = Buffer.from(present(body), "base64url");
+    flipped[0] = present(flipped[0]) ^ 1;
     assert.throws(() => box.open([v, iv, flipped.toString("base64url"), tag].join("."), "endpoint-1"));
     assert.throws(() => box.open(sealed, "endpoint-2"), "bound to its endpoint");
     assert.throws(() => createSecretBox(Buffer.alloc(32, 2).toString("base64")).open(sealed, "endpoint-1"));

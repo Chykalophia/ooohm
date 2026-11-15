@@ -72,14 +72,6 @@ function teamAroundManager(managerId: string, departmentIds: readonly string[] |
   return and(around, inArray(user.departmentId, [...departmentIds]));
 }
 
-/** Every company with its calendar settings, for jobs that run across all of them. */
-export async function listCompanies(ex: Executor) {
-  return ex
-    .select({ id: companies.id, ...settingsFields })
-    .from(companies)
-    .orderBy(asc(companies.createdAt), asc(companies.id));
-}
-
 /** Company holiday dates (`YYYY-MM-DD`) from `from` to `to`, inclusive. */
 export async function listHolidayDates(ex: Executor, companyId: string, from: string, to: string) {
   const rows = await ex

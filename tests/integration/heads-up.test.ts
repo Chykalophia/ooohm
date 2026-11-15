@@ -4,11 +4,12 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { rejectsWith } from "./assertions";
-import { addLeaveType, auditFor, companyAudit, companyEvents, decidable, eventsFor, requestsOf, seedCompany } from "./fixtures";
+import { addLeaveType, auditFor, companyAudit, companyEvents, decidable, eventsFor, type PersonSpec, requestsOf, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as organisation from "@/modules/organisation";
 import * as companySettings from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
+import { at, first } from "../support/present";
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const getCompanySettings = (...args: Parameters<typeof organisation.getCompanySettings>) => organisation.getCompanySettings(...args).then(unwrap);
@@ -37,7 +38,7 @@ describe("heads-up time off (approval turned off)", { skip }, () => {
     await t?.drop();
   });
 
-  async function headsUpCompany(people: Parameters<typeof seedCompany>[1]) {
+  async function headsUpCompany<K extends string>(people: Record<K, PersonSpec>) {
     const co = await seedCompany(t.db, people);
     await t.db.update(schema.companies).set({ approvalMode: "heads_up" }).where(eq(schema.companies.id, co.companyId));
     return co;
@@ -79,7 +80,7 @@ describe("heads-up time off (approval turned off)", { skip }, () => {
       [ana.email, "Your time off is booked"],
       [manager.email, "Ana is off Nov 2 to Nov 4"],
     ]);
-    const told = ctx.sent[1];
+    const told = at(ctx.sent, 1);
     assert.match(told.text, /^Ana is taking PTO, Mon, Nov 2 to Wed, Nov 4, 2026: 3 days\. It's booked, so there's nothing you need to do\./);
     assert.match(told.text, /“Off to the coast”/);
     assert.doesNotMatch(told.text, /approve/i, "the manager isn't asked for anything");
@@ -140,7 +141,7 @@ describe("heads-up time off (approval turned off)", { skip }, () => {
     const saved = await updateCompanySettings(ctx, boss, { ...settingsOf(company), approvalMode: "heads_up" });
     assert.equal(saved.company.approvalMode, "heads_up");
 
-    const [stillWaiting] = (await requestsOf(t.db, ana.id)).filter((r) => r.id === waiting.id);
+    const stillWaiting = first((await requestsOf(t.db, ana.id)).filter((r) => r.id === waiting.id));
     assert.equal(stillWaiting.status, "pending", "switching approval off decides nothing by itself");
     assert.equal(stillWaiting.approverId, manager.id);
 

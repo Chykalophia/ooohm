@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { AUDIT_ACTION_LABELS, isAuditAction } from "@/modules/audit/domain/audit";
 import { isCalendarDate } from "@/shared/kernel/calendar-date";
@@ -25,6 +26,7 @@ import type { AuditLogFilter } from "@/modules/audit/application/schemas";
  */
 export async function getAuditLog(ctx: ServiceContext, actor: Actor, filter: AuditLogFilter): Promise<ServiceResult<AuditLogDTO>> {
   if (!canViewAuditLog(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(() => readAuditLog(ctx, actor, filter));
 }
 

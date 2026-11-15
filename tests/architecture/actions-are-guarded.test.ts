@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import ts from "typescript";
 import { hasDirective, listFiles, read } from "./files";
+import { take } from "../support/present";
 
 /**
  * F6: every exported server action runs through the authenticated pipeline
@@ -79,7 +80,7 @@ test("action files define their actions in place, with no re-export or default e
 
 test("every allow-listed token action still exists", () => {
   for (const key of Object.keys(TOKEN_ACTIONS)) {
-    const [path, name] = key.split("#");
+    const [path, name] = take(key.split("#"), 2);
     assert.ok(exportedFunctions(path, read(path)).some((fn) => fn.name === name), `${key} is gone; drop it from TOKEN_ACTIONS`);
   }
 });

@@ -17,6 +17,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { returnedRow } from "../src/db/rows";
 import * as schema from "../src/db/schema";
 import { yearInTimeZone } from "../src/lib/dates";
 import { DEFAULT_LEAVE_TYPES } from "../src/shared/kernel/install";
@@ -75,7 +76,7 @@ if (!adminEmail) {
   console.log("SEED_ADMIN_EMAIL is not set; users already exist. Skipping seed.");
   process.exit(0);
 }
-const adminName = process.env.SEED_ADMIN_NAME?.trim() || adminEmail.split("@")[0];
+const adminName = process.env.SEED_ADMIN_NAME?.trim() || (adminEmail.split("@")[0] ?? adminEmail);
 
 await db.transaction(async (tx) => {
   // v1 runs one company per deployment. With more than one, "the" company is ambiguous.
@@ -97,7 +98,7 @@ await db.transaction(async (tx) => {
   }
   let [company] = companies;
   if (!company) {
-    [company] = await tx.insert(schema.companies).values({ name: companyName }).returning();
+    company = returnedRow(await tx.insert(schema.companies).values({ name: companyName }).returning());
     console.log(`Created company "${company.name}".`);
   }
 
@@ -110,18 +111,20 @@ await db.transaction(async (tx) => {
 
   let [admin] = await tx.select().from(schema.user).where(eq(schema.user.email, adminEmail));
   if (!admin) {
-    [admin] = await tx
-      .insert(schema.user)
-      .values({
-        id: randomUUID(),
-        email: adminEmail,
-        name: adminName,
-        emailVerified: true,
-        companyId: company.id,
-        role: "admin",
-        canSelfApprove: true,
-      })
-      .returning();
+    admin = returnedRow(
+      await tx
+        .insert(schema.user)
+        .values({
+          id: randomUUID(),
+          email: adminEmail,
+          name: adminName,
+          emailVerified: true,
+          companyId: company.id,
+          role: "admin",
+          canSelfApprove: true,
+        })
+        .returning(),
+    );
     console.log(`Created admin ${admin.email}.`);
   }
   // There is a company and a first admin now: the web setup (/setup) closes for good.

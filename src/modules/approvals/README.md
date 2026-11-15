@@ -47,7 +47,7 @@ e2e scripts. An import from leave to approvals would be a cycle, since approvals
 - `domain/`: `approval-context.ts` (what the rule reads), `approver-for.ts` (`ManagerApprovalRule`,
   `reassignApprover`, `approverFor`) and `approval-rule.ts` (heads-up mode, `approvalRuleFor`). Pure.
 - `application/ports.ts`: `ApprovalContextReader` (the one routing loader), `ApprovalRequests`,
-  `ApprovalDirectory`, `ApprovalChangeLog`, `ApprovalInbox`, and `ApprovalDeps` with its `unitOfWork`.
+  `ApprovalDirectory`, `ApprovalChangeLog`, `ApprovalInbox`, and `ApprovalDeps` with its `unitOfWork` and `tenant(companyId)` (row-level security's company, ADR-0004: an approve link finds its person with a pre-tenant read, then works in their company).
 - `application/use-cases/`: `decide-leave-request.ts`, `approve-from-email.ts`. `application/queries/`: the triage,
   the nav and reading a link. `reroute-pending.ts` is a step other use cases run on their transaction;
   `routing.ts` answers who decides for leave's port and for a decision.

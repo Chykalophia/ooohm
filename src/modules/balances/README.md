@@ -49,7 +49,7 @@ and `addDays`. DTO types; never a row.
   (which types one person's rollover touches, and the step for each). Pure.
 - `application/ports.ts`: `AllowanceRepository`, `AllowanceRuleRepository`, `BalancesDirectory` (companies,
   calendars, people, leave types, departments, levels, locks), `ChangeLog`, `Clock`, and `BalancesDeps` with its
-  `unitOfWork`.
+  `unitOfWork(companyId, …)` and `tenant(companyId)` (row-level security's company, ADR-0004: the rollover reads and writes each company through it).
 - `application/use-cases/` and `application/queries/`: one file each. `member-rollover.ts` (one person's
   rollover, and the re-carry after an edit), `write-allowance.ts`, `follow-defaults.ts`, `rule-change.ts` and
   `allowance-changes.ts` are the steps they share.

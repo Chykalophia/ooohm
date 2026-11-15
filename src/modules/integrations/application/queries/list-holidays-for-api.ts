@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { CalendarDate } from "@/shared/kernel/calendar-date";
 import { DomainError } from "@/shared/kernel/errors";
 import { yearInTimeZone } from "@/lib/dates";
@@ -16,6 +17,7 @@ export async function listHolidaysForApi(
   client: ApiClient,
   q: { year?: number | undefined },
 ): Promise<ServiceResult<{ year: number; data: { id: string; date: CalendarDate; name: string }[] }>> {
+  ctx = forTenant(ctx, client.companyId);
   return attempt(async () => {
     assertScope(client, "read");
     const settings = await findCompanySettings(ctx.db, client.companyId);

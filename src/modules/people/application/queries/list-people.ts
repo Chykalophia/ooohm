@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError } from "@/shared/kernel/errors";
 import { isUuid } from "@/shared/kernel/uuid";
@@ -43,6 +44,7 @@ export interface PeoplePageDTO {
  */
 export async function listPeople(ctx: ServiceContext, actor: Actor, filter: PeopleListFilter, page?: PageCursor): Promise<ServiceResult<PeoplePageDTO>> {
   if (!canManagePeople(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const departmentId = filter.departmentId && isUuid(filter.departmentId) ? filter.departmentId : undefined;
     const [people, departments, company] = await Promise.all([

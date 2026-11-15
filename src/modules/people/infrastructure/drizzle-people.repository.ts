@@ -5,7 +5,7 @@ import "server-only";
  * them out. The member reads and the person row other modules share are
  * `src/shared/lib/db/members.ts`.
  */
-import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { departments, session, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
@@ -65,19 +65,6 @@ export async function listReportingLines(ex: Executor, companyId: string) {
     .select({ id: user.id, managerId: user.managerId, isActive: user.isActive, role: user.role })
     .from(user)
     .where(eq(user.companyId, companyId));
-}
-
-/** Whether any account, in any company, uses `email` (already lowercased). */
-export async function emailInUse(ex: Executor, email: string): Promise<boolean> {
-  const [row] = await ex.select({ id: user.id }).from(user).where(eq(user.email, email)).limit(1);
-  return row !== undefined;
-}
-
-/** Of `emails` (already lowercased), those any account, in any company, uses. */
-export async function emailsInUse(ex: Executor, emails: readonly string[]): Promise<Set<string>> {
-  if (emails.length === 0) return new Set();
-  const rows = await ex.select({ email: user.email }).from(user).where(inArray(user.email, [...emails]));
-  return new Set(rows.map((r) => r.email));
 }
 
 /**

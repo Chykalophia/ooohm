@@ -1,4 +1,6 @@
 import "server-only";
+import { emailsInUse } from "@/shared/lib/db/pre-tenant";
+import { forTenant } from "@/shared/lib/tenant";
 /**
  * Inbound sync: applies people and allowances an adapter read from another system.
  *
@@ -129,10 +131,19 @@ async function recordUser(tx: Transaction, input: InboundSyncInput, type: string
   });
 }
 
+/**
+ * Whether another company's account holds `email`. Row-level security hides those, so
+ * when no account here has it, who holds it is a pre-tenant read.
+ */
+async function heldElsewhere(tx: Transaction, companyId: string, email: string, existing: { companyId: string | null } | undefined) {
+  if (existing) return existing.companyId !== companyId;
+  return (await emailsInUse(tx, [email])).has(email);
+}
+
 async function syncUsers(ctx: ServiceContext, input: InboundSyncInput, result: InboundSyncResult): Promise<void> {
   const users = input.users ?? [];
   if (users.length === 0) return;
-  await inTransaction(ctx, async (tx) => {
+  await inTransaction(ctx, input.companyId, async (tx) => {
     if (!(await lockCompany(tx, input.companyId))) throw new DomainError("no_company");
     const admin = adminOf(input);
     if (admin) await assertActiveAdmin(tx, admin);
@@ -148,7 +159,7 @@ async function syncUsers(ctx: ServiceContext, input: InboundSyncInput, result: I
         continue;
       }
       const existing = await findPersonByEmail(tx, email);
-      if (existing && existing.companyId !== input.companyId) {
+      if (await heldElsewhere(tx, input.companyId, email, existing)) {
         result.users.skipped.push({ email, reason: "other_company" });
         continue;
       }
@@ -188,7 +199,7 @@ async function applyBalance(
   at: { company: CompanyOf; currentYear: number },
   entry: { email: string; leaveTypeCode: string; year: number; days: number; adjustment: number | undefined },
 ) {
-  return inTransaction(ctx, async (tx) => {
+  return inTransaction(ctx, input.companyId, async (tx) => {
     const admin = adminOf(input);
     if (admin) await assertActiveAdmin(tx, admin);
     const person = await findPersonByEmail(tx, entry.email);
@@ -217,7 +228,7 @@ async function applyBalance(
 async function syncBalances(ctx: ServiceContext, input: InboundSyncInput, result: InboundSyncResult): Promise<void> {
   const balances = input.balances ?? [];
   if (balances.length === 0) return;
-  const company = await findCompany(ctx.db, input.companyId);
+  const company = await findCompany(forTenant(ctx, input.companyId).db, input.companyId);
   if (!company) throw new DomainError("no_company");
   const currentYear = yearInTimeZone(company.timezone, ctx.now());
 

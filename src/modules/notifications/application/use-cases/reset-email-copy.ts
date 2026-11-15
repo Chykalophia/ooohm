@@ -20,7 +20,7 @@ export async function resetEmailCopy(ctx: ServiceContext, actor: Actor, type: st
   if (!canEditEmailCopy(actor)) return err("forbidden");
   return attempt(async () => {
     const kind = kindOf(type);
-    await inTransaction(ctx, async (tx) => {
+    await inTransaction(ctx, actor.companyId, async (tx) => {
       if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
       await assertActiveAdmin(tx, actor);
       const row = await deleteEmailTemplate(tx, actor.companyId, kind);

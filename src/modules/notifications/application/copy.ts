@@ -2,6 +2,7 @@ import "server-only";
 import { type EmailCopy, unknownVariables } from "@/shared/kernel/email-template";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
+import { forTenant } from "@/shared/lib/tenant";
 import { listEmailTemplates } from "@/modules/notifications/infrastructure/drizzle-email-templates.repository";
 import { isNotificationKind, NOTIFICATION_TYPES, type NotificationKind } from "./catalog";
 
@@ -29,7 +30,7 @@ export function usableCopy(kind: NotificationKind, saved: EmailCopy): EmailCopy 
 export function emailCopyFor(ctx: ServiceContext, companyId: string): (kind: NotificationKind) => Promise<EmailCopy | null> {
   let all: Promise<Map<NotificationKind, EmailCopy>> | undefined;
   const read = () =>
-    (all ??= listEmailTemplates(ctx.db, companyId).then(
+    (all ??= listEmailTemplates(forTenant(ctx, companyId).db, companyId).then(
       (rows) => new Map(rows.filter((r) => isNotificationKind(r.type)).map((r) => [r.type as NotificationKind, usableCopy(r.type as NotificationKind, r)])),
       (err: unknown) => {
         log.warn({ err }, "email_copy_read_failed");

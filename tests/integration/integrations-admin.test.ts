@@ -9,6 +9,7 @@ import { hashToken } from "@/lib/token-hash";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first, take } from "../support/present";
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
@@ -44,12 +45,12 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     assert.match(secret, /^whsec_/);
     assert.deepEqual(endpoint.eventTypes, ["leave.requested", "leave.approved"], "catalogue order");
 
-    const [row] = await t.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, endpoint.id));
+    const row = first(await t.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, endpoint.id)));
     assert.ok(!row.secretCiphertext.includes(secret));
     assert.equal(ctx.secrets.open(row.secretCiphertext, endpoint.id), secret);
 
-    const [audit] = await companyAudit(t.db, co.companyId, "webhook_endpoint.");
-    const [event] = await companyEvents(t.db, co.companyId, "webhook_endpoint.");
+    const audit = first(await companyAudit(t.db, co.companyId, "webhook_endpoint."));
+    const event = first(await companyEvents(t.db, co.companyId, "webhook_endpoint."));
     assert.equal(audit.action, "webhook_endpoint.created");
     assert.equal(audit.actorId, co.people.boss.id);
     assert.deepEqual(event.payload, {
@@ -118,7 +119,7 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     await rejectsWith(sendWebhookPing(ctx, co.people.boss, endpoint.id), "conflict");
     await setWebhookEndpointEnabled(ctx, co.people.boss, endpoint.id, true);
     const { secret } = await rotateWebhookSecret(ctx, co.people.boss, endpoint.id);
-    const [row] = await t.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, endpoint.id));
+    const row = first(await t.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, endpoint.id)));
     assert.equal(ctx.secrets.open(row.secretCiphertext, endpoint.id), secret);
     await sendWebhookPing(ctx, co.people.boss, endpoint.id);
     await deleteWebhookEndpoint(ctx, co.people.boss, endpoint.id);
@@ -147,7 +148,7 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     assert.equal(await updateWebhookEndpoint(ctx, co.people.boss, endpoint.id, { ...input, url: moved }), true);
     assert.equal(await updateWebhookEndpoint(ctx, co.people.boss, endpoint.id, { ...input, url: moved, description: "Renamed" }), true);
 
-    const [urlEdit, descriptionEdit] = await companyAudit(t.db, co.companyId, "webhook_endpoint.updated");
+    const [urlEdit, descriptionEdit] = take(await companyAudit(t.db, co.companyId, "webhook_endpoint.updated"), 2);
     assert.deepEqual(diffAuditSnapshots(urlEdit.before, urlEdit.after), [{ field: "urlChanged", after: true }], "the same origin, yet a change shows");
     assert.deepEqual(
       diffAuditSnapshots(descriptionEdit.before, descriptionEdit.after),
@@ -172,7 +173,7 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     const ids: string[] = [];
     for (let i = 0; i < MAX_WEBHOOK_ENDPOINTS; i++) ids.push((await createWebhookEndpoint(ctx, co.people.boss, input)).endpoint.id);
     await rejectsWith(createWebhookEndpoint(ctx, co.people.boss, input), "limit_reached");
-    await deleteWebhookEndpoint(ctx, co.people.boss, ids[0]);
+    await deleteWebhookEndpoint(ctx, co.people.boss, first(ids));
     await createWebhookEndpoint(ctx, co.people.boss, input);
   });
 
@@ -185,14 +186,14 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     assert.deepEqual(apiKey.scopes, ["read"]);
     assert.equal(apiKey.prefix, key.slice(0, 14));
 
-    const [row] = await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, apiKey.id));
+    const row = first(await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, apiKey.id)));
     assert.equal(row.keyHash, hashToken(key));
     const listed = await listApiKeys(ctx, co.people.boss);
     assert.ok(!JSON.stringify(listed).includes(row.keyHash), "the list never carries the hash");
-    assert.equal(listed.keys[0].createdByEmail, co.people.boss.email);
+    assert.equal(first(listed.keys).createdByEmail, co.people.boss.email);
 
     assert.deepEqual(await authenticateApiKey(ctx, key), { keyId: apiKey.id, companyId: co.companyId, scopes: ["read"] });
-    const [used] = await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, apiKey.id));
+    const used = first(await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, apiKey.id)));
     assert.deepEqual(used.lastUsedAt, ctx.now());
 
     assert.equal(await revokeApiKey(ctx, co.people.boss, apiKey.id), true);
@@ -203,7 +204,7 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     const events = await companyEvents(t.db, co.companyId, "api_key.");
     assert.deepEqual(audits.map((a) => a.action), ["api_key.created", "api_key.revoked"]);
     assert.deepEqual(events.map((e) => e.type), ["api_key.created", "api_key.revoked"]);
-    assert.deepEqual(events[0].payload, { apiKeyId: apiKey.id, name: "Payroll export", prefix: apiKey.prefix, scopes: ["read"], actorId: co.people.boss.id, actor: { type: "user", id: co.people.boss.id } });
+    assert.deepEqual(first(events).payload, { apiKeyId: apiKey.id, name: "Payroll export", prefix: apiKey.prefix, scopes: ["read"], actorId: co.people.boss.id, actor: { type: "user", id: co.people.boss.id } });
     for (const json of [JSON.stringify(audits), JSON.stringify(events)]) {
       assert.ok(!json.includes(key) && !json.includes(row.keyHash));
     }
@@ -226,7 +227,7 @@ describe("webhook endpoints and API keys (admin)", { skip }, () => {
     const ctx = createTestContext(t.db);
     const { key, apiKey } = await createApiKey(ctx, co.people.boss, { name: "busy" });
     const at = (iso: string) => createTestContext(t.db, { now: new Date(iso) });
-    const lastUsed = async () => (await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, apiKey.id)))[0].lastUsedAt?.toISOString();
+    const lastUsed = async () => first(await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.id, apiKey.id))).lastUsedAt?.toISOString();
     await authenticateApiKey(at("2026-11-01T10:00:00Z"), key);
     await authenticateApiKey(at("2026-11-01T10:00:59Z"), key);
     assert.equal(await lastUsed(), "2026-11-01T10:00:00.000Z");

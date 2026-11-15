@@ -28,7 +28,7 @@ export async function deleteDepartment(ctx: ServiceContext, actor: Actor, id: st
   if (!canManageDepartments(actor)) return err("forbidden");
   if (!isUuid(id)) return err("not_found");
   return attempt(() =>
-    inTransaction(ctx, async (tx) => {
+    inTransaction(ctx, actor.companyId, async (tx) => {
       // The company lock first, as rule changes take it, so a rule removed here is removed once.
       if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
       await assertActiveAdmin(tx, actor);

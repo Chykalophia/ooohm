@@ -13,6 +13,7 @@ import {
   monthGridBounds,
   type TeamCalendarEntry,
 } from "@/shared/kernel/calendar";
+import { first, take } from "../support/present";
 
 let seq = 0;
 function entry(startDate: string, endDate = startDate, overrides: Partial<CalendarEntry> = {}): CalendarEntry {
@@ -77,7 +78,7 @@ describe("month grid", () => {
     assert.ok(weeks.every((w) => w.length === 7));
     const days = weeks.flat();
     const day = (date: string) => days.find((d) => d.date === date)!;
-    assert.equal(days[0].date, "2026-10-26");
+    assert.equal(first(days).date, "2026-10-26");
     assert.equal(day("2026-10-31").inMonth, false);
     assert.equal(day("2026-11-01").inMonth, true);
     assert.equal(day("2026-11-04").isToday, true);
@@ -159,7 +160,7 @@ describe("agenda", () => {
       holidays: [{ date: "2026-11-26", name: "Thanksgiving" }],
       entries: [entry("2026-11-05", "2026-11-09"), entry("2026-11-09"), entry("2026-11-25", "2026-11-27")],
     };
-    const [fiveToNine, ninth, thanksgivingWeek] = input.entries;
+    const [fiveToNine, ninth, thanksgivingWeek] = take(input.entries, 3);
     const agenda = buildAgenda(input);
     const day = (date: string) => buildMonthGrid(input).flat().find((d) => d.date === date)!;
     const on = (date: string) => agendaForDay(agenda, day(date)).map((i) => (i.kind === "holiday" ? i.name : i.entry.id));

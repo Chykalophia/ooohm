@@ -24,7 +24,7 @@ const leave = (over: Partial<LeaveSummary> = {}): LeaveSummary => ({
 const hostile = 'Eve <script>alert("x")</script>\r\nBcc: victim@example.com';
 const cause = { kind: "holidays", added: [{ date: "2026-11-03", name: "Founders' Day" }], removed: [] } as const;
 
-const leaveCases: Record<string, LeaveEmail> = {
+const leaveCases = {
   requested: { kind: "requested", recipientName: "Mo", leave: leave({ note: "Family visit" }), link: "https://x/approvals" },
   requestedWithApproveAndOverlap: {
     kind: "requested",
@@ -74,7 +74,7 @@ const leaveCases: Record<string, LeaveEmail> = {
     overdrawn: null,
     link: "https://x/",
   },
-};
+} satisfies Record<string, LeaveEmail>;
 
 const plum = emailAccent({ theme: "plum", accentColor: null });
 

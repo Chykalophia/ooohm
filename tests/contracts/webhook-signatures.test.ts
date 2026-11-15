@@ -12,6 +12,7 @@ import { after, before, describe, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { signWebhook, verifyWebhookSignature, webhookRequestHeaders } from "@/lib/integration-crypto";
 import { contractProblems, webhookHeadersSchema } from "@/modules/integrations/application/contracts";
+import { present } from "../support/present";
 
 interface Vector {
   secret: string;
@@ -27,7 +28,7 @@ const docs = readFileSync(new URL("../../docs/api.md", import.meta.url), "utf8")
 
 /** The `js` block of docs/api.md that defines `verifyOoohmWebhook`. */
 function docsSnippet(): string {
-  const blocks = [...docs.matchAll(/```js\n([\s\S]*?)```/g)].map((m) => m[1]);
+  const blocks = [...docs.matchAll(/```js\n([\s\S]*?)```/g)].map((m) => present(m[1]));
   const snippet = blocks.find((b) => b.includes("export function verifyOoohmWebhook"));
   assert.ok(snippet, "docs/api.md has the verifyOoohmWebhook snippet");
   return snippet;

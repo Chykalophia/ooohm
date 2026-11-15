@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DrizzleQueryError } from "drizzle-orm";
 import { log } from "@/lib/log";
+import { first } from "../support/present";
 
 function captureStderr(fn: () => void): Record<string, unknown> {
   const stderr = process.stderr.write.bind(process.stderr);
@@ -13,7 +14,7 @@ function captureStderr(fn: () => void): Record<string, unknown> {
     process.stderr.write = stderr;
   }
   assert.equal(lines.length, 1);
-  return JSON.parse(lines[0]);
+  return JSON.parse(first(lines));
 }
 
 test("a failed query is logged with its SQL and driver error, never its parameters", () => {

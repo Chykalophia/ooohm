@@ -26,7 +26,7 @@ export async function createLeaveType(ctx: ServiceContext, actor: Actor, input: 
   return attempt(async () => {
     const settings = normalizeLeaveTypeSettings(input);
     return withUniqueCode(() =>
-      inTransaction(ctx, async (tx) => {
+      inTransaction(ctx, actor.companyId, async (tx) => {
         // Serialises creates, so two cannot take the same next sort order.
         if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
         await assertActiveAdmin(tx, actor);

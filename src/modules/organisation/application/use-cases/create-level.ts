@@ -22,7 +22,7 @@ export async function createLevel(ctx: ServiceContext, actor: Actor, rawName: st
   return attempt(async () => {
     const name = normalizeLevelName(rawName);
     return withUniqueName(() =>
-      inTransaction(ctx, async (tx) => {
+      inTransaction(ctx, actor.companyId, async (tx) => {
         await assertActiveAdmin(tx, actor);
         if (await findLevelByName(tx, actor.companyId, name)) throw new DomainError("already_exists");
         const row = await insertLevel(tx, { companyId: actor.companyId, name });

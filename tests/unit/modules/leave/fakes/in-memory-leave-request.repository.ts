@@ -2,6 +2,7 @@ import type { ApiLeaveRequest, ApiLeaveRequestPage, Clock, LeaveRequestRepositor
 import type { LeaveRequest } from "@/modules/leave/domain/leave-request";
 import type { YearDays } from "@/shared/kernel/leave-days";
 import { ACTIVE_STATUSES } from "@/shared/kernel/leave-range";
+import { at } from "../../../../support/present";
 
 /** Names the own-request reads join in. */
 export interface Catalog {
@@ -21,7 +22,7 @@ const toApi = (r: LeaveRequest): ApiLeaveRequest => {
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  return s.length % 2 ? at(s, mid) : (at(s, mid - 1) + at(s, mid)) / 2;
 };
 
 /**
@@ -70,7 +71,7 @@ export class InMemoryLeaveRequestRepository implements LeaveRequestRepository {
   }
 
   async updateStatusIfCurrent(
-    where: { companyId: string; id: string; from: LeaveRequest["status"]; approverId?: string },
+    where: { companyId: string; id: string; from: LeaveRequest["status"]; approverId?: string | undefined },
     set: { status: LeaveRequest["status"]; decidedAt?: Date; decisionNote?: string | null },
   ) {
     const row = await this.find(where.companyId, where.id);

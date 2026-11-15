@@ -11,6 +11,7 @@ import { only, parseIcs, unescapeText } from "../support/ics-parser";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
@@ -28,7 +29,7 @@ async function book(
   leaveTypeId: string,
   b: { startDate: string; endDate?: string; status?: LeaveStatus; dayPortion?: "full" | "am" | "pm"; note?: string; decisionNote?: string },
 ) {
-  const [row] = await db
+  const rows = await db
     .insert(schema.leaveRequests)
     .values({
       companyId,
@@ -43,7 +44,7 @@ async function book(
       decisionNote: b.decisionNote ?? null,
     })
     .returning();
-  return row;
+  return first(rows);
 }
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -97,35 +98,35 @@ describe("calendar feeds", { skip }, () => {
     const rows = await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.userId, ana.id));
     assert.equal(rows.length, 1);
     assert.deepEqual(
-      { kind: rows[0].kind, hash: rows[0].tokenHash, hint: rows[0].tokenHint, companyId: rows[0].companyId, revokedAt: rows[0].revokedAt, lastUsedAt: rows[0].lastUsedAt },
+      { kind: first(rows).kind, hash: first(rows).tokenHash, hint: first(rows).tokenHint, companyId: first(rows).companyId, revokedAt: first(rows).revokedAt, lastUsedAt: first(rows).lastUsedAt },
       // The last 4 characters, so the owner can tell which link a calendar holds; never the rest.
       { kind: "personal", hash: sha256(issued.token), hint: issued.token.slice(-4), companyId: co.companyId, revokedAt: null, lastUsedAt: null },
     );
 
     // The token appears nowhere in the database: not in any table's text.
-    const [{ hits }] = await t.query<{ hits: number }>`
+    const { hits } = first(await t.query<{ hits: number }>`
       select (
         (select count(*) from calendar_feed_tokens c where c::text like ${"%" + issued.token + "%"}) +
         (select count(*) from audit_log a where a::text like ${"%" + issued.token + "%"}) +
         (select count(*) from events_outbox e where e::text like ${"%" + issued.token + "%"})
-      )::int as hits`;
+      )::int as hits`);
     assert.equal(hits, 0);
 
     const audit = await feedAudit(t.db, co.companyId);
     assert.deepEqual(
       audit.map((a) => [a.action, a.entityId, a.actorId, a.before, a.after]),
-      [["calendar_feed.issued", rows[0].id, ana.id, null, { kind: "personal", createdAt: rows[0].createdAt.toISOString(), revokedAt: null }]],
+      [["calendar_feed.issued", first(rows).id, ana.id, null, { kind: "personal", createdAt: first(rows).createdAt.toISOString(), revokedAt: null }]],
     );
     const events = await feedEvents(t.db, co.companyId);
     assert.deepEqual(
       events.map((e) => [e.type, e.payload]),
-      [["calendar_feed.issued", { feedId: rows[0].id, userId: ana.id, kind: "personal", reason: null, actorId: ana.id, actor: { type: "user", id: ana.id } }]],
+      [["calendar_feed.issued", { feedId: first(rows).id, userId: ana.id, kind: "personal", reason: null, actorId: ana.id, actor: { type: "user", id: ana.id } }]],
     );
-    assert.ok(!JSON.stringify([audit, events]).includes(rows[0].tokenHash), "nor its hash");
+    assert.ok(!JSON.stringify([audit, events]).includes(first(rows).tokenHash), "nor its hash");
 
     const { feeds } = await listCalendarFeeds(ctx, ana);
-    assert.deepEqual(feeds, { personal: { createdAt: rows[0].createdAt, lastUsedAt: null, hint: issued.token.slice(-4) }, team: null });
-    assert.deepEqual(issued.feed, { createdAt: rows[0].createdAt, lastUsedAt: null, hint: issued.token.slice(-4) });
+    assert.deepEqual(feeds, { personal: { createdAt: first(rows).createdAt, lastUsedAt: null, hint: issued.token.slice(-4) }, team: null });
+    assert.deepEqual(issued.feed, { createdAt: first(rows).createdAt, lastUsedAt: null, hint: issued.token.slice(-4) });
   });
 
   test("a personal feed: my approved and pending leave in the window, valid ICS, nothing of anyone else's", async () => {
@@ -248,7 +249,7 @@ describe("calendar feeds", { skip }, () => {
       .select()
       .from(schema.calendarFeedTokens)
       .where(and(eq(schema.calendarFeedTokens.userId, co.people.ana.id), sql`${schema.calendarFeedTokens.revokedAt} is null`));
-    assert.deepEqual(live.map((r) => r.tokenHash), [sha256(working[0])]);
+    assert.deepEqual(live.map((r) => r.tokenHash), [sha256(first(working))]);
   });
 
   test("unknown, malformed, deactivated and moved-away links all answer nothing; malformed ones never query", async () => {
@@ -281,7 +282,7 @@ describe("calendar feeds", { skip }, () => {
     const ctx = createTestContext(t.db);
     const { token } = await issueCalendarFeed(ctx, co.people.ana, "team");
     const stamp = async () => {
-      const [row] = await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.tokenHash, sha256(token)));
+      const row = first(await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.tokenHash, sha256(token))));
       return row.lastUsedAt;
     };
     let queries = 0;
@@ -293,16 +294,16 @@ describe("calendar feeds", { skip }, () => {
     };
 
     assert.equal((await render()).queries, 3, "never used: lookup, then entries and the stamp");
-    const first = await stamp();
-    assert.deepEqual(first, ctx.now(), "stamped with the service clock");
+    const firstStamp = await stamp();
+    assert.deepEqual(firstStamp, ctx.now(), "stamped with the service clock");
 
     assert.equal((await render()).queries, 2, "used within the hour: no UPDATE at all");
-    assert.deepEqual(await stamp(), first);
+    assert.deepEqual(await stamp(), firstStamp);
 
-    const twoHoursAgo = new Date(first!.getTime() - 2 * 3_600_000);
+    const twoHoursAgo = new Date(firstStamp!.getTime() - 2 * 3_600_000);
     await t.db.update(schema.calendarFeedTokens).set({ lastUsedAt: twoHoursAgo }).where(eq(schema.calendarFeedTokens.tokenHash, sha256(token)));
     assert.equal((await render()).queries, 3, "over an hour old: stamped again");
-    assert.deepEqual(await stamp(), first);
+    assert.deepEqual(await stamp(), firstStamp);
 
     // More people and requests do not add queries.
     const extra = Array.from({ length: 20 }, () => ({ id: randomUUID(), name: "X", email: `x-${randomUUID()}@example.com`, companyId: co.companyId }));
@@ -317,7 +318,7 @@ describe("calendar feeds", { skip }, () => {
     const co = await seedCompany(t.db, { ana: {} });
     const ctx = createTestContext(t.db);
     const { token } = await issueCalendarFeed(ctx, co.people.ana, "personal");
-    const [row] = await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.tokenHash, sha256(token)));
+    const row = first(await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.tokenHash, sha256(token))));
 
     let queries = 0;
     const counting = t.withLogger({ logQuery: () => void queries++ });
@@ -328,7 +329,7 @@ describe("calendar feeds", { skip }, () => {
     );
     assert.deepEqual(asked, [row.id]);
     assert.equal(queries, 1, "only the lookup ran");
-    const [refused] = await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.id, row.id));
+    const refused = first(await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.id, row.id)));
     assert.equal(refused.lastUsedAt, null, "a refused fetch is not a use");
 
     const admitted = await renderCalendarFeed(ctx, token, { admit: () => true });
@@ -345,7 +346,7 @@ describe("calendar feeds", { skip }, () => {
     const benInA = a.people.ben;
     const old = await issueCalendarFeed(ctx, benInA, "team");
     const oldPersonal = await issueCalendarFeed(ctx, benInA, "personal");
-    const [oldRow] = await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.tokenHash, sha256(old.token)));
+    const oldRow = first(await t.db.select().from(schema.calendarFeedTokens).where(eq(schema.calendarFeedTokens.tokenHash, sha256(old.token))));
 
     const moveTo = (companyId: string) => t.db.update(schema.user).set({ companyId }).where(eq(schema.user.id, benInA.id));
     await moveTo(b.companyId);

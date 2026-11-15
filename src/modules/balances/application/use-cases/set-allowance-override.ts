@@ -48,7 +48,7 @@ export async function setAllowanceOverride(deps: BalancesDeps, actor: Actor, inp
   return attempt(async () => {
     const edit = normalizeAllowanceEdit(input);
     if (!isUuid(input.leaveTypeId)) throw new DomainError("not_found");
-    return deps.unitOfWork(async (store) => {
+    return deps.unitOfWork(actor.companyId, async (store) => {
       await store.directory.assertActiveAdmin(actor);
       const company = await store.directory.company(actor.companyId);
       if (!company) throw new DomainError("no_company");

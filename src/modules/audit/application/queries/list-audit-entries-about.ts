@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError } from "@/shared/kernel/errors";
 import type { PageRequest } from "@/shared/kernel/paging";
@@ -21,6 +22,7 @@ const ABOUT_BATCH = 1_000;
  */
 export async function listAuditEntriesAbout(ctx: ServiceContext, actor: Actor, subjectUserId: string, max: number): Promise<AuditLogEntryDTO[]> {
   if (!canViewAuditLog(actor)) throw new DomainError("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   const { company, names } = await loadAuditNaming(ctx, actor.companyId);
   const entries: AuditLogEntryDTO[] = [];
   let page: PageRequest | undefined;

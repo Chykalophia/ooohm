@@ -346,7 +346,8 @@ async function record(name, clip, browser) {
 
 /** A still of Home in each company theme, for the theme picker. */
 async function themeStills(browser) {
-  const DB = process.env.DATABASE_URL ?? "postgres://ooohm:ooohm@127.0.0.1:5432/ooohm";
+  // As the owner: row-level security shows a connection without a company none of its rows.
+  const DB = process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL ?? "postgres://ooohm:ooohm@127.0.0.1:5432/ooohm";
   const themes = ["classic", "cobalt", "marigold", "saffron", "graphite", "plum", "signal", "forest", "frost"];
   mkdirSync(join(OUT, "themes"), { recursive: true });
   const ctx = await signedInContext(browser, "maya@example.com", { viewport: { width: 840, height: 560 }, deviceScaleFactor: 2 });

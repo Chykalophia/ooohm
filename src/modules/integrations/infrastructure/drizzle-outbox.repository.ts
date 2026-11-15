@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { eventsOutbox } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 
-export type OutboxRow = { id: string; companyId: string | null; type: string; payload: unknown; createdAt: Date };
+export type OutboxRow = { id: string; companyId: string; type: string; payload: unknown; createdAt: Date };
 
 const fields = {
   id: eventsOutbox.id,
@@ -59,7 +59,7 @@ export async function companyEventExists(ex: Executor, companyId: string, id: st
 export async function listCompanyEvents(
   ex: Executor,
   input: { companyId: string; afterId?: string | undefined; limit: number },
-): Promise<(OutboxRow & { companyId: string })[]> {
+): Promise<OutboxRow[]> {
   const after = input.afterId
     ? sql`(${eventsOutbox.txId}, ${eventsOutbox.createdAt}, ${eventsOutbox.id}) > (select o.tx_id, o.created_at, o.id from ${eventsOutbox} o where o.id = ${input.afterId})`
     : undefined;
@@ -75,5 +75,5 @@ export async function listCompanyEvents(
     )
     .orderBy(asc(eventsOutbox.txId), asc(eventsOutbox.createdAt), asc(eventsOutbox.id))
     .limit(input.limit);
-  return rows as (OutboxRow & { companyId: string })[];
+  return rows;
 }

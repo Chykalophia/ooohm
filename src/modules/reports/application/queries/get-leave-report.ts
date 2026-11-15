@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { addDays } from "@/shared/kernel/day-amounts";
 import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/shared/kernel/calendar";
@@ -70,6 +71,7 @@ function daysLeft(people: readonly { id: string }[], types: readonly { id: strin
  * Fails with `not_found` for anyone but admins and managers, and with `no_company`.
  */
 export async function getLeaveReport(ctx: ServiceContext, actor: Actor, query: LeaveReportQuery = {}): Promise<ServiceResult<LeaveReportDTO>> {
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => toLeaveReportDTO(await loadLeaveReport(ctx, actor, query)));
 }
 

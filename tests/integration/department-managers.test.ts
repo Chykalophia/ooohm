@@ -11,6 +11,7 @@ import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures"
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as organisation from "@/modules/organisation";
 import * as departmentManager from "@/modules/approvals";
+import { first } from "../support/present";
 
 const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
 const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
@@ -60,7 +61,7 @@ describe("department managers", { skip }, () => {
   const day = (leaveTypeId: string, startDate = "2026-11-10") => ({ leaveTypeId, startDate, dayPortion: "full" as const });
 
   async function approverOf(requestId: string) {
-    const [row] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, requestId));
+    const row = first(await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, requestId)));
     return row.approverId;
   }
 
@@ -71,7 +72,7 @@ describe("department managers", { skip }, () => {
     const set = await setDepartmentManager(ctx, boss, design.id, head.id);
     assert.equal(set.managerId, head.id);
     await setDepartmentManager(ctx, boss, design.id, head.id);
-    const [listed] = await listDepartmentsForAdmin(ctx, boss);
+    const listed = first(await listDepartmentsForAdmin(ctx, boss));
     assert.deepEqual(
       { id: listed.id, managerId: listed.managerId, managerName: listed.managerName },
       { id: design.id, managerId: head.id, managerName: "Head" },
@@ -207,7 +208,7 @@ describe("department managers", { skip }, () => {
     await deactivatePerson(ctx, boss, head.id);
 
     await deletePerson(ctx, boss, head.id, { mode: "records_kept", confirmName: "Head" });
-    const [listed] = await listDepartmentsForAdmin(ctx, boss);
+    const listed = first(await listDepartmentsForAdmin(ctx, boss));
     assert.equal(listed.managerId, null, "no tombstone left managing the department");
     const audit = await companyAudit(t.db, co.companyId, "department.manager");
     assert.deepEqual(

@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { entriesCostingDaysIn, groupByPerson, monthBounds } from "@/shared/kernel/calendar";
 import { todayInTimeZone } from "@/lib/dates";
@@ -55,5 +56,6 @@ export type TeamCalendarDTO = Awaited<ReturnType<typeof loadTeamCalendar>>;
  * Fails with `no_company` when the actor's company is missing.
  */
 export async function getTeamCalendar(ctx: ServiceContext, actor: Actor, query: TeamCalendarQuery = {}): Promise<ServiceResult<TeamCalendarDTO>> {
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(() => loadTeamCalendar(ctx, actor, query));
 }

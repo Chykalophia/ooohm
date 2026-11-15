@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { Role } from "@/shared/kernel/actor";
 import type { ApprovalContextReader } from "@/modules/approvals/application/ports";
 import type { ApprovalCandidate } from "@/modules/approvals/domain/approval-context";
+import { first } from "../../../../support/present";
 
 /** One person to seed, referring to others by key. */
 export interface PersonSeed {
@@ -16,16 +17,16 @@ export interface PersonSeed {
   elsewhere?: boolean;
 }
 
-export interface Seeded {
+export interface Seeded<K extends string = string> {
   companyId: string;
   otherCompanyId: string;
   /** People's ids by key. */
-  ids: Record<string, string>;
+  ids: Record<K, string>;
 }
 
 /** A fresh store for one case: seed people and departments (department key → manager key or null), then read. */
 export interface ContextStore {
-  seed(people: Record<string, PersonSeed>, departments?: Record<string, string | null>): Promise<Seeded>;
+  seed<K extends string>(people: Record<K, PersonSeed>, departments?: Record<string, string | null>): Promise<Seeded<K>>;
   reader: ApprovalContextReader;
 }
 
@@ -64,7 +65,7 @@ export function approvalContextReaderContract(name: string, make: () => Promise<
       },
       { ops: "lead" },
     );
-    const [ana] = await reader.requesters(s.companyId, [s.ids.ana]);
+    const ana = first(await reader.requesters(s.companyId, [s.ids.ana]));
     const context = (await reader.contextsFor(s.companyId, [ana])).get(s.ids.ana)!;
     assert.equal(context.requester.id, s.ids.ana);
     assert.deepEqual(candidate(context.manager), { id: s.ids.mo, isActive: false, createdAt: "2025-03-01T00:00:00.000Z" }, "an inactive manager is read as such");
@@ -88,7 +89,7 @@ export function approvalContextReaderContract(name: string, make: () => Promise<
   test(`${name}: a department without a manager adds nobody, and no requesters read nothing`, async () => {
     const { seed, reader } = await make();
     const s = await seed({ ana: { departmentKey: "ops" } }, { ops: null });
-    const [ana] = await reader.requesters(s.companyId, [s.ids.ana]);
+    const ana = first(await reader.requesters(s.companyId, [s.ids.ana]));
     assert.equal((await reader.contextsFor(s.companyId, [ana])).get(s.ids.ana)!.departmentManager, null);
     assert.equal((await reader.contextsFor(s.companyId, [])).size, 0);
   });

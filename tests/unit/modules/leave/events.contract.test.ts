@@ -4,6 +4,7 @@ import { recordLeaveChangeIn, recordReassignmentIn, recordRecountIn } from "@/mo
 import { LEAVE_EVENT_NAMES } from "@/modules/leave/domain/events";
 import type { LeaveRequest } from "@/modules/leave/domain/leave-request";
 import { ANA, BOSS, COMPANY, MO, RecordingAudit, RecordingOutbox, recordingChangeLog, VACATION } from "./fakes/ports";
+import { first } from "../../../support/present";
 
 // Every `leave.*` payload is a public contract (webhooks subscribe to it): these tests pin
 // each event's name and every field it publishes. Add a field here when one is added;
@@ -61,8 +62,8 @@ for (const [event, status] of [
     assert.deepEqual(outbox.events, [
       { companyId: COMPANY, type: `leave.${event}`, payload: { ...leaveFields(status), actorId: MO, actor: { type: "user", id: MO } } },
     ]);
-    assert.equal(audit.entries[0].action, `leave_request.${event}`);
-    assert.equal(audit.entries[0].entityId, request.id);
+    assert.equal(first(audit.entries).action, `leave_request.${event}`);
+    assert.equal(first(audit.entries).entityId, request.id);
   });
 }
 
@@ -93,5 +94,5 @@ test("leave.recounted adds the previous count, and names the calendar change it 
 test("an API key's change publishes the key as well as its person", async () => {
   const { outbox, changes } = recorder();
   await recordLeaveChangeIn(changes, { event: "requested", before: null, after: request, source: { kind: "api_key", userId: ANA, apiKeyId: "key-1" } });
-  assert.deepEqual(outbox.events[0].payload, { ...leaveFields("pending"), actorId: ANA, actor: { type: "api_key", id: ANA, apiKeyId: "key-1" } });
+  assert.deepEqual(first(outbox.events).payload, { ...leaveFields("pending"), actorId: ANA, actor: { type: "api_key", id: ANA, apiKeyId: "key-1" } });
 });

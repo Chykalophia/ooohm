@@ -2,23 +2,28 @@
  * Demo company for the marketing site's recordings: a small studio with a manager,
  * eight people, US holidays and a believable spread of requests around "today".
  * Run after `pnpm db:migrate && pnpm db:seed` with SEED_ADMIN_EMAIL=maya@example.com.
- * Writes rows directly (no audit trail), so never point it at a real database.
+ * Writes rows directly (no audit trail), so never point it at a real database. It writes as
+ * the database's owner (DATABASE_ADMIN_URL, else DATABASE_URL), since row-level security
+ * shows a connection without a company none of its rows.
  *
  *   pnpm tsx --env-file=.env site/demo/demo-data.mts
  */
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { resolveDatabaseConfig } from "../../src/db/config";
+import { resolveAdminDatabaseConfig, resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
+import { returnedRow } from "../../src/db/rows";
 import * as s from "../../src/db/schema";
 import { nonEmptyEnv } from "../../src/lib/integration-env";
 import { usFederalHolidays } from "../../src/modules/holidays/domain/us-federal-holidays";
 import { splitLeaveDaysByYear } from "../../src/shared/kernel/leave-days";
 import { isLocalDatabase } from "./local-db.mjs";
 
-if (!isLocalDatabase(process.env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");
+const env = nonEmptyEnv(process.env);
+if (!isLocalDatabase(env.DATABASE_ADMIN_URL ?? env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");
 
-const handle = await openDatabase(resolveDatabaseConfig(nonEmptyEnv(process.env)), { purpose: "demo data", max: 1 });
+const config = env.DATABASE_ADMIN_URL ? resolveAdminDatabaseConfig(env) : resolveDatabaseConfig(env);
+const handle = await openDatabase(config, { purpose: "demo data", max: 1 });
 const { db } = handle;
 const YEAR = 2026;
 
@@ -26,16 +31,21 @@ const companies = await db.select().from(s.companies).limit(2);
 if (companies.length !== 1) {
   throw new Error(companies.length ? "More than one company exists; the demo needs a database of its own." : "No company yet. Run `pnpm db:seed` with SEED_ADMIN_EMAIL=maya@example.com first.");
 }
-const [company] = companies;
+const company = returnedRow(companies);
 await db.update(s.companies).set({ requestStyle: "sentence" }).where(eq(s.companies.id, company.id));
 const types = Object.fromEntries((await db.select().from(s.leaveTypes).where(eq(s.leaveTypes.companyId, company.id))).map((t) => [t.code, t]));
+const typeId = (code: string) => {
+  const type = types[code];
+  if (!type) throw new Error(`The company has no ${code} leave type.`);
+  return type.id;
+};
 const [maya] = await db.select().from(s.user).where(eq(s.user.email, "maya@example.com"));
 if (!maya) throw new Error("maya@example.com not found. Run `pnpm db:seed` with SEED_ADMIN_EMAIL=maya@example.com first.");
 
 const depts: Record<string, string> = {};
 for (const name of ["Design", "Engineering", "Sales"]) {
   const [d] = await db.insert(s.departments).values({ companyId: company.id, name }).onConflictDoNothing().returning();
-  depts[name] = d?.id ?? (await db.select().from(s.departments).where(and(eq(s.departments.companyId, company.id), sql`lower(${s.departments.name}) = lower(${name})`)))[0].id;
+  depts[name] = d?.id ?? returnedRow(await db.select().from(s.departments).where(and(eq(s.departments.companyId, company.id), sql`lower(${s.departments.name}) = lower(${name})`))).id;
 }
 await db.update(s.user).set({ departmentId: depts.Design }).where(eq(s.user.id, maya.id));
 
@@ -44,12 +54,17 @@ const people = [
   ["Priya Nair", "Engineering"], ["Sam Okafor", "Sales"], ["Noor Haddad", "Engineering"], ["Eli Brooks", "Design"],
 ] as const;
 const ids: Record<string, string> = { "Maya Chen": maya.id };
+const idOf = (name: string) => {
+  const id = ids[name];
+  if (!id) throw new Error(`No demo person named ${name}.`);
+  return id;
+};
 for (const [name, dept] of people) {
-  const email = `${name.split(" ")[0].toLowerCase().normalize("NFD").replace(/[^a-z]/g, "")}@example.com`;
+  const email = `${(name.split(" ")[0] ?? name).toLowerCase().normalize("NFD").replace(/[^a-z]/g, "")}@example.com`;
   const [existing] = await db.select().from(s.user).where(eq(s.user.email, email));
-  ids[name] = existing?.id ?? (await db.insert(s.user).values({
+  ids[name] = existing?.id ?? returnedRow(await db.insert(s.user).values({
     id: randomUUID(), name, email, emailVerified: true, companyId: company.id, departmentId: depts[dept], managerId: maya.id, role: "employee",
-  }).returning())[0].id;
+  }).returning()).id;
 }
 
 for (const id of Object.values(ids)) {
@@ -71,7 +86,7 @@ const holidays: [string, string][] = [
 ];
 for (const [date, name] of holidays) await db.insert(s.holidays).values({ companyId: company.id, date, name }).onConflictDoNothing();
 
-type Req = [who: string, type: string, start: string, end: string, days: number, status: "pending" | "approved" | "rejected" | "cancelled", note?: string, portion?: "full" | "am" | "pm"];
+type Req = [who: string, type: string, start: string, end: string, days: number, status: "pending" | "approved" | "rejected" | "cancelled", note?: string | undefined, portion?: "full" | "am" | "pm"];
 const reqs: Req[] = [
   ["Maya Chen", "PTO", "2026-11-16", "2026-11-18", 3, "approved", "Family trip"],
   ["Maya Chen", "PTO", "2026-08-03", "2026-08-07", 5, "approved", "Lake house"],
@@ -109,7 +124,11 @@ for (const year of [2022, 2023, 2024, 2025, 2026]) {
       // Pick a month by weight, then a Monday-ish start and a 1 to 5 day span.
       let pick = random() * MONTH_WEIGHT.slice(0, lastMonth).reduce((a, b) => a + b, 0);
       let month = 0;
-      while (pick > MONTH_WEIGHT[month]) pick -= MONTH_WEIGHT[month++];
+      let weight = MONTH_WEIGHT[month];
+      while (weight !== undefined && pick > weight) {
+        pick -= weight;
+        weight = MONTH_WEIGHT[++month];
+      }
       const day = 1 + Math.floor(random() * 22);
       const span = random() < 0.25 ? 0 : Math.floor(random() * 5);
       const start = new Date(Date.UTC(year, month, day));
@@ -142,10 +161,10 @@ await db.transaction(async (tx) => {
   await tx.delete(s.leaveRequests).where(eq(s.leaveRequests.companyId, company.id));
   for (const [who, code, start, end, days, status, note, portion] of reqs) {
     const decided = status === "approved" || status === "rejected";
-    const [r] = await tx.insert(s.leaveRequests).values({
-      companyId: company.id, userId: ids[who], leaveTypeId: types[code].id, startDate: start, endDate: end, days,
+    const r = returnedRow(await tx.insert(s.leaveRequests).values({
+      companyId: company.id, userId: idOf(who), leaveTypeId: typeId(code), startDate: start, endDate: end, days,
       dayPortion: portion ?? "full", note, status, approverId: maya.id, decidedAt: decided ? new Date("2026-10-30T15:00:00Z") : null,
-    }).returning();
+    }).returning());
     await tx.insert(s.leaveRequestDays).values({ requestId: r.id, year: YEAR, days });
   }
   for (const h of history) {
@@ -154,11 +173,11 @@ await db.transaction(async (tx) => {
     const split = splitLeaveDaysByYear({ startDate: h.start, endDate: h.end, dayPortion: "full" }, { workingDays: [1, 2, 3, 4, 5], holidays: holidayDates });
     const days = split.reduce((sum, y) => sum + y.days, 0);
     if (days === 0) continue;
-    const [r] = await tx.insert(s.leaveRequests).values({
-      companyId: company.id, userId: ids[h.who], leaveTypeId: types[h.code].id, startDate: h.start, endDate: h.end, days,
+    const r = returnedRow(await tx.insert(s.leaveRequests).values({
+      companyId: company.id, userId: idOf(h.who), leaveTypeId: typeId(h.code), startDate: h.start, endDate: h.end, days,
       status: "approved", approverId: maya.id, createdAt: h.created,
       decidedAt: new Date(h.created.getTime() + h.hours * 3_600_000),
-    }).returning();
+    }).returning());
     await tx.insert(s.leaveRequestDays).values(split.map((y) => ({ requestId: r.id, ...y })));
   }
 });

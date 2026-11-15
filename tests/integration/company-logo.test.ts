@@ -12,6 +12,7 @@ import { createTestContext, createTestDatabase, skip, type TestDatabase } from "
 import { getCompanyLogo, getDeploymentLogo } from "@/modules/organisation";
 import * as organisation from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
+import { at, first } from "../support/present";
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const removeCompanyLogo = (...args: Parameters<typeof organisation.removeCompanyLogo>) => organisation.removeCompanyLogo(...args).then(unwrap);
@@ -31,7 +32,7 @@ describe("company logo", { skip }, () => {
   test("an admin uploads a logo: stored once, audited and announced, then shown in the app and served publicly", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);
-    const [{ name }] = await t.db.select({ name: schema.companies.name }).from(schema.companies).where(eq(schema.companies.id, co.companyId));
+    const { name } = first(await t.db.select({ name: schema.companies.name }).from(schema.companies).where(eq(schema.companies.id, co.companyId)));
     assert.equal(await getCompanyLogo(ctx, co.companyId), null, "no logo until one is uploaded");
 
     const png = pngImage(400, 100);
@@ -42,12 +43,12 @@ describe("company logo", { skip }, () => {
 
     const audit = await companyAudit(t.db, co.companyId, "company.");
     assert.equal(audit.length, 1, "the same file again records nothing");
-    assert.equal(audit[0].actorId, co.people.boss.id);
-    assert.equal((audit[0].before as { logo: unknown }).logo, null);
-    assert.deepEqual((audit[0].after as { logo: unknown }).logo, { sha256: hash, contentType: "image/png", width: 400, height: 100 });
+    assert.equal(first(audit).actorId, co.people.boss.id);
+    assert.equal((first(audit).before as { logo: unknown }).logo, null);
+    assert.deepEqual((first(audit).after as { logo: unknown }).logo, { sha256: hash, contentType: "image/png", width: 400, height: 100 });
     const events = await companyEvents(t.db, co.companyId, "company.updated");
     assert.equal(events.length, 1);
-    assert.deepEqual((events[0].payload as { logo: unknown }).logo, { sha256: hash, contentType: "image/png", width: 400, height: 100 });
+    assert.deepEqual((first(events).payload as { logo: unknown }).logo, { sha256: hash, contentType: "image/png", width: 400, height: 100 });
 
     assert.deepEqual(await getCompanyLogo(ctx, co.companyId), { src: `/logo/${hash}.png`, alt: name, width: 120, height: 30 });
     assert.deepEqual(await getDeploymentLogo(ctx), { src: `/logo/${hash}.png`, alt: name, width: 120, height: 30 });
@@ -74,12 +75,12 @@ describe("company logo", { skip }, () => {
   test("a new logo replaces the old one, and removing it goes back to the OOOhm mark", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);
-    const first = pngImage(200, 100, [200, 30, 30]);
+    const firstLogo = pngImage(200, 100, [200, 30, 30]);
     const jpeg = jpegHeader(300, 100);
-    await updateCompanyLogo(ctx, co.people.boss, first);
+    await updateCompanyLogo(ctx, co.people.boss, firstLogo);
     const replaced = await updateCompanyLogo(ctx, co.people.boss, jpeg);
     assert.equal(replaced.logoType, "image/jpeg");
-    assert.equal((await handleLogoFetch({ ctx, file: `${sha(first)}.png` })).status, 404, "the old file is gone");
+    assert.equal((await handleLogoFetch({ ctx, file: `${sha(firstLogo)}.png` })).status, 404, "the old file is gone");
     assert.equal((await handleLogoFetch({ ctx, file: `${sha(jpeg)}.jpg` })).status, 200);
 
     const removed = await removeCompanyLogo(ctx, co.people.boss);
@@ -87,16 +88,16 @@ describe("company logo", { skip }, () => {
     await removeCompanyLogo(ctx, co.people.boss);
     assert.equal(await getCompanyLogo(ctx, co.companyId), null);
     assert.equal((await handleLogoFetch({ ctx, file: `${sha(jpeg)}.jpg` })).status, 404);
-    const [{ logo }] = await t.db.select({ logo: schema.companies.logo }).from(schema.companies).where(eq(schema.companies.id, co.companyId));
+    const { logo } = first(await t.db.select({ logo: schema.companies.logo }).from(schema.companies).where(eq(schema.companies.id, co.companyId)));
     assert.equal(logo, null, "the bytes are deleted, not only hidden");
 
     const audit = await companyAudit(t.db, co.companyId, "company.");
     assert.equal(audit.length, 3, "upload, replace, remove; removing nothing records nothing");
-    assert.equal((audit[2].after as { logo: unknown }).logo, null);
+    assert.equal((at(audit, 2).after as { logo: unknown }).logo, null);
     const events = await companyEvents(t.db, co.companyId, "company.updated");
     assert.deepEqual(
       events.map((e) => (e.payload as { logo: { sha256: string } | null }).logo?.sha256 ?? null),
-      [sha(first), sha(jpeg), null],
+      [sha(firstLogo), sha(jpeg), null],
       "upload, replace and remove are each announced once",
     );
   });

@@ -27,7 +27,7 @@ for processes outside Next) is the only place that wires concrete implementation
 | --- | --- | --- |
 | `src/app/**` | Presentation | Thin pages (a module presenter, components beside the route), server actions beside their route through the action pipeline (`src/app/_lib/server-action.ts`, with a per-person rate limit), route handlers; they import only module indexes and the presentation helpers (F12, `pnpm arch`) |
 | `src/components/**` | Presentation (UI kit) | Renders props; never loads data |
-| `src/shared/kernel/**`, `src/shared/lib/**` | Shared | The kernel: pure rules and types several layers share, no I/O (client components and the schema import it too); `ServiceResult`, the unit of work (`inTransaction`), admin checks, `recordChange` and the shared reads and repository helpers (`lib/db/`) |
+| `src/shared/kernel/**`, `src/shared/lib/**` | Shared | The kernel: pure rules and types several layers share, no I/O (client components and the schema import it too); `ServiceResult`, the unit of work (`inTransaction`), the tenant scope (`forTenant`) and the pre-tenant lookups, admin checks, `recordChange` and the shared reads and repository helpers (`lib/db/`) |
 | `src/server/integrations/**` | Ports | Adapter seam (the port `ServiceContext` names) |
 | `src/lib/**`, `src/db/**` | Infrastructure + cross-cutting | Env, auth, logging, mail, crypto; schema and connection |
 | `src/modules/<m>/**` | All four, inside the module | `reports`, `organisation` (company, appearance, departments, levels, leave types), `notifications` (emails, Admin → Emails), `audit` (the audit log viewer), `integrations` (webhooks, API keys, the REST API, adapters, outbox jobs; event contracts in `tests/contracts`), `import` (the CLI-only TimeOff import), `holidays` (Admin → Holidays), `calendar` (calendar views, feeds, the `calendarScopeFor` loader), `people` (Admin → People, the teammate page, the account page), `leave`, `balances` and `approvals` (Tier 3: aggregates or strategies, ports, in-memory fakes and repository contracts; approvals implements leave's `ApprovalRouter`, wired in `src/server/wiring.ts`) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
@@ -68,8 +68,8 @@ returns what the screen needs (a DTO, not a row).
 
 ## Checks
 
-`pnpm typecheck` (the base config, then `src` under `tsconfig.src.json` with `noUncheckedIndexedAccess`,
-`exactOptionalPropertyTypes`, `noImplicitOverride` and `noFallthroughCasesInSwitch`), `pnpm lint`, `pnpm arch`,
+`pnpm typecheck` (one pass over the whole repository, tests and scripts included, with `noUncheckedIndexedAccess`,
+`exactOptionalPropertyTypes`, `noImplicitOverride` and `noFallthroughCasesInSwitch` in `tsconfig.json`), `pnpm lint`, `pnpm arch`,
 `pnpm madge`, `pnpm test`, `pnpm test:integration` (Postgres) and `pnpm test:integration:embedded` (PGlite), all run
 by the GitHub Actions workflow on every PR. No check has a baseline: `pnpm arch` reports every violation, and every
 server file imports `server-only`.
@@ -79,6 +79,10 @@ Fitness checks that guard what no single test sees:
 - `tests/integration/tenancy.test.ts` runs every exported use case, query and API route as one company's actor
   against two seeded companies, and fails if the other company's rows change or its data shows up.
   `tests/architecture/tenancy-coverage.test.ts` fails when an export has neither a case nor an exemption with a reason.
+- Row-level security (ADR-0004) is the second net: `tests/integration/rls.test.ts` checks every tenant table's
+  policies in SQL as the app role on both drivers, and `tests/architecture/row-level-security.test.ts` fails when a
+  `company_id` table lacks its policies, an unlisted `SECURITY DEFINER` function appears, or a view would read as
+  its owner.
 - `pnpm db:check-drift` fails when `src/db/schema.ts` and the committed migrations in `drizzle/` disagree.
 - `pnpm test:e2e` (after `pnpm build`) drives the built app on `pnpm start:embedded` in Chromium: invite-only
   sign-in through the emailed link, inviting people, and a request from submission to approval and cancellation.

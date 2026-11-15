@@ -160,6 +160,18 @@ anyone adds a passkey if the app will move between its subdomains: a passkey mad
 actor, never from input, and every query is scoped by it. A request id from another company is
 indistinguishable from one that does not exist (`not_found`).
 
+The database holds the same line (ADR-0004): row-level security shows the app role only the rows of the company its
+transaction names, and none without one. Services scope their context with `forTenant(ctx, actor.companyId)`
+(`src/shared/lib/tenant.ts`; an API key's company for the REST API), which binds `ctx.db` to the company: every
+transaction it opens, and every statement outside one, sets `app.company_id` first, below Drizzle, pipelined with
+the next statement. `inTransaction(ctx, companyId, …)` and `commitThenNotify(ctx, companyId, …)` scope themselves;
+the Tier 3 compositions bind their ports to the actor's company. What runs before a company is known (sign-in, an
+API key or feed token, an approve link, the worker's queues, the first install) reads through the narrow functions in
+`src/shared/lib/db/pre-tenant.ts`, then scopes to the company found; Better Auth's adapter does the same for every
+operation (`src/lib/auth-adapter.ts`). Jobs loop over companies. A row's references (a person, leave type, department,
+level, endpoint, event) must name rows of its own company: a trigger per table refuses another company's id and a
+missing one alike (`drizzle/0032`).
+
 `actor` is `null` for a user not yet attached to a company; pages show a calm "ask an admin" message.
 
 ### Errors
@@ -1816,6 +1828,13 @@ backup retention is what bounds how long a deleted person's data survives ([host
 | `pnpm db:check-drift` | `drizzle-kit generate` against a scratch copy of `drizzle/`: fails, printing the SQL, when `src/db/schema.ts` has a change no committed migration makes (ADR-0011; also run by `tests/architecture/schema-drift.test.ts`) | nothing |
 | `pnpm test:e2e` | Playwright journeys in `tests/e2e/*.spec.ts` on the built app under `pnpm start:embedded` (see below) | `pnpm build`, Playwright with Chromium |
 
+Tests, scripts and `site/demo` compile with the same strict flags as `src` (`noUncheckedIndexedAccess`,
+`exactOptionalPropertyTypes`, `noImplicitOverride`, `noFallthroughCasesInSwitch`; `pnpm typecheck`). In tests, a
+row or entry the test relies on is narrowed with the helpers in `tests/support/present.ts` rather than `!`:
+`first(rows)`, `at(rows, i)`, `take(rows, n)` for `const [a, b] = ...`, and `present(value)`, each failing with a
+clear message when the value is missing. `seedCompany` is typed by its people's keys, so `co.people.ana` needs
+no narrowing.
+
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
 IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,
 API key format) and runs the webhook transport against a local HTTP server (loopback refused by literal and by
@@ -1867,6 +1886,15 @@ company's rows points at it. `tests/support/tenancy-coverage.ts` lists which exp
 reason for every other one (pure, a system job over every company, scoped by its caller); a new export or route
 that is in neither list fails `tests/architecture/tenancy-coverage.test.ts`, and a listed case that is not run fails
 the suite. When you add an export, add its case (or its reason) there.
+
+**Row-level security** (`tests/integration/rls.test.ts`, ADR-0004). As the app role, in SQL, on both drivers: for
+every tenant table, a tenant sees exactly its own rows and cannot read, change, delete, insert or move another
+company's; with no tenant, or an empty one, nothing is visible or writable; the owner sees everything; the catalog's
+policies match the list; the app role is neither a superuser nor exempt; the pre-tenant and audit functions stay in
+their lane; every reference between tenant rows refuses another company's id and a missing one alike; Better Auth's
+old owner views are gone and every view the app role can use reads as its caller. On Postgres the integration harness connects services as a plain role (`ooohm_test_app`) with the app's
+grants, so every suite runs under the policies; on PGlite the app handle acts as `ooohm_app`. Seeding and the
+TimeOff import use the owner (`createOwnerTestContext`).
 
 **End-to-end journeys** (`pnpm test:e2e`, after `pnpm build`). `tests/e2e/support/app.ts` runs
 `pnpm start:embedded` on a fresh embedded data directory and a free port, with the app's ordinary production

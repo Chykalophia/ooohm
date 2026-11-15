@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { initialFocus, isSelectable, localToday, moveFocus, parseTyped, pickerGrid } from "@/components/forms/date-picker-grid";
 import { isCalendarDate } from "@/shared/kernel/calendar-date";
+import { at, first } from "../support/present";
 
 describe("date picker grid", () => {
   test("AC1(a) pickerGrid(2026-11) is 42 days from 2026-10-26 to 2026-12-06, 12 outside November", () => {
     const grid = pickerGrid("2026-11");
     assert.equal(grid.length, 42);
-    assert.equal(grid[0].date, "2026-10-26");
-    assert.equal(grid[41].date, "2026-12-06");
+    assert.equal(first(grid).date, "2026-10-26");
+    assert.equal(at(grid, 41).date, "2026-12-06");
     const outside = grid.filter((d) => !d.inMonth).map((d) => d.date);
     assert.equal(outside.length, 12);
     assert.deepEqual(outside, [
@@ -31,8 +32,8 @@ describe("date picker grid", () => {
   test("pickerGrid always gives 6 Monday-first weeks (February 2027 starts on a Monday)", () => {
     const grid = pickerGrid("2027-02");
     assert.equal(grid.length, 42);
-    assert.equal(grid[0].date, "2027-02-01");
-    assert.equal(grid[41].date, "2027-03-14");
+    assert.equal(first(grid).date, "2027-02-01");
+    assert.equal(at(grid, 41).date, "2027-03-14");
   });
 
   test("AC1(b) PageDown keeps the day number, clamped to the month's last day", () => {
@@ -126,7 +127,7 @@ describe("date picker agrees with the shared validator (isCalendarDate)", () => 
 
   test("low edge: every selectable cell of the 0100-01 grid passes isCalendarDate; the 0099 cells are disabled", () => {
     const grid = pickerGrid("0100-01");
-    assert.equal(grid[0].date, "0099-12-28");
+    assert.equal(first(grid).date, "0099-12-28");
     for (const { date } of grid) assert.equal(isSelectable(date), isCalendarDate(date), date);
     assert.equal(isSelectable("0099-12-31"), false);
     assert.equal(isSelectable("0100-01-01"), true);

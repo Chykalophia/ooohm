@@ -13,6 +13,7 @@ import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/modules/leave";
+import { at, first } from "../support/present";
 
 const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
 const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
@@ -96,10 +97,10 @@ describe("admin: audit log viewer", { skip }, () => {
     const fake: Adapter = { id: "fakehr", displayName: "Fake HR", handles: () => false, deliver: async () => {}, healthCheck: async () => ({ ok: true }) };
     const ctx = createTestContext(t.db, { adapters: createAdapterRegistry([fake]) });
     const { boss, ana, gone } = co.people;
-    const [key] = await t.db
+    const key = first(await t.db
       .insert(schema.apiKeys)
       .values({ companyId: co.companyId, name: "Zapier", prefix: "ooohm_AbCdEfGh", keyHash: "a".repeat(64), createdBy: boss.id })
-      .returning();
+      .returning());
     const c = co.companyId;
     await writeAudit(t.db, [
       { companyId: c, actorId: boss.id, at: "2026-10-01T12:00:06Z" },
@@ -154,7 +155,7 @@ describe("admin: audit log viewer", { skip }, () => {
     assert.equal(new Set(seen).size, 62, "no row twice, none skipped");
     const times = await t.db.select({ id: schema.auditLog.id, at: schema.auditLog.createdAt }).from(schema.auditLog);
     const order = new Map(times.map((r) => [r.id, r.at.getTime()]));
-    for (let i = 1; i < seen.length; i++) assert.ok(order.get(seen[i - 1])! >= order.get(seen[i])!, "newest first");
+    for (let i = 1; i < seen.length; i++) assert.ok(order.get(at(seen, i - 1))! >= order.get(at(seen, i))!, "newest first");
 
     // Back from the last page: the same pages, in the same order within each.
     const backward: string[][] = [];
@@ -236,7 +237,7 @@ describe("admin: audit log viewer", { skip }, () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
     const ctx = createTestContext(t.db);
     await writeAudit(t.db, Array.from({ length: 30 }, (_, i) => ({ companyId: co.companyId, at: `2026-10-01T12:00:${String(i).padStart(2, "0")}Z` })));
-    const first = (await getAuditLog(ctx, co.people.boss, {})).entries[0].id;
+    const firstId = first((await getAuditLog(ctx, co.people.boss, {})).entries).id;
     const id = "00000000-0000-4000-8000-000000000000";
     const forged = [
       "garbage",
@@ -248,11 +249,11 @@ describe("admin: audit log viewer", { skip }, () => {
         encodePageKey([at, id]),
       ),
     ];
-    assert.equal((await getAuditLog(ctx, co.people.boss, { actorId: "x\u0000" })).entries[0]?.id, first, "a NUL person filter is ignored");
+    assert.equal((await getAuditLog(ctx, co.people.boss, { actorId: "x\u0000" })).entries[0]?.id, firstId, "a NUL person filter is ignored");
     for (const token of forged) {
       for (const direction of ["after", "before"] as const) {
         const page = await getAuditLog(ctx, co.people.boss, { page: { direction, token } });
-        assert.equal(page.entries[0]?.id, first, `${direction} ${token}`);
+        assert.equal(page.entries[0]?.id, firstId, `${direction} ${token}`);
         assert.equal(page.previous, null, `${direction} ${token} is the first page`);
       }
     }

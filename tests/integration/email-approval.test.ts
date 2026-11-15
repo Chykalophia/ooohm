@@ -12,6 +12,7 @@ import { getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRe
 import { unwrap } from "@/shared/lib/result";
 import { auditFor, eventsFor, seedCompany, REVIEW_SUBJECT } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { at, first, take } from "../support/present";
 
 const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 const approveFromEmail = (...args: Parameters<typeof approveFromEmailResult>) => approveFromEmailResult(...args).then(unwrap);
@@ -53,7 +54,7 @@ describe("approve from the email", { skip }, () => {
     const look = await readEmailApproval(ctx, token);
     assert.equal(look.state, "ready");
     assert.equal(look.state === "ready" && look.request.note, "Trip");
-    assert.equal((await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, req.id)))[0].status, "pending");
+    assert.equal(first(await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, req.id))).status, "pending");
 
     const done = await approveFromEmail(ctx, token);
     assert.equal(done.state, "approved");
@@ -66,7 +67,7 @@ describe("approve from the email", { skip }, () => {
       ],
     );
     const events = await eventsFor(t.db, co.companyId, req.id);
-    assert.deepEqual((events[1].payload as { actor: unknown }).actor, { type: "user", id: co.people.manager.id, via: "email_link" });
+    assert.deepEqual((at(events, 1).payload as { actor: unknown }).actor, { type: "user", id: co.people.manager.id, via: "email_link" });
 
     assert.equal((await approveFromEmail(ctx, token)).state, "decided", "a second press changes nothing");
     assert.equal((await readEmailApproval(ctx, token)).state, "decided");
@@ -79,7 +80,7 @@ describe("approve from the email", { skip }, () => {
     assert.equal((await approveFromEmail(later, token)).state, "expired");
 
     const ctx = createTestContext(t.db, { now: NOW });
-    const [body, sig] = token.split(".");
+    const [body, sig] = take(token.split("."), 2);
     assert.equal((await approveFromEmail(ctx, `${body}.${sig.slice(1)}x`)).state, "invalid");
     assert.equal((await approveFromEmail(ctx, "nonsense")).state, "invalid");
     assert.equal((await approveFromEmail({ ...ctx, linkKey: undefined }, token)).state, "invalid", "nothing to check it with");
@@ -102,7 +103,7 @@ describe("approve from the email", { skip }, () => {
 
     await t.db.update(schema.user).set({ isActive: false }).where(eq(schema.user.id, co.people.manager.id));
     assert.equal((await approveFromEmail(ctx, token)).state, "not_yours");
-    const [row] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, req.id));
+    const row = first(await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, req.id)));
     assert.equal(row.status, "pending");
   });
 

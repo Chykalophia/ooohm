@@ -16,13 +16,13 @@ import { decideLeaveRequest } from "./decide-leave-request";
  * nothing here expects (a decision failing for another reason).
  */
 export async function approveFromEmail(deps: ApprovalDeps, token: string): Promise<ServiceResult<EmailApproval>> {
-  const { approval, actor } = await resolveLink(deps, token);
-  if (approval.state !== "ready" || !actor) return ok(approval);
-  const decided = await decideLeaveRequest(deps, actor, { requestId: approval.request.id, decision: "approve", assignedTo: actor.id });
+  const { approval, actor, deps: scoped } = await resolveLink(deps, token);
+  if (approval.state !== "ready" || !actor || !scoped) return ok(approval);
+  const decided = await decideLeaveRequest(scoped, actor, { requestId: approval.request.id, decision: "approve", assignedTo: actor.id });
   if (decided.ok) return ok({ state: "approved", request: { ...approval.request, status: "approved" } });
   const { code } = decided.error;
   if (code === "forbidden") return ok({ state: "not_yours" });
-  if (code === "invalid_transition" || code === "conflict") return ok(await afterLosing(deps, actor, approval.request.id));
+  if (code === "invalid_transition" || code === "conflict") return ok(await afterLosing(scoped, actor, approval.request.id));
   return decided;
 }
 

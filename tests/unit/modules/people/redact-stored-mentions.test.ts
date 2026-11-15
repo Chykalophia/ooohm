@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 import type { MentionStore, SettingLabel } from "@/modules/people/application/deletion/mention-store";
 import { redactStoredMentions } from "@/modules/people/application/deletion/redact-stored-mentions";
 import { personRedactions } from "@/modules/people/domain/person-deletion";
+import { first } from "../../../support/present";
 
 /** An in-memory {@link MentionStore}: every row is "found" (the real store narrows by needle), and writes are kept. */
 function memoryStore(rows: {
@@ -88,7 +89,7 @@ describe("redacting stored mentions (on an in-memory store)", () => {
   test("keeping records replaces the email but leaves names in free text", async () => {
     const { store, writes } = memoryStore({ notes: [{ id: "r-1", note: "Ana Lima, ana@acme.test", decisionNote: null }] });
     await redactStoredMentions(store, personRedactions(PERSON, "records_kept"), NOW);
-    const note = (writes[0].value as { note: string }).note;
+    const note = (first(writes).value as { note: string }).note;
     assert.match(note, /^Ana Lima, deleted\+/);
   });
 

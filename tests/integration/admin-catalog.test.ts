@@ -14,6 +14,7 @@ import { companyAudit, companyEvents, requestDaysOf, seedCompany } from "./fixtu
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import { getAppearance } from "@/modules/organisation";
 import * as companySettings from "@/modules/leave";
+import { at, first } from "../support/present";
 
 const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
 const getPersonFormOptions = (...args: Parameters<typeof getPersonFormOptionsResult>) => getPersonFormOptionsResult(...args).then(unwrap);
@@ -210,9 +211,9 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     await rejectsWith(createLeaveType(ctx, boss, leaveType({ color: "teal" })), "invalid_input");
     await rejectsWith(createLeaveType(ctx, boss, leaveType({ defaultAllowanceDays: -1 })), "invalid_input");
 
-    const [audit] = await companyAudit(t.db, co.companyId);
+    const audit = first(await companyAudit(t.db, co.companyId));
     assert.deepEqual([audit.action, audit.entityId, audit.before], ["leave_type.created", created.id, null]);
-    const [event] = await companyEvents(t.db, co.companyId);
+    const event = first(await companyEvents(t.db, co.companyId));
     assert.deepEqual(event.payload, {
       leaveTypeId: created.id,
       name: "Parental leave",
@@ -524,7 +525,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
 
     const audit = await companyAudit(t.db, co.companyId, "company.");
     assert.equal(audit.length, 1, "saving the same settings records nothing");
-    assert.deepEqual(audit[0].after, {
+    assert.deepEqual(first(audit).after, {
       name: "Acme Inc",
       timezone: "Europe/Warsaw",
       workingDays: [1, 2, 3, 4, 5, 6],
@@ -541,7 +542,7 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
       layout: "standard",
       logo: null,
     });
-    const [event] = await companyEvents(t.db, co.companyId, "company.");
+    const event = first(await companyEvents(t.db, co.companyId, "company."));
     assert.equal((event.payload as { companyId: string }).companyId, co.companyId);
   });
 
@@ -569,9 +570,9 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
 
     const audit = await companyAudit(t.db, co.companyId, "company.");
     assert.equal(audit.length, 1, "saving the same look records nothing");
-    assert.equal(audit[0].actorId, boss.id);
+    assert.equal(first(audit).actorId, boss.id);
     assert.deepEqual(
-      [audit[0].before, audit[0].after].map((s) => {
+      [first(audit).before, first(audit).after].map((s) => {
         const value = s as { theme: string; accentColor: string | null; corners: string };
         return [value.theme, value.accentColor, value.corners];
       }),
@@ -579,13 +580,13 @@ describe("admin: departments, leave types, holidays and company", { skip }, () =
     );
     const events = await companyEvents(t.db, co.companyId, "company.");
     assert.equal(events.length, 1);
-    assert.equal((events[0].payload as { accentColor: string }).accentColor, "#f2a900");
+    assert.equal((first(events).payload as { accentColor: string }).accentColor, "#f2a900");
 
     const sentence = await updateCompanyAppearance(ctx, boss, { theme: "cobalt", accentColor: "#f2a900", corners: "square", requestStyle: "sentence" });
     assert.equal(sentence.requestStyle, "sentence");
     const compact = await updateCompanyAppearance(ctx, boss, { theme: "cobalt", accentColor: "#f2a900", corners: "square", requestStyle: "sentence", layout: "compact" });
     assert.equal(compact.layout, "compact");
-    assert.equal(((await companyEvents(t.db, co.companyId, "company."))[1].payload as { requestStyle: string }).requestStyle, "sentence");
+    assert.equal((at(await companyEvents(t.db, co.companyId, "company."), 1).payload as { requestStyle: string }).requestStyle, "sentence");
 
     const plain = await updateCompanyAppearance(ctx, boss, { theme: "plum", accentColor: "", corners: "theme" });
     assert.equal(plain.accentColor, null, "a blank accent goes back to the theme's own");

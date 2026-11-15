@@ -12,6 +12,7 @@ import {
   planPeopleImport,
   readPeopleCsv,
 } from "@/modules/people/domain/people-import";
+import { first } from "../support/present";
 
 const NO_FACTS: ImportFacts = { members: new Map(), takenEmails: new Set(), departments: new Map() };
 
@@ -72,7 +73,7 @@ describe("parseCsv", () => {
       ["Ann, Jr.", 'says "hi"'],
       ["Bo", "two\nlines"],
     ];
-    assert.deepEqual(parseCsv(toCsv(rows[0], rows.slice(1))), rows);
+    assert.deepEqual(parseCsv(toCsv(first(rows), rows.slice(1))), rows);
   });
 });
 
@@ -168,7 +169,7 @@ describe("planPeopleImport", () => {
 
   test("flags an email listed twice on the later line, naming the first", () => {
     const p = plan("email,name\nann@example.com,Ann\nANN@example.com,Ann again\n");
-    assert.equal(p.rows[0].status, "add");
+    assert.equal(first(p.rows).status, "add");
     assert.match(problemsOn(p, 3).join(" "), /line 2/);
   });
 
@@ -224,8 +225,9 @@ describe("planPeopleImport", () => {
 
   test("a row with problems keeps its name for the preview", () => {
     const p = plan("email,name,role\na@x.io,Ann Lee,wizard\n");
-    assert.ok(p.rows[0].status === "error");
-    assert.equal(p.rows[0].name, "Ann Lee");
+    const row = first(p.rows);
+    assert.ok(row.status === "error");
+    assert.equal(row.name, "Ann Lee");
   });
 
   test("a skipped row's department is not created", () => {

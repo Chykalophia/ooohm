@@ -6,8 +6,9 @@ import { loadDeletionFacts } from "@/modules/people/application/deletion/deletio
 import { executeDeletion } from "@/modules/people/application/deletion/execute-deletion";
 import { isScrubDue } from "@/modules/people/domain/deletion-lifecycle";
 import { deletionBlockers, isBlocked } from "@/modules/people/domain/person-deletion";
-import { type DueScrubCursor, findScrubRequest, listDueScrubs } from "@/modules/people/infrastructure/drizzle-person-deletion.repository";
+import { type DueScrubCursor, findScrubRequest } from "@/modules/people/infrastructure/drizzle-person-deletion.repository";
 import { lockCompany } from "@/shared/lib/db/company-lock";
+import { listDueScrubs } from "@/shared/lib/db/pre-tenant";
 import { lockPerson } from "@/shared/lib/db/members";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 
@@ -88,7 +89,7 @@ export async function sweepDueScrubs(sweep: DueScrubSweep, limit: number): Promi
 /** One due scrub, in its own transaction. Never throws: a failure is logged. */
 async function runOneDueScrub(ctx: ServiceContext, id: string, companyId: string, now: Date): Promise<DueScrubOutcome> {
   try {
-    const outcome = await inTransaction(ctx, async (tx): Promise<DueScrubOutcome> => {
+    const outcome = await inTransaction(ctx, companyId, async (tx): Promise<DueScrubOutcome> => {
       if (!(await lockCompany(tx, companyId))) return "gone";
       const person = await lockPerson(tx, companyId, id);
       if (!person || !isScrubDue(person.scrubScheduledAt, now)) return "gone";

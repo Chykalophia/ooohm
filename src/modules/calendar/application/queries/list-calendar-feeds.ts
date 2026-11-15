@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import type { FeedKind } from "@/shared/kernel/calendar-feed";
 import type { ServiceContext } from "@/server/context";
@@ -16,6 +17,7 @@ import { type CalendarFeedsDTO, toFeedSummary } from "@/modules/calendar/applica
  * Fails with `no_company` when the actor's company is missing.
  */
 export async function listCalendarFeeds(ctx: ServiceContext, actor: Actor): Promise<ServiceResult<CalendarFeedsDTO>> {
+  ctx = forTenant(ctx, actor.companyId);
   const [settings, rows] = await Promise.all([findCompanySettings(ctx.db, actor.companyId), listLiveFeeds(ctx.db, actor.id)]);
   if (!settings) return err("no_company");
   const summary = (kind: FeedKind) => {

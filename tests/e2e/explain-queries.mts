@@ -31,6 +31,7 @@ import { getAuditLog } from "../../src/modules/audit";
 import * as calendarModule from "../../src/modules/calendar";
 import { getDashboard as getDashboardResult, listLeaveRequestsForApi as listLeaveRequestsForApiResult } from "../../src/modules/leave";
 import { unwrap } from "../../src/shared/lib/result";
+import { at, first } from "../support/present";
 
 const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
 const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
@@ -78,7 +79,7 @@ const YEARS = [2024, 2025, 2026];
 const PEOPLE = 50;
 
 async function seedCompany(name: string) {
-  const [company] = await db.insert(schema.companies).values({ name }).returning();
+  const company = first(await db.insert(schema.companies).values({ name }).returning());
   const types = await db
     .insert(schema.leaveTypes)
     .values(
@@ -106,19 +107,19 @@ async function seedCompany(name: string) {
     email: `p${i}-${company.id.slice(0, 8)}@example.com`,
     name: `Person ${i}`,
     role: (i === 0 ? "admin" : i < 5 ? "manager" : "employee") as Actor["role"],
-    departmentId: departments[i % 3].id,
+    departmentId: at(departments, i % 3).id,
     createdAt: new Date("2023-01-02T00:00:00Z"),
   }));
   await db.insert(schema.user).values(people);
   for (const p of people.slice(5)) {
     await db
       .update(schema.user)
-      .set({ managerId: people[1 + (people.indexOf(p) % 4)].id })
+      .set({ managerId: at(people, 1 + (people.indexOf(p) % 4)).id })
       .where(eq(schema.user.id, p.id));
   }
   await db
     .insert(schema.allowances)
-    .values(people.flatMap((p) => YEARS.map((year) => ({ userId: p.id, leaveTypeId: types[0].id, year, days: 20 }))));
+    .values(people.flatMap((p) => YEARS.map((year) => ({ userId: p.id, leaveTypeId: first(types).id, year, days: 20 }))));
 
   const requests: (typeof schema.leaveRequests.$inferInsert & { id: string })[] = [];
   const days: (typeof schema.leaveRequestDays.$inferInsert)[] = [];
@@ -135,12 +136,12 @@ async function seedCompany(name: string) {
           id,
           companyId: company.id,
           userId: p.id,
-          leaveTypeId: types[k % 4 === 3 ? 1 : 0].id,
+          leaveTypeId: at(types, k % 4 === 3 ? 1 : 0).id,
           startDate: start,
           endDate: end,
           days: cost,
           status,
-          approverId: people[1 + (pi % 4)].id,
+          approverId: at(people, 1 + (pi % 4)).id,
           decidedAt: status === "pending" ? null : new Date(`${start}T09:00:00Z`),
         });
         days.push({ requestId: id, year, days: cost });
@@ -175,7 +176,7 @@ async function seedCompany(name: string) {
     canSelfApprove: false,
     source: byUser(p.id),
   });
-  return { companyId: company.id, admin: actor(people[0]), manager: actor(people[1]), employee: actor(people[10]) };
+  return { companyId: company.id, admin: actor(first(people)), manager: actor(at(people, 1)), employee: actor(at(people, 10)) };
 }
 
 const BIG_TABLES = ["leave_requests", "leave_request_days", "audit_log", "events_outbox", "allowances"];

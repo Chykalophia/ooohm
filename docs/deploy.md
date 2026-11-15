@@ -210,6 +210,18 @@ A leaked app connection string cannot drop a table or rewrite the audit log. Del
 removes the audit rows about them and redacts their name elsewhere, through two functions the owner owns
 (`ooohm_erase_audit_about`, `ooohm_redact_audit_snapshots`) that do only that.
 
+**Row-level security** (ADR-0004) holds the app role to one company at a time: every company-scoped table shows and
+takes only the rows of the company the transaction names (`app.company_id`, set by the app per transaction), and
+nothing without one, and a row can name only rows of its own company. The owner gets past it (migrations, the seed,
+the import); the app role does only through the narrow functions the owner owns (the few lookups that run before a
+company is known: sign-in, API keys, feed links, approve links, the worker's queues; listed in ADR-0004), so it must
+not have `BYPASSRLS` (`db-roles.sql` refuses such a role, as it refuses a superuser) and gets no rights on a view
+that reads as its owner. Row-level security contains bugs in the app's queries, not someone running their own SQL
+with the app role's credentials (they could name any company), and Better Auth's `verification` table (live sign-in
+tokens) has none: keep `DATABASE_URL` as secret as the owner's. Nothing to configure: `pnpm db:migrate` adds the policies, and `pnpm db:roles` points
+the owner's policies at `ooohm_owner` when an install that ran as one role is split. An install whose app still
+connects as the owner keeps working, but the policies do not hold it until it is split.
+
 `deploy/db-roles.sql` sets both roles up, idempotently: it creates them when missing, sets their passwords when
 given, hands every object an earlier install created to the owner, and grants the app role its rights, with default
 privileges so tables later migrations create get them too. `pnpm db:roles` runs it, connected with

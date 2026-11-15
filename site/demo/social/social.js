@@ -1,5 +1,7 @@
 // Shared timing helpers for the social cuts. Each film sets window.CAPTIONS and calls
 // drawCaption(t) from its seek(t); render-launch.mjs renders it frame by frame.
+// A classic script: the film pages call its top-level names, so they look unused here.
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const out = (x) => 1 - Math.pow(1 - x, 3);

@@ -10,6 +10,7 @@ import type { ImportPlan } from "@/modules/import/domain/timeoff/plan/types";
 import type { TimeOffSnapshot } from "@/modules/import/domain/timeoff/source";
 import { parseTimeOffDate, parseTimeOffTimestamp, readTimeOffSqlite } from "@/modules/import/infrastructure/timeoff-sqlite-reader";
 import { buildTimeOffFixture, FIXTURE_EXPECTED_2026, FIXTURE_QUINN_2027, type FixtureData, fixtureLeave, T, U } from "../support/timeoff-fixture";
+import { at, first } from "../support/present";
 
 let dir: string;
 let n = 0;
@@ -62,7 +63,7 @@ describe("TimeOff SQLite reader", () => {
     const dave = s.leaves.find((l) => l.userId === U.dave && l.dateStart === "2026-03-02")!;
     assert.deepEqual([dave.dateEnd, dave.dayPartStart, dave.dayPartEnd, dave.status], ["2026-03-04", 3, 2, 2]);
     assert.equal(s.users.find((u) => u.id === U.gina)!.endDate, "2025-06-30");
-    assert.equal(s.companies[0].carryOver, 5);
+    assert.equal(first(s.companies).carryOver, 5);
   });
 
   test("refuses a file that is not a TimeOff database, naming what it has", () => {
@@ -142,7 +143,7 @@ describe("TimeOff import plan: the allowance pool", () => {
     assert.ok(warning, "the CLI prints why new hires are not tracked");
     assert.match(warning.message, /20, 25 days/);
 
-    const uniform = plan((d) => void (d.departments[1].allowance = 25));
+    const uniform = plan((d) => void (at(d.departments, 1).allowance = 25));
     assert.equal(uniform.leaveTypes.find((t) => t.pool)!.defaultAllowanceDays, 25);
     assert.equal(uniform.warnings.some((w) => w.code === "pool_type_no_default"), false);
     // With a default, last year gets an explicit row, so the rollover never reads the default in its place.
@@ -302,12 +303,12 @@ describe("TimeOff import plan: companies", () => {
 
   test("the company schedule becomes the working days, and the carry-over setting the pool's carryover", () => {
     const p = plan((d) => {
-      d.schedules[0].saturday = 1;
-      d.companies[0].carry_over = 1000;
+      first(d.schedules).saturday = 1;
+      first(d.companies).carry_over = 1000;
     });
     assert.deepEqual(p.company.workingDays, [1, 2, 3, 4, 5, 6]);
     assert.deepEqual([p.company.carryoverEnabled, p.company.carryoverMaxDays], [true, null], "TimeOff's 'all days' is no cap");
-    const off = plan((d) => void (d.companies[0].carry_over = 0));
+    const off = plan((d) => void (first(d.companies).carry_over = 0));
     assert.deepEqual([off.company.carryoverEnabled, off.leaveTypes.find((t) => t.pool)!.carryoverEnabled], [false, false]);
   });
 });

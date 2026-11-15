@@ -4,7 +4,7 @@ import { describeOverlap, type Overlap, overlapsFor, type TeamLeave } from "@/mo
 
 const leave = (userId: string, startDate: string, endDate: string, extra: Partial<TeamLeave> = {}): TeamLeave => ({
   userId,
-  personName: userId[0].toUpperCase() + userId.slice(1),
+  personName: userId.charAt(0).toUpperCase() + userId.slice(1),
   departmentId: "design",
   startDate,
   endDate,

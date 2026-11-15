@@ -19,7 +19,7 @@ export async function lockCompaniesTable(tx: Transaction): Promise<void> {
 
 export async function insertCompany(
   tx: Transaction,
-  values: { name: string; timezone: string; workingDays: number[] },
+  values: { id?: string; name: string; timezone: string; workingDays: number[] },
 ): Promise<CompanyRow> {
   const rows = await tx.insert(companies).values(values).returning(companyFields);
   return returnedRow(rows);

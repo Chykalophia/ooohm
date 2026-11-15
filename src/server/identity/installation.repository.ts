@@ -1,6 +1,7 @@
 import "server-only";
-import { companies, installation, user } from "@/db/schema";
+import { installation } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
+import { isPopulated } from "@/shared/lib/db/pre-tenant";
 
 /**
  * Whether this OOOhm has been set up: the install marker exists, or any company or person
@@ -10,8 +11,8 @@ import type { Executor, Transaction } from "@/db/types";
 export async function isInstalled(ex: Executor): Promise<boolean> {
   // One after another: the caller may pass a transaction, which runs one query at a time.
   if ((await ex.select({ id: installation.id }).from(installation).limit(1)).length > 0) return true;
-  if ((await ex.select({ id: companies.id }).from(companies).limit(1)).length > 0) return true;
-  return (await ex.select({ id: user.id }).from(user).limit(1)).length > 0;
+  // Companies and people of any company: a pre-tenant read (ADR-0004).
+  return isPopulated(ex);
 }
 
 /** Writes the install marker (once; a second call changes nothing). */

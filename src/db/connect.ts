@@ -1,5 +1,5 @@
 import "server-only";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Logger } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -7,6 +7,7 @@ import postgres from "postgres";
 import type { DatabaseConfig, EmbeddedConfig, PostgresConfig } from "./config";
 import { acquireEmbeddedLock } from "./embedded-lock";
 import * as schema from "./schema";
+import { EMBEDDED_APP_ROLE, type EmbeddedClientLike, embeddedRoleClient, embeddedTenantClient, postgresTenantClient, registerTenantFactory } from "./tenant";
 import type { Database } from "./types";
 
 /**
@@ -48,11 +49,21 @@ export function postgresClient(config: PostgresConfig, options: { url?: string; 
   });
 }
 
+/**
+ * A drizzle handle on a postgres.js client, which can be bound to a company
+ * (`tenantDatabase`, `src/db/tenant.ts`) with the same logger.
+ */
+export function postgresDatabase(client: postgres.Sql, logger?: Logger): Database {
+  return registerTenantFactory(drizzle(client, drizzleOptions(logger)), (companyId) =>
+    drizzle({ client: postgresTenantClient(client, companyId), ...drizzleOptions(logger) }),
+  );
+}
+
 /** A Postgres-backed handle. Synchronous: nothing connects until the first query. */
 export function connectPostgres(config: PostgresConfig, options: Omit<OpenOptions, "purpose"> & { url?: string } = {}): DatabaseHandle & { client: postgres.Sql } {
   const client = postgresClient(config, options);
   return {
-    db: drizzle(client, drizzleOptions(options.logger)),
+    db: postgresDatabase(client, options.logger),
     client,
     kind: "postgres",
     close: () => client.end({ timeout: 5 }),
@@ -100,7 +111,7 @@ export async function openEmbedded(config: EmbeddedConfig, options: OpenOptions)
       mkdirSync(dir, { recursive: true });
       client = await PGlite.create(dir);
     }
-    const db = drizzlePglite(client, drizzleOptions(options.logger)) as unknown as Database;
+    const db = embeddedDatabase(drizzlePglite, client, options.logger);
     return {
       db,
       client,
@@ -119,6 +130,45 @@ export async function openEmbedded(config: EmbeddedConfig, options: OpenOptions)
   }
 }
 
+type DrizzlePglite = Awaited<ReturnType<typeof loadPglite>>["drizzlePglite"];
+
+/**
+ * A drizzle handle on a PGlite client (or a wrapper of one), which can be bound to a
+ * company. `drizzlePglite` is drizzle's PGlite driver, loaded by the caller.
+ */
+export function embeddedDatabase(drizzlePglite: DrizzlePglite, client: EmbeddedClientLike, logger?: Logger): Database {
+  const make = (c: EmbeddedClientLike) => drizzlePglite({ client: c as unknown as EmbeddedClient, ...drizzleOptions(logger) }) as unknown as Database;
+  return registerTenantFactory(make(client), (companyId) => make(embeddedTenantClient(client, companyId)));
+}
+
+/**
+ * The embedded app's handle: the same PGlite database, with every statement run as the
+ * app role ({@link EMBEDDED_APP_ROLE}, set up by {@link prepareEmbeddedAppRole}), so the
+ * row-level security policies hold as on Postgres. Migrations, the seed and the TimeOff
+ * import use the handle itself (PGlite's superuser), as the owner.
+ */
+export async function embeddedAppDatabase(handle: DatabaseHandle & { client: EmbeddedClient }, logger?: Logger): Promise<Database> {
+  const { drizzlePglite } = await loadPglite();
+  return embeddedDatabase(drizzlePglite, embeddedRoleClient(handle.client as unknown as EmbeddedClientLike), logger);
+}
+
+/**
+ * Creates the embedded app role when missing and gives it the app role's grants
+ * (deploy/db-roles.sql in grants-only mode, PGlite's superuser as the owner). Run after
+ * every migration, so tables a migration adds get them too. Idempotent.
+ */
+export async function prepareEmbeddedAppRole(handle: DatabaseHandle & { client: EmbeddedClient }): Promise<void> {
+  const client = handle.client;
+  await client.exec(
+    `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${EMBEDDED_APP_ROLE}') THEN CREATE ROLE ${EMBEDDED_APP_ROLE} NOLOGIN NOSUPERUSER NOBYPASSRLS; END IF; END $$;`,
+  );
+  const file = readFileSync(path.resolve(process.cwd(), "deploy", "db-roles.sql"), "utf8");
+  await client.transaction(async (tx) => {
+    await tx.query("select set_config('ooohm.app_role', $1, true), set_config('ooohm.grants_only', 'on', true)", [EMBEDDED_APP_ROLE]);
+    await tx.exec(file);
+  });
+}
+
 /** Opens whichever database `config` names. */
 export async function openDatabase(config: DatabaseConfig, options: OpenOptions): Promise<DatabaseHandle> {
   return config.kind === "embedded" ? openEmbedded(config, options) : connectPostgres(config, options);
@@ -130,7 +180,8 @@ export const MIGRATIONS_FOLDER = path.resolve(process.cwd(), "drizzle");
 /**
  * Applies pending migrations. Postgres migrates over `migrationUrl` (`DATABASE_URL_UNPOOLED`
  * when set) on a connection of its own, since DDL and the migrator need a real session
- * rather than a transaction pooler. Embedded mode migrates the handle it is given.
+ * rather than a transaction pooler. Embedded mode migrates the handle it is given, then
+ * readies its app role ({@link prepareEmbeddedAppRole}).
  */
 export async function migrateDatabase(
   config: DatabaseConfig,
@@ -153,6 +204,7 @@ export async function migrateDatabase(
   try {
     const { migrate, drizzlePglite } = await loadPglite();
     await migrate(drizzlePglite((handle as DatabaseHandle & { client: EmbeddedClient }).client), { migrationsFolder });
+    await prepareEmbeddedAppRole(handle as DatabaseHandle & { client: EmbeddedClient });
   } finally {
     if (!options.embedded) await handle.close();
   }

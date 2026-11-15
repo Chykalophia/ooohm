@@ -1,5 +1,5 @@
 /**
- * End-to-end demo setup against a database (DATABASE_URL, or OOOHM_DB=embedded while the
+ * End-to-end demo setup against a database (DATABASE_ADMIN_URL, else DATABASE_URL, or OOOHM_DB=embedded while the
  * app is stopped), acting as the seeded admin (SEED_ADMIN_EMAIL) through the same services
  * the admin screens call:
  *
@@ -14,7 +14,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
-import { resolveDatabaseConfig } from "../../src/db/config";
+import { resolveAdminDatabaseConfig, resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as schema from "../../src/db/schema";
 import { toActor } from "../../src/shared/kernel/actor";
@@ -26,6 +26,7 @@ import { unwrap } from "../../src/shared/lib/result";
 import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult } from "../../src/modules/integrations";
 import { uuidGenerator } from "../../src/shared/lib/id-generator";
 import { wireModules } from "../../src/server/wiring";
+import { at, first } from "../support/present";
 
 wireModules();
 
@@ -36,7 +37,10 @@ const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointR
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const [command, ...args] = process.argv.slice(2);
-const handle = await openDatabase(resolveDatabaseConfig(process.env), { purpose: "the e2e demo setup", max: 2 });
+// On Postgres, as the owner (DATABASE_ADMIN_URL) when it is set: it finds the admin before
+// any company is known, which row-level security hides from the app role.
+const config = process.env.DATABASE_ADMIN_URL?.trim() ? resolveAdminDatabaseConfig(process.env) : resolveDatabaseConfig(process.env);
+const handle = await openDatabase(config, { purpose: "the e2e demo setup", max: 2 });
 const { db } = handle;
 const ctx: ServiceContext = {
   db,
@@ -52,22 +56,22 @@ const ctx: ServiceContext = {
 };
 
 try {
-  const [admin] = await db.select().from(schema.user).where(eq(schema.user.email, process.env.SEED_ADMIN_EMAIL!.toLowerCase()));
+  const admin = first(await db.select().from(schema.user).where(eq(schema.user.email, process.env.SEED_ADMIN_EMAIL!.toLowerCase())));
   const actor = toActor(admin)!;
   if (command === "key") {
     const { key } = await createApiKey(ctx, actor, { name: "End-to-end demo" });
     console.log(key);
   } else if (command === "endpoint") {
     const { endpoint, secret } = await createWebhookEndpoint(ctx, actor, {
-      url: args[0],
+      url: at(args, 0),
       description: "End-to-end demo receiver",
       eventTypes: ["leave.requested", "leave.approved", "leave.cancelled"],
     });
-    writeFileSync(args[1], secret);
+    writeFileSync(at(args, 1), secret);
     console.log(endpoint.id);
   } else if (command === "leave") {
-    const [type] = await db.select().from(schema.leaveTypes).where(eq(schema.leaveTypes.companyId, actor.companyId)).orderBy(schema.leaveTypes.sortOrder);
-    const request = await submitLeaveRequest(ctx, actor, { leaveTypeId: type.id, startDate: args[0], endDate: args[0], dayPortion: "full" });
+    const type = first(await db.select().from(schema.leaveTypes).where(eq(schema.leaveTypes.companyId, actor.companyId)).orderBy(schema.leaveTypes.sortOrder));
+    const request = await submitLeaveRequest(ctx, actor, { leaveTypeId: type.id, startDate: at(args, 0), endDate: at(args, 0), dayPortion: "full" });
     console.log(request.id);
   } else {
     throw new Error(`Unknown command "${command}"`);

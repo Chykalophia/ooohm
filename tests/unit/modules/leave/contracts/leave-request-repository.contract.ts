@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import type { LeaveRequestRepository } from "@/modules/leave/application/ports";
 import type { LeaveRequest } from "@/modules/leave/domain/leave-request";
+import { at } from "../../../../support/present";
 
 /** The people and leave type a contract case stores requests for: they exist in the store. */
 export interface ContractFixture {
@@ -191,9 +192,9 @@ export function leaveRequestRepositoryContract(name: string, make: () => Promise
         own.map((r) => r.id),
         [dec.id, nov.id],
       );
-      assert.equal(own[1].leaveTypeName, f.leaveTypeName);
-      assert.equal(own[1].note, "Family visit");
-      assert.equal(own[1].approverId, f.approverId);
+      assert.equal(at(own, 1).leaveTypeName, f.leaveTypeName);
+      assert.equal(at(own, 1).note, "Family visit");
+      assert.equal(at(own, 1).approverId, f.approverId);
       assert.equal((await repo.listOwn(f.companyId, f.userId, 1)).length, 1);
       assert.equal((await repo.findOwn(f.companyId, f.userId, nov.id))?.id, nov.id);
       assert.equal(await repo.findOwn(f.companyId, f.userId, theirs.id), undefined);

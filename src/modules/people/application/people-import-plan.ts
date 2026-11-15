@@ -3,7 +3,7 @@ import "server-only";
 import type { Executor } from "@/db/types";
 import { listDepartments } from "@/modules/organisation";
 import { type ImportFacts, type PeopleImportPlan, planPeopleImport, readPeopleCsv } from "@/modules/people/domain/people-import";
-import { emailsInUse } from "@/modules/people/infrastructure/drizzle-people.repository";
+import { emailsInUse } from "@/shared/lib/db/pre-tenant";
 import { listPeopleNames } from "@/shared/lib/db/members";
 
 /** A plan, with the headers of the file's columns that the import ignores. */

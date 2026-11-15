@@ -18,7 +18,7 @@ export async function revokeCalendarFeed(ctx: ServiceContext, actor: Actor, kind
     asMember(ctx, actor, async (tx) => {
       const old = await revokeLiveFeed(tx, { userId: actor.id, kind }, ctx.now());
       if (!old) return false;
-      await recordFeedChange(tx, { event: "revoked", before: { ...old, revokedAt: null }, after: old, source: actor.source, reason: "turned_off" });
+      await recordFeedChange(tx, actor.companyId, { event: "revoked", before: { ...old, revokedAt: null }, after: old, source: actor.source, reason: "turned_off" });
       return true;
     }),
   );

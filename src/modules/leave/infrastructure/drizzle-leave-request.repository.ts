@@ -1,13 +1,13 @@
 import "server-only";
-import { and, asc, count, eq, gt, gte, inArray, lte, ne, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { PageRequest } from "@/domain/paging";
 import { activeInRange } from "@/shared/lib/db/active-leave";
 import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
-import { listActiveRequestsInRange, lockLeaveRequest, updateStatusIfCurrent } from "@/server/repositories/leave-requests";
-import { earliestOverlappingStart } from "@/shared/kernel/leave-range";
+import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
+import { earliestOverlappingStart, type LeaveStatus } from "@/shared/kernel/leave-range";
 import type { ApiLeaveRequest, ApiLeaveRequestPage, LeaveRequestRepository } from "../application/ports";
 import type { LeaveRequest } from "../domain/leave-request";
 import { insertRequestDays, listRequestDays, replaceRequestDays } from "./drizzle-leave-request-days";
@@ -52,6 +52,7 @@ export function drizzleLeaveRequestRepository(ex: Executor): LeaveRequestReposit
     insert: (request) => insertLeaveRequest(ex, request),
     saveYearDays: (requestId, split) => insertRequestDays(tx, requestId, split),
     updateStatusIfCurrent: (where, set) => updateStatusIfCurrent(ex, where, set).then(toOptional),
+    reassignIfCurrent: (where, approverId) => reassignIfCurrent(ex, where, approverId).then(toOptional),
     lockActiveOnDates: (companyId, dates) => lockActiveRequestsOnDates(tx, companyId, dates).then((rows) => rows.map(toLeaveRequest)),
     listYearDays: (requestIds) => listRequestDays(ex, requestIds),
     replaceYearDays: (requestId, split) => replaceRequestDays(tx, requestId, split),
@@ -61,6 +62,73 @@ export function drizzleLeaveRequestRepository(ex: Executor): LeaveRequestReposit
     medianDecisionHours: (q) => medianDecisionHours(ex, q),
     pageForApi: (q) => listLeaveRequestsPage(ex, q),
   };
+}
+
+/**
+ * A request of the company (one of another company reads as missing), holding the row `FOR UPDATE` until commit: for a change whose
+ * audit row records the request before it. A recount that holds the row is waited for,
+ * so "before" shows its days rather than the ones it replaced (the change's own update
+ * would wait on the same lock anyway; this takes it before the read instead of after).
+ */
+async function lockLeaveRequest(tx: Transaction, companyId: string, id: string) {
+  const [row] = await tx
+    .select()
+    .from(leaveRequests)
+    .where(and(eq(leaveRequests.id, id), eq(leaveRequests.companyId, companyId)))
+    .for("update");
+  return row;
+}
+
+/**
+ * Moves a request from `from` to `to` only if it is still in `from` (compare-and-set).
+ * Two concurrent decisions on the same request cannot both succeed: the loser matches
+ * no row and gets `undefined`. With `approverId`, the request must also still be
+ * assigned to that person, so a decision resting on the assignment loses to a
+ * concurrent reassignment.
+ */
+async function updateStatusIfCurrent(
+  ex: Executor,
+  where: { companyId: string; id: string; from: LeaveStatus; approverId?: string },
+  set: { status: LeaveStatus; decidedAt?: Date; decisionNote?: string | null },
+): Promise<LeaveRequestRow | undefined> {
+  const [row] = await ex
+    .update(leaveRequests)
+    .set(set)
+    .where(
+      and(
+        eq(leaveRequests.id, where.id),
+        eq(leaveRequests.companyId, where.companyId),
+        eq(leaveRequests.status, where.from),
+        where.approverId === undefined ? undefined : eq(leaveRequests.approverId, where.approverId),
+      ),
+    )
+    .returning();
+  return row;
+}
+
+/**
+ * Moves a pending request from one approver to another, only if it is still pending
+ * and still assigned to `from` (`null`: assigned to nobody) (compare-and-set, like
+ * {@link updateStatusIfCurrent}).
+ */
+async function reassignIfCurrent(
+  ex: Executor,
+  where: { companyId: string; id: string; from: string | null },
+  approverId: string | null,
+): Promise<LeaveRequestRow | undefined> {
+  const [row] = await ex
+    .update(leaveRequests)
+    .set({ approverId })
+    .where(
+      and(
+        eq(leaveRequests.id, where.id),
+        eq(leaveRequests.companyId, where.companyId),
+        eq(leaveRequests.status, "pending"),
+        where.from === null ? isNull(leaveRequests.approverId) : eq(leaveRequests.approverId, where.from),
+      ),
+    )
+    .returning();
+  return row;
 }
 
 /** Stores a new request with the id it was given; its timestamps come from the database clock. */

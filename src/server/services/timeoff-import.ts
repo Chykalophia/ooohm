@@ -43,7 +43,7 @@ import "server-only";
 import type { Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import { addDays, resolveAllowancePolicy } from "@/modules/balances";
-import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
+import { loadApprovalContexts, ManagerApprovalRule, reassignApprover } from "@/modules/approvals";
 import { type CalendarDate } from "@/domain/calendar-date";
 import { byUser, CHANGE_PROCESSES, type UserChangeSource } from "@/domain/change-source";
 import { COMPANY_NAME_MAX_LENGTH } from "@/domain/company-settings";
@@ -99,7 +99,6 @@ import {
   upsertAllowances,
 } from "@/server/repositories/imports";
 import { findMembers, lockMember } from "@/server/repositories/users";
-import { loadApprovalContexts } from "./approval-routing";
 import { loadBalances } from "@/modules/balances";
 import { recarryMemberLeaveType } from "@/modules/balances";
 

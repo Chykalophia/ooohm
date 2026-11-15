@@ -9,11 +9,10 @@ import "server-only";
 import type { Actor } from "@/domain/actor";
 import { isUuid } from "@/domain/ids";
 import type { ServiceContext } from "@/server/context";
-import { listPendingRequestsInDepartment } from "@/server/repositories/leave-requests";
+import { listPendingRequestsInDepartment, rerouteApprovals } from "@/modules/approvals";
 import { canManageDepartments, changeDepartmentManager, type DepartmentDTO } from "@/modules/organisation";
 import { commitThenNotify } from "@/modules/notifications";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import { rerouteApprovals } from "./approval-reroute";
 
 /** What setting a department's manager did. */
 export interface DepartmentManagerResult extends DepartmentDTO {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { formatDays, formatLeaveDates } from "@/lib/format";
 import { serviceContext } from "@/server/runtime";
-import { type EmailApproval, readEmailApproval } from "@/server/services/email-approval";
+import { type EmailApproval, readEmailApproval } from "@/modules/approvals";
 import { Logo } from "@/components/layout/logo";
 import { StatusBadge } from "@/components/leave/status-badge";
 import { Card } from "@/components/ui/card";

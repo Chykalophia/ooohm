@@ -8,14 +8,12 @@ import "server-only";
 import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import type { ApiClient } from "@/domain/integrations";
-import type { ApprovalRule } from "@/domain/approval-rule";
 import type { PageCursor } from "@/domain/paging";
 import type { ServiceContext } from "@/server/context";
-import { approveLinkFor } from "@/server/services/approve-link";
 import { commitThenNotify } from "@/modules/notifications";
 import type { LeaveDraft } from "@/modules/balances";
 import { activeContactsIn, type LeaveChange, recordLeaveChangeIn, recordReassignmentIn } from "./application/leave-changes";
-import type { LeaveDeps, LeaveStore } from "./application/ports";
+import type { ApprovalRouter, LeaveDeps, LeaveRequestRepository, LeaveStore } from "./application/ports";
 import { alsoOffFor } from "./application/queries/also-off";
 import { getDashboard as dashboard } from "./application/queries/get-dashboard";
 import { getMyRequest as myRequest } from "./application/queries/get-my-request";
@@ -28,11 +26,44 @@ import { type CalendarChange, recountLeave as recount } from "./application/use-
 import { removeLeaveFor as removeFor } from "./application/use-cases/remove-leave-for";
 import { type SubmitLeaveInput, submitLeaveRequest as submit } from "./application/use-cases/submit-leave-request";
 import type { LeaveRequest } from "./domain/leave-request";
-import { approvalsRouter } from "./infrastructure/approvals-router";
 import { balancesAllowanceReader } from "./infrastructure/balances-allowance-reader";
 import { drizzleChangeLog } from "./infrastructure/drizzle-change-log";
 import { drizzleLeaveDirectory } from "./infrastructure/drizzle-leave-directory";
 import { drizzleLeaveRequestRepository } from "./infrastructure/drizzle-leave-request.repository";
+
+/**
+ * How leave reaches approval routing. The approvals module implements it and the
+ * composition root hands it over with {@link provideApprovalRouting} (`wireModules` in
+ * `src/server/wiring.ts`), so approvals depends on leave and never the other way.
+ */
+export interface ApprovalRouting {
+  /** The {@link ApprovalRouter} port, bound to `ex`. */
+  router(ex: Executor): ApprovalRouter;
+  /** The signed Approve link for a request email, or `null` where links cannot be signed. */
+  approveLink(ctx: ServiceContext, requestId: string, approverId: string): string | null;
+}
+
+/** Kept on `globalThis`, like the background wake, so every module graph in the process sees it. */
+const slot = globalThis as unknown as { ooohmApprovalRouting?: ApprovalRouting };
+
+/** Hands leave its approval routing. Called once per process by the composition root; calling again replaces it. */
+export function provideApprovalRouting(routing: ApprovalRouting): void {
+  slot.ooohmApprovalRouting = routing;
+}
+
+function approvalRouting(): ApprovalRouting {
+  const routing = slot.ooohmApprovalRouting;
+  if (!routing) throw new Error("Approval routing is not wired: call wireModules() from src/server/wiring.ts first.");
+  return routing;
+}
+
+/** {@link ApprovalRouter} on `ex`, resolved when first used, so reads that never route need no wiring. */
+function routerOn(ex: Executor): ApprovalRouter {
+  return {
+    route: (companyId, requester, mode) => approvalRouting().router(ex).route(companyId, requester, mode),
+    currentApprover: (companyId, requesterId) => approvalRouting().router(ex).currentApprover(companyId, requesterId),
+  };
+}
 
 /** Every port on Drizzle, bound to `ex` (the pool, or one transaction). */
 export function leaveStore(ex: Executor): LeaveStore {
@@ -40,7 +71,7 @@ export function leaveStore(ex: Executor): LeaveStore {
     requests: drizzleLeaveRequestRepository(ex),
     directory: drizzleLeaveDirectory(ex),
     allowances: balancesAllowanceReader(ex),
-    approvals: approvalsRouter(ex),
+    approvals: routerOn(ex),
     changes: drizzleChangeLog(ex as Transaction),
     alsoOff: { lines: (companyId, requests, readerId) => alsoOffFor(ex, companyId, requests, readerId) },
   };
@@ -52,7 +83,7 @@ export function leaveDeps(ctx: ServiceContext): LeaveDeps {
     clock: { now: () => ctx.now() },
     ids: ctx.ids,
     appUrl: ctx.appUrl,
-    approveLink: (requestId, approverId) => approveLinkFor(ctx, requestId, approverId),
+    approveLink: (requestId, approverId) => approvalRouting().approveLink(ctx, requestId, approverId),
     read: leaveStore(ctx.db),
     unitOfWork: (companyId, work) => commitThenNotify(ctx, companyId, (tx) => work(leaveStore(tx))),
   };
@@ -62,7 +93,7 @@ export function leaveDeps(ctx: ServiceContext): LeaveDeps {
 export function leaveModule(ctx: ServiceContext) {
   const deps = leaveDeps(ctx);
   return {
-    submitLeaveRequest: (actor: Actor, input: SubmitLeaveInput, rule?: ApprovalRule) => submit(deps, actor, input, rule),
+    submitLeaveRequest: (actor: Actor, input: SubmitLeaveInput) => submit(deps, actor, input),
     cancelLeaveRequest: (actor: Actor, requestId: string) => cancel(deps, actor, requestId),
     addLeaveFor: (actor: Actor, userId: string, input: SubmitLeaveInput) => addFor(deps, actor, userId, input),
     removeLeaveFor: (actor: Actor, requestId: string, reason: string) => removeFor(deps, actor, requestId, reason),
@@ -74,8 +105,7 @@ export function leaveModule(ctx: ServiceContext) {
   };
 }
 
-export const submitLeaveRequest = (ctx: ServiceContext, actor: Actor, input: SubmitLeaveInput, rule?: ApprovalRule) =>
-  leaveModule(ctx).submitLeaveRequest(actor, input, rule);
+export const submitLeaveRequest = (ctx: ServiceContext, actor: Actor, input: SubmitLeaveInput) => leaveModule(ctx).submitLeaveRequest(actor, input);
 export const cancelLeaveRequest = (ctx: ServiceContext, actor: Actor, requestId: string) => leaveModule(ctx).cancelLeaveRequest(actor, requestId);
 export const addLeaveFor = (ctx: ServiceContext, actor: Actor, userId: string, input: SubmitLeaveInput) => leaveModule(ctx).addLeaveFor(actor, userId, input);
 export const removeLeaveFor = (ctx: ServiceContext, actor: Actor, requestId: string, reason: string) =>
@@ -107,4 +137,30 @@ export function recordReassignment(tx: Transaction, change: { before: LeaveReque
 /** Active recipients by id, read in `ex`, so a deactivated person is never emailed. */
 export function activeContacts(ex: Executor, companyId: string, ids: readonly (string | null)[]) {
   return activeContactsIn(drizzleLeaveDirectory(ex), companyId, ids);
+}
+
+/**
+ * A request of the company, holding its row until `tx` ends: for another module's change
+ * to it (a decision), whose audit row records the request before it.
+ */
+export function lockLeaveRequest(tx: Transaction, companyId: string, id: string): Promise<LeaveRequest | undefined> {
+  return drizzleLeaveRequestRepository(tx).lock(companyId, id);
+}
+
+/**
+ * Moves a request from `where.from` to `set.status` only while it is still in `from`
+ * (and, with `where.approverId`, still assigned to that person): `undefined` when it
+ * lost to a concurrent change. Leave owns the table; approvals decides through this.
+ */
+export function updateStatusIfCurrent(
+  ex: Executor,
+  where: Parameters<LeaveRequestRepository["updateStatusIfCurrent"]>[0],
+  set: Parameters<LeaveRequestRepository["updateStatusIfCurrent"]>[1],
+): Promise<LeaveRequest | undefined> {
+  return drizzleLeaveRequestRepository(ex).updateStatusIfCurrent(where, set);
+}
+
+/** Moves a pending request to `approverId` only while it is still assigned to `where.from`; `undefined` otherwise. */
+export function reassignIfCurrent(ex: Executor, where: { companyId: string; id: string; from: string | null }, approverId: string | null): Promise<LeaveRequest | undefined> {
+  return drizzleLeaveRequestRepository(ex).reassignIfCurrent(where, approverId);
 }

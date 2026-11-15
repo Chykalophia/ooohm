@@ -4,7 +4,7 @@ import { z } from "zod";
 import { personLabel } from "@/domain/person";
 import { log } from "@/lib/log";
 import { serviceContext } from "@/server/runtime";
-import { approveFromEmail } from "@/server/services/email-approval";
+import { approveFromEmail } from "@/modules/approvals";
 
 /** What the page shows after the Approve button. */
 export type ApproveOutcome = { status: "idle" } | { status: "done"; state: string; message: string };
@@ -36,7 +36,9 @@ export async function approveFromEmailAction(_prev: ApproveOutcome, formData: Fo
   const parsed = tokenSchema.safeParse(formData.get("token"));
   if (!parsed.success) return { status: "done", state: "invalid", message: MESSAGES.invalid };
   try {
-    const result = await approveFromEmail(serviceContext(), parsed.data);
+    const outcome = await approveFromEmail(serviceContext(), parsed.data);
+    if (!outcome.ok) throw new Error(`approve from email failed: ${outcome.error.code}`);
+    const result = outcome.value;
     if (result.state === "approved") return { status: "done", state: "approved", message: approvedMessage(result.request) };
     return { status: "done", state: result.state, message: MESSAGES[result.state] ?? MESSAGES.invalid };
   } catch (err) {

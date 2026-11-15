@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { formatDays, formatInstantDate, formatLeaveDates } from "@/lib/format";
-import { type ApprovalsView, getApprovalTriage } from "@/server/services/approvals";
+import { type ApprovalsView, getApprovalTriage } from "@/modules/approvals";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { StatusBadge } from "@/components/leave/status-badge";

@@ -18,8 +18,8 @@ import {
   updatePerson,
 } from "@/server/services/admin-people";
 import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
-import { decideLeaveRequest } from "@/server/services/approvals";
 import * as calendarModule from "@/modules/calendar";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { createWebhookEndpoint, deleteWebhookEndpoint } from "@/server/services/webhooks";
@@ -29,6 +29,7 @@ import { createTestContext, createTestDatabase, skip, type TestDatabase } from "
 
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 

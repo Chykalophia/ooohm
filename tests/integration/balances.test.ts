@@ -5,9 +5,9 @@ import * as schema from "@/db/schema";
 import type { Actor } from "@/domain/actor";
 import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
 import { getPersonDetail } from "@/server/services/admin-people";
-import { decideLeaveRequest } from "@/server/services/approvals";
 import * as calendarModule from "@/modules/calendar";
 import { shouldSuggestCalendarFeed } from "@/modules/calendar";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";
@@ -18,6 +18,7 @@ import { createTestContext, createTestDatabase, skip, type TestContext, type Tes
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
 
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 // The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
 const previewLeaveRequest = (...args: Parameters<typeof balancesModule.previewLeaveRequest>) => balancesModule.previewLeaveRequest(...args).then(unwrap);

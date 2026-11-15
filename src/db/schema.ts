@@ -89,7 +89,7 @@ export const companies = pgTable("companies", {
   /** Managers see their direct reports' balances and request notes on the team member page. */
   managersSeeDetails: boolean("managers_see_details").notNull().default(true),
   /**
-   * `APPROVAL_MODES` in src/domain/approval-rule.ts: `required` (time off waits for an
+   * `APPROVAL_MODES` in src/shared/kernel/approval.ts: `required` (time off waits for an
    * approver) or `heads_up` (booked as it is sent; whoever would have approved it is told).
    */
   approvalMode: text("approval_mode").notNull().default("required"),

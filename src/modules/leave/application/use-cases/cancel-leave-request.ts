@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { readApprovalMode } from "@/domain/approval-rule";
+import { readApprovalMode } from "@/shared/kernel/approval";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { todayInTimeZone } from "@/lib/dates";

@@ -19,7 +19,14 @@ export {
   recordLeaveChange,
   recordReassignment,
   activeContacts,
+  lockLeaveRequest,
+  updateStatusIfCurrent,
+  reassignIfCurrent,
+  provideApprovalRouting,
+  type ApprovalRouting,
 } from "./composition";
+export type { ApprovalRouter, Requester } from "./application/ports";
+export { toLeaveRequestDTO } from "./application/dto";
 export { SUBMIT_LIMIT, SUBMIT_WINDOW_MINUTES, type SubmitLeaveInput } from "./application/use-cases/submit-leave-request";
 export { NOTHING_RECOUNTED, type CalendarChange, type HolidayFact, type OverdrawnBalance, type RecountOutcome } from "./application/use-cases/recount-leave";
 export { REQUESTS_PAGE_SIZE } from "./application/queries/list-my-requests";

@@ -97,6 +97,31 @@ export function leaveRequestRepositoryContract(name: string, make: () => Promise
     });
   });
 
+  test(`${name}: a status change guarded by the approver loses once the request is assigned elsewhere`, async () => {
+    const { fixture: f, use } = await make();
+    await use(async (repo) => {
+      const { id } = await repo.insert(draft(f));
+      const where = { companyId: f.companyId, id, from: "pending" as const };
+      assert.equal(await repo.updateStatusIfCurrent({ ...where, approverId: f.otherUserId }, { status: "approved" }), undefined);
+      assert.equal((await repo.updateStatusIfCurrent({ ...where, approverId: f.approverId }, { status: "approved" }))?.status, "approved");
+    });
+  });
+
+  test(`${name}: a pending request moves to another approver only while it is still with the one read`, async () => {
+    const { fixture: f, use } = await make();
+    await use(async (repo) => {
+      const { id } = await repo.insert(draft(f));
+      const at = { companyId: f.companyId, id };
+      assert.equal(await repo.reassignIfCurrent({ ...at, from: null }, f.otherUserId), undefined, "assigned to someone, not nobody");
+      assert.equal(await repo.reassignIfCurrent({ companyId: f.otherCompanyId, id, from: f.approverId }, null), undefined);
+      const moved = await repo.reassignIfCurrent({ ...at, from: f.approverId }, null);
+      assert.equal(moved?.approverId, null);
+      assert.equal((await repo.reassignIfCurrent({ ...at, from: null }, f.otherUserId))?.approverId, f.otherUserId);
+      await repo.updateStatusIfCurrent({ ...at, from: "pending" }, { status: "approved" });
+      assert.equal(await repo.reassignIfCurrent({ ...at, from: f.otherUserId }, f.approverId), undefined, "only while pending");
+    });
+  });
+
   test(`${name}: the per-year split is saved, read and replaced`, async () => {
     const { fixture: f, use } = await make();
     await use(async (repo) => {

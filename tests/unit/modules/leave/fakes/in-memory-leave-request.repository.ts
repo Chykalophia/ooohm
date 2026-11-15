@@ -70,12 +70,21 @@ export class InMemoryLeaveRequestRepository implements LeaveRequestRepository {
   }
 
   async updateStatusIfCurrent(
-    where: { companyId: string; id: string; from: LeaveRequest["status"] },
+    where: { companyId: string; id: string; from: LeaveRequest["status"]; approverId?: string },
     set: { status: LeaveRequest["status"]; decidedAt?: Date; decisionNote?: string | null },
   ) {
     const row = await this.find(where.companyId, where.id);
     if (!row || row.status !== where.from) return undefined;
+    if (where.approverId !== undefined && row.approverId !== where.approverId) return undefined;
     const next: LeaveRequest = { ...row, ...set, updatedAt: this.clock.now() };
+    this.rows.set(row.id, next);
+    return next;
+  }
+
+  async reassignIfCurrent(where: { companyId: string; id: string; from: string | null }, approverId: string | null) {
+    const row = await this.find(where.companyId, where.id);
+    if (!row || row.status !== "pending" || row.approverId !== where.from) return undefined;
+    const next: LeaveRequest = { ...row, approverId, updatedAt: this.clock.now() };
     this.rows.set(row.id, next);
     return next;
   }

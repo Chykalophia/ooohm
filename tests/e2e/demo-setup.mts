@@ -26,6 +26,9 @@ import { submitLeaveRequest as submitLeaveRequestResult } from "../../src/module
 import { unwrap } from "../../src/shared/lib/result";
 import { createWebhookEndpoint } from "../../src/server/services/webhooks";
 import { uuidGenerator } from "../../src/shared/lib/id-generator";
+import { wireModules } from "../../src/server/wiring";
+
+wireModules();
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 

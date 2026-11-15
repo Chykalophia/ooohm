@@ -26,6 +26,9 @@ import { createSecretBox } from "@/lib/integration-crypto";
 import type { MailMessage, ServiceContext } from "@/server/context";
 import { type AdapterRegistry, createAdapterRegistry } from "@/server/integrations/adapter";
 import { uuidGenerator } from "@/shared/lib/id-generator";
+import { wireModules } from "@/server/wiring";
+
+wireModules();
 
 const baseUrl = process.env.TEST_DATABASE_URL;
 

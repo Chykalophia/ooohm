@@ -33,7 +33,7 @@ for processes outside Next) is the only place that wires concrete implementation
 | `src/server/integrations/**`, `importers/**` | Ports / infrastructure | Adapter seam; one-time import readers |
 | `src/domain/**` | Domain | Pure rules and types; no I/O |
 | `src/lib/**`, `src/db/**` | Infrastructure + cross-cutting | Env, auth, logging, mail, crypto; schema and connection |
-| `src/modules/<m>/**` | All four, inside the module | `reports`, `organisation` (company, appearance, departments, levels, leave types), `notifications` (emails, Admin → Emails), `audit` (the audit log viewer) `leave` and `balances` (Tier 3: aggregates or strategies, ports, in-memory fakes and a repository contract) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
+| `src/modules/<m>/**` | All four, inside the module | `reports`, `organisation` (company, appearance, departments, levels, leave types), `notifications` (emails, Admin → Emails), `audit` (the audit log viewer) `leave`, `balances` and `approvals` (Tier 3: aggregates or strategies, ports, in-memory fakes and repository contracts; approvals implements leave's `ApprovalRouter`, wired in `src/server/wiring.ts`) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
 
 ## Where code is going
 

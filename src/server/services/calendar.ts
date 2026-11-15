@@ -19,7 +19,7 @@ import {
 } from "@/domain/calendar";
 import { CALENDAR_FILTERS, type CalendarFilter, calendarFilterLabel, calendarFiltersFor, narrowCalendarScope } from "@/domain/calendar-visibility";
 import { DomainError } from "@/domain/errors";
-import { teamLabel } from "@/domain/person";
+import { teamLabel } from "@/shared/kernel/person-label";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { findCalendarViewer, findCompanySettings, listHolidays, listPersonalEntries, listTeamEntries } from "@/server/repositories/calendar";

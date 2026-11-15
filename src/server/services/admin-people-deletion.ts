@@ -21,7 +21,7 @@ import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { bySystem, CHANGE_PROCESSES, type ChangeSource } from "@/domain/change-source";
-import { type CsvCell, toCsv } from "@/domain/csv";
+import { type CsvCell, toCsv } from "@/shared/kernel/csv";
 import { DomainError } from "@/domain/errors";
 import {
   ADMIN_EVENT_TYPES,
@@ -55,7 +55,7 @@ import {
   tombstoneEmail,
   tombstoneName,
 } from "@/domain/person-deletion";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { recordAuditOnly, recordChange } from "@/shared/lib/db/change-log";

@@ -9,7 +9,7 @@ import "server-only";
 import type { Actor, Role } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
-import { normalizePersonName } from "@/domain/people";
+import { normalizePersonName } from "@/shared/kernel/names";
 import type { ColorMode } from "@/domain/color-mode";
 import type { ServiceContext } from "@/server/context";
 import { findCompanySettings } from "@/server/repositories/calendar";

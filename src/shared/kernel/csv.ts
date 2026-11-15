@@ -2,7 +2,7 @@
  * CSV (RFC 4180): writing downloads that open in a spreadsheet, and reading uploads. Pure.
  */
 
-import { DomainError } from "./errors";
+import { DomainError } from "@/domain/errors";
 
 export type CsvCell = string | number | boolean | null | undefined;
 

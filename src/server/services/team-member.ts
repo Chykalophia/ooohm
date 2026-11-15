@@ -8,7 +8,7 @@ import { DomainError, isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/shared/kernel/leave-days";
 import { canAddLeaveFor, canCorrectLeaveFor, canRemoveOn, canSeeLeaveDetails } from "@/modules/leave";
-import { teamLabel } from "@/domain/person";
+import { teamLabel } from "@/shared/kernel/person-label";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";

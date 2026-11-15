@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
+import { PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { followsDarkMode, THEMES } from "@/domain/appearance";
 import { COLOR_MODES, type ColorMode } from "@/domain/color-mode";
 import { formatInstantDate, ROLE_LABEL } from "@/lib/format";

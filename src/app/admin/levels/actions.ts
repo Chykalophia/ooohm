@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { LEVEL_NAME_MAX_LENGTH } from "@/domain/people";
+import { LEVEL_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { createLevel, deleteLevel, renameLevel } from "@/modules/organisation";
 import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";

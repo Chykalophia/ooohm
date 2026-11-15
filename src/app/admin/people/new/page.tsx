@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { EMAIL_MAX_LENGTH } from "@/domain/people";
+import { EMAIL_MAX_LENGTH } from "@/shared/kernel/names";
 import { getPersonFormOptions } from "@/server/services/admin-people";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";

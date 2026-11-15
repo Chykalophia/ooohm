@@ -1,5 +1,5 @@
 import type { Role } from "@/domain/actor";
-import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
+import { PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { ROLE_LABEL } from "@/lib/format";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/fields";
 

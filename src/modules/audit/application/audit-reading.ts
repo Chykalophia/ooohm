@@ -7,7 +7,7 @@ import { AUDIT_ACTION_LABELS } from "@/domain/audit";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { isCursorInstant } from "@/domain/paging";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { formatInstantDateTime } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";
 import { findCompany, listAllLeaveTypes, listDepartments } from "@/modules/organisation";

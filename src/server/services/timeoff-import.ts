@@ -50,7 +50,7 @@ import { COMPANY_NAME_MAX_LENGTH } from "@/domain/company-settings";
 import { DomainError } from "@/domain/errors";
 import { IMPORT_AUDIT_ACTIONS, IMPORT_EVENT_TYPES, type ImportCompletedPayload, type Unattributed } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
-import { normalizeEmail } from "@/domain/people";
+import { normalizeEmail } from "@/shared/kernel/names";
 import { oneLine } from "@/domain/text";
 import type { TimeOffYearBalance } from "@/domain/timeoff/balance";
 import {

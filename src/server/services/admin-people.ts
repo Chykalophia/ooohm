@@ -28,7 +28,7 @@ import {
   normalizePersonName,
   type ReportingLine,
 } from "@/domain/people";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";

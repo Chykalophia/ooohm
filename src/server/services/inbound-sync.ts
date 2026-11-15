@@ -22,7 +22,7 @@ import { adapterSyncProcess, bySystem, type ChangeSource, through } from "@/doma
 import { DomainError, isDomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES, type Unattributed, type UserEventPayload } from "@/domain/events";
 import { assertAllowanceYear, MAX_ALLOWANCE_DAYS, normalizeDayAmount } from "@/domain/leave-type-settings";
-import { normalizeEmail, normalizePersonName } from "@/domain/people";
+import { normalizeEmail, normalizePersonName } from "@/shared/kernel/names";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import type { InboundBalance, InboundUser } from "@/server/integrations/adapter";

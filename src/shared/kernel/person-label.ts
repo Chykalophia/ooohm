@@ -1,5 +1,8 @@
-/** How people are named where others see them: emails, the team view, the team feed. */
-import { oneLine } from "./text";
+/**
+ * How people are named where others see them (emails, the team view, the team feed),
+ * and the name an admin types to confirm deleting someone.
+ */
+import { oneLine } from "@/domain/text";
 
 /** Longest display name shown; anything beyond is cut. */
 const NAME_MAX_LENGTH = 100;
@@ -29,4 +32,17 @@ export function personLabel(person: { name: string; email: string }): string {
  */
 export function teamLabel(person: { name: string; email: string }): string {
   return displayName(person.name) || displayName(person.email.split("@")[0]) || "A teammate";
+}
+
+/** What the admin must type to confirm: the person's name as shown, or their email when the name is blank. */
+export function confirmationTarget(person: { name: string; email: string }): string {
+  return displayName(person.name) || person.email;
+}
+
+const fold = (s: string) => oneLine(s).toLocaleLowerCase();
+
+/** Whether `typed` is the person's full name (spaces and case aside). */
+export function confirmationMatches(typed: string, person: { name: string; email: string }): boolean {
+  const target = fold(confirmationTarget(person));
+  return target.length > 0 && fold(typed) === target;
 }

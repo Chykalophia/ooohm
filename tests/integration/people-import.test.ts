@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { CHANGE_PROCESSES } from "@/domain/change-source";
-import { peopleImportSampleCsv } from "@/domain/people-import";
+import { peopleImportSampleCsv } from "@/modules/people";
 import { INVITE_SUBJECT } from "@/modules/notifications/application/templates/invite";
 import { invitePerson } from "@/server/services/admin-people";
 import { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport } from "@/server/services/admin-people-import";

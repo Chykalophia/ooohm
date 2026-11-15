@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
-import { personLabel } from "@/domain/person";
-import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
+import { personLabel } from "@/shared/kernel/person-label";
+import { DELETION_GRACE_DAYS } from "@/modules/people";
 import { formatInstantDate, ROLE_LABEL } from "@/lib/format";
 import { listPeople } from "@/server/services/admin-people";
 import { AdminShell } from "@/app/admin/admin-shell";

@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import type { ServiceContext } from "@/server/context";
 import { listPeopleNames } from "@/server/repositories/users";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";

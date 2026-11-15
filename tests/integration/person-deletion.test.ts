@@ -5,7 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { tombstoneEmail } from "@/domain/person-deletion";
+import { tombstoneEmail } from "@/modules/people";
 import type { WebhookFetch } from "@/lib/safe-fetch";
 import { createApiKey } from "@/server/services/api-keys";
 import { listBalancesForApi } from "@/server/services/api-v1";

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
+import { DELETION_GRACE_DAYS } from "@/modules/people";
 import { formatInstantDate } from "@/lib/format";
 import { getPersonDetail, getPersonFormOptions } from "@/server/services/admin-people";
 import { getDeletionPreview } from "@/server/services/admin-people-deletion";

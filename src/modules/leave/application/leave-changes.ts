@@ -9,7 +9,7 @@ import {
   leaveAuditAction,
   leaveEventPayload,
 } from "@/domain/events";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import type { LeaveSummary } from "@/modules/notifications";
 import type { LeaveDomainEvent } from "../domain/events";
 import { LEAVE_EVENT_NAMES } from "../domain/events";

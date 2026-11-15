@@ -1,7 +1,7 @@
 /**
  * Rules for deleting a person: when it is allowed, what the tombstone left behind is
  * called, what the confirmation dialog says it will remove, and how a person's name and
- * email are taken out of stored text and JSON. Pure; the deletion service loads the
+ * email are taken out of stored text and JSON. Pure; the deletion use cases load the
  * facts and applies these inside its transaction.
  *
  * A deleted person's `user` row is never removed: it stays as a tombstone so every
@@ -12,16 +12,16 @@
  * - `records_kept`: their sign-in and email go, their history stays under
  *   "<Name> (deleted)".
  */
-import type { Role } from "./actor";
-import type { DeletionBlockers } from "./error-details";
-import { DomainError } from "./errors";
-import type { DeletionMode } from "./events";
-import { displayName } from "./person";
-import { oneLine } from "./text";
+import type { Role } from "@/domain/actor";
+import type { DeletionBlockers } from "@/domain/error-details";
+import { DomainError } from "@/domain/errors";
+import type { DeletionMode } from "@/domain/events";
+import { oneLine } from "@/domain/text";
+import { confirmationMatches, displayName } from "@/shared/kernel/person-label";
 
-export type { DeletionBlockers } from "./error-details";
+export type { DeletionBlockers } from "@/domain/error-details";
 
-export type { DeletionMode } from "./events";
+export type { DeletionMode } from "@/domain/events";
 
 export const DELETION_MODES: readonly DeletionMode[] = ["scrubbed", "records_kept"];
 
@@ -120,18 +120,7 @@ export function deletionBlockersOf(err: DomainError): DeletionBlockers | null {
   return err.code === "deletion_blocked" && err.details && "stillActive" in err.details ? err.details : null;
 }
 
-/** What the admin must type to confirm: the person's name as shown, or their email when the name is blank. */
-export function confirmationTarget(person: { name: string; email: string }): string {
-  return displayName(person.name) || person.email;
-}
-
 const fold = (s: string) => oneLine(s).toLocaleLowerCase();
-
-/** Whether `typed` is the person's full name (spaces and case aside). */
-export function confirmationMatches(typed: string, person: { name: string; email: string }): boolean {
-  const target = fold(confirmationTarget(person));
-  return target.length > 0 && fold(typed) === target;
-}
 
 /** @throws DomainError `confirmation_mismatch` unless `typed` is the person's full name. */
 export function assertConfirmed(typed: string, person: { name: string; email: string }): void {

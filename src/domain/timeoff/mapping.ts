@@ -38,7 +38,7 @@ import {
   MAX_ALLOWANCE_DAYS,
   normalizeLeaveTypeColor,
 } from "@/domain/leave-type-settings";
-import { normalizeDepartmentName, normalizeEmail, normalizePersonName, PERSON_NAME_MAX_LENGTH } from "@/domain/people";
+import { normalizeDepartmentName, normalizeEmail, normalizePersonName, PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { oneLine } from "@/domain/text";
 import {
   isTimeOffApproved,

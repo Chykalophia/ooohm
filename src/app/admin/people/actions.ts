@@ -3,9 +3,9 @@
 import { z } from "zod";
 import { ROLES } from "@/domain/actor";
 import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
-import { EMAIL_MAX_LENGTH, PERSON_NAME_MAX_LENGTH } from "@/domain/people";
+import { EMAIL_MAX_LENGTH, PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { isDomainError } from "@/domain/errors";
-import { DELETION_MODES, type DeletionBlockers, type DeletionMode, deletionBlockersOf } from "@/domain/person-deletion";
+import { DELETION_MODES, type DeletionBlockers, type DeletionMode, deletionBlockersOf } from "@/modules/people";
 import { setAllowanceOverride } from "@/modules/balances";
 import { map } from "@/shared/lib/result";
 import { deactivatePerson, invitePerson, reactivatePerson, resendInvite, updatePerson } from "@/server/services/admin-people";

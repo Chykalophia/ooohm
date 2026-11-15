@@ -9,11 +9,9 @@ import {
   assertNotSelfDeactivation,
   assertValidManager,
   managerCandidates,
-  normalizeDepartmentName,
-  normalizeEmail,
-  normalizePersonName,
   type ReportingLine,
-} from "@/domain/people";
+} from "@/modules/people/domain/people";
+import { normalizeDepartmentName, normalizeEmail, normalizePersonName } from "@/shared/kernel/names";
 
 function throwsCode(fn: () => unknown, code: DomainErrorCode) {
   assert.throws(fn, (err) => isDomainError(err, code));

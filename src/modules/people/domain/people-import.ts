@@ -1,7 +1,7 @@
 /**
  * Bulk import of people from a CSV file an admin uploads: reading the file, and planning
- * what importing it would do. Pure; `admin-people-import` loads the facts a plan needs
- * (under the company lock when it applies one) and writes what the plan says.
+ * what importing it would do. Pure; the import use cases load the facts a plan needs
+ * (under the company lock when it applies one) and write what the plan says.
  *
  * The file has one person per row and these columns, in any order (headers are matched
  * ignoring case, spaces and hyphens; other columns are ignored):
@@ -19,10 +19,11 @@
  * an account, in this company or another; the reason never says which), or a problem. A
  * file with any problem is not imported at all, so a fixed file can simply be uploaded again.
  */
-import { ROLES, type Role } from "./actor";
-import { parseCsv, toCsv } from "./csv";
-import { DomainError, isDomainError } from "./errors";
-import { DEPARTMENT_NAME_MAX_LENGTH, isRole, normalizeDepartmentName, normalizeEmail, normalizePersonName } from "./people";
+import { ROLES, type Role } from "@/domain/actor";
+import { DomainError, isDomainError } from "@/domain/errors";
+import { parseCsv, toCsv } from "@/shared/kernel/csv";
+import { DEPARTMENT_NAME_MAX_LENGTH, normalizeDepartmentName, normalizeEmail, normalizePersonName } from "@/shared/kernel/names";
+import { isRole } from "./people";
 
 /** Most people one file may hold. */
 export const PEOPLE_IMPORT_MAX_ROWS = 500;

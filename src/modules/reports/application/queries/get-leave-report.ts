@@ -9,7 +9,7 @@ import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listHolidayDates } from "@/modules/calendar";
 import { findCompany, listDepartments } from "@/modules/organisation";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { listLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";
 import { loadBalances } from "@/modules/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import {

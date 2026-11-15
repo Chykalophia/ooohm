@@ -2,9 +2,10 @@ import "server-only";
 /**
  * The leave type settings the allowance policy reads: what balances, the year rollover
  * and the request form are computed from. The leave type catalog itself (names, codes,
- * the admin screens) belongs to the organisation module; these reads stay with the
- * balance code, which turns a type's own default into each person's default through
- * `loadAllowanceDefaults`.
+ * the admin screens) belongs to the organisation module; these reads serve the balance
+ * code, which turns a type's own default into each person's default through
+ * `loadAllowanceDefaults`. They sit here, not in balances, because calendar (which
+ * balances imports) reads them too.
  */
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { leaveTypes } from "@/db/schema";

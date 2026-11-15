@@ -7,7 +7,7 @@ import type { ServiceContext } from "@/server/context";
 import { listAuditEntriesAbout } from "@/modules/audit";
 import { loadBalances } from "@/modules/balances";
 import { listRecordYears, listRequestsForExport } from "@/modules/people/infrastructure/drizzle-person-deletion.repository";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { listLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";
 import type { CsvCell } from "@/shared/kernel/csv";
 import { personLabel } from "@/shared/kernel/person-label";
 

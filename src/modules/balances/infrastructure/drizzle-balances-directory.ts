@@ -1,8 +1,8 @@
 import "server-only";
 import type { Executor, Transaction } from "@/db/types";
 import { findCompanySettings, listCompanies, listHolidayDates, listHolidays } from "@/modules/calendar";
-import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
-import { findActiveLeaveType, listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { listActiveRequestsInRange } from "@/shared/lib/db/leave-requests";
+import { findActiveLeaveType, listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";
 import { listActiveMembers, lockMember, lockMembers } from "@/shared/lib/db/members";
 import { findDepartment, findLeaveTypeForAdmin, findLevel, listAllLeaveTypes, listDepartments, listLevels, lockCompanyForChange } from "@/modules/organisation";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";

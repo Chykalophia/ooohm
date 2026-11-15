@@ -8,7 +8,7 @@ import type { CalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
 import { normalizeEmail } from "@/shared/kernel/names";
 import type { ServiceContext } from "@/server/context";
-import type { ExistingAccount } from "@/server/repositories/imports";
+import type { ExistingAccount } from "@/modules/import/infrastructure/drizzle-import.repository";
 import type { AuditEntry } from "@/shared/lib/db/change-log";
 import type { ImportIssue, ImportPlan } from "@/modules/import/domain/timeoff/plan/types";
 import type { TimeOffCompany } from "@/modules/import/domain/timeoff/source";

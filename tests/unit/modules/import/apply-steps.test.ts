@@ -10,7 +10,7 @@ import { mismatchReasons, reconciliationRow } from "@/modules/import/application
 import { entry, type ImportRun } from "@/modules/import/application/steps/run";
 import { timeOffYearBalance } from "@/modules/import/domain/timeoff/balance";
 import type { ImportPlan, PlannedLeaveType, PlannedPerson, PlannedRequest } from "@/modules/import/domain/timeoff/plan/types";
-import type { ExistingAccount } from "@/server/repositories/imports";
+import type { ExistingAccount } from "@/modules/import/infrastructure/drizzle-import.repository";
 
 /** The records each import write step maps from the plan, before anything is written. */
 

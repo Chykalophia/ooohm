@@ -4,7 +4,7 @@ import { buildAgenda, buildMonthGrid, type CalendarViewEntry, monthGridBounds } 
 import { CALENDAR_FILTERS, type CalendarFilter, calendarFilterLabel, calendarFiltersFor, narrowCalendarScope } from "@/domain/calendar-visibility";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { listActiveLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { listHolidays, listTeamEntries } from "@/modules/calendar/infrastructure/drizzle-calendar.repository";
 import { calendarViewer, monthNav } from "@/modules/calendar/application/calendar-viewer";

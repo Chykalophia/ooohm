@@ -3,7 +3,7 @@ import { DomainError } from "@/domain/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { findCompanySettings } from "@/modules/calendar";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { listLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";
 import { allowanceYearsFor, balanceInputs, listAllowances, loadAllowanceDefaults, resolveAllowancePolicy, sumBookedDays } from "@/modules/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { type ApiClient, assertScope } from "@/modules/integrations/domain/integrations";

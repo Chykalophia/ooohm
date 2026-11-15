@@ -27,9 +27,7 @@ for processes outside Next) is the only place that wires concrete implementation
 | --- | --- | --- |
 | `src/app/**` | Presentation | Thin pages, server actions through the action pipeline (`src/app/_lib/server-action.ts`), route handlers |
 | `src/components/**` | Presentation (UI kit) | Renders props; never loads data |
-| `src/server/services/**` | Application | Use cases, transactions, authorization against data, audit + outbox, email after commit |
-| `src/server/repositories/**` | Infrastructure | Drizzle queries only; each takes an executor first |
-| `src/shared/kernel/**`, `src/shared/lib/**` | Shared | Pure kernel rules; `ServiceResult`, the unit of work (`inTransaction`), admin checks, `recordChange` and other repository helpers (`lib/db/`) |
+| `src/shared/kernel/**`, `src/shared/lib/**` | Shared | Pure kernel rules; `ServiceResult`, the unit of work (`inTransaction`), admin checks, `recordChange` and the shared reads and repository helpers (`lib/db/`) |
 | `src/server/integrations/**` | Ports | Adapter seam (the port `ServiceContext` names) |
 | `src/domain/**` | Domain | Pure rules and types; no I/O |
 | `src/lib/**`, `src/db/**` | Infrastructure + cross-cutting | Env, auth, logging, mail, crypto; schema and connection |
@@ -60,10 +58,10 @@ returns what the screen needs (a DTO, not a row).
 | The code… | Goes in |
 | --- | --- |
 | is a page, layout, server action or route handler | `src/app/…`, thin: parse → one use case → map the result |
-| runs one use case | `modules/<m>/application/use-cases/` (today: `src/server/services/`) |
+| runs one use case | `modules/<m>/application/use-cases/` |
 | decides whether an actor may do X | `modules/<m>/application/policies.ts` (today: `src/domain/*-permissions.ts`) |
 | is a business rule | `modules/<m>/domain/` (today: `src/domain/`) |
-| reads or writes the database | `modules/<m>/infrastructure/` (today: `src/server/repositories/`) |
+| reads or writes the database | `modules/<m>/infrastructure/`, or `src/shared/lib/db/` when modules below the owner read it too |
 | talks to a vendor (SMTP, Better Auth, webhooks out) | infrastructure, behind a port on `ServiceContext` |
 | is used by 3+ modules | `src/shared/` |
 | needs the database owner role | `src/server/admin/` only (ADR-0006) |

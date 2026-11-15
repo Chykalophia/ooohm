@@ -7,7 +7,7 @@ import { type CompanyDTO as CompanyRow } from "@/modules/organisation";
 import type { Transaction } from "@/db/types";
 import { byUser, CHANGE_PROCESSES, type UserChangeSource } from "@/domain/change-source";
 import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
-import { findAccountsByEmail, insertImportedAccounts, type NewImportedAccount, updateImportedAccount } from "@/server/repositories/imports";
+import { findAccountsByEmail, insertImportedAccounts, type NewImportedAccount, updateImportedAccount } from "@/modules/import/infrastructure/drizzle-import.repository";
 import type { PlannedPerson } from "@/modules/import/domain/timeoff/plan/types";
 import { activeAfterImport, type MatchedPeople, roleAfterImport } from "./match-people";
 import { accountSnapshot, actorEmailOf, entry, type ImportRun, refuse } from "./run";

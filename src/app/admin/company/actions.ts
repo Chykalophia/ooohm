@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { COMPANY_NAME_MAX_LENGTH } from "@/domain/company-settings";
 import { formatRecountOutcome } from "@/lib/format";
-import { updateCompanySettings } from "@/server/services/company-settings";
+import { updateCompanySettings } from "@/modules/leave";
 import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";

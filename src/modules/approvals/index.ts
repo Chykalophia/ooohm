@@ -6,6 +6,7 @@ import "server-only";
  */
 export {
   decideLeaveRequest,
+  setDepartmentManager,
   getApprovalTriage,
   getApprovalNav,
   readEmailApproval,
@@ -20,6 +21,7 @@ export {
   leaveApprovalRouting,
 } from "./composition";
 export type { Decision, DecideInput } from "./application/use-cases/decide-leave-request";
+export type { DepartmentManagerResult } from "./application/use-cases/set-department-manager";
 export { INBOX_PAGE_SIZE, SETTLED_DAYS } from "./application/queries/get-approval-triage";
 export type { Rerouted } from "./application/reroute-pending";
 export type { RoutingRequester } from "./application/ports";

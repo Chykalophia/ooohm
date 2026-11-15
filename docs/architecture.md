@@ -17,18 +17,17 @@ never calls a service. `src/shared/lib/db/**` (`recordChange`, `keysetPage`, dri
 audit modules' `infrastructure/` follow the repository rules; `src/shared/lib/unit-of-work.ts`, `admin-access.ts` and
 the audit, import and integrations modules' `application/` follow the service rules, and the integrations module's
 `infrastructure/` the repository rules. `src/server/integrations/**` (the adapter seam, M6) and
-`src/modules/import/infrastructure/**` (the source reader for one-time imports, M7: it reads another system's files
-into domain records and never touches OOOhm's database) follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
+`src/modules/import/infrastructure/timeoff-*.ts` (the source reader for one-time imports, M7: it reads another
+system's files into domain records and never touches OOOhm's database) follow the same rules. `src/server/runtime.ts` is the composition root and imports no use case or repository.
 `scripts/*.mts` (migrate, seed, rollover, the outbox worker, the TimeOff import) are composition roots for
 processes outside Next: the rollover, the worker and the TimeOff import build their `ServiceContext` with
 `scriptContext` (`scripts/script-context.mts`).
 
 | Layer | Path | Owns | May import |
 | --- | --- | --- | --- |
-| Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | services, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
+| Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | modules' `index.ts`, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
 | Shared UI | `src/components/**` | Reusable components and class recipes that render what a page passes in | domain types and pure functions, `lib` (not `env`, `db`, `auth`); never `src/app` or `src/server` |
-| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, modules' `index.ts`, `src/shared`, `lib` (not `env`, `db`, `auth`) |
-| Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
+| Shared data access | `src/shared/lib/db/**` | Repository helpers and the reads several modules share (members, company locks, leave type allowance settings, leave request reads). Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
 | Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
 | Modules | `src/modules/<m>/**` | A feature's use cases, queries, policies, DTOs, rules, repositories and presenters (`src/modules/README.md`) | other modules' `index.ts` only; inside, its own layers as `module-layers` allows |
 | Infrastructure | `src/lib/**`, `src/db/**` | Env, logging, mail transport, auth, formatting, schema, the connection pool | `domain` (pure functions and types, e.g. `toActor` for `requireActor`) |
@@ -989,9 +988,9 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
 
 ## Admin (M5)
 
-v1 runs one company per deployment. Every admin use case lives in `src/server/services/admin-*.ts` (people,
-allowances, holidays) or a module (`organisation` for the company, appearance, departments, levels and leave types,
-`notifications` for Admin → Emails, `audit` for the audit log), and every one of them:
+v1 runs one company per deployment. Every admin use case lives in a module (`organisation` for the company,
+appearance, departments, levels and leave types, `people`, `balances` for allowances, `holidays`, `notifications`
+for Admin → Emails, `audit` for the audit log), and every one of them:
 
 - starts with `assertCanAdminister(actor)` (`src/shared/kernel/admin-permissions.ts`) or the module's policy built on
   `canAdminister`: admins only, refused with `forbidden` whatever the page did;
@@ -1038,11 +1037,11 @@ the holiday edits; it imports leave for the recount, and reads holidays back thr
 Nearly every module reads it, so it imports no other module (`tests/architecture/organisation-boundary.test.ts`).
 Two admin changes reach further: new working days recount leave already sent, and a new department manager
 re-routes waiting requests. Organisation exports the change as a step on the caller's transaction
-(`saveCompanySettings`, `changeDepartmentManager`), and `src/server/services/company-settings.ts` and
-`department-manager.ts` run it with the recount or the re-route and send the emails after commit. Other modules read
+(`saveCompanySettings`, `changeDepartmentManager`), and `updateCompanySettings` in leave and `setDepartmentManager`
+in approvals run it with the recount or the re-route and send the emails after commit. Other modules read
 organisation through queries that return DTOs (`findCompany`, `listDepartments`, `findLeaveType`, …). Its leave
 type DTOs name the type; the allowance settings balances compute from are read by the balance code
-(`src/server/repositories/leave-type-allowances.ts`), and a person's default always comes from
+(`src/shared/lib/db/leave-type-allowances.ts`), and a person's default always comes from
 `loadAllowanceDefaults`.
 
 `src/modules/people` (README there) owns Admin → People, a person's deletion and scheduled scrub, the people
@@ -1656,7 +1655,7 @@ SQLite file ──(readTimeOffSqlite, node:sqlite, read-only)──► TimeOffSn
   balance for every person and year (`src/modules/import/domain/timeoff/balance.ts`). Refusals are `DomainError("import_refused")`.
 - **Use case** (`src/modules/import/application/import-timeoff.ts`, its steps in `application/steps/`): one
   `db.transaction` for everything, with bulk writes from
-  `src/server/repositories/imports.ts`. It runs the year rollover's step for last year
+  `src/modules/import/infrastructure/drizzle-import.repository.ts`. It runs the year rollover's step for last year
   (`recarryMemberLeaveType`, with a `record` hook that audits each change as `import.allowance` instead of the
   rollover's `balance.adjusted` event) for every imported active person, so the reconciliation sees what the
   nightly job will leave, then compares through `loadBalances` (the dashboard's balance code). Pending requests

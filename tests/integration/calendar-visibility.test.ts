@@ -11,7 +11,7 @@ import { getTeamMember as getTeamMemberResult } from "@/modules/people";
 import { companyAudit, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as organisation from "@/modules/organisation";
-import * as companySettings from "@/server/services/company-settings";
+import * as companySettings from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 
 const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);

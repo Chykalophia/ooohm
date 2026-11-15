@@ -7,7 +7,7 @@ import { defaultLeaveTypes, type InstallInput, normalizeInstall } from "@/domain
 import { setupTokenMatches } from "@/lib/setup-token";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { insertCompany, lockCompaniesTable } from "@/server/repositories/imports";
+import { insertCompany, lockCompaniesTable } from "@/shared/lib/db/company-creation";
 import { isInstalled, markInstalled } from "@/server/identity/installation.repository";
 import { addLeaveType, recordLeaveTypeChange } from "@/modules/organisation";
 import { insertPerson } from "@/shared/lib/db/members";

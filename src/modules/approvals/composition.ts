@@ -10,6 +10,7 @@ import type { Actor } from "@/domain/actor";
 import type { PageCursor } from "@/domain/paging";
 import type { ApprovalRouting, LeaveRequest } from "@/modules/leave";
 import { commitThenNotify } from "@/modules/notifications";
+import { changeDepartmentManager } from "@/modules/organisation";
 import type { ServiceContext } from "@/server/context";
 import { approveLinkFor as signApproveLink } from "./application/approve-link";
 import type { ApprovalsView } from "./application/dto";
@@ -21,6 +22,7 @@ import { type Rerouted, reroutePending } from "./application/reroute-pending";
 import { currentApprover, routeRequest } from "./application/routing";
 import { approveFromEmail as approveLink } from "./application/use-cases/approve-from-email";
 import { type DecideInput, decideLeaveRequest as decide } from "./application/use-cases/decide-leave-request";
+import { setDepartmentManager as setManager } from "./application/use-cases/set-department-manager";
 import { drizzleApprovalContextReader } from "./infrastructure/drizzle-approval-context.reader";
 import { drizzleApprovalDirectory } from "./infrastructure/drizzle-approval-directory";
 import { drizzleApprovalInbox } from "./infrastructure/drizzle-approval-inbox";
@@ -55,6 +57,30 @@ export const getApprovalTriage = (ctx: ServiceContext, actor: Actor, options?: {
 export const getApprovalNav = (ctx: ServiceContext, actor: Actor) => nav(approvalDeps(ctx), actor);
 export const readEmailApproval = (ctx: ServiceContext, token: string) => readLink(approvalDeps(ctx), token);
 export const approveFromEmail = (ctx: ServiceContext, token: string) => approveLink(approvalDeps(ctx), token);
+
+/**
+ * Sets a department's manager and re-routes the department's pending requests, in one
+ * transaction: organisation's `changeDepartmentManager` step, then `reroutePending`.
+ */
+export const setDepartmentManager = (ctx: ServiceContext, actor: Actor, id: string, managerId: string | null) =>
+  setManager(
+    {
+      approvals: approvalDeps(ctx),
+      unitOfWork: (companyId, work) =>
+        commitThenNotify(ctx, companyId, (tx) =>
+          work(
+            {
+              change: (a, departmentId, manager) => changeDepartmentManager(tx, a, departmentId, manager),
+              pendingInDepartment: (company, departmentId) => pending.listPendingRequestsInDepartment(tx, company, departmentId),
+            },
+            approvalStore(tx),
+          ),
+        ),
+    },
+    actor,
+    id,
+    managerId,
+  );
 
 /** The Approve link for a request email to `approverId`, or `null` where links cannot be signed. */
 export const approveLinkFor = (ctx: ServiceContext, requestId: string, approverId: string) => signApproveLink(ctx, requestId, approverId);

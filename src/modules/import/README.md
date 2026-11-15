@@ -8,7 +8,8 @@ session, so nothing in `src/app` may import it (ESLint refuses `@/modules/import
 
 The `import_runs` table (one row per applied import, keyed by the file's SHA-256), and the import's writes to
 companies, departments, leave types, holidays, people, allowances, leave requests and the audit log, all in one
-transaction. Its queries are in `src/server/repositories/imports.ts`, which the first-install code shares.
+transaction. Its queries are in `infrastructure/drizzle-import.repository.ts`; creating the company itself is in
+`src/shared/lib/db/company-creation.ts`, which the first install shares.
 
 ## Public API (`index.ts`)
 

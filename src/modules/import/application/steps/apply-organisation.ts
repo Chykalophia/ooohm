@@ -5,7 +5,7 @@ import { type LeaveTypeSettingsDTO as LeaveTypeRow, addDepartment as insertDepar
  */
 import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
 import { insertHolidays } from "@/modules/holidays";
-import { countRequestsByLeaveType, listDepartmentsByName } from "@/server/repositories/imports";
+import { countRequestsByLeaveType, listDepartmentsByName } from "@/modules/import/infrastructure/drizzle-import.repository";
 import { leaveTypeCodeFor } from "@/modules/import/domain/timeoff/plan/rules";
 import type { PlannedLeaveType } from "@/modules/import/domain/timeoff/plan/types";
 import { entry, type ImportRun, leaveTypeSnapshot } from "./run";

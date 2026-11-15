@@ -1,4 +1,9 @@
 import "server-only";
+/**
+ * Reads of leave requests that modules below leave need (balances counts booked days,
+ * calendar asks whether someone has approved time off). Leave owns the table and
+ * imports those modules, so the reads sit here rather than behind leave's index.
+ */
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { leaveRequests } from "@/db/schema";
 import type { Executor } from "@/db/types";

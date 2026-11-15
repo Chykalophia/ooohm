@@ -12,7 +12,7 @@ import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
-import * as companySettings from "@/server/services/company-settings";
+import * as companySettings from "@/modules/leave";
 
 const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
 const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);

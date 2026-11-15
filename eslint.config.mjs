@@ -8,12 +8,12 @@ import nextTs from "eslint-config-next/typescript";
  */
 const next = [{ name: "next", message: "Keep Next.js in src/app and src/lib." }];
 const pool = { name: "@/db", message: "Take an executor (db or tx) as a parameter instead of importing the pool." };
-const drizzle = { group: ["drizzle-orm", "drizzle-orm/*", "postgres"], message: "Database access belongs in src/server/repositories." };
+const drizzle = { group: ["drizzle-orm", "drizzle-orm/*", "postgres"], message: "Database access belongs in a repository: a module's infrastructure/ or src/shared/lib/db." };
 const nextSub = { group: ["next/*"], message: "Keep Next.js in src/app and src/lib." };
 const upward = (message) => ({ group: ["@/app/*"], message });
 // Rules match import specifiers, so a "../" path would slip past every alias ban below.
 const relative = { group: ["../*"], message: "Import across directories through the @/ alias, so the layer rules apply." };
-const belowServices = (message) => ({ group: ["@/server/services/*", "@/server/repositories/*"], message });
+const belowUseCases = (message) => ({ group: ["@/shared/lib/db/*", "@/shared/lib/unit-of-work", "@/shared/lib/admin-access"], message });
 
 const layers = [
   {
@@ -22,7 +22,7 @@ const layers = [
     patterns: [
       drizzle,
       relative,
-      { group: ["@/server/repositories/*"], message: "Pages and actions call services, not repositories." },
+      { group: ["@/shared/lib/db/*"], message: "Pages and actions call modules, not repositories." },
       {
         group: ["@/modules/import", "@/modules/import/*", "@/modules/import/**"],
         message: "The TimeOff import is CLI-only: it has no actor or authorization.",
@@ -51,10 +51,9 @@ const layers = [
     ],
   },
   {
-    // Use cases: the old services, the shared unit of work and admin checks, and the
-    // application layer of the modules whose old service sat here.
+    // Use cases: the shared unit of work and admin checks, and the application layer of
+    // the Tier 2 modules.
     files: [
-      "src/server/services/**/*.ts",
       "src/shared/lib/unit-of-work.ts",
       "src/shared/lib/admin-access.ts",
       "src/modules/audit/application/**/*.ts",
@@ -65,7 +64,7 @@ const layers = [
     paths: [
       ...next,
       pool,
-      { name: "@/db/schema", message: "Queries belong in src/server/repositories." },
+      { name: "@/db/schema", message: "Queries belong in a repository: a module's infrastructure/ or src/shared/lib/db." },
       { name: "@/lib/env", message: "Read configuration through the ServiceContext." },
       { name: "@/lib/auth", message: "Services take an Actor; the page or action resolves the session." },
       { name: "@/server/runtime", message: "Services take a ServiceContext; only src/app builds one." },
@@ -74,8 +73,8 @@ const layers = [
   },
   {
     files: [
-      "src/server/repositories/**/*.ts",
       "src/shared/lib/db/**/*.ts",
+      "src/modules/import/infrastructure/drizzle-*.ts",
       "src/modules/notifications/infrastructure/**/*.ts",
       "src/modules/audit/infrastructure/**/*.ts",
       "src/modules/organisation/infrastructure/**/*.ts",
@@ -85,7 +84,7 @@ const layers = [
     patterns: [
       upward("Repositories never import presentation."),
       {
-        group: ["@/server/services/*", "@/modules/*", "@/shared/lib/unit-of-work", "@/shared/lib/admin-access", "@/server/runtime", "@/lib/auth"],
+        group: ["@/modules/*", "@/shared/lib/unit-of-work", "@/shared/lib/admin-access", "@/server/runtime", "@/lib/auth"],
         message: "Repositories sit below services and module use cases.",
       },
       nextSub,
@@ -109,7 +108,6 @@ const layers = [
       nextSub,
       relative,
       upward("Nothing in src/server imports presentation."),
-      belowServices("Templates and the context type sit below services."),
       // Templates import each other as ./x; every module path (the catalog, the sender, use cases) is above them.
       { group: ["@/modules/*", "@/shared/lib/unit-of-work", "@/shared/lib/admin-access", "@/shared/lib/db/*"], message: "Templates and the context type sit below services and modules." },
     ],
@@ -123,7 +121,7 @@ const layers = [
     paths: [
       ...next,
       pool,
-      { name: "@/db/schema", message: "Queries belong in src/server/repositories." },
+      { name: "@/db/schema", message: "Queries belong in a repository: a module's infrastructure/ or src/shared/lib/db." },
       { name: "@/lib/env", message: "Configuration reaches it through the ServiceContext." },
       { name: "@/lib/auth", message: "Notifications resolve nothing from the session." },
       { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
@@ -133,7 +131,6 @@ const layers = [
       nextSub,
       relative,
       upward("Nothing in src/server imports presentation."),
-      { group: ["@/server/services/*"], message: "Services call notifications, never the reverse." },
     ],
   },
   {
@@ -149,12 +146,12 @@ const layers = [
       { name: "@/lib/auth", message: "Adapters resolve nothing from the session." },
       { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
     ],
-    patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowServices("Adapters sit below services.")],
+    patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowUseCases("Adapters sit below use cases and repositories.")],
   },
   {
     // Source readers for one-time imports turn another system's files into plain domain
     // records. They read files only: never OOOhm's database, configuration or session.
-    files: ["src/modules/import/infrastructure/**/*.ts"],
+    files: ["src/modules/import/infrastructure/timeoff-*.ts"],
     paths: [
       ...next,
       pool,
@@ -163,12 +160,12 @@ const layers = [
       { name: "@/lib/auth", message: "Importers resolve nothing from the session." },
       { name: "@/server/runtime", message: "Only src/app builds the runtime context." },
     ],
-    patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowServices("Importers sit below services.")],
+    patterns: [drizzle, nextSub, relative, upward("Nothing in src/server imports presentation."), belowUseCases("Importers sit below use cases and repositories.")],
   },
   {
     // The composition root wires infrastructure into a ServiceContext; it calls no use case.
     files: ["src/server/runtime.ts"],
-    patterns: [relative, upward("Nothing in src/server imports presentation."), belowServices("The runtime builds the context; pages call services.")],
+    patterns: [relative, upward("Nothing in src/server imports presentation."), belowUseCases("The runtime builds the context; pages call modules.")],
   },
   {
     files: ["src/domain/**/*.ts"],
@@ -226,7 +223,7 @@ const sizeLimits = [
     rules: { "max-lines-per-function": ["warn", { max: 50, skipBlankLines: true, skipComments: true, IIFEs: true }] },
   },
   {
-    files: ["src/server/services/**/*.ts", "src/modules/*/application/**/*.ts"],
+    files: ["src/modules/*/application/**/*.ts"],
     rules: { "max-lines": ["warn", { max: 500, skipBlankLines: true, skipComments: true }] },
   },
   {

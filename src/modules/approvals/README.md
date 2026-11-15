@@ -23,7 +23,10 @@ and the pending lists an admin change re-routes.
   Reading never decides (mail scanners open links). `approveLinkFor(ctx, requestId, approverId)` signs one.
 - `getApprovalTriage(ctx, actor, { view, page, size })` → `ApprovalTriageDTO` (Needs you, Waiting on others,
   Settled) and `getApprovalNav(ctx, actor)` → `ApprovalNavDTO`.
-- On another service's transaction: `rerouteApprovals(ctx, tx, actor, requests)` → `{ reassigned, notify }`,
+- `setDepartmentManager(ctx, actor, id, managerId)` → `ServiceResult<DepartmentManagerResult>`: organisation's
+  `changeDepartmentManager` step and the re-route of the department's pending requests, in one transaction. Fails
+  with `forbidden`, `not_found`, `no_company` and `invalid_manager`.
+- On another module's transaction: `rerouteApprovals(ctx, tx, actor, requests)` → `{ reassigned, notify }`,
   `loadApprovalContexts(ex, companyId, requesters)` (the TimeOff import), and the pending lists
   `listPendingAssignedTo`, `listPendingRequestsOf`, `listPendingRequestsInDepartment`, `listPendingSelfRouted`.
 - The rules: `ManagerApprovalRule`, `HeadsUpApprovalRule`, `approvalRuleFor`, `reassignApprover`, `approverFor`.

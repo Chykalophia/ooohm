@@ -2,7 +2,7 @@ import "server-only";
 import type { Executor, Transaction } from "@/db/types";
 import { findCompanySettings, listHolidayDates } from "@/modules/calendar";
 import { findCompany, findDepartment, findLeaveType, findLeaveTypeForAdmin } from "@/modules/organisation";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { listLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";
 import { shareLockCompany } from "@/shared/lib/db/company-lock";
 import { findContacts, findPerson, lockMember, lockPerson } from "@/shared/lib/db/members";
 import type { LeaveDirectory } from "../application/ports";

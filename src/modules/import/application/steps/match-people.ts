@@ -3,7 +3,7 @@ import "server-only";
  * Import step: who of the plan's people is imported, and who already has an account.
  */
 import type { Role } from "@/domain/actor";
-import type { ExistingAccount } from "@/server/repositories/imports";
+import type { ExistingAccount } from "@/modules/import/infrastructure/drizzle-import.repository";
 import type { ImportIssue, PlannedPerson } from "@/modules/import/domain/timeoff/plan/types";
 import { refuse } from "./run";
 

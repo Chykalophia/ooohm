@@ -14,7 +14,7 @@ import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { listHolidayDates, listHolidays, listPersonLeave, scopeOf } from "@/modules/calendar";
 import { findCompany, findDepartment } from "@/modules/organisation";
-import { listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";
 import { findPerson } from "@/shared/lib/db/members";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 

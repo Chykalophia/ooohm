@@ -59,8 +59,9 @@ import { personLabel } from "@/domain/person";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { recordAuditOnly, recordChange } from "@/shared/lib/db/change-log";
-import { type CompanyRow, findCompany, lockCompany } from "@/server/repositories/companies";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { clearDepartmentsManagedBy, type CompanyDTO, findCompany, lockCompanyForChange } from "@/modules/organisation";
+import { lockCompany } from "@/shared/lib/db/company-lock";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import {
   clearManagerOf,
   clearScrubSchedule,
@@ -97,7 +98,6 @@ import {
   withdrawPendingRequestsOf,
   writeTombstone,
 } from "@/server/repositories/person-deletion";
-import { clearDepartmentsManagedBy } from "@/server/repositories/departments";
 import { findPerson, listActiveAdmins, lockPerson, type PersonRow } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { listAuditEntriesAbout } from "@/modules/audit";
@@ -392,8 +392,8 @@ async function executeDeletion(
 }
 
 /** Locks the company and checks the actor is still an active admin of it. */
-async function beginAdminChange(tx: Transaction, actor: Actor): Promise<CompanyRow> {
-  const company = await lockCompany(tx, actor.companyId);
+async function beginAdminChange(tx: Transaction, actor: Actor): Promise<CompanyDTO> {
+  const company = await lockCompanyForChange(tx, actor.companyId);
   if (!company) throw new DomainError("no_company");
   await assertActiveAdmin(tx, actor);
   return company;

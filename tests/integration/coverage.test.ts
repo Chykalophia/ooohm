@@ -2,13 +2,18 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { createDepartment, listDepartmentsForAdmin, setDepartmentLimit } from "@/server/services/admin-departments";
 import { draftCoverage, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
-import { unwrap } from "@/shared/lib/result";
 import { getApprovalTriage } from "@/server/services/approvals";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as organisation from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);
+const listDepartmentsForAdmin = (...args: Parameters<typeof organisation.listDepartmentsForAdmin>) => organisation.listDepartmentsForAdmin(...args).then(unwrap);
+const setDepartmentLimit = (...args: Parameters<typeof organisation.setDepartmentLimit>) => organisation.setDepartmentLimit(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 

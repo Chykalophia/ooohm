@@ -7,7 +7,6 @@ import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { tombstoneEmail } from "@/domain/person-deletion";
 import type { WebhookFetch } from "@/lib/safe-fetch";
-import { updateCompanySettings } from "@/server/services/admin-company";
 import { createApiKey } from "@/server/services/api-keys";
 import { listBalancesForApi } from "@/server/services/api-v1";
 import { setAllowanceOverride } from "@/server/services/admin-allowances";
@@ -39,6 +38,10 @@ import { createWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as companySettings from "@/server/services/company-settings";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 /** Reads the audit log and unwraps its ServiceResult, so the calls and assertions below stay plain. */

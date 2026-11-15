@@ -6,7 +6,7 @@ import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { activeContacts, type LeaveRequest, recordReassignment, summarize } from "@/modules/leave";
 import type { ServiceContext } from "@/server/context";
 import { reassignIfCurrent } from "@/server/repositories/leave-requests";
-import { listAllLeaveTypes } from "@/server/repositories/leave-types";
+import { listAllLeaveTypes } from "@/modules/organisation";
 import { findMembers } from "@/server/repositories/users";
 import { loadApprovalContexts } from "./approval-routing";
 import { approveLinkFor } from "./approve-link";

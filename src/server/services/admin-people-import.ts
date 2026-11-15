@@ -25,7 +25,7 @@ import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { creationOrder, type ImportFacts, type PeopleImportPlan, planPeopleImport, readPeopleCsv } from "@/domain/people-import";
 import type { ServiceContext } from "@/server/context";
 import { countRecentActions } from "@/modules/audit";
-import { insertDepartment, listDepartments } from "@/server/repositories/departments";
+import { addDepartment, listDepartments } from "@/modules/organisation";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { listPendingSelfRouted } from "@/server/repositories/leave-requests";
 import { emailsInUse, insertPerson, listPeopleNames, type PersonRow } from "@/server/repositories/users";
@@ -133,7 +133,7 @@ export async function importPeople(
 
       const departmentIds = new Map<string, string>();
       for (const name of plan.newDepartments) {
-        const row = await insertDepartment(tx, { companyId: actor.companyId, name });
+        const row = await addDepartment(tx, { companyId: actor.companyId, name });
         departmentIds.set(name.toLowerCase(), row.id);
         await recordAdminChange(tx, importer, {
           type: ADMIN_EVENT_TYPES.departmentCreated,

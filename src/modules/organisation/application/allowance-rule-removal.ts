@@ -1,22 +1,25 @@
 import "server-only";
 /**
  * How an allowance rule is recorded, and the clean-up when its department or level is
- * deleted. Kept apart from the rest of the allowance-rule use cases so that deleting a
- * level or a department does not depend on them.
+ * deleted. Organisation holds it because deleting a department or level removes their
+ * rules in the same transaction, and the balance code that owns the other rule changes
+ * depends on organisation, never the reverse. The rule use cases record their changes
+ * with the same snapshot and payload.
  */
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { ADMIN_EVENT_TYPES, type AllowanceRuleEventPayload, type Unattributed } from "@/domain/events";
-import { type AllowanceRuleRow, deleteAllowanceRulesOf } from "@/server/repositories/allowance-rules";
+import { deleteAllowanceRulesOf } from "@/modules/organisation/infrastructure/drizzle-allowance-rules.repository";
 import { recordAdminChange } from "@/shared/lib/admin-access";
+import type { AllowanceRuleFacts } from "@/modules/organisation/application/dto";
 
 /** A rule as its audit rows record it. */
-export function allowanceRuleSnapshot(rule: AllowanceRuleRow) {
+export function allowanceRuleSnapshot(rule: AllowanceRuleFacts) {
   return { leaveTypeId: rule.leaveTypeId, departmentId: rule.departmentId, levelId: rule.levelId, days: rule.days };
 }
 
 /** A rule as its events carry it. */
-export function allowanceRulePayload(rule: AllowanceRuleRow): Unattributed<AllowanceRuleEventPayload> {
+export function allowanceRulePayload(rule: AllowanceRuleFacts): Unattributed<AllowanceRuleEventPayload> {
   return { ruleId: rule.id, ...allowanceRuleSnapshot(rule) };
 }
 

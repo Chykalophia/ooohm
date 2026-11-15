@@ -1,7 +1,7 @@
 import "server-only";
 import type { Executor } from "@/db/types";
-import { listLevels as listLevelRows } from "../../infrastructure/drizzle-levels.repository";
-import { type LevelDTO, toLevelDTO } from "../dto";
+import { listLevels as listLevelRows } from "@/modules/organisation/infrastructure/drizzle-levels.repository";
+import { type LevelDTO, toLevelDTO } from "@/modules/organisation/application/dto";
 
 /**
  * The company's levels by name, ignoring case (every level list and picker uses this

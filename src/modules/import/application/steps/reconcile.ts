@@ -1,4 +1,5 @@
 import "server-only";
+import { type LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
 /**
  * Import steps: the year rollover's carry for the imported year, and the balance check
  * against TimeOff.
@@ -8,7 +9,6 @@ import { addDays, type Balance, resolveAllowancePolicy } from "@/domain/allowanc
 import type { UserChangeSource } from "@/domain/change-source";
 import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
 import { insertAuditEntries, listAllowancesOf } from "@/server/repositories/imports";
-import type { LeaveTypeRow } from "@/server/repositories/leave-types";
 import { lockMember } from "@/server/repositories/users";
 import { loadBalances } from "@/server/services/balances";
 import { recarryMemberLeaveType } from "@/server/services/rollover";

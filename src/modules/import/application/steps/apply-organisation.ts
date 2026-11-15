@@ -1,13 +1,11 @@
 import "server-only";
+import { type LeaveTypeSettingsDTO as LeaveTypeRow, addDepartment as insertDepartment, addLeaveType as insertLeaveType, applyCompanyChanges as updateCompany, applyLeaveTypeChanges as updateLeaveType, listAllLeaveTypes } from "@/modules/organisation";
 /**
  * Import steps: the company's settings, departments, leave types and holidays.
  */
 import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
-import { updateCompany } from "@/server/repositories/companies";
-import { insertDepartment } from "@/server/repositories/departments";
 import { insertHolidays } from "@/server/repositories/holidays";
 import { countRequestsByLeaveType, listDepartmentsByName } from "@/server/repositories/imports";
-import { insertLeaveType, type LeaveTypeRow, listAllLeaveTypes, updateLeaveType } from "@/server/repositories/leave-types";
 import { leaveTypeCodeFor } from "@/modules/import/domain/timeoff/plan/rules";
 import type { PlannedLeaveType } from "@/modules/import/domain/timeoff/plan/types";
 import { entry, type ImportRun, leaveTypeSnapshot } from "./run";

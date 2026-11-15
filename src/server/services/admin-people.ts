@@ -35,8 +35,7 @@ import type { ServiceContext } from "@/server/context";
 import { rerouteApprovals } from "./approval-reroute";
 import { countLiveApiKeys } from "@/server/repositories/api-keys";
 import { countRecentActions } from "@/modules/audit";
-import { findCompany, lockCompany } from "@/server/repositories/companies";
-import { findDepartment, listDepartments } from "@/server/repositories/departments";
+import { findCompany, findDepartment, listDepartments, lockCompanyForChange } from "@/modules/organisation";
 import { findLevel, listLevels } from "@/modules/organisation";
 import { followDefaults } from "./admin-allowance-rules";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
@@ -46,7 +45,7 @@ import {
   listPendingRequestsOf,
   listPendingSelfRouted,
 } from "@/server/repositories/leave-requests";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import {
   deleteSessionsOf,
   emailInUse,
@@ -195,7 +194,7 @@ export function inviteEmail(ctx: ServiceContext, person: PersonRow, inviterName:
 
 /** Locks the company and checks the actor is still an active admin of it. */
 export async function beginAdminChange(tx: Transaction, actor: Actor) {
-  const company = await lockCompany(tx, actor.companyId);
+  const company = await lockCompanyForChange(tx, actor.companyId);
   if (!company) throw new DomainError("no_company");
   await assertActiveAdmin(tx, actor);
   return company;

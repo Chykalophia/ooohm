@@ -1,4 +1,5 @@
 import "server-only";
+import { type CompanyDTO as CompanyRow, lockCompanyForChange as lockCompany } from "@/modules/organisation";
 /**
  * Import steps: refuse a file seen before, find (or create) the target company and check
  * it may take the import, then plan the import for it.
@@ -10,7 +11,6 @@ import { isUuid } from "@/domain/ids";
 import { oneLine } from "@/domain/text";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { type CompanyRow, lockCompany } from "@/server/repositories/companies";
 import { listHolidayRows } from "@/server/repositories/holidays";
 import {
   countCompanyLeaveRequests,

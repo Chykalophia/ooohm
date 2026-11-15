@@ -8,7 +8,7 @@ import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { insertMissingAllowances, listAllowances, setCarriedOverDays, sumBookedDays } from "@/server/repositories/balances";
 import { listCompanies } from "@/server/repositories/calendar";
-import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { listActiveMembers, lockMember } from "@/server/repositories/users";
 import { recordAllowanceChange } from "./allowance-changes";
 import { balanceInputs, loadAllowanceDefaults } from "./balances";

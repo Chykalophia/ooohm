@@ -986,8 +986,8 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
 ## Admin (M5)
 
 v1 runs one company per deployment. Every admin use case lives in `src/server/services/admin-*.ts` (people,
-departments, leave types, allowances, holidays, company) or a module (`organisation` for levels, `notifications` for
-Admin → Emails, `audit` for the audit log), and every one of them:
+allowances, holidays) or a module (`organisation` for the company, appearance, departments, levels and leave types,
+`notifications` for Admin → Emails, `audit` for the audit log), and every one of them:
 
 - starts with `assertCanAdminister(actor)` (`src/shared/kernel/admin-permissions.ts`) or the module's policy built on
   `canAdminister`: admins only, refused with `forbidden` whatever the page did;
@@ -1007,12 +1007,26 @@ needed. Behind a proxy that rewrites `Host`, set `serverActions.allowedOrigins` 
 
 ### Locks
 
-Rules that span several people take the **company lock** (`lockCompany`, `FOR NO KEY UPDATE` on the
-`companies` row) first: role and active changes (so two admins cannot demote each other past the last-admin
+Rules that span several people take the **company lock** (`lockCompany` in `src/shared/lib/db/company-lock.ts`,
+`FOR NO KEY UPDATE` on the `companies` row; `lockCompanyForChange` from `@/modules/organisation` takes the same lock and
+reads the company) first: role and active changes (so two admins cannot demote each other past the last-admin
 guard), manager changes (so two edits cannot close a reporting loop between them), invites (so the invite limit
 counts exactly), leave type creation, archiving and reordering (sort order), and company settings. It is always
 the first lock taken, so it cannot deadlock with the member locks taken after it. Allowance overrides take the
 person's **member lock** (`lockMember`), as the M3 rule requires of every writer of balance inputs.
+
+### Organisation
+
+`src/modules/organisation` (README there) owns the company row, departments, levels and the leave type catalog.
+Nearly every module reads it, so it imports no other module (`tests/architecture/organisation-boundary.test.ts`).
+Two admin changes reach further: new working days recount leave already sent, and a new department manager
+re-routes waiting requests. Organisation exports the change as a step on the caller's transaction
+(`saveCompanySettings`, `changeDepartmentManager`), and `src/server/services/company-settings.ts` and
+`department-manager.ts` run it with the recount or the re-route and send the emails after commit. Other modules read
+organisation through queries that return DTOs (`findCompany`, `listDepartments`, `findLeaveType`, …). Its leave
+type DTOs name the type; the allowance settings balances compute from are read by the balance code
+(`src/server/repositories/leave-type-allowances.ts`), and a person's default always comes from
+`loadAllowanceDefaults`.
 
 ### People
 

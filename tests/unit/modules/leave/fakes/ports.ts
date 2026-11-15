@@ -23,7 +23,7 @@ import type {
 } from "@/modules/leave/application/ports";
 import type { Notification } from "@/modules/notifications";
 import type { AuditEntry, OutboxEvent } from "@/shared/lib/db/change-log";
-import type { LeaveTypeRow } from "@/server/repositories/leave-types";
+import type { LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
 import type { LeaveTypeWithAllowance } from "@/server/services/balances";
 import { type IdGenerator, sequenceIds } from "@/shared/lib/id-generator";
 import { splitLeaveDaysByYear } from "@/shared/kernel/leave-days";

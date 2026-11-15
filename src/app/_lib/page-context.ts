@@ -9,7 +9,7 @@ import { requireActor } from "@/lib/auth";
 import type { ServiceContext } from "@/server/context";
 import { serviceContext } from "@/server/runtime";
 import { getApprovalNav } from "@/server/services/approvals";
-import { getCompanyLogo } from "@/server/services/appearance";
+import { getCompanyLogo } from "@/modules/organisation";
 import type { HeaderNav } from "@/components/layout/app-header";
 
 /** A signed-in member of a company, ready to render a page, with their colour mode. */

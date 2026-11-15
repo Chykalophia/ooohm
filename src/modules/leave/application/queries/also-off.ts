@@ -7,7 +7,7 @@ import { formatShortDay } from "@/lib/format";
 import { teamLabel } from "@/domain/person";
 import { canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { findCompanySettings, listHolidays, listTeamEntries } from "@/server/repositories/calendar";
-import { findDepartmentLimits } from "@/server/repositories/departments";
+import { findDepartmentLimits } from "@/modules/organisation";
 import { loadCalendarScope } from "@/server/services/calendar-scope";
 
 /** A request an approver is about to decide, with the requester's department (if any). */

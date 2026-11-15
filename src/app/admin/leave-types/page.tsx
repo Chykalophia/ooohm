@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { normalizeHexColor, readableTextColor } from "@/lib/color";
 import { formatDays } from "@/lib/format";
-import { type LeaveTypeRow, listLeaveTypesForAdmin } from "@/server/services/admin-leave-types";
+import { type LeaveTypeSettingsDTO, listLeaveTypesForAdmin } from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Item, ItemList } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { archiveLeaveTypeAction, reorderLeaveTypesAction } from "@/app/admin/lea
 
 export const metadata: Metadata = { title: "Leave types · Admin · OOOhm" };
 
-function summary(t: LeaveTypeRow): string {
+function summary(t: LeaveTypeSettingsDTO): string {
   const parts = [t.isPaid ? "Paid" : "Unpaid"];
   if (!t.countsAgainstAllowance) parts.push("no limit");
   else parts.push(t.defaultAllowanceDays === null ? "allowance set per person" : `${formatDays(t.defaultAllowanceDays)} a year`);
@@ -23,7 +24,7 @@ function summary(t: LeaveTypeRow): string {
   return parts.join(" · ");
 }
 
-function Chip({ t }: { t: LeaveTypeRow }) {
+function Chip({ t }: { t: LeaveTypeSettingsDTO }) {
   const color = normalizeHexColor(t.color);
   return (
     <span className="rounded-md px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: color, color: readableTextColor(color) }}>
@@ -34,7 +35,7 @@ function Chip({ t }: { t: LeaveTypeRow }) {
 
 export default async function LeaveTypesPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const types = await listLeaveTypesForAdmin(ctx, actor);
+  const types = unwrap(await listLeaveTypesForAdmin(ctx, actor));
   const active = types.filter((t) => t.archivedAt === null);
   const archived = types.filter((t) => t.archivedAt !== null);
 

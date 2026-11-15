@@ -1,4 +1,5 @@
 import "server-only";
+import { type LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
 /**
  * Import steps: the report, and, for an applied import, the `import_runs` row and the one
  * `import.completed` event.
@@ -6,7 +7,6 @@ import "server-only";
 import type { UserChangeSource } from "@/domain/change-source";
 import { IMPORT_AUDIT_ACTIONS, IMPORT_EVENT_TYPES, type ImportCompletedPayload, type Unattributed } from "@/domain/events";
 import { insertImportRun } from "@/server/repositories/imports";
-import type { LeaveTypeRow } from "@/server/repositories/leave-types";
 import { recordChange } from "@/shared/lib/db/change-log";
 import type { ImportPlan, PlannedAllowance } from "@/modules/import/domain/timeoff/plan/types";
 import type { TimeOffSnapshot } from "@/modules/import/domain/timeoff/source";

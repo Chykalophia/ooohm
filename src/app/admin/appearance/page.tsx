@@ -12,7 +12,8 @@ import {
   readAppearance,
 } from "@/domain/appearance";
 import { LOGO_RULES, LOGO_TYPES, appLogoRef, readStoredLogo } from "@/domain/company-logo";
-import { getCompanySettings } from "@/server/services/admin-company";
+import { getCompanySettings } from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { ActionForm } from "@/components/forms/action-form";
@@ -64,7 +65,7 @@ function ThemePreview({ theme }: { theme: ThemeKey }) {
 
 export default async function AppearancePage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const { company } = await getCompanySettings(ctx, actor);
+  const { company } = unwrap(await getCompanySettings(ctx, actor));
   const current = readAppearance(company);
   const stored = readStoredLogo(company);
   const logo = stored ? appLogoRef(stored, company.name) : null;

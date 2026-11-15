@@ -1,11 +1,11 @@
 import "server-only";
+import { type LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
 /**
  * Import steps: the pool type's allowances, and leave requests.
  */
 import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
 import { listAllowancesOf, insertImportedRequests, type NewImportedRequest, upsertAllowances } from "@/server/repositories/imports";
-import type { LeaveTypeRow } from "@/server/repositories/leave-types";
 import { findMembers } from "@/server/repositories/users";
 import { loadApprovalContexts } from "@/server/services/approval-routing";
 import type { PlannedAllowance, PlannedRequest } from "@/modules/import/domain/timeoff/plan/types";

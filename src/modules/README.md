@@ -2,7 +2,7 @@
 
 Each folder here is one feature module of the modular monolith (ADR-0009). A module owns its tables, its rules and
 its use cases, and the rest of the app reaches it only through its `index.ts`. `reports` (a query module) and
-`organisation` (CRUD, levels so far) are the two Tier 2 pilots: copy their shape. `leave` is the Tier 3 example:
+`organisation` (CRUD: company, departments, levels, leave types) are the two Tier 2 pilots: copy their shape. `leave` is the Tier 3 example:
 an aggregate, ports, in-memory fakes and a repository contract run on both.
 
 ## The template

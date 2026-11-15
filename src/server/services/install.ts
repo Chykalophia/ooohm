@@ -9,10 +9,9 @@ import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { insertCompany, lockCompaniesTable } from "@/server/repositories/imports";
 import { isInstalled, markInstalled } from "@/server/repositories/installation";
-import { insertLeaveType } from "@/server/repositories/leave-types";
+import { addLeaveType, recordLeaveTypeChange } from "@/modules/organisation";
 import { insertPerson } from "@/server/repositories/users";
 import { recordAdminChange } from "@/shared/lib/admin-access";
-import { recordLeaveTypeChange } from "./admin-leave-types";
 import { personPayload, personSnapshot } from "./admin-people";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 
@@ -83,7 +82,7 @@ export async function runFirstInstall(
       payload: personPayload(admin),
     });
     for (const type of defaultLeaveTypes()) {
-      const row = await insertLeaveType(tx, { companyId: company.id, ...type });
+      const row = await addLeaveType(tx, { companyId: company.id, ...type });
       await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeCreated, null, row);
     }
     await markInstalled(tx, "setup");

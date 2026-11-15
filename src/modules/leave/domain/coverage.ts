@@ -5,9 +5,7 @@
  * because both are on the calendar.
  */
 import { eachDate, isoWeekday } from "@/domain/calendar-date";
-
-/** The most a department's limit can be set to. */
-export const MAX_OFF_LIMIT = 999;
+export { MAX_OFF_LIMIT } from "@/shared/kernel/coverage-limit";
 
 /** One person's pending or approved leave, as the team calendar has it. */
 export interface CoverageLeave {

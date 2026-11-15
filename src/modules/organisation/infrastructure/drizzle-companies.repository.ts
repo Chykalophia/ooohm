@@ -2,58 +2,9 @@ import "server-only";
 import { asc, eq } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
+import { type CompanyRow, companyFields } from "@/shared/lib/db/company-columns";
 
-/** The columns of a {@link CompanyRow}; never the logo's bytes. */
-export const companyFields = {
-  id: companies.id,
-  name: companies.name,
-  timezone: companies.timezone,
-  workingDays: companies.workingDays,
-  allowancePolicy: companies.allowancePolicy,
-  deletionGrace: companies.deletionGrace,
-  managersSeeDetails: companies.managersSeeDetails,
-  approvalMode: companies.approvalMode,
-  colleagueVisibility: companies.colleagueVisibility,
-  departmentScoping: companies.departmentScoping,
-  theme: companies.theme,
-  accentColor: companies.accentColor,
-  corners: companies.corners,
-  requestStyle: companies.requestStyle,
-  layout: companies.layout,
-  logoSha256: companies.logoSha256,
-  logoType: companies.logoType,
-  logoWidth: companies.logoWidth,
-  logoHeight: companies.logoHeight,
-};
-
-export type CompanyRow = {
-  id: string;
-  name: string;
-  timezone: string;
-  workingDays: number[];
-  allowancePolicy: string;
-  /** Full-scrub deletes wait 7 days, with undo. */
-  deletionGrace: boolean;
-  /** Managers see their direct reports' balances and notes on the team member page. */
-  managersSeeDetails: boolean;
-  /** Raw stored approval mode; read it through `readApprovalMode`. */
-  approvalMode: string;
-  /** What employees see of colleagues' time off; read it through `readColleagueVisibility`. */
-  colleagueVisibility: string;
-  /** Everyone but admins sees only their departments' time off (`calendarScopeFor`). */
-  departmentScoping: boolean;
-  /** Raw stored appearance; read it through `readAppearance`. */
-  theme: string;
-  accentColor: string | null;
-  corners: string;
-  requestStyle: string;
-  layout: string;
-  /** Describe the logo, whose bytes are read only by {@link findLogoFile}; read them through `readStoredLogo`. */
-  logoSha256: string | null;
-  logoType: string | null;
-  logoWidth: number | null;
-  logoHeight: number | null;
-};
+export type { CompanyRow };
 
 export async function findCompany(ex: Executor, companyId: string): Promise<CompanyRow | undefined> {
   const [row] = await ex.select(companyFields).from(companies).where(eq(companies.id, companyId));
@@ -61,27 +12,11 @@ export async function findCompany(ex: Executor, companyId: string): Promise<Comp
 }
 
 /**
- * Takes a shared lock on the company row (`FOR SHARE`) for the rest of `tx`. Any number
- * of shared holders run side by side, but {@link lockCompany} waits for them, and they
- * for it. Leave submits hold it while counting days, so a holiday or working-days
- * change, which recounts submitted requests under {@link lockCompany}, can never miss a
- * request counted with the old calendar.
+ * Reads the company and holds a row lock on it until the transaction ends: the lock
+ * `lockCompany` takes (`src/shared/lib/db/company-lock.ts`), for a caller that also needs
+ * the company's settings.
  */
-export async function shareLockCompany(tx: Transaction, companyId: string): Promise<void> {
-  await tx.select({ id: companies.id }).from(companies).where(eq(companies.id, companyId)).for("share");
-}
-
-/**
- * Reads the company and holds a row lock on it until the transaction ends.
- *
- * Admin changes whose rules span several people take it first: role and active
- * changes (so two admins cannot demote each other past the last-admin guard), manager
- * changes (so two edits cannot close a reporting loop between them), invites (so the
- * invite rate limit counts exactly), company settings, and holiday changes (which
- * recount submitted leave). `FOR NO KEY UPDATE` does not block rows that merely
- * reference the company.
- */
-export async function lockCompany(tx: Transaction, companyId: string): Promise<CompanyRow | undefined> {
+export async function lockAndFindCompany(tx: Transaction, companyId: string): Promise<CompanyRow | undefined> {
   const [row] = await tx.select(companyFields).from(companies).where(eq(companies.id, companyId)).for("no key update");
   return row;
 }

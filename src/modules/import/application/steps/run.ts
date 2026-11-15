@@ -1,4 +1,5 @@
 import "server-only";
+import { type CompanyDTO as CompanyRow, type LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
 /**
  * What every step of one TimeOff import shares, and how a step writes its audit rows.
  */
@@ -7,9 +8,7 @@ import type { CalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
 import { normalizeEmail } from "@/domain/people";
 import type { ServiceContext } from "@/server/context";
-import type { CompanyRow } from "@/server/repositories/companies";
 import type { ExistingAccount } from "@/server/repositories/imports";
-import type { LeaveTypeRow } from "@/server/repositories/leave-types";
 import type { AuditEntry } from "@/shared/lib/db/change-log";
 import type { ImportIssue, ImportPlan } from "@/modules/import/domain/timeoff/plan/types";
 import type { TimeOffCompany } from "@/modules/import/domain/timeoff/source";

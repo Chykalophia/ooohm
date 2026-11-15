@@ -1,9 +1,9 @@
 import "server-only";
 import type { Executor, Transaction } from "@/db/types";
 import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
-import { findCompany, shareLockCompany } from "@/server/repositories/companies";
-import { findDepartment } from "@/server/repositories/departments";
-import { findLeaveType, findLeaveTypeForAdmin, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { findCompany, findDepartment, findLeaveType, findLeaveTypeForAdmin } from "@/modules/organisation";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
+import { shareLockCompany } from "@/shared/lib/db/company-lock";
 import { findContacts, findPerson, lockMember, lockPerson } from "@/server/repositories/users";
 import type { LeaveDirectory } from "../application/ports";
 

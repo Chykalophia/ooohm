@@ -1,4 +1,5 @@
 import "server-only";
+import { type CompanyDTO as CompanyRow } from "@/modules/organisation";
 /**
  * Import steps: people (rows only: no session, account link, token or email), and the
  * admin the import is attributed to.
@@ -6,7 +7,6 @@ import "server-only";
 import type { Transaction } from "@/db/types";
 import { byUser, CHANGE_PROCESSES, type UserChangeSource } from "@/domain/change-source";
 import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
-import type { CompanyRow } from "@/server/repositories/companies";
 import { findAccountsByEmail, insertImportedAccounts, type NewImportedAccount, updateImportedAccount } from "@/server/repositories/imports";
 import type { PlannedPerson } from "@/modules/import/domain/timeoff/plan/types";
 import { activeAfterImport, type MatchedPeople, roleAfterImport } from "./match-people";

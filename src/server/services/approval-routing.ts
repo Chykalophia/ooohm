@@ -6,7 +6,7 @@ import "server-only";
  */
 import type { Executor } from "@/db/types";
 import { type ApprovalContext, type ApprovalRequester, ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
-import { findDepartmentManagerIds } from "@/server/repositories/departments";
+import { findDepartmentManagerIds } from "@/modules/organisation";
 import { findMember, findMembers, listActiveAdmins } from "@/server/repositories/users";
 
 /** A requester as the approval rule needs them: who they are, and who might decide for them. */

@@ -30,15 +30,20 @@ import {
   updateAllowanceRuleDays,
 } from "@/server/repositories/allowance-rules";
 import { lockAllowancesFrom, setAllowanceDays } from "@/server/repositories/balances";
-import { lockCompany } from "@/server/repositories/companies";
-import { findDepartment, listDepartments } from "@/server/repositories/departments";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
-import { findLeaveType, listAllLeaveTypes } from "@/server/repositories/leave-types";
+import {
+  allowanceRulePayload as payload,
+  allowanceRuleSnapshot as snapshot,
+  findDepartment,
+  findLeaveType,
+  listAllLeaveTypes,
+  listDepartments,
+  lockCompanyForChange,
+} from "@/modules/organisation";
 import { lockMembers } from "@/server/repositories/users";
 import { findLevel, listLevels } from "@/modules/organisation";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { recordAllowanceChange } from "./allowance-changes";
-import { allowanceRulePayload as payload, allowanceRuleSnapshot as snapshot } from "./allowance-rule-removal";
 import { type AllowanceDefaults, loadAllowanceDefaults } from "./balances";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 
@@ -190,7 +195,7 @@ async function membersAt(tx: Transaction, actor: Actor, target: Placement): Prom
 
 /** Locks the company and checks the actor, then this year in the company's time zone. */
 async function thisYear(ctx: ServiceContext, tx: Transaction, actor: Actor): Promise<number> {
-  const company = await lockCompany(tx, actor.companyId);
+  const company = await lockCompanyForChange(tx, actor.companyId);
   if (!company) throw new DomainError("no_company");
   await assertActiveAdmin(tx, actor);
   return yearInTimeZone(company.timezone, ctx.now());

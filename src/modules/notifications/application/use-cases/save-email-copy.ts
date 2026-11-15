@@ -4,7 +4,7 @@ import type { EmailCopy } from "@/domain/email-template";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { DomainError } from "@/domain/errors";
 import type { ServiceContext } from "@/server/context";
-import { lockCompany } from "@/server/repositories/companies";
+import { lockCompany } from "@/shared/lib/db/company-lock";
 import { findEmailTemplate, upsertEmailTemplate } from "@/modules/notifications/infrastructure/drizzle-email-templates.repository";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { attempt, err, type ServiceResult, unwrap } from "@/shared/lib/result";

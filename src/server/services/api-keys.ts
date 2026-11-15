@@ -28,7 +28,8 @@ import {
   revokeApiKey as revokeApiKeyRow,
   stampKeyUsed,
 } from "@/server/repositories/api-keys";
-import { findCompany, lockCompany } from "@/server/repositories/companies";
+import { findCompany } from "@/modules/organisation";
+import { lockCompany } from "@/shared/lib/db/company-lock";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 

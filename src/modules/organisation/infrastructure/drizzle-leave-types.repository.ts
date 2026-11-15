@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, isNull, max, ne, sql } from "drizzle-orm";
+import { and, asc, eq, max, ne, sql } from "drizzle-orm";
 import { leaveTypes } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 
@@ -14,52 +14,13 @@ export async function findLeaveType(ex: Executor, companyId: string, id: string)
   return row;
 }
 
-/** Display fields plus the settings the allowance policy reads. */
-const balanceFields = {
+/** Every setting the admin screens show and edit. */
+const adminFields = {
   ...fields,
   countsAgainstAllowance: leaveTypes.countsAgainstAllowance,
   defaultAllowanceDays: leaveTypes.defaultAllowanceDays,
   carryoverEnabled: leaveTypes.carryoverEnabled,
   carryoverMaxDays: leaveTypes.carryoverMaxDays,
-};
-
-/** A non-archived leave type of the company, with its allowance settings. */
-export async function findActiveLeaveType(ex: Executor, companyId: string, id: string) {
-  const [row] = await ex
-    .select(balanceFields)
-    .from(leaveTypes)
-    .where(and(eq(leaveTypes.id, id), eq(leaveTypes.companyId, companyId), isNull(leaveTypes.archivedAt)));
-  return row;
-}
-
-/**
- * Non-archived leave types in display order (the first one is the form's default),
- * with each type's allowance settings.
- */
-export async function listActiveLeaveTypesWithAllowance(ex: Executor, companyId: string) {
-  return ex
-    .select(balanceFields)
-    .from(leaveTypes)
-    .where(and(eq(leaveTypes.companyId, companyId), isNull(leaveTypes.archivedAt)))
-    .orderBy(asc(leaveTypes.sortOrder), asc(leaveTypes.name));
-}
-
-/**
- * Every leave type of the company with its allowance settings, archived ones too
- * (flagged), for balance views: active types in display order, then archived ones by
- * name. The request form must use {@link listActiveLeaveTypesWithAllowance} instead.
- */
-export async function listLeaveTypesWithAllowance(ex: Executor, companyId: string) {
-  return ex
-    .select({ ...balanceFields, archived: sql<boolean>`${leaveTypes.archivedAt} is not null`.mapWith(Boolean) })
-    .from(leaveTypes)
-    .where(eq(leaveTypes.companyId, companyId))
-    .orderBy(sql`${leaveTypes.archivedAt} is not null`, asc(leaveTypes.sortOrder), asc(leaveTypes.name), asc(leaveTypes.id));
-}
-
-/** Every setting the admin screens show and edit. */
-const adminFields = {
-  ...balanceFields,
   isPaid: leaveTypes.isPaid,
   sortOrder: leaveTypes.sortOrder,
   archivedAt: leaveTypes.archivedAt,

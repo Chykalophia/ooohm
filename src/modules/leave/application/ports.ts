@@ -13,7 +13,7 @@ import type { ChangeSource } from "@/domain/change-source";
 import type { PageRequest } from "@/domain/paging";
 import type { Notification } from "@/modules/notifications";
 import type { AuditEntry, OutboxEvent } from "@/shared/lib/db/change-log";
-import type { LeaveTypeRow } from "@/server/repositories/leave-types";
+import type { LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
 import type { PersonRow } from "@/server/repositories/users";
 import type { BalanceSummary, LeaveAssessment, LeaveDraft, LeaveTypeWithAllowance, balanceInputs } from "@/server/services/balances";
 import type { IdGenerator } from "@/shared/lib/id-generator";

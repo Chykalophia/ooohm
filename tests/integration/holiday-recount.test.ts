@@ -4,7 +4,6 @@ import { messageForError } from "@/app/_lib/run-action";
 import { isDomainError } from "@/domain/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { updateCompanySettings } from "@/server/services/admin-company";
 import { addHoliday, addUsFederalHolidays, deleteHoliday } from "@/server/services/admin-holidays";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary } from "@/server/services/balances";
@@ -13,6 +12,10 @@ import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, auditFor, decidable, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+import * as companySettings from "@/server/services/company-settings";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
 
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);

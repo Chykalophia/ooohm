@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { appearanceAccent, appearanceDarkMark, faviconSvg } from "@/lib/brand-mark";
 import { serviceContext } from "@/server/runtime";
-import { getAppearance } from "@/server/services/appearance";
+import { getAppearance } from "@/modules/organisation";
 
 /**
  * The tab icon, in the company's accent, so a theme change in Admin → Appearance shows

@@ -1,3 +1,4 @@
+import "server-only";
 import { z } from "zod";
 import { resolveDatabaseConfig } from "@/db/config";
 import { BACKGROUND_MODES, resolveBackgroundMode } from "./background-mode";

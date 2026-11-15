@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Retention of integration data. The audit log is never pruned; only the delivery
  * machinery is.

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Step one of the outbox worker: fan new outbox events out into deliveries.
  */

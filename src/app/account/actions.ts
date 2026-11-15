@@ -6,6 +6,7 @@ import { COLOR_MODES } from "@/domain/color-mode";
 import { renameSelf, setColorMode } from "@/server/services/account";
 import type { FormState } from "@/components/forms/form-state";
 import { runFormAction } from "@/app/_lib/server-action";
+import { map } from "@/shared/lib/result";
 
 /** A refusal on your own account: it was deactivated (or deleted) since the page loaded. */
 const ACCOUNT_LOCKED_MESSAGE = "Your account can't be changed right now. Sign in again.";
@@ -20,10 +21,7 @@ export async function renameSelfAction(_prev: FormState, formData: FormData): Pr
     "account_rename",
     formData,
     nameSchema,
-    async (ctx, actor, { name }) => {
-      await renameSelf(ctx, actor, name);
-      return "Saved.";
-    },
+    async (ctx, actor, { name }) => map(await renameSelf(ctx, actor, name), () => "Saved."),
     { invalidInput: NAME_LENGTH_MESSAGE, messages: { invalid_input: NAME_LENGTH_MESSAGE, forbidden: ACCOUNT_LOCKED_MESSAGE } },
   );
 }

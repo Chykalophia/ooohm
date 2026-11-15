@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The one-time TimeOff.Management import: writes an {@link ImportPlan} into one company,
  * proves every balance against TimeOff's, and commits only when they match.
@@ -39,7 +40,6 @@
  * session, like the migrate and seed scripts: the `--actor` check stands in for the
  * session an admin action would have.
  */
-import { randomUUID } from "node:crypto";
 import type { Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
 import { addDays, resolveAllowancePolicy } from "@/domain/allowance-policy";
@@ -309,7 +309,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     }
   }
   const people = plan.people.filter((p) => !excluded.has(p.key));
-  const idOf = new Map<number, string>(people.map((p) => [p.key, existingByEmail.get(p.email)?.id ?? randomUUID()]));
+  const idOf = new Map<number, string>(people.map((p) => [p.key, existingByEmail.get(p.email)?.id ?? ctx.ids.next()]));
   const roleOf = (p: (typeof people)[number]) => {
     const existing = existingByEmail.get(p.email);
     return existing && ROLE_RANK[existing.role] > ROLE_RANK[p.role] ? existing.role : p.role;
@@ -509,7 +509,7 @@ async function runImport(ctx: ServiceContext, tx: Transaction, input: TimeOffImp
     const userId = idOf.get(r.personKey)!;
     const timeoffApproverId = r.approverKey !== null ? (idOf.get(r.approverKey) ?? null) : null;
     const request: NewImportedRequest = {
-      id: randomUUID(),
+      id: ctx.ids.next(),
       companyId: company.id,
       userId,
       leaveTypeId: typeIdOf.get(r.leaveTypeKey)!,

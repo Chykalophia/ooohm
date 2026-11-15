@@ -1,3 +1,4 @@
+import "server-only";
 import type { Actor } from "@/domain/actor";
 import { addDays, isEmptyBalance, resolveAllowancePolicy } from "@/domain/allowance-policy";
 import { type ApprovalRule, approvalRuleFor, readApprovalMode } from "@/domain/approval-rule";
@@ -30,7 +31,7 @@ import { findDepartment } from "@/server/repositories/departments";
 import { findPerson, lockMember } from "@/server/repositories/users";
 import { loadApprovalContext } from "./approval-routing";
 import { currentApprover } from "./approvals";
-import { approveLinkFor } from "./email-approval";
+import { approveLinkFor } from "./approve-link";
 import { assessLeaveRequest, draftRange, type LeaveDraft, summarizeBalances } from "./balances";
 import { alsoOffFor, alsoOffText } from "./also-off";
 import { activeContacts, recordLeaveChange, summarize } from "./leave-changes";

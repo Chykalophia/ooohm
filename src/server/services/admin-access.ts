@@ -1,3 +1,4 @@
+import "server-only";
 import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";

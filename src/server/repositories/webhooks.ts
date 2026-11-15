@@ -1,3 +1,4 @@
+import "server-only";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { executeRows } from "@/db/rows";

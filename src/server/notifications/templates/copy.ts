@@ -1,3 +1,4 @@
+import "server-only";
 import { type EmailCopy, fillTemplate } from "@/domain/email-template";
 import { escapeHtml } from "@/lib/email-layout";
 

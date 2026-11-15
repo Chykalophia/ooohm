@@ -25,6 +25,7 @@ import { STRICT_TARGET_POLICY, type TargetPolicy } from "@/domain/webhook-target
 import { createSecretBox } from "@/lib/integration-crypto";
 import type { MailMessage, ServiceContext } from "@/server/context";
 import { type AdapterRegistry, createAdapterRegistry } from "@/server/integrations/adapter";
+import { uuidGenerator } from "@/shared/lib/id-generator";
 
 const baseUrl = process.env.TEST_DATABASE_URL;
 
@@ -159,6 +160,7 @@ export function createTestContext(
     appUrl: "https://ooohm.test",
     linkKey: TEST_LINK_KEY,
     now: () => options.now ?? new Date("2026-11-01T15:00:00Z"),
+    ids: uuidGenerator,
     mailer: options.mailer ?? (async (m) => void sent.push(m)),
     defer: (task) => {
       scheduled++;

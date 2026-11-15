@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The look every page renders with. Read on each request by the root layout, before
  * anyone is signed in, so it never fails: with no company yet, or no database to ask,

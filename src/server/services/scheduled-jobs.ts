@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Daily jobs the outbox worker runs, so a host cron is optional: the year rollover,
  * integration retention, and full-scrub deletes whose grace period has ended.

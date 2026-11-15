@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Classifying database errors, whichever driver raised them: postgres.js names the
  * constraint `constraint_name`, PGlite (embedded mode) `constraint`, and drizzle wraps

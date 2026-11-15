@@ -24,6 +24,7 @@ import { createAdapterRegistry } from "../../src/server/integrations/adapter";
 import { createApiKey } from "../../src/server/services/api-keys";
 import { submitLeaveRequest } from "../../src/server/services/leave-requests";
 import { createWebhookEndpoint } from "../../src/server/services/webhooks";
+import { uuidGenerator } from "../../src/shared/lib/id-generator";
 
 const [command, ...args] = process.argv.slice(2);
 const handle = await openDatabase(resolveDatabaseConfig(process.env), { purpose: "the e2e demo setup", max: 2 });
@@ -34,6 +35,7 @@ const ctx: ServiceContext = {
   defer: (task) => void task(),
   appUrl: "http://localhost",
   now: () => new Date(),
+  ids: uuidGenerator,
   issueSignInLink: async () => "",
   secrets: createSecretBox(process.env.WEBHOOK_ENCRYPTION_KEY!),
   webhookTargets: { allowInsecure: true, allowPrivate: true },

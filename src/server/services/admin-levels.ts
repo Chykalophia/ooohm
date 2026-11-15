@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for levels: names people can be placed at (Intern, Senior) so
  * allowance rules can give them more or less time off. Levels are optional; a company

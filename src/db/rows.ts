@@ -1,3 +1,4 @@
+import "server-only";
 import type { SQL } from "drizzle-orm";
 import type { Executor } from "./types";
 

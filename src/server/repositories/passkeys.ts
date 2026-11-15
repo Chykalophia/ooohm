@@ -1,3 +1,4 @@
+import "server-only";
 import { asc, eq } from "drizzle-orm";
 import { passkey } from "@/db/schema";
 import type { Executor } from "@/db/types";

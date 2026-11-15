@@ -1,3 +1,4 @@
+import "server-only";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
 import { type EmailCopy, normalizeEmailCopy } from "@/domain/email-template";

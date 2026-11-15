@@ -1,3 +1,4 @@
+import "server-only";
 import { buttons, DEFAULT_EMAIL_ACCENT, type EmailAccent, emailDocument, escapeHtml, heading } from "./email-layout";
 
 /** How long a sign-in link works; Better Auth's `expiresIn` uses it too. */

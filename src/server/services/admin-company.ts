@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for the company's own settings: name, time zone, working days, the
  * allowance policy, whether time off needs approval, the deletion grace option, what people see of each other's time off and the appearance (theme, accent, corners, logo). v1 runs one company per deployment;

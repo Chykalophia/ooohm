@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin overrides of one person's allowance for one leave type and year.
  *

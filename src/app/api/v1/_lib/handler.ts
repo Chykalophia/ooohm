@@ -5,6 +5,7 @@ import { apiKeyFromAuthorization } from "@/lib/integration-crypto";
 import { log } from "@/lib/log";
 import type { RateLimiter } from "@/lib/rate-limit";
 import type { ServiceContext } from "@/server/context";
+import { type ServiceResult, valueOf } from "@/shared/lib/result";
 import { authenticateApiKey } from "@/server/services/api-keys";
 
 /**
@@ -75,13 +76,13 @@ export function parseQuery<S extends z.ZodType>(schema: S, params: URLSearchPara
  *    with `Retry-After: 60`.
  * 3. Otherwise `work`'s result as JSON, 200. A bad query is 400 naming the parameter;
  *    `invalid_input` from a service is 400 with its message; `forbidden` (a missing
- *    scope) is 403; anything unexpected is logged and answered 500 without detail.
+ *    scope) is 403 (thrown, or returned as a failed `ServiceResult`); anything unexpected is logged and answered 500 without detail.
  *
  * Every response is JSON with `Cache-Control: no-store`. The key is never logged.
  */
 export async function handleApiRequest(
   input: { ctx: ServiceContext; headers: Headers; client: string; limits: ApiLimits; route: string },
-  work: (client: ApiClient) => Promise<unknown>,
+  work: (client: ApiClient) => Promise<unknown | ServiceResult<unknown>>,
 ): Promise<Response> {
   const { ctx, limits } = input;
   let client: ApiClient | null = null;
@@ -96,7 +97,7 @@ export async function handleApiRequest(
   if (!limits.perKey.take(client.keyId)) return TOO_MANY();
 
   try {
-    return apiJson(await work(client));
+    return apiJson(valueOf(await work(client)));
   } catch (err) {
     if (err instanceof InvalidQueryError) return apiError(400, "invalid_request", err.message);
     if (isDomainError(err, "invalid_input")) {

@@ -1,3 +1,4 @@
+import "server-only";
 import { and, asc, eq, gt, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { departments, leaveRequests, user } from "@/db/schema";
 import type { Executor } from "@/db/types";

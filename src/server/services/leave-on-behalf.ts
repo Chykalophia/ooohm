@@ -1,3 +1,4 @@
+import "server-only";
 import type { Actor } from "@/domain/actor";
 import { remainingAfter, resolveAllowancePolicy, type RequestCost } from "@/domain/allowance-policy";
 import { DomainError, isDomainError } from "@/domain/errors";

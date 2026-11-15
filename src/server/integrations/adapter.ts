@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The adapter seam: how a third-party integration (a payroll or HR system, a chat app)
  * plugs into OOOhm without changing core code. v1 ships none; `installed.ts` lists what
@@ -10,7 +11,6 @@
  * same locks an admin's edits take.
  */
 import type { EventEnvelope } from "@/domain/integrations";
-import { installedAdapters } from "./installed";
 
 /** What an adapter is given for one call. Configuration and credentials for a company will be added here. */
 export interface AdapterContext {
@@ -104,6 +104,3 @@ export function createAdapterRegistry(initial: readonly Adapter[] = []): Adapter
   for (const adapter of initial) registry.register(adapter);
   return registry;
 }
-
-/** The registry the app and the worker use: whatever `installed.ts` lists. Empty in v1. */
-export const adapterRegistry: AdapterRegistry = createAdapterRegistry(installedAdapters);

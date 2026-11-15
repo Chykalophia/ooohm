@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for registered integration adapters: list them with their health, and
  * run an inbound sync now. v1 registers none, so the Connectors screen shows an empty

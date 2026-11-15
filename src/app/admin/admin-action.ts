@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 import type { DomainErrorCode } from "@/domain/errors";
+import { valueOf } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import type { RevealState } from "@/components/forms/reveal-state";
 import { type ActionInput, type ActionWork, runActionThenGo, runFormAction, runStateAction } from "@/app/_lib/server-action";
@@ -50,7 +51,7 @@ export function adminRevealAction<S extends z.ZodType>(
     event,
     input,
     schema,
-    async (ctx, actor, data): Promise<RevealState> => ({ status: "revealed", id: randomUUID(), ...(await work(ctx, actor, data)) }),
+    async (ctx, actor, data): Promise<RevealState> => ({ status: "revealed", id: randomUUID(), ...valueOf(await work(ctx, actor, data)) }),
     { who: "admin", messages },
   );
 }

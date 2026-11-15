@@ -1,3 +1,4 @@
+import "server-only";
 import type { MailTransportName, SendGridRegion } from "./names";
 import { createSendGridTransport } from "./sendgrid";
 import { createSmtpTransport } from "./smtp";

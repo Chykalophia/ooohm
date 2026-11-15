@@ -1,22 +1,15 @@
+import "server-only";
 import { type Actor, toActor } from "@/domain/actor";
 import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
 import { isDomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
-import { APPROVE_LINK_DAYS, signApproveToken, verifyApproveToken } from "@/lib/email-link-token";
+import { APPROVE_LINK_DAYS, verifyApproveToken } from "@/lib/email-link-token";
 import type { ServiceContext } from "@/server/context";
 import { findRequestForReview } from "@/server/repositories/leave-requests";
 import { findActorById } from "@/server/repositories/users";
 import { decideLeaveRequest } from "./approvals";
 
-/**
- * The Approve link for a request email to `approverId`, or `null` where links cannot be
- * signed (a process without the key). Valid for {@link APPROVE_LINK_DAYS} days.
- */
-export function approveLinkFor(ctx: ServiceContext, requestId: string, approverId: string): string | null {
-  if (!ctx.linkKey) return null;
-  const expiresAt = Math.floor(ctx.now().getTime() / 1000) + APPROVE_LINK_DAYS * 86_400;
-  return `${ctx.appUrl}/approve/${signApproveToken(ctx.linkKey, { requestId, approverId, expiresAt })}`;
-}
+export { approveLinkFor } from "./approve-link";
 
 type Review = NonNullable<Awaited<ReturnType<typeof findRequestForReview>>>;
 

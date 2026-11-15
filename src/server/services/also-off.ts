@@ -1,3 +1,4 @@
+import "server-only";
 import type { Executor } from "@/db/types";
 import { entriesCostingDaysIn } from "@/domain/calendar";
 import { coverageBreach, describeCoverageBreach } from "@/domain/coverage";

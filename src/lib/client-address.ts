@@ -1,3 +1,4 @@
+import "server-only";
 import { isIP } from "node:net";
 
 /** The one key every caller shares when no trusted proxy names the client. */

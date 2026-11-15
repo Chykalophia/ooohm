@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The OOOhm mark: an Ω (the "ohm" in the name) on a rounded tile, coloured with the
  * company's accent. Pure; the favicon route, the home-screen icon and the header mark

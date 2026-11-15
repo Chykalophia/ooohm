@@ -1,3 +1,4 @@
+import "server-only";
 import { and, asc, between, eq, inArray } from "drizzle-orm";
 import { holidays } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";

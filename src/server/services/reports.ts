@@ -1,3 +1,4 @@
+import "server-only";
 import type { Actor } from "@/domain/actor";
 import { addDays } from "@/domain/allowance-policy";
 import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";

@@ -49,6 +49,7 @@ pnpm worker         # outbox worker: webhooks, adapter deliveries, daily rollove
 pnpm import:timeoff -- --file <x.sqlite> --company <id> --actor <admin email> [--apply]   # one-time TimeOff import (dry run by default)
 pnpm test           # unit tests + tests/architecture (no database)
 pnpm arch           # dependency rules (.dependency-cruiser.cjs); fails on violations not in the baseline
+pnpm madge          # import cycles (none allowed)
 pnpm test:integration  # service tests; set TEST_DATABASE_URL (see docs/architecture.md#testing)
 pnpm test:integration:embedded  # the same on embedded PGlite (no server); keep both green
 pnpm start:embedded # after pnpm build: migrate, seed and serve on embedded PGlite (docs/hosting.md)

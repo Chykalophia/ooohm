@@ -1,3 +1,4 @@
+import "server-only";
 import { sql } from "drizzle-orm";
 import { executeRows } from "@/db/rows";
 import type { Executor } from "@/db/types";

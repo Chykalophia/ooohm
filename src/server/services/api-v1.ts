@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Read use cases of the REST API (`/api/v1`), for an authenticated {@link ApiClient}.
  *

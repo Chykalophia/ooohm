@@ -1,3 +1,4 @@
+import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { adapterDeliveries } from "@/db/schema";
 import { executeRows } from "@/db/rows";

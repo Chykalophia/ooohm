@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Queries behind deleting a person: the facts the rules and the confirmation need, the
  * deletes and the tombstone write, the lookups of stored text that mentions them, and

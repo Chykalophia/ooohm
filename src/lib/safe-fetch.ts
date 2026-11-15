@@ -1,3 +1,4 @@
+import "server-only";
 import { lookup as dnsLookup, type LookupAddress } from "node:dns";
 import http from "node:http";
 import https from "node:https";

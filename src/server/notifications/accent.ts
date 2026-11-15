@@ -1,3 +1,4 @@
+import "server-only";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent } from "@/lib/email-layout";

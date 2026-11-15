@@ -1,3 +1,4 @@
+import "server-only";
 import type { Executor } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import {

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Step two of the outbox worker: send due webhook deliveries, signed, and schedule
  * retries.

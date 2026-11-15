@@ -1,3 +1,4 @@
+import "server-only";
 import { companies, installation, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 

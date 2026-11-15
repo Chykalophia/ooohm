@@ -1,3 +1,4 @@
+import "server-only";
 import { type InviteEmail, INVITE_COPY, renderInviteEmail } from "./templates/invite";
 import { LEAVE_KINDS, type LeaveEmail, type LeaveKind, type LeaveSummary, leaveVariables, renderLeaveEmail } from "./templates/leave";
 import { notificationType, type NotificationType } from "./types";

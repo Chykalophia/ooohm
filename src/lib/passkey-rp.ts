@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The WebAuthn relying party for passkeys: the domain a passkey is bound to (`rpID`) and
  * the origin sign-ins must come from.

@@ -1,3 +1,4 @@
+import "server-only";
 import type { Actor } from "@/domain/actor";
 import { buildFeedCalendar, type FeedContent, feedCalendarName, type FeedKind, feedWindow, isFeedKind } from "@/domain/calendar-feed";
 import type { PersonChangeSource } from "@/domain/change-source";

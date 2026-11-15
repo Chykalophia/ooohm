@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * One bounded pass of OOOhm's background work: the single code path behind the outbox
  * worker's loops, the cron route (`/api/cron/tick`), the after-change inline tick and the

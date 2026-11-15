@@ -13,10 +13,13 @@
  *   "<Name> (deleted)".
  */
 import type { Role } from "./actor";
+import type { DeletionBlockers } from "./error-details";
 import { DomainError } from "./errors";
 import type { DeletionMode } from "./events";
 import { displayName } from "./person";
 import { oneLine } from "./text";
+
+export type { DeletionBlockers } from "./error-details";
 
 export type { DeletionMode } from "./events";
 
@@ -77,18 +80,6 @@ export function tombstoneEmail(userId: string): string {
 
 export function isTombstoneEmail(email: string): boolean {
   return TOMBSTONE_EMAIL.test(email);
-}
-
-/** What has to change before a person can be deleted. Every field empty or false: nothing blocks. */
-export interface DeletionBlockers {
-  /** Deleting takes two steps: deactivate first. */
-  readonly stillActive: boolean;
-  /** People whose manager they are: give them another manager first. */
-  readonly reports: readonly { id: string; name: string }[];
-  /** Pending requests assigned to them to decide. */
-  readonly pendingApprovals: number;
-  /** They are the company's only active admin. */
-  readonly lastAdmin: boolean;
 }
 
 /** The facts the deletion rules need, read under the company and member locks. */

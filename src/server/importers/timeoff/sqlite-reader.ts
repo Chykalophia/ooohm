@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Reads a TimeOff.Management SQLite file into plain {@link TimeOffSnapshot} records.
  *

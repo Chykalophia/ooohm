@@ -30,6 +30,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm arch
+      - run: pnpm madge
       - run: pnpm test
 
   integration-postgres:

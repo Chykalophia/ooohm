@@ -1,3 +1,4 @@
+import "server-only";
 import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs";
 import path from "node:path";
 

@@ -1,3 +1,4 @@
+import "server-only";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { ping } from "@/server/repositories/health";

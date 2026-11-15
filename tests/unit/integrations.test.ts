@@ -37,7 +37,8 @@ import {
 } from "@/lib/integration-crypto";
 import { hashToken } from "@/lib/token-hash";
 import { loadWorkerEnv } from "@/lib/worker-env";
-import { adapterRegistry, createAdapterRegistry, type Adapter } from "@/server/integrations/adapter";
+import { createAdapterRegistry, type Adapter } from "@/server/integrations/adapter";
+import { adapterRegistry } from "@/server/integrations/registry";
 
 const code = (fn: () => unknown) => {
   try {

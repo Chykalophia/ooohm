@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Which database OOOhm talks to, decided from the environment in one place.
  *

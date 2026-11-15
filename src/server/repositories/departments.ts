@@ -1,3 +1,4 @@
+import "server-only";
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { departments, user } from "@/db/schema";

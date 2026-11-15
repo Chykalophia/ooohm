@@ -1,3 +1,4 @@
+import "server-only";
 import { asc, eq } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";

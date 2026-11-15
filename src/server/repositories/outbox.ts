@@ -1,3 +1,4 @@
+import "server-only";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { eventsOutbox } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";

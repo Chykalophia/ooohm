@@ -22,6 +22,7 @@ import { STRICT_TARGET_POLICY } from "../../src/domain/webhook-target";
 import { unavailableSecretBox } from "../../src/lib/integration-crypto";
 import type { ServiceContext } from "../../src/server/context";
 import { createAdapterRegistry } from "../../src/server/integrations/adapter";
+import { uuidGenerator } from "../../src/shared/lib/id-generator";
 import { getPersonDetail, listPeople } from "../../src/server/services/admin-people";
 import { listBalancesForApi, listEventsForApi, listLeaveRequestsForApi, listUsersForApi } from "../../src/server/services/api-v1";
 import { getApprovalNav, getApprovalTriage } from "../../src/server/services/approvals";
@@ -49,6 +50,7 @@ const ctx: ServiceContext = {
   defer: () => {},
   appUrl: "https://ooohm.test",
   now: () => new Date("2026-11-01T15:00:00Z"),
+  ids: uuidGenerator,
   issueSignInLink: async () => "",
   secrets: unavailableSecretBox("not used"),
   webhookTargets: STRICT_TARGET_POLICY,

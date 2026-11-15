@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import "server-only";
 import { type Actor, toActor } from "@/domain/actor";
 import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
@@ -62,7 +62,7 @@ export async function runFirstInstall(
 
     const company = await insertCompany(tx, { name: values.companyName, timezone: values.timezone, workingDays: [1, 2, 3, 4, 5] });
     const admin = await insertPerson(tx, {
-      id: randomUUID(),
+      id: ctx.ids.next(),
       companyId: company.id,
       email: values.adminEmail,
       name: values.adminName,

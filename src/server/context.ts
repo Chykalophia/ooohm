@@ -1,3 +1,5 @@
+import "server-only";
+import type { IdGenerator } from "@/shared/lib/id-generator";
 import type { Database } from "@/db/types";
 import type { TargetPolicy } from "@/domain/webhook-target";
 import type { SecretBox } from "@/lib/integration-crypto";
@@ -37,6 +39,8 @@ export interface ServiceContext {
   linkKey?: string;
   /** Current instant; injectable so tests can pin `decided_at`. */
   now: () => Date;
+  /** New record ids; injectable so tests can pin them (ADR-0002). */
+  ids: IdGenerator;
   /**
    * Creates a one-time sign-in link for an existing account, without sending it, so a
    * service can put it in its own email (an invite). In the app this is Better Auth's

@@ -1,3 +1,4 @@
+import "server-only";
 import { and, eq } from "drizzle-orm";
 import { emailTemplates } from "@/db/schema";
 import type { Executor } from "@/db/types";

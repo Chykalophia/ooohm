@@ -1,3 +1,4 @@
+import "server-only";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import type * as schema from "./schema";
 

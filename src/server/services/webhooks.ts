@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for outbound webhooks: endpoints (create, edit, enable/disable,
  * rotate the secret, delete), a test `ping`, and redelivery.
@@ -11,7 +12,6 @@
  * `ctx.secrets` (AES-256-GCM, the endpoint id as additional data). The app never sends
  * a webhook itself: pings and redeliveries are queued, and the outbox worker sends them.
  */
-import { randomUUID } from "node:crypto";
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
@@ -174,7 +174,7 @@ export async function createWebhookEndpoint(
 ): Promise<{ endpoint: WebhookEndpointView; secret: string }> {
   assertCanAdminister(actor);
   const fields = normalizeInput(ctx, input);
-  const id = randomUUID();
+  const id = ctx.ids.next();
   const secret = generateWebhookSecret();
   const secretCiphertext = ctx.secrets.seal(secret, id);
   const row = await inTransaction(ctx, async (tx) => {
@@ -269,7 +269,7 @@ export async function sendWebhookPing(ctx: ServiceContext, actor: Actor, id: str
     if (!row.enabled) throw new DomainError("conflict");
     const now = ctx.now();
     const data: PingPayload = { endpointId: row.id, message: "This is a test event from OOOhm." };
-    const envelope = buildEnvelope({ id: randomUUID(), type: PING_EVENT_TYPE, companyId: row.companyId, createdAt: now, payload: data });
+    const envelope = buildEnvelope({ id: ctx.ids.next(), type: PING_EVENT_TYPE, companyId: row.companyId, createdAt: now, payload: data });
     const [deliveryId] = await insertDeliveries(tx, [
       { companyId: row.companyId, endpointId: row.id, eventId: envelope.id, eventType: PING_EVENT_TYPE, body: JSON.stringify(envelope), nextAttemptAt: now },
     ]);

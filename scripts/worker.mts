@@ -38,7 +38,7 @@ import { createSecretBox } from "../src/lib/integration-crypto";
 import { log } from "../src/lib/log";
 import { createSafeFetch } from "../src/lib/safe-fetch";
 import { loadWorkerEnv } from "../src/lib/worker-env";
-import { adapterRegistry } from "../src/server/integrations/adapter";
+import { adapterRegistry } from "../src/server/integrations/registry";
 import { ping } from "../src/server/repositories/health";
 import { runTick, type TickStep } from "../src/server/services/background-tick";
 import { scriptContext } from "./script-context.mts";

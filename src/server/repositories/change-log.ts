@@ -1,3 +1,4 @@
+import "server-only";
 import { auditLog, eventsOutbox } from "@/db/schema";
 import type { Transaction } from "@/db/types";
 import type { ChangeSource } from "@/domain/change-source";

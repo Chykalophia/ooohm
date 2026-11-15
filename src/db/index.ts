@@ -1,3 +1,4 @@
+import "server-only";
 import { env } from "@/lib/env";
 import { connectPostgres, type DatabaseHandle, migrateDatabase, openEmbedded } from "./connect";
 import * as schema from "./schema";

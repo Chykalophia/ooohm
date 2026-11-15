@@ -6,6 +6,7 @@ import { getAccount, renameSelf, setColorMode } from "@/server/services/account"
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { unwrap } from "@/shared/lib/result";
 
 describe("your account", { skip }, () => {
   let t: TestDatabase;
@@ -40,9 +41,9 @@ describe("your account", { skip }, () => {
     const ctx = createTestContext(t.db);
     const { ana } = co.people;
 
-    assert.equal(await renameSelf(ctx, ana, "  Ana   Test "), "Ana Test");
+    assert.equal(unwrap(await renameSelf(ctx, ana, "  Ana   Test ")), "Ana Test");
     assert.equal((await getAccount(ctx, ana)).name, "Ana Test");
-    assert.equal(await renameSelf(ctx, ana, "Ana Test"), "Ana Test", "the same name again");
+    assert.equal(unwrap(await renameSelf(ctx, ana, "Ana Test")), "Ana Test", "the same name again");
 
     const audit = await companyAudit(t.db, co.companyId, "user.updated");
     assert.equal(audit.length, 1, "saving the same name records nothing");
@@ -66,9 +67,9 @@ describe("your account", { skip }, () => {
   test("a blank or too long name is refused, and so is a deactivated account", async () => {
     const co = await seedCompany(t.db, { ana: {}, gone: { isActive: false } });
     const ctx = createTestContext(t.db);
-    await rejectsWith(renameSelf(ctx, co.people.ana, "   "), "invalid_input");
-    await rejectsWith(renameSelf(ctx, co.people.ana, "x".repeat(101)), "invalid_input");
-    await rejectsWith(renameSelf(ctx, co.people.gone, "Back"), "forbidden");
+    await rejectsWith(renameSelf(ctx, co.people.ana, "   ").then(unwrap), "invalid_input");
+    await rejectsWith(renameSelf(ctx, co.people.ana, "x".repeat(101)).then(unwrap), "invalid_input");
+    await rejectsWith(renameSelf(ctx, co.people.gone, "Back").then(unwrap), "forbidden");
     assert.deepEqual(await companyAudit(t.db, co.companyId), []);
   });
 

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for departments. A department is a name people can be grouped by
  * (the team view filters on it), with an optional manager: approvals follow each

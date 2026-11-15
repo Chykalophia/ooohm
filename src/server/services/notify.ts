@@ -1,3 +1,4 @@
+import "server-only";
 import type { Transaction } from "@/db/types";
 import type { ServiceContext } from "@/server/context";
 import type { Notification } from "@/server/notifications/catalog";

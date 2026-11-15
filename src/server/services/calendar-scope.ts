@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Loads whose time off someone may see (`calendarScopeFor`), for every reader that
  * shows colleagues' leave: the calendar, Who's out, a teammate's page, the team

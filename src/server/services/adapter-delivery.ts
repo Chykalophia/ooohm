@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Outbound adapter sync: the outbox worker hands due adapter deliveries to their
  * adapters, with the webhook retry schedule. Nothing runs here in v1, which registers no

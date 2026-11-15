@@ -1,4 +1,12 @@
-import type { DeletionBlockers } from "./person-deletion";
+import type { DomainErrorDetails } from "./error-details";
+
+export type {
+  BalanceShortfallDetails,
+  DeletionBlockers,
+  DomainErrorDetails,
+  InvalidFieldDetails,
+  NoWorkingDaysDetails,
+} from "./error-details";
 
 /**
  * Stable error codes raised by the domain and service layers.
@@ -94,43 +102,6 @@ export type DomainErrorCode =
   | "deletion_blocked"
   /** The name typed to confirm a delete is not the person's full name. */
   | "confirmation_mismatch";
-
-/**
- * Facts behind an `insufficient_balance` error, so the presentation layer can say
- * exactly what is left without parsing a message.
- */
-export interface BalanceShortfallDetails {
-  /** The calendar year whose balance falls short. */
-  readonly year: number;
-  /** Days the request costs in that year. */
-  readonly requested: number;
-  /** Days left in that year before this request (may be 0 or negative). */
-  readonly remaining: number;
-  /** How many calendar years the request spans (1 or 2). */
-  readonly yearsSpanned: number;
-  /** Who the time off is for, when someone else is adding it for them: the message names them. */
-  readonly person?: string;
-}
-
-/**
- * Facts behind a `zero_days` error: the company holidays inside the requested dates, so
- * the message can name them rather than say "weekends or holidays". Empty when only
- * non-working days were asked for.
- */
-export interface NoWorkingDaysDetails {
-  readonly holidays: readonly { readonly date: string; readonly name: string }[];
-}
-
-/**
- * Which input an `invalid_input` error is about, by the name forms give that field, so
- * the form can mark it and move focus there (WCAG 3.3.1).
- */
-export interface InvalidFieldDetails {
-  readonly field: string;
-}
-
-/** Structured facts attached to some codes; see each code's documentation. */
-export type DomainErrorDetails = BalanceShortfallDetails | DeletionBlockers | NoWorkingDaysDetails | InvalidFieldDetails;
 
 /**
  * An expected, user-correctable failure. Anything that is not a `DomainError` is a

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * REST API keys: what admins do with them (list, create, revoke) and how a request's
  * key is checked.

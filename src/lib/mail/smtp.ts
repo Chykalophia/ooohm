@@ -1,3 +1,4 @@
+import "server-only";
 import nodemailer from "nodemailer";
 import { type SmtpSettings, smtpTransportOptions } from "./smtp-options";
 import type { MailTransport } from "./transport";

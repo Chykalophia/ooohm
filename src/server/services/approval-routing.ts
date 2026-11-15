@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Who decides a request, read from the database: the inputs the approval rule needs,
  * and re-routing pending requests when an admin change moves the right to decide them.
@@ -10,7 +11,7 @@ import { findDepartmentManagerIds } from "@/server/repositories/departments";
 import { type LeaveRequestRow, reassignIfCurrent } from "@/server/repositories/leave-requests";
 import { listAllLeaveTypes } from "@/server/repositories/leave-types";
 import { findMembers, listActiveAdmins } from "@/server/repositories/users";
-import { approveLinkFor } from "./email-approval";
+import { approveLinkFor } from "./approve-link";
 import { activeContacts, recordReassignment, summarize } from "./leave-changes";
 import type { Notification } from "./notify";
 

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for adding many people at once from a CSV file: a preview that says
  * what the file would do, and the import itself. The file's rules are in
@@ -15,7 +16,6 @@
  * for, go out only after commit. Access stays invite-only: nothing here goes through
  * Better Auth's sign-up.
  */
-import { randomUUID } from "node:crypto";
 import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
@@ -145,7 +145,7 @@ export async function importPeople(
         });
       }
 
-      const ids = new Map(people.map((p) => [p.email, randomUUID()]));
+      const ids = new Map(people.map((p) => [p.email, ctx.ids.next()]));
       const created: PersonRow[] = [];
       for (const p of people) {
         const person = await insertPerson(tx, {

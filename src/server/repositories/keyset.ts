@@ -1,3 +1,4 @@
+import "server-only";
 import { type AnyColumn, type SQL, asc, desc, sql } from "drizzle-orm";
 import type { PageRequest } from "@/domain/paging";
 

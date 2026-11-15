@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for leave types: create, edit, archive and restore, reorder.
  *

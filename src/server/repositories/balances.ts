@@ -1,3 +1,4 @@
+import "server-only";
 import { and, asc, eq, gte, inArray, lt, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { allowances, leaveRequestDays, leaveRequests } from "@/db/schema";

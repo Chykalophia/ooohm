@@ -6,8 +6,9 @@ import { deriveLinkKey } from "@/lib/email-link-token";
 import { env } from "@/lib/env";
 import { createSecretBox } from "@/lib/integration-crypto";
 import { sendMail } from "@/lib/mail";
+import { uuidGenerator } from "@/shared/lib/id-generator";
 import type { ServiceContext } from "./context";
-import { adapterRegistry } from "./integrations/adapter";
+import { adapterRegistry } from "./integrations/registry";
 
 const secrets = createSecretBox(env.WEBHOOK_ENCRYPTION_KEY);
 const webhookTargets = { allowInsecure: env.WEBHOOK_ALLOW_INSECURE, allowPrivate: env.WEBHOOK_ALLOW_PRIVATE };
@@ -36,6 +37,7 @@ export function serviceContext(): ServiceContext {
     appUrl: env.BETTER_AUTH_URL.replace(/\/+$/, ""),
     linkKey: deriveLinkKey(env.BETTER_AUTH_SECRET),
     now: () => new Date(),
+    ids: uuidGenerator,
     issueSignInLink,
     secrets,
     webhookTargets,

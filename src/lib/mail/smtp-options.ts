@@ -1,3 +1,4 @@
+import "server-only";
 /** The SMTP settings from the environment that decide how the connection is secured. */
 export interface SmtpSettings {
   host: string;

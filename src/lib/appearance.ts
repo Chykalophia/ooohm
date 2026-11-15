@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Turns the company's appearance into what the root `<html>` element carries: the theme
  * and corner attributes the stylesheet keys on, and, for a custom accent, the colour

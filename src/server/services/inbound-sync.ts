@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Inbound sync: applies people and allowances an adapter read from another system.
  *
@@ -15,7 +16,6 @@
  * which is the sync's equivalent of an invite. With `activateNewUsers` they can ask for a
  * sign-in link on the sign-in page, like any invited person whose link expired.
  */
-import { randomUUID } from "node:crypto";
 import type { Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { adapterSyncProcess, bySystem, type ChangeSource, through } from "@/domain/change-source";
@@ -163,7 +163,7 @@ async function syncUsers(ctx: ServiceContext, input: InboundSyncInput, result: I
         continue;
       }
       const created = await insertPerson(tx, {
-        id: randomUUID(),
+        id: ctx.ids.next(),
         companyId: input.companyId,
         email,
         name,

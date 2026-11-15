@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The calendar year at `now` in the company's timezone. Allowance years follow the
  * company's calendar, not the server's clock: at 20:00 on Dec 31 in Chicago a UTC

@@ -1,3 +1,4 @@
+import "server-only";
 import { type EmailCopy, unknownVariables } from "@/domain/email-template";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";

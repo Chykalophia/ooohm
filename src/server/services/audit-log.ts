@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The read-only audit log viewer: who changed what, and when, newest first.
  */

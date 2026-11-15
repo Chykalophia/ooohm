@@ -1,3 +1,4 @@
+import "server-only";
 import { companyAccent, DEFAULT_THEME, THEMES } from "@/domain/appearance";
 import { EMAIL_LOGO_BOX, type LogoRef, companyLogoPath, fitLogo, readStoredLogo } from "@/domain/company-logo";
 import { type AccentTokens, accentTokens } from "@/lib/appearance";

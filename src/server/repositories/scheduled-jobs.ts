@@ -1,3 +1,4 @@
+import "server-only";
 import { and, eq, lte } from "drizzle-orm";
 import { scheduledJobs } from "@/db/schema";
 import type { Executor } from "@/db/types";

@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Whether a request was started by another site, by its `Sec-Fetch-Site` header: anything
  * other than `same-origin` (OOOhm's own pages) or `none` (typed, bookmarked or opened by

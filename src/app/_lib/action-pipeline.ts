@@ -4,6 +4,7 @@ import type { Actor } from "@/domain/actor";
 import { canAdminister } from "@/domain/admin-permissions";
 import type { DomainErrorCode } from "@/domain/errors";
 import type { ServiceContext } from "@/server/context";
+import { type ServiceResult, valueOf } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { type ActionError, messageFor, runActionWith } from "./run-action";
 
@@ -26,8 +27,12 @@ import { type ActionError, messageFor, runActionWith } from "./run-action";
 /** The submitted form, or fields already read from it (e.g. a multi-value checkbox group). */
 export type ActionInput = FormData | Record<string, unknown>;
 
-/** One service call made by an action, with the parsed input. */
-export type ActionWork<S extends z.ZodType, R> = (ctx: ServiceContext, actor: Actor, input: z.infer<S>) => Promise<R>;
+/**
+ * One service call made by an action, with the parsed input. It may return its value or
+ * a `ServiceResult` (ADR-0003); a failed result is handled exactly like a thrown
+ * `DomainError`, so use cases can move to results one at a time.
+ */
+export type ActionWork<S extends z.ZodType, R> = (ctx: ServiceContext, actor: Actor, input: z.infer<S>) => Promise<R | ServiceResult<R>>;
 
 export type ActionOptions = {
   /** Who may run it: any member of the company (the default), or admins only. */
@@ -82,7 +87,7 @@ export function createActionPipeline(deps: PipelineDeps) {
   ): Promise<R | ActionError> {
     const auth = await authorize(input, schema, options);
     if ("status" in auth) return auth;
-    const state = await runActionWith(event, () => work(deps.context(), auth.actor, auth.data), options.messages);
+    const state = await runActionWith(event, async () => valueOf(await work(deps.context(), auth.actor, auth.data)), options.messages);
     if (state.status !== "error" && options.refresh !== false) deps.refresh();
     return state;
   }
@@ -99,7 +104,7 @@ export function createActionPipeline(deps: PipelineDeps) {
       event,
       input,
       schema,
-      async (ctx, actor, data) => ({ status: "success", message: await work(ctx, actor, data), id: randomUUID() }) as const,
+      async (ctx, actor, data) => ({ status: "success", message: valueOf(await work(ctx, actor, data)), id: randomUUID() }) as const,
       options,
     );
   }
@@ -120,7 +125,7 @@ export function createActionPipeline(deps: PipelineDeps) {
       event,
       input,
       schema,
-      async (ctx, actor, data) => ({ status: "go", path: await work(ctx, actor, data) }) as const,
+      async (ctx, actor, data) => ({ status: "go", path: valueOf(await work(ctx, actor, data)) }) as const,
       { ...options, refresh: false },
     );
     // Outside the try in runActionWith: redirect() throws to do its work.

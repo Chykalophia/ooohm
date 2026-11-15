@@ -1,3 +1,4 @@
+import "server-only";
 import { z } from "zod";
 import { type DatabaseConfig, resolveDatabaseConfig } from "@/db/config";
 import { BUILD_PLACEHOLDER_ENCRYPTION_KEY, envError, integrationEnvShape, nonEmptyEnv } from "./integration-env";

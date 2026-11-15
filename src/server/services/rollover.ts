@@ -1,3 +1,4 @@
+import "server-only";
 import type { Transaction } from "@/db/types";
 import { type AllowancePolicy, type LeaveTypeAllowanceSettings, resolveAllowancePolicy } from "@/domain/allowance-policy";
 import { bySystem, CHANGE_PROCESSES, type ChangeSource } from "@/domain/change-source";

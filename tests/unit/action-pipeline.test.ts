@@ -5,6 +5,7 @@ import { createActionPipeline } from "@/app/_lib/action-pipeline";
 import type { Actor } from "@/domain/actor";
 import { DomainError } from "@/domain/errors";
 import type { ServiceContext } from "@/server/context";
+import { err, ok, type ServiceResult } from "@/shared/lib/result";
 
 const actorOf = (role: Actor["role"]): Actor => ({
   id: "u1",
@@ -129,4 +130,38 @@ test("then-go redirects after a success without refreshing, and stays put on a r
   });
   assert.equal(state.status, "error");
   assert.deepEqual(refused.calls, ["session"]);
+});
+
+// ADR-0003: a use case may return a failed ServiceResult instead of throwing; the
+// pipeline must treat both the same, so use cases can move to results one by one.
+test("a returned failure gives exactly the state a thrown DomainError gives", async () => {
+  const details = { year: 2026, requested: 3, remaining: 1, yearsSpanned: 1 };
+  const thrown = harness();
+  const threw = await thrown.runFormAction("t", form({ name: "Ana" }), schema, async () => {
+    throw new DomainError("insufficient_balance", "short", details);
+  });
+  const returned = harness();
+  const gave = await returned.runFormAction("t", form({ name: "Ana" }), schema, async () => err("insufficient_balance", "short", details));
+  assert.deepEqual(gave, threw);
+  assert.deepEqual(returned.calls, thrown.calls);
+});
+
+test("a returned success is unwrapped, for form, state and redirect actions", async () => {
+  const h = harness();
+  const saved = await h.runFormAction("t", form({ name: "Ana" }), schema, async () => ok("Saved."));
+  assert.equal(saved.status === "success" && saved.message, "Saved.");
+  const state = await h.runStateAction("t", form({ name: "Ana" }), schema, async () => ok({ status: "shown" as const, value: 1 }));
+  assert.deepEqual(state, { status: "shown", value: 1 });
+  await assert.rejects(h.runActionThenGo("t", form({ name: "Ana" }), schema, async () => ok("/people")), /NEXT_REDIRECT/);
+  assert.ok(h.calls.includes("redirect /people"));
+});
+
+test("a returned failure from a state or redirect action is a calm error, with no redirect", async () => {
+  const viaState = harness();
+  const state = await viaState.runStateAction("t", form({ name: "Ana" }), schema, async (): Promise<ServiceResult<{ status: "shown" }>> => err("forbidden"));
+  assert.deepEqual(state, { status: "error", message: "You can't change that request." });
+  const viaGo = harness();
+  const go = await viaGo.runActionThenGo("t", form({ name: "Ana" }), schema, async () => err("forbidden"));
+  assert.deepEqual(go, { status: "error", message: "You can't change that request." });
+  assert.ok(!viaGo.calls.some((c) => c.startsWith("redirect")));
 });

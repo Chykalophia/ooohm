@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for allowance rules: a yearly allowance of one leave type for a
  * department, a level, or both, replacing the type's default for the people it matches

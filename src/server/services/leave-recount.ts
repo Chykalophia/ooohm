@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Recounting submitted leave after the company calendar changed.
  *

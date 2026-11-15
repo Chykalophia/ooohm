@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for people: list, invite (create + sign-in link), edit, resend the
  * invite, deactivate and reactivate. Deleting someone, the step after deactivating them,
@@ -9,7 +10,6 @@
  * writes `audit_log` and an `events_outbox` row in that transaction; emails go out
  * only after commit.
  */
-import { randomUUID } from "node:crypto";
 import type { Transaction } from "@/db/types";
 import type { Actor, Role } from "@/domain/actor";
 import { assertCanAdminister } from "@/domain/admin-permissions";
@@ -331,7 +331,7 @@ export async function invitePerson(ctx: ServiceContext, actor: Actor, input: Inv
       await assertLevel(tx, actor.companyId, fields.levelId);
       assertValidManager(null, fields.managerId, lineMap(await listReportingLines(tx, actor.companyId)));
 
-      const person = await insertPerson(tx, { id: randomUUID(), companyId: actor.companyId, email, ...fields });
+      const person = await insertPerson(tx, { id: ctx.ids.next(), companyId: actor.companyId, email, ...fields });
       await recordAdminChange(tx, actor, {
         type: ADMIN_EVENT_TYPES.userCreated,
         entityType: "user",

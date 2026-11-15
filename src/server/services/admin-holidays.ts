@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for company holidays: list a year, add one day or a run of days (an
  * end-of-year shutdown), rename, delete, and add the US federal holidays for a year in

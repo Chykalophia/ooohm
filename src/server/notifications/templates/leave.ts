@@ -1,3 +1,4 @@
+import "server-only";
 import type { EmailCopy } from "@/domain/email-template";
 import { displayName } from "@/domain/person";
 import { formatDateSpan, formatDays, formatLeaveDates, formatRecountCause } from "@/lib/format";

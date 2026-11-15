@@ -1,3 +1,4 @@
+import "server-only";
 import type { Actor } from "@/domain/actor";
 import { isEmptyBalance } from "@/domain/allowance-policy";
 import { entriesCostingDaysIn } from "@/domain/calendar";

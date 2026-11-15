@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The seam between OOOhm and whatever delivers its email. Services never see this: they
  * call `ctx.mailer` (`Mailer`, in `src/server/context.ts`), and the composition root wires

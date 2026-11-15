@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Admin use cases for deleting a person, the step after deactivating them:
  *

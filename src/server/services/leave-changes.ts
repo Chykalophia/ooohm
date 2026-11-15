@@ -1,3 +1,4 @@
+import "server-only";
 import type { Transaction } from "@/db/types";
 import type { PersonChangeSource } from "@/domain/change-source";
 import {

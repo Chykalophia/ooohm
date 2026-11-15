@@ -1,3 +1,4 @@
+import "server-only";
 import { and, asc, count, eq, sql } from "drizzle-orm";
 import { levels, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";

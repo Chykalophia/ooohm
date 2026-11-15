@@ -1,3 +1,4 @@
+import "server-only";
 import type { Transaction } from "@/db/types";
 import { type Actor, isAdmin } from "@/domain/actor";
 import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";

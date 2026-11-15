@@ -1,3 +1,4 @@
+import "server-only";
 import type { EmailCopy } from "@/domain/email-template";
 import type { EmailAccent } from "@/lib/email-layout";
 import type { EmailContent } from "./templates/content";

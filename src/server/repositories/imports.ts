@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Queries for one-time imports (TimeOff.Management): the `import_runs` ledger, the
  * checks that a target company is empty enough, and bulk writes. An import writes

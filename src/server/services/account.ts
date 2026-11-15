@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The signed-in person's own account: what they see on their settings page, and what
  * they may change themselves: their display name, their colour mode and their passkeys
@@ -18,6 +19,7 @@ import { findPerson, lockMember, updateColorMode, updatePerson } from "@/server/
 import { recordAdminChange } from "./admin-access";
 import { personPayload, personSnapshot } from "./admin-people";
 import { inTransaction } from "./notify";
+import { attempt, type ServiceResult } from "@/shared/lib/result";
 
 export interface Account {
   name: string;
@@ -68,11 +70,18 @@ export async function hasPasskey(ctx: ServiceContext, actor: Actor): Promise<boo
  * Changes the actor's own display name, recorded as `user.updated` with the person as
  * the actor (the same audit row and event an admin's edit writes).
  *
- * @returns The name as saved (unchanged, with nothing recorded, when it is the same).
- * @throws DomainError `invalid_input` for a blank or too long name, or `forbidden` for a
- *   deactivated account.
+ * The pilot for results at the use-case boundary (ADR-0003): the transaction still rolls
+ * back by throwing, and the outcome is converted once it has settled.
+ *
+ * @returns `ok` with the name as saved (unchanged, with nothing recorded, when it is the
+ *   same); `err("invalid_input")` for a blank or too long name, or `err("forbidden")` for
+ *   a deactivated account.
  */
-export async function renameSelf(ctx: ServiceContext, actor: Actor, rawName: string): Promise<string> {
+export async function renameSelf(ctx: ServiceContext, actor: Actor, rawName: string): Promise<ServiceResult<string>> {
+  return attempt(() => renameSelfOrThrow(ctx, actor, rawName));
+}
+
+async function renameSelfOrThrow(ctx: ServiceContext, actor: Actor, rawName: string): Promise<string> {
   const name = normalizePersonName(rawName);
   return inTransaction(ctx, async (tx) => {
     const member = await lockMember(tx, actor.companyId, actor.id);

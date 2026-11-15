@@ -64,6 +64,7 @@ export type {
   WebhookEndpointPageDTO,
   WebhookEndpointSummaryDTO,
 } from "./application/dto";
+export { endpointSummary, presentDelivery, type WebhookDeliveryView } from "./ui/webhook-endpoint-presenter";
 export {
   API_GUIDE_URL,
   API_KEY_NAME_MAX_LENGTH,

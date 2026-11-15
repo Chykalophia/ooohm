@@ -10,3 +10,4 @@ export { countRecentActions } from "./application/queries/count-recent-actions";
 export { canViewAuditLog } from "./application/policies";
 export { AUDIT_PAGE_SIZE, AUDIT_PAGE_SIZES, AUDIT_SEARCH_MAX_LENGTH, type AuditLogFilter, type AuditPageSize } from "./application/schemas";
 export type { AuditLogDTO, AuditLogEntryDTO } from "./application/dto";
+export { type AuditLogPresentation, presentAuditLog } from "./ui/audit-log-presenter";

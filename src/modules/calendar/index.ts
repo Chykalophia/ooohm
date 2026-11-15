@@ -13,6 +13,7 @@ export { getMonthCalendar, type MonthCalendarDTO } from "./application/queries/g
 export { getYearCalendar, type YearCalendarDTO } from "./application/queries/get-year-calendar";
 export { getTeamCalendar, type TeamCalendarDTO, type TeamCalendarQuery } from "./application/queries/get-team-calendar";
 export type { MonthNav, YearNav } from "./application/calendar-viewer";
+export { calendarFilterItems, calendarMonthHref, calendarYearHref, monthGridCaption, yearViewMonth } from "./ui/calendar-presenter";
 
 // Feeds.
 export { listCalendarFeeds } from "./application/queries/list-calendar-feeds";

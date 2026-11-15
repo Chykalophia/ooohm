@@ -41,7 +41,8 @@ const draft = (over: Partial<PreviewDraft> = {}): PreviewDraft => ({
 const wait = () => act(async () => mock.timers.tick(PREVIEW_DELAY_MS));
 
 function renderPreview(initial: PreviewDraft, forUserId?: string) {
-  return renderHook(({ d, who }: { d: PreviewDraft; who?: string }) => useLeavePreview(d, who), { initialProps: { d: initial, who: forUserId } });
+  type Props = { d: PreviewDraft; who?: string };
+  return renderHook(({ d, who }: Props) => useLeavePreview(d, who), { initialProps: { d: initial, who: forUserId } as Props });
 }
 
 describe("useLeavePreview", () => {

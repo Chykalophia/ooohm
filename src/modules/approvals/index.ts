@@ -33,6 +33,16 @@ export type {
   ReviewRequestDTO,
   SettledDecisionDTO,
 } from "./application/dto";
+export {
+  APPROVALS_VIEW_PARAM,
+  type ApprovalsPresentation,
+  type ApprovalTab,
+  type PendingRequestView,
+  presentApprovals,
+  presentPendingRequest,
+  presentSettledDecision,
+  readApprovalsView,
+} from "./ui/approvals-presenter";
 export type { ApprovalCandidate, ApprovalContext, ApprovalRequester, ApprovalRule } from "./domain/approval-context";
 export { approvalRuleFor, HeadsUpApprovalRule } from "./domain/approval-rule";
 export { approverFor, ManagerApprovalRule, reassignApprover } from "./domain/approver-for";

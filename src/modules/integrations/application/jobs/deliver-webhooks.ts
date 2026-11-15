@@ -80,7 +80,8 @@ async function excerptOf(res: Response, max = MAX_RESPONSE_BYTES): Promise<strin
 async function inParallel<T>(items: readonly T[], limit: number, work: (item: T) => Promise<void>, signal?: AbortSignal): Promise<T[]> {
   let next = 0;
   const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length && !signal?.aborted) await work(items[next++]);
+    // In range: next < items.length was just checked.
+    while (next < items.length && !signal?.aborted) await work(items[next++] as T);
   });
   await Promise.all(lanes);
   return items.slice(next);

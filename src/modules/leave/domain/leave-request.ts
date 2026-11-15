@@ -56,7 +56,8 @@ export interface LeaveDraftFacts {
 export interface Submission {
   readonly requested: LeaveRequest;
   readonly approved: LeaveRequest | null;
-  readonly events: readonly LeaveDomainEvent[];
+  /** `LeaveRequested`, then `LeaveApproved` when it was approved at once. */
+  readonly events: readonly [LeaveDomainEvent, ...LeaveDomainEvent[]];
 }
 
 /** A request after one transition, and the event it records. */
@@ -94,11 +95,11 @@ export function submitLeave(input: {
     createdAt: now,
     updatedAt: now,
   };
-  const events: LeaveDomainEvent[] = [{ type: "LeaveRequested", request: requested }];
-  if (!input.autoApprove) return ok({ requested, approved: null, events });
+  const requestedEvent: LeaveDomainEvent = { type: "LeaveRequested", request: requested };
+  if (!input.autoApprove) return ok({ requested, approved: null, events: [requestedEvent] });
   const approval = approveLeave(requested, now);
   if (!approval.ok) return approval;
-  return ok({ requested, approved: approval.value.request, events: [...events, approval.value.event] });
+  return ok({ requested, approved: approval.value.request, events: [requestedEvent, approval.value.event] });
 }
 
 /** Approves a pending request at `now`. Fails with `invalid_transition` from any other status. */

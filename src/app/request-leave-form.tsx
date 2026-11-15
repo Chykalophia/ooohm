@@ -115,7 +115,7 @@ export function SubmitRow({ state, pending, label }: { state: FormState; pending
  *   person starts the next request.
  * @param forUserId Someone else the time off is for: the preview is for them.
  */
-export function useLeaveDraft(leaveTypes: LeaveTypeOption[], defaultDate: string, justSubmitted: boolean, forUserId?: string) {
+export function useLeaveDraft(leaveTypes: LeaveTypeOption[], defaultDate: string, justSubmitted: boolean, forUserId?: string | undefined) {
   const [leaveTypeId, setLeaveTypeId] = useState(leaveTypes[0]?.id ?? "");
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
@@ -167,7 +167,7 @@ function Fields({
   leaveTypes: LeaveTypeOption[];
   defaultDate: string;
   justSubmitted: boolean;
-  forUserId?: string;
+  forUserId?: string | undefined;
 }) {
   const {
     leaveTypeId,

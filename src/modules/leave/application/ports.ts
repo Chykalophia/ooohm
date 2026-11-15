@@ -48,11 +48,11 @@ export type ApiLeaveRequest = Omit<LeaveRequest, "note" | "decisionNote" | "comp
 /** Which page of the API's leave requests to read. */
 export interface ApiLeaveRequestPage {
   companyId: string;
-  from?: CalendarDate;
-  to?: CalendarDate;
-  userId?: string;
-  status?: LeaveStatus;
-  after?: { startDate: CalendarDate; id: string };
+  from?: CalendarDate | undefined;
+  to?: CalendarDate | undefined;
+  userId?: string | undefined;
+  status?: LeaveStatus | undefined;
+  after?: { startDate: CalendarDate; id: string } | undefined;
   limit: number;
 }
 
@@ -75,7 +75,7 @@ export interface LeaveRequestRepository {
    * resting on the assignment loses to a concurrent reassignment.
    */
   updateStatusIfCurrent(
-    where: { companyId: string; id: string; from: LeaveStatus; approverId?: string },
+    where: { companyId: string; id: string; from: LeaveStatus; approverId?: string | undefined },
     set: { status: LeaveStatus; decidedAt?: Date; decisionNote?: string | null },
   ): Promise<LeaveRequest | undefined>;
   /**

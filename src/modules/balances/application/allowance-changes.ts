@@ -18,7 +18,7 @@ export interface AllowanceChange {
   after: Allowance;
   source: ChangeSource;
   /** The admin's reason, kept in the audit row's `after` only. */
-  note?: string;
+  note?: string | undefined;
 }
 
 /** The audited view of an allowance row. */

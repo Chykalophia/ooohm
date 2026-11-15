@@ -52,8 +52,8 @@ export function parseIpv6(value: string): number[] | null {
   const halves = head.split("::");
   if (halves.length > 2) return null;
   const groups = (s: string) => (s === "" ? [] : s.split(":"));
-  const left = groups(halves[0]);
-  const right = halves.length === 2 ? groups(halves[1]) : [];
+  const left = groups(halves[0] ?? "");
+  const right = halves.length === 2 ? groups(halves[1] ?? "") : [];
   const wanted = 8 - tailBytes.length / 2;
   const present = left.length + right.length;
   if (halves.length === 1 ? present !== wanted : present >= wanted) return null;
@@ -73,19 +73,19 @@ function inRange(addr: readonly number[], range: Range): boolean {
   let bits = range.prefix;
   for (let i = 0; bits > 0; i++, bits -= 8) {
     const mask = bits >= 8 ? 0xff : (0xff << (8 - bits)) & 0xff;
-    if ((addr[i] & mask) !== (range.bytes[i] & mask)) return false;
+    if (((addr[i] ?? 0) & mask) !== ((range.bytes[i] ?? 0) & mask)) return false;
   }
   return true;
 }
 
 function v4(cidr: string): Range {
   const [ip, prefix] = cidr.split("/");
-  return { bytes: parseIpv4(ip)!, prefix: Number(prefix) };
+  return { bytes: parseIpv4(ip ?? "")!, prefix: Number(prefix) };
 }
 
 function v6(cidr: string): Range {
   const [ip, prefix] = cidr.split("/");
-  return { bytes: parseIpv6(ip)!, prefix: Number(prefix) };
+  return { bytes: parseIpv6(ip ?? "")!, prefix: Number(prefix) };
 }
 
 /**

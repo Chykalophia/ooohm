@@ -23,7 +23,7 @@ export function isCalendarDate(value: string): value is CalendarDate {
 
 /** Days since 1970-01-01 for a valid calendar date. */
 export function toEpochDay(date: CalendarDate): number {
-  const [y, m, d] = date.split("-").map(Number);
+  const [y = NaN, m = NaN, d = NaN] = date.split("-").map(Number);
   return Math.round(Date.UTC(y, m - 1, d) / MS_PER_DAY);
 }
 

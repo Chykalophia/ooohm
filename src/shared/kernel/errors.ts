@@ -114,7 +114,7 @@ export class DomainError extends Error {
    * `insufficient_balance`, what blocks the delete for `deletion_blocked`, the holidays
    * in the dates for `zero_days`.
    */
-  readonly details?: DomainErrorDetails;
+  readonly details?: DomainErrorDetails | undefined;
 
   constructor(code: DomainErrorCode, message?: string, details?: DomainErrorDetails) {
     super(message ?? code);

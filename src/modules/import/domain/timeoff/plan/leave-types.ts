@@ -61,8 +61,8 @@ export function choosePoolSource(leaveTypes: readonly TimeOffLeaveType[], option
  */
 function poolDefaultOf(poolSource: TimeOffLeaveType | undefined, sourceDepartments: readonly TimeOffDepartment[], warn: Warn): number | null {
   const departmentAllowances = [...new Set(sourceDepartments.map((d) => d.allowance))].sort((a, b) => a - b);
-  const poolDefault =
-    departmentAllowances.length === 1 && departmentAllowances[0] >= 0 && departmentAllowances[0] <= MAX_ALLOWANCE_DAYS ? departmentAllowances[0] : null;
+  const [only] = departmentAllowances;
+  const poolDefault = departmentAllowances.length === 1 && only !== undefined && only >= 0 && only <= MAX_ALLOWANCE_DAYS ? only : null;
   if (poolSource && poolDefault === null) {
     warn({
       code: "pool_type_no_default",
@@ -93,7 +93,8 @@ function plannedTypesOf(leaveTypes: readonly TimeOffLeaveType[], c: TypeContext,
       return normalizeLeaveTypeColor(t.color);
     } catch {
       badColors.push(t.name);
-      return FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+      // The index is taken modulo the list's length, so it is always in range.
+      return FALLBACK_COLORS[index % FALLBACK_COLORS.length]!;
     }
   };
   const ordered = [...leaveTypes.entries()].sort(([, a], [, b]) => Number(b.id === c.poolSource?.id) - Number(a.id === c.poolSource?.id));

@@ -27,7 +27,7 @@ export type ApiUserRow = {
  * A page of the company's people by id, after `afterId`. Served by `user_company_id_idx`.
  * Deleted people are not listed: integrations learn of them from `user.deleted`.
  */
-export async function listUsersPage(ex: Executor, input: { companyId: string; afterId?: string; limit: number }): Promise<ApiUserRow[]> {
+export async function listUsersPage(ex: Executor, input: { companyId: string; afterId?: string | undefined; limit: number }): Promise<ApiUserRow[]> {
   return ex
     .select({
       id: user.id,

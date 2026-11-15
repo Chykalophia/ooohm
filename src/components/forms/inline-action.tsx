@@ -51,8 +51,8 @@ export function InlineAction({
   fields: Record<string, string>;
   label: React.ReactNode;
   pendingLabel: string;
-  confirm?: string;
-  confirmLabel?: string;
+  confirm?: string | undefined;
+  confirmLabel?: string | undefined;
   variant?: InlineActionVariant;
   /** Style of the "Yes, …" button, when it should differ from the opener's (a quiet Cancel that confirms in red). */
   confirmVariant?: InlineActionVariant;

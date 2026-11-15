@@ -8,11 +8,11 @@ import { attempt, type ServiceResult } from "@/shared/lib/result";
 import type { LeaveDeps } from "../ports";
 
 export interface LeaveRequestQuery {
-  from?: CalendarDate;
-  to?: CalendarDate;
-  userId?: string;
-  status?: LeaveStatus;
-  cursor?: string;
+  from?: CalendarDate | undefined;
+  to?: CalendarDate | undefined;
+  userId?: string | undefined;
+  status?: LeaveStatus | undefined;
+  cursor?: string | undefined;
   limit: number;
 }
 

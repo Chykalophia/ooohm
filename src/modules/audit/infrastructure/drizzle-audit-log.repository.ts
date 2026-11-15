@@ -9,24 +9,24 @@ import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 /** Which audit rows to read; every filter is optional except the company. */
 export interface AuditQuery {
   companyId: string;
-  action?: string;
-  actorId?: string;
-  subjectUserId?: string;
+  action?: string | undefined;
+  actorId?: string | undefined;
+  subjectUserId?: string | undefined;
   /** First day to include, in `timezone`. */
-  from?: string;
+  from?: string | undefined;
   /** Last day to include, in `timezone`. */
-  to?: string;
+  to?: string | undefined;
   timezone: string;
   /** Oldest first instead of newest first. */
-  oldestFirst?: boolean;
+  oldestFirst?: boolean | undefined;
   /**
    * A search, resolved by the service into what each word matched: a row matches a word
    * when its action is one of the word's `actions`, or it was done by or is about one of
    * its `people`; it must match every word. A word that matched nothing means no rows.
    */
-  search?: readonly { actions: readonly string[]; people: readonly string[] }[];
+  search?: readonly { actions: readonly string[]; people: readonly string[] }[] | undefined;
   /** The page: after or before a `[created_at, id]` key (`created_at` as {@link cursorInstant} prints it); the first page (the newest, or the oldest with `oldestFirst`) when absent. */
-  page?: PageRequest;
+  page?: PageRequest | undefined;
 }
 
 /** A row matching one resolved search word: by its action, its actor or its subject. Each arm can use its own index. */

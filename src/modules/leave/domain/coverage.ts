@@ -63,8 +63,9 @@ export function coverageBreach(target: CoverageTarget, leave: readonly CoverageL
     const off = new Set(others.filter((l) => l.startDate <= date && l.endDate >= date).map((l) => l.userId)).size + 1;
     return off > target.maxOff ? [{ date, off }] : [];
   });
-  if (over.length === 0) return null;
-  return { peak: Math.max(...over.map((d) => d.off)), firstDate: over[0].date, days: over.length, maxOff: target.maxOff };
+  const [first] = over;
+  if (!first) return null;
+  return { peak: Math.max(...over.map((d) => d.off)), firstDate: first.date, days: over.length, maxOff: target.maxOff };
 }
 
 /**

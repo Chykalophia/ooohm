@@ -33,7 +33,8 @@ export interface HolidayGroup<T extends { id: string; date: string; name: string
   name: string;
   startDate: CalendarDate;
   endDate: CalendarDate;
-  days: T[];
+  /** The run's holidays, in date order: never empty. */
+  days: [T, ...T[]];
 }
 
 /**

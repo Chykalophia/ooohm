@@ -10,6 +10,7 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { Role } from "@/shared/kernel/actor";
+import { returnedRow } from "@/db/rows";
 
 const approvalFields = {
   id: user.id,
@@ -189,11 +190,11 @@ export async function insertPerson(
     isActive?: boolean;
   },
 ): Promise<PersonRow> {
-  const [row] = await tx
+  const rows = await tx
     .insert(user)
     .values({ ...values, emailVerified: false, isActive: values.isActive ?? true })
     .returning(personFields);
-  return row;
+  return returnedRow(rows);
 }
 
 /** The account with this email (already lowercased), in any company, with its company. */
@@ -211,12 +212,12 @@ export async function updatePerson(
   userId: string,
   set: Partial<Pick<PersonRow, "name" | "role" | "departmentId" | "levelId" | "managerId" | "canSelfApprove" | "isActive">>,
 ): Promise<PersonRow> {
-  const [row] = await tx
+  const rows = await tx
     .update(user)
     .set(set)
     .where(and(eq(user.id, userId), eq(user.companyId, companyId)))
     .returning(personFields);
-  return row;
+  return returnedRow(rows);
 }
 
 /**

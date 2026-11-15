@@ -19,7 +19,7 @@ import { companyEventExists, listCompanyEvents } from "@/modules/integrations/in
 export async function listEventsForApi(
   ctx: ServiceContext,
   client: ApiClient,
-  q: { after?: string; limit: number },
+  q: { after?: string | undefined; limit: number },
 ): Promise<ServiceResult<{ data: EventEnvelope[]; hasMore: boolean }>> {
   return attempt(async () => {
     assertScope(client, "read");

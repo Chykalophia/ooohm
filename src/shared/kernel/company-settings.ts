@@ -37,15 +37,15 @@ export interface CompanySettingsInput {
   workingDays: readonly number[];
   allowancePolicy: string;
   /** Wait `DELETION_GRACE_DAYS` before a full scrub, with undo. Left as it is when absent. */
-  deletionGrace?: boolean;
+  deletionGrace?: boolean | undefined;
   /** Managers see their direct reports' balances and notes. Left as it is when absent. */
-  managersSeeDetails?: boolean;
+  managersSeeDetails?: boolean | undefined;
   /** `required` or `heads_up` ({@link ApprovalMode}). Left as it is when absent. */
-  approvalMode?: string;
+  approvalMode?: string | undefined;
   /** What employees see of colleagues' time off (`COLLEAGUE_VISIBILITY`). Left as it is when absent. */
-  colleagueVisibility?: string;
+  colleagueVisibility?: string | undefined;
   /** Limit everyone but admins to their departments. Left as it is when absent. */
-  departmentScoping?: boolean;
+  departmentScoping?: boolean | undefined;
 }
 
 export interface CompanySettings {

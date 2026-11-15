@@ -134,7 +134,8 @@ export const RETRY_JITTER = 0.1;
 export function retryDelayMs(attemptsMade: number, random: number): number | null {
   if (!Number.isInteger(attemptsMade) || attemptsMade < 1) throw new RangeError(`attemptsMade must be a positive integer, got ${attemptsMade}`);
   if (attemptsMade >= MAX_DELIVERY_ATTEMPTS) return null;
-  const base = RETRY_DELAYS_MS[attemptsMade - 1];
+  // In range: attemptsMade < MAX_DELIVERY_ATTEMPTS, which is RETRY_DELAYS_MS.length + 1.
+  const base = RETRY_DELAYS_MS[attemptsMade - 1]!;
   const r = Math.min(Math.max(random, 0), 1);
   return Math.round(base * (1 - RETRY_JITTER + 2 * RETRY_JITTER * r));
 }

@@ -26,12 +26,12 @@ const longFormat = new Intl.DateTimeFormat("en-US", {
 const monthFormat = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "long" });
 
 function longDay(date: CalendarDate): string {
-  const [y, m, d] = date.split("-").map(Number);
+  const [y = NaN, m = NaN, d = NaN] = date.split("-").map(Number);
   return longFormat.format(new Date(utcMs(y, m - 1, d)));
 }
 
 function monthName(month: string): string {
-  const [y, m] = month.split("-").map(Number);
+  const [y = NaN, m = NaN] = month.split("-").map(Number);
   return monthFormat.format(new Date(utcMs(y, m - 1, 1)));
 }
 
@@ -77,10 +77,10 @@ export function DatePicker({
   /** The trigger's name ("From", "First day"); it begins the button's accessible name. */
   label: string;
   /** What the date is ("First day"): names the dialog and its typed field. Defaults to `label`. */
-  pickerLabel?: string;
+  pickerLabel?: string | undefined;
   value: CalendarDate | "";
   /** Days before it show but can't be picked. */
-  min?: CalendarDate;
+  min?: CalendarDate | undefined;
   onChange: (value: CalendarDate) => void;
   /** The trigger's whole look, focus included (the sentence's token, a form field). */
   className?: string;
@@ -361,7 +361,7 @@ function TypedDate({
   inputRef: React.Ref<HTMLInputElement>;
   typed: string;
   invalid: boolean;
-  min?: CalendarDate;
+  min?: CalendarDate | undefined;
   onType: (text: string) => void;
 }) {
   return (
@@ -409,7 +409,7 @@ function MonthDays({
   value: CalendarDate | "";
   today: CalendarDate;
   focus: CalendarDate;
-  min?: CalendarDate;
+  min?: CalendarDate | undefined;
   onKeyDown: (e: React.KeyboardEvent) => void;
   onPick: (date: CalendarDate) => void;
 }) {

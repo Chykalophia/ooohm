@@ -21,7 +21,7 @@ const webhookTargets = { allowInsecure: env.WEBHOOK_ALLOW_INSECURE, allowPrivate
  * in `inline` mode. Kept on `globalThis` so every module graph in the process sees it;
  * this module cannot import the tick itself, which is a service.
  */
-const registry = globalThis as unknown as { ooohmWake?: () => Promise<void> };
+const registry = globalThis as unknown as { ooohmWake?: (() => Promise<void>) | undefined };
 
 /** Registers what `ctx.wake` runs after a change (inline background mode). */
 export function setBackgroundWake(wake: (() => Promise<void>) | undefined): void {

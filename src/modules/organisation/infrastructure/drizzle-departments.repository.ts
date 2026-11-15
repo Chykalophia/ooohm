@@ -3,6 +3,7 @@ import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { departments, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
+import { returnedRow } from "@/db/rows";
 
 /** `maxOff`: the optional coverage limit, at most this many of its people off at once. */
 export type DepartmentRow = { id: string; name: string; managerId: string | null; maxOff: number | null };
@@ -96,36 +97,36 @@ export async function findDepartmentByName(ex: Executor, companyId: string, name
 }
 
 export async function insertDepartment(tx: Transaction, values: { companyId: string; name: string }): Promise<DepartmentRow> {
-  const [row] = await tx.insert(departments).values(values).returning(fields);
-  return row;
+  const rows = await tx.insert(departments).values(values).returning(fields);
+  return returnedRow(rows);
 }
 
 export async function renameDepartment(tx: Transaction, companyId: string, id: string, name: string): Promise<DepartmentRow> {
-  const [row] = await tx
+  const rows = await tx
     .update(departments)
     .set({ name })
     .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
     .returning(fields);
-  return row;
+  return returnedRow(rows);
 }
 
 export async function setDepartmentManagerRow(tx: Transaction, companyId: string, id: string, managerId: string | null): Promise<DepartmentRow> {
-  const [row] = await tx
+  const rows = await tx
     .update(departments)
     .set({ managerId })
     .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
     .returning(fields);
-  return row;
+  return returnedRow(rows);
 }
 
 /** Sets (or, with `null`, clears) the department's coverage limit. */
 export async function setDepartmentMaxOffRow(tx: Transaction, companyId: string, id: string, maxOff: number | null): Promise<DepartmentRow> {
-  const [row] = await tx
+  const rows = await tx
     .update(departments)
     .set({ maxOff })
     .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
     .returning(fields);
-  return row;
+  return returnedRow(rows);
 }
 
 /** Each of `departmentIds` (of the company) that has a coverage limit, mapped to it. */

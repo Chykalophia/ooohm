@@ -12,9 +12,9 @@ import { toTeamEntry } from "@/modules/calendar/application/dto";
 /** Which slice of the team the "who's out" view shows. */
 export interface TeamCalendarQuery {
   /** `YYYY-MM`; anything else means the current month. */
-  month?: string;
+  month?: string | undefined;
   /** A department of the actor's company; anything else means everyone. */
-  departmentId?: string;
+  departmentId?: string | undefined;
 }
 
 async function loadTeamCalendar(ctx: ServiceContext, actor: Actor, query: TeamCalendarQuery) {

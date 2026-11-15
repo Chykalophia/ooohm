@@ -39,7 +39,7 @@ export function FormStatus({
   state: FormState | { status: string; message?: string };
   success?: boolean;
   /** Lets a caller move focus to the result; the line is then focusable. */
-  ref?: React.Ref<HTMLParagraphElement>;
+  ref?: React.Ref<HTMLParagraphElement> | undefined;
 }) {
   return (
     <p ref={ref} tabIndex={ref ? -1 : undefined} className="min-h-5 text-sm outline-none">

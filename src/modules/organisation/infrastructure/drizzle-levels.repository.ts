@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, count, eq, sql } from "drizzle-orm";
 import { levels, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
+import { returnedRow } from "@/db/rows";
 
 export type LevelRow = { id: string; name: string };
 
@@ -73,17 +74,17 @@ export async function findLevelByName(ex: Executor, companyId: string, name: str
 }
 
 export async function insertLevel(tx: Transaction, values: { companyId: string; name: string }): Promise<LevelRow> {
-  const [row] = await tx.insert(levels).values(values).returning(fields);
-  return row;
+  const rows = await tx.insert(levels).values(values).returning(fields);
+  return returnedRow(rows);
 }
 
 export async function renameLevel(tx: Transaction, companyId: string, id: string, name: string): Promise<LevelRow> {
-  const [row] = await tx
+  const rows = await tx
     .update(levels)
     .set({ name })
     .where(and(eq(levels.id, id), eq(levels.companyId, companyId)))
     .returning(fields);
-  return row;
+  return returnedRow(rows);
 }
 
 export async function deleteLevel(tx: Transaction, companyId: string, id: string): Promise<void> {

@@ -15,7 +15,7 @@ export type DateRange = Readonly<LeaveRange>;
  * Fails with `invalid_input` (not a date, or an unknown portion), `invalid_date_range`
  * (end before start), `range_too_long` (over 366 days) or `half_day_multi_day`.
  */
-export function createDateRange(startDate: string, endDate?: string | null, dayPortion: DayPortion = "full"): ServiceResult<DateRange> {
+export function createDateRange(startDate: string, endDate?: string | null | undefined, dayPortion: DayPortion = "full"): ServiceResult<DateRange> {
   const range: DateRange = { startDate, endDate: endDate || startDate, dayPortion };
   try {
     assertValidRange(range);

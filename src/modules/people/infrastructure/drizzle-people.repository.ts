@@ -19,11 +19,11 @@ const manager = alias(user, "manager");
 /** Which people the admin list shows. */
 export interface PeopleFilter {
   /** Matched against name and email, case-insensitively, as a substring. */
-  query?: string;
+  query?: string | undefined;
   status: "active" | "inactive" | "all";
-  departmentId?: string;
+  departmentId?: string | undefined;
   /** The page: after or before a `[lower(name), email]` key; the first when absent. */
-  page?: PageRequest;
+  page?: PageRequest | undefined;
 }
 
 function likePattern(query: string): string {

@@ -74,7 +74,7 @@ export function decodePageKey(token: string, checks: readonly KeyPartCheck[]): s
     return undefined;
   }
   if (!Array.isArray(key) || key.length !== checks.length) return undefined;
-  if (!key.every((part, i) => typeof part === "string" && checks[i](part))) return undefined;
+  if (!key.every((part, i) => typeof part === "string" && checks[i]?.(part) === true)) return undefined;
   return key as string[];
 }
 
@@ -97,7 +97,7 @@ const INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.\d{6}Z$/;
 export function isCursorInstant(part: string): boolean {
   const m = INSTANT.exec(part);
   if (!m) return false;
-  const [y, mo, d, h, mi, s] = m.slice(1).map(Number);
+  const [y = NaN, mo = NaN, d = NaN, h = NaN, mi = NaN, s = NaN] = m.slice(1).map(Number);
   // Year 0 is not a Postgres year (and Date.UTC reads it as 1900).
   if (y < 1) return false;
   const date = new Date(Date.UTC(y, mo - 1, d));
@@ -146,16 +146,22 @@ export async function readPage<T>({ cursor, size, checks, keyOf, read }: PageSou
 
   if (request?.direction === "before") {
     const items = rows.slice(0, size).reverse();
-    const lastKey = [...keyOf(items[items.length - 1])];
+    const first = items[0];
+    const last = items.at(-1);
+    // More than `size` rows came back (fewer turned the request into a first page above).
+    if (first === undefined || last === undefined) throw new Error("A page before a key read no rows.");
+    const lastKey = [...keyOf(last)];
     const more = await read({ direction: "after", key: lastKey }, 1);
     return {
       items,
-      previous: rows.length > size ? at("before", keyOf(items[0])) : null,
+      previous: rows.length > size ? at("before", keyOf(first)) : null,
       next: more.length > 0 ? at("after", lastKey) : null,
     };
   }
   const items = rows.slice(0, size);
+  const first = items[0];
+  const last = items.at(-1);
   // Past the end (the last rows were removed, or a forged key): "previous" leads back from the key itself.
-  const previous = request ? at("before", items.length > 0 ? keyOf(items[0]) : request.key) : null;
-  return { items, previous, next: rows.length > size ? at("after", keyOf(items[items.length - 1])) : null };
+  const previous = request ? at("before", first !== undefined ? keyOf(first) : request.key) : null;
+  return { items, previous, next: rows.length > size && last !== undefined ? at("after", keyOf(last)) : null };
 }

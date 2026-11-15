@@ -49,7 +49,7 @@ export interface ApprovalRequests {
   lock(companyId: string, id: string): Promise<LeaveRequest | undefined>;
   /** Compare-and-set on the status (and the assignment, with `approverId`); `undefined` when it lost. */
   decideIfCurrent(
-    where: { companyId: string; id: string; from: LeaveStatus; approverId?: string },
+    where: { companyId: string; id: string; from: LeaveStatus; approverId?: string | undefined },
     set: { status: LeaveStatus; decidedAt?: Date; decisionNote?: string | null },
   ): Promise<LeaveRequest | undefined>;
   /** Moves a pending request still assigned to `from` (`null`: nobody) to `approverId`; `undefined` when it lost. */
@@ -166,7 +166,7 @@ export interface ApprovalStore {
 
 /** What signs an approve link: the key (absent where links cannot be signed), the app's URL and the clock. */
 export interface LinkSigner {
-  linkKey?: string;
+  linkKey?: string | undefined;
   appUrl: string;
   now(): Date;
 }

@@ -28,7 +28,7 @@ export function monthOf(date: CalendarDate): YearMonth {
 
 /** The month `count` months after `month` (before, when negative). */
 export function addMonths(month: YearMonth, count: number): YearMonth {
-  const [y, m] = month.split("-").map(Number);
+  const [y = NaN, m = NaN] = month.split("-").map(Number);
   const index = y * 12 + (m - 1) + count;
   const year = Math.floor(index / 12);
   return `${String(year).padStart(4, "0")}-${String((index % 12) + 1).padStart(2, "0")}`;

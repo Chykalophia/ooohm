@@ -31,7 +31,7 @@ export function personLabel(person: { name: string; email: string }): string {
  * should hand out deliverable addresses.
  */
 export function teamLabel(person: { name: string; email: string }): string {
-  return displayName(person.name) || displayName(person.email.split("@")[0]) || "A teammate";
+  return displayName(person.name) || displayName(person.email.split("@")[0] ?? "") || "A teammate";
 }
 
 /** What the admin must type to confirm: the person's name as shown, or their email when the name is blank. */

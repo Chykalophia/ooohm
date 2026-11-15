@@ -8,7 +8,7 @@ export type PillNavItem = {
    * How the pill is current, if it is: `"page"` when it links to this very page, `"true"`
    * when it stands for a group the page belongs to (Integrations, on the Webhooks page).
    */
-  current?: "page" | "true";
+  current?: "page" | "true" | undefined;
 };
 
 /** A row of pills that switch between sibling views: admin sections, departments. */

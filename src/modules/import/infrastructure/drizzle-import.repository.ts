@@ -12,6 +12,7 @@ import type { Executor, Transaction } from "@/db/types";
 import type { Role } from "@/shared/kernel/actor";
 import type { ChangeSource } from "@/shared/kernel/change-source";
 import { type AuditEntry, sourceColumns } from "@/shared/lib/db/change-log";
+import { returnedRow } from "@/db/rows";
 
 /** Rows per insert statement: well under Postgres's 65,535 bind parameters for the widest table here. */
 const CHUNK = 500;
@@ -45,8 +46,8 @@ export async function insertImportRun(
   tx: Transaction,
   values: { companyId: string; source: string; sourceSha256: string; sourceFileName: string; counts: unknown; report: unknown },
 ): Promise<ImportRunRow> {
-  const [row] = await tx.insert(importRuns).values(values).returning();
-  return row;
+  const rows = await tx.insert(importRuns).values(values).returning();
+  return returnedRow(rows);
 }
 
 /** Every company, so a refusal for an unknown company can list the ones that exist. */

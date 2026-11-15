@@ -4,6 +4,7 @@ import { allowanceRules, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { AllowanceRuleRepository } from "../application/ports";
 import type { Placement } from "../domain/allowance-rules";
+import { returnedRow } from "@/db/rows";
 
 const fields = {
   id: allowanceRules.id,
@@ -52,17 +53,17 @@ export async function insertAllowanceRule(
   tx: Transaction,
   values: { companyId: string; leaveTypeId: string; departmentId: string | null; levelId: string | null; days: number },
 ): Promise<AllowanceRuleRow> {
-  const [row] = await tx.insert(allowanceRules).values(values).returning(fields);
-  return row;
+  const rows = await tx.insert(allowanceRules).values(values).returning(fields);
+  return returnedRow(rows);
 }
 
 export async function updateAllowanceRuleDays(tx: Transaction, companyId: string, id: string, days: number): Promise<AllowanceRuleRow> {
-  const [row] = await tx
+  const rows = await tx
     .update(allowanceRules)
     .set({ days })
     .where(and(eq(allowanceRules.id, id), eq(allowanceRules.companyId, companyId)))
     .returning(fields);
-  return row;
+  return returnedRow(rows);
 }
 
 export async function deleteAllowanceRule(tx: Transaction, companyId: string, id: string): Promise<void> {

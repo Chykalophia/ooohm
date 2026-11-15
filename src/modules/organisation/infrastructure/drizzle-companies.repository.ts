@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import { type CompanyRow, companyFields } from "@/shared/lib/db/company-columns";
+import { returnedRow } from "@/db/rows";
 
 export type { CompanyRow };
 
@@ -47,8 +48,8 @@ export async function updateCompany(
     logoHeight?: number | null;
   },
 ): Promise<CompanyRow> {
-  const [row] = await tx.update(companies).set(set).where(eq(companies.id, companyId)).returning(companyFields);
-  return row;
+  const rows = await tx.update(companies).set(set).where(eq(companies.id, companyId)).returning(companyFields);
+  return returnedRow(rows);
 }
 
 /** A stored logo's bytes and type, found by the SHA-256 that names it. */

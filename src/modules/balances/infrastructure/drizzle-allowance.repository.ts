@@ -5,6 +5,7 @@ import { allowances, leaveRequestDays, leaveRequests, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { AllowanceRepository } from "../application/ports";
 import type { BalanceScope } from "../domain/allowance";
+import { returnedRow } from "@/db/rows";
 
 export type AllowanceRow = typeof allowances.$inferSelect;
 export type NewAllowance = typeof allowances.$inferInsert;
@@ -87,8 +88,8 @@ export async function insertMissingAllowances(tx: Transaction, rows: readonly Ne
 }
 
 export async function setCarriedOverDays(tx: Transaction, id: string, carriedOverDays: number): Promise<AllowanceRow> {
-  const [row] = await tx.update(allowances).set({ carriedOverDays }).where(eq(allowances.id, id)).returning();
-  return row;
+  const rows = await tx.update(allowances).set({ carriedOverDays }).where(eq(allowances.id, id)).returning();
+  return returnedRow(rows);
 }
 
 /** A person's allowance row for one leave type and year, if any. */
@@ -112,7 +113,7 @@ export async function writeAllowanceOverride(
   tx: Transaction,
   values: { userId: string; leaveTypeId: string; year: number; days: number; adjustmentDays: number },
 ): Promise<AllowanceRow> {
-  const [row] = await tx
+  const rows = await tx
     .insert(allowances)
     .values(values)
     .onConflictDoUpdate({
@@ -120,13 +121,13 @@ export async function writeAllowanceOverride(
       set: { days: values.days, adjustmentDays: values.adjustmentDays },
     })
     .returning();
-  return row;
+  return returnedRow(rows);
 }
 
 /** The allowance rows of `userIds` for `fromYear` and later, optionally of some leave types only, locked until commit. */
 export async function lockAllowancesFrom(
   tx: Transaction,
-  scope: { userIds: readonly string[]; fromYear: number; leaveTypeIds?: readonly string[] },
+  scope: { userIds: readonly string[]; fromYear: number; leaveTypeIds?: readonly string[] | undefined },
 ): Promise<AllowanceRow[]> {
   if (scope.userIds.length === 0 || scope.leaveTypeIds?.length === 0) return [];
   return tx
@@ -144,8 +145,8 @@ export async function lockAllowancesFrom(
 }
 
 export async function setAllowanceDays(tx: Transaction, id: string, days: number): Promise<AllowanceRow> {
-  const [row] = await tx.update(allowances).set({ days }).where(eq(allowances.id, id)).returning();
-  return row;
+  const rows = await tx.update(allowances).set({ days }).where(eq(allowances.id, id)).returning();
+  return returnedRow(rows);
 }
 
 /** The {@link AllowanceRepository} on Drizzle, bound to `ex` (writes need a transaction). */

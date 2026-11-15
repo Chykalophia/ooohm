@@ -19,7 +19,8 @@ const VARIABLE = /\{\{[ \t]*([a-z][a-z_]*)[ \t]*\}\}/g;
 
 /** The variable names a template uses, in order, repeats included. */
 export function templateVariables(template: string): string[] {
-  return [...template.matchAll(VARIABLE)].map((m) => m[1]);
+  // Group 1 is not optional, so every match has it.
+  return [...template.matchAll(VARIABLE)].map((m) => m[1] ?? "");
 }
 
 /** The variables `template` uses that are not in `allowed`, each once, in order. */
@@ -44,7 +45,8 @@ export function fillTemplate(template: string, values: Readonly<Record<string, s
   let at = 0;
   for (const match of template.matchAll(VARIABLE)) {
     if (match.index > at) parts.push({ text: template.slice(at, match.index) });
-    parts.push({ text: Object.hasOwn(values, match[1]) ? values[match[1]] : "", variable: match[1] });
+    const name = match[1] ?? "";
+    parts.push({ text: Object.hasOwn(values, name) ? (values[name] ?? "") : "", variable: name });
     at = match.index + match[0].length;
   }
   if (at < template.length) parts.push({ text: template.slice(at) });

@@ -9,7 +9,7 @@ import type { MailTransport } from "./transport";
 export interface MailConfig {
   transport: MailTransportName;
   smtp: SmtpSettings;
-  sendgrid: { apiKey?: string; region: SendGridRegion };
+  sendgrid: { apiKey?: string | undefined; region: SendGridRegion };
 }
 
 /**

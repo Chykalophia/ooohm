@@ -23,7 +23,7 @@ export function inboxScopeFor(actor: Actor): InboxScope {
 }
 
 type TriageBase = Pick<ApprovalTriageDTO, "view" | "needsYouTotal" | "waitingTotal" | "settledDays" | "timeZone">;
-type Paging = { page?: PageCursor; size: number };
+type Paging = { page?: PageCursor | undefined; size: number };
 
 /**
  * The Approvals page, sorted by whose move it is, one tab at a time:
@@ -46,7 +46,7 @@ type Paging = { page?: PageCursor; size: number };
 export async function getApprovalTriage(
   deps: ApprovalDeps,
   actor: Actor,
-  { view = "mine", page, size = INBOX_PAGE_SIZE }: { view?: ApprovalsView; page?: PageCursor; size?: number } = {},
+  { view = "mine", page, size = INBOX_PAGE_SIZE }: { view?: ApprovalsView | undefined; page?: PageCursor | undefined; size?: number | undefined } = {},
 ): Promise<ApprovalTriageDTO> {
   const scope = inboxScopeFor(actor);
   const tab: ApprovalsView = view === "others" && !scope.isAdmin ? "mine" : view;

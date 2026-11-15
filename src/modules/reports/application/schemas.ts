@@ -6,9 +6,9 @@ type Params = Record<string, string | string[] | undefined>;
 /** Which slice of the leave a report shows. */
 export interface LeaveReportQuery {
   /** Anything outside the calendar's years, or nothing, means this year. */
-  year?: number;
+  year?: number | undefined;
   /** A department of the actor's company; anything else means everyone in scope. */
-  departmentId?: string;
+  departmentId?: string | undefined;
 }
 
 /** A URL's query as a page's `searchParams` gives it: a repeated key becomes an array. */

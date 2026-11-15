@@ -52,7 +52,7 @@ export function approvalDeps(ctx: ServiceContext): ApprovalDeps {
 }
 
 export const decideLeaveRequest = (ctx: ServiceContext, actor: Actor, input: DecideInput) => decide(approvalDeps(ctx), actor, input);
-export const getApprovalTriage = (ctx: ServiceContext, actor: Actor, options?: { view?: ApprovalsView; page?: PageCursor; size?: number }) =>
+export const getApprovalTriage = (ctx: ServiceContext, actor: Actor, options?: { view?: ApprovalsView | undefined; page?: PageCursor | undefined; size?: number | undefined }) =>
   triage(approvalDeps(ctx), actor, options);
 export const getApprovalNav = (ctx: ServiceContext, actor: Actor) => nav(approvalDeps(ctx), actor);
 export const readEmailApproval = (ctx: ServiceContext, token: string) => readLink(approvalDeps(ctx), token);

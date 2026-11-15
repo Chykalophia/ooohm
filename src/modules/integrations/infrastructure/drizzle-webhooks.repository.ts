@@ -5,6 +5,7 @@ import { executeRows } from "@/db/rows";
 import type { Executor, Transaction } from "@/db/types";
 import type { PageRequest } from "@/shared/kernel/paging";
 import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
+import { returnedRow } from "@/db/rows";
 
 /** An endpoint as services use it. `secretCiphertext` never leaves the service layer. */
 export type WebhookEndpointRow = {
@@ -84,8 +85,8 @@ export async function insertEndpoint(
   tx: Transaction,
   values: { id: string; companyId: string; url: string; description: string; eventTypes: string[]; secretCiphertext: string; createdBy: string },
 ): Promise<WebhookEndpointRow> {
-  const [row] = await tx.insert(webhookEndpoints).values(values).returning(endpointFields);
-  return row;
+  const rows = await tx.insert(webhookEndpoints).values(values).returning(endpointFields);
+  return returnedRow(rows);
 }
 
 export async function updateEndpoint(
@@ -94,12 +95,12 @@ export async function updateEndpoint(
   id: string,
   set: Partial<{ url: string; description: string; eventTypes: string[]; secretCiphertext: string; enabled: boolean; deletedAt: Date }>,
 ): Promise<WebhookEndpointRow> {
-  const [row] = await tx
+  const rows = await tx
     .update(webhookEndpoints)
     .set(set)
     .where(and(eq(webhookEndpoints.id, id), eq(webhookEndpoints.companyId, companyId)))
     .returning(endpointFields);
-  return row;
+  return returnedRow(rows);
 }
 
 /** Enabled, live endpoints of these companies: where the worker fans events out to. */

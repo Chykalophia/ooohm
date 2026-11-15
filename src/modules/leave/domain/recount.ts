@@ -40,5 +40,5 @@ export function applyCalendarChange(
 
 /** Whether two per-year splits charge the same days to the same years. */
 export function sameSplit(a: readonly YearDays[], b: readonly YearDays[]): boolean {
-  return a.length === b.length && a.every((y, i) => y.year === b[i].year && y.days === b[i].days);
+  return a.length === b.length && a.every((y, i) => y.year === b[i]?.year && y.days === b[i]?.days);
 }

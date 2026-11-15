@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import type { Transaction } from "@/db/types";
 import { type CompanyRow, companyFields } from "@/shared/lib/db/company-columns";
+import { returnedRow } from "@/db/rows";
 
 /**
  * Locks the companies table against inserts (and against another caller of this) until
@@ -20,6 +21,6 @@ export async function insertCompany(
   tx: Transaction,
   values: { name: string; timezone: string; workingDays: number[] },
 ): Promise<CompanyRow> {
-  const [row] = await tx.insert(companies).values(values).returning(companyFields);
-  return row;
+  const rows = await tx.insert(companies).values(values).returning(companyFields);
+  return returnedRow(rows);
 }

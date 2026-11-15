@@ -42,7 +42,7 @@ export async function addHolidayAction(_prev: FormState, formData: FormData): Pr
       return map(await addHolidayRange(ctx, actor, { startDate: date, endDate, name }), ({ added, skipped, recount }) => {
         const kept = skipped.length > 0 ? ` ${formatCount(skipped.length, "day", "days")} already had a holiday and kept it.` : "";
         return withRecount(
-          `Added ${added[0].name}, ${formatDateSpan(date, endDate)} (${formatCount(added.length, "day", "days")}).${kept}`,
+          `Added ${added[0]?.name ?? name}, ${formatDateSpan(date, endDate)} (${formatCount(added.length, "day", "days")}).${kept}`,
           recount,
         );
       });

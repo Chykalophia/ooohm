@@ -120,7 +120,7 @@ export function toPlannedPerson({ user: u, email }: KeptUser, c: PersonContext, 
   try {
     name = normalizePersonName(`${u.name} ${u.lastname}`);
   } catch {
-    name = email.split("@")[0].slice(0, PERSON_NAME_MAX_LENGTH);
+    name = (email.split("@")[0] ?? "").slice(0, PERSON_NAME_MAX_LENGTH);
   }
   const isActive = c.isActive(u);
   if (!u.activated && isActive) {

@@ -33,11 +33,11 @@ export interface KeptUser {
 /** How the import was asked to run. */
 export interface ImportPlanOptions {
   /** Which TimeOff company to import; required when the file holds more than one. */
-  timeoffCompanyId?: number;
+  timeoffCompanyId?: number | undefined;
   /** The TimeOff leave type whose name the pool type takes. Default: the first `use_allowance` type. */
-  poolTypeName?: string;
+  poolTypeName?: string | undefined;
   /** Merge several `use_allowance` types into the pool type instead of refusing. */
-  mergePoolTypes?: boolean;
+  mergePoolTypes?: boolean | undefined;
   /** The current year in the target company's time zone. */
   currentYear: number;
   /** Today in the target company's time zone, for who is still employed. */
@@ -48,7 +48,7 @@ export interface ImportPlanOptions {
    * import), while TimeOff's own figures keep TimeOff's holidays only, so a date only
    * OOOhm treats as a holiday surfaces as a {@link LeaveCostDifference}.
    */
-  existingHolidays?: ReadonlySet<CalendarDate>;
+  existingHolidays?: ReadonlySet<CalendarDate> | undefined;
 }
 
 /** Something the importer could not carry over as is, for the report. Never fatal. */

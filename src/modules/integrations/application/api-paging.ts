@@ -32,7 +32,8 @@ export function decodeCursor<K extends string>(cursor: string, keys: readonly K[
 export function page<R, T>(rows: readonly R[], limit: number, map: (row: R) => T, cursorOf: (row: R) => Record<string, string>): Page<T> {
   const more = rows.length > limit;
   const shown = more ? rows.slice(0, limit) : rows;
-  return { data: shown.map(map), nextCursor: more ? encodeCursor(cursorOf(shown[shown.length - 1])) : null };
+  const last = shown.at(-1);
+  return { data: shown.map(map), nextCursor: more && last !== undefined ? encodeCursor(cursorOf(last)) : null };
 }
 
 export const iso = (d: Date | null) => (d ? d.toISOString() : null);

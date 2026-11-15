@@ -114,11 +114,12 @@ export async function recountLeave(deps: LeaveDeps, store: LeaveStore, actor: Ac
     const dates = change.kind === "holidays" ? [...change.added, ...change.removed].map((h) => h.date).filter((d) => d >= openFrom) : null;
     if (dates?.length === 0) return { outcome: NOTHING_RECOUNTED, notify: [] };
     const touched = await store.requests.lockActiveOnDates(actor.companyId, dates ?? { from: openFrom });
-    if (touched.length === 0) return { outcome: NOTHING_RECOUNTED, notify: [] };
+    const [first] = touched;
+    if (!first) return { outcome: NOTHING_RECOUNTED, notify: [] };
 
     const window = {
-      from: touched.reduce((min, r) => (r.startDate < min ? r.startDate : min), touched[0].startDate),
-      to: touched.reduce((max, r) => (r.endDate > max ? r.endDate : max), touched[0].endDate),
+      from: touched.reduce((min, r) => (r.startDate < min ? r.startDate : min), first.startDate),
+      to: touched.reduce((max, r) => (r.endDate > max ? r.endDate : max), first.endDate),
     };
     const [holidays, stored, types] = await Promise.all([
       store.directory.holidayDates(actor.companyId, window.from, window.to),

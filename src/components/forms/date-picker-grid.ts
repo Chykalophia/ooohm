@@ -28,7 +28,7 @@ export function utcMs(y: number, m: number, d: number): number {
  * years 0-99 too, so grid cells just before `MIN_DATE` (0099-12 in the 0100-01 grid) come out right.
  */
 export function pickerEpochDay(date: CalendarDate): number {
-  const [y, m, d] = date.split("-").map(Number);
+  const [y = NaN, m = NaN, d = NaN] = date.split("-").map(Number);
   return Math.round(utcMs(y, m - 1, d) / 86_400_000);
 }
 

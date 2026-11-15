@@ -158,7 +158,9 @@ export function readAppearance(stored: {
 function readAccent(stored: string | null): string | null {
   const m = HEX.exec((stored ?? "").trim());
   if (!m) return null;
-  const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  // Group 1 is not optional, so it is there whenever the pattern matched.
+  const digits = m[1] ?? "";
+  const hex = digits.length === 3 ? [...digits].map((c) => c + c).join("") : digits;
   return `#${hex.toLowerCase()}`;
 }
 

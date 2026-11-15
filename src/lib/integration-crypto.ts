@@ -160,7 +160,8 @@ export function isApiKeyShape(value: string): boolean {
 /** The key in an `Authorization: Bearer <key>` header, or `null` for any other shape. */
 export function apiKeyFromAuthorization(header: string | null): string | null {
   const match = header ? /^Bearer +(\S+) *$/i.exec(header) : null;
-  return match && isApiKeyShape(match[1]) ? match[1] : null;
+  const key = match?.[1];
+  return key !== undefined && isApiKeyShape(key) ? key : null;
 }
 
 /** Constant-time equality of two hex digests. */

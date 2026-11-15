@@ -3,6 +3,7 @@ import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { apiKeys, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
+import { returnedRow } from "@/db/rows";
 
 /** A key as the admin screen shows it. Never the hash. */
 export type ApiKeyRow = {
@@ -53,8 +54,8 @@ export async function insertApiKey(
   tx: Transaction,
   values: { companyId: string; name: string; prefix: string; keyHash: string; scopes: string[]; createdBy: string },
 ): Promise<ApiKeyRow> {
-  const [row] = await tx.insert(apiKeys).values(values).returning(fields);
-  return row;
+  const rows = await tx.insert(apiKeys).values(values).returning(fields);
+  return returnedRow(rows);
 }
 
 /** A key of the company, locked until commit. */
@@ -68,8 +69,8 @@ export async function lockApiKey(tx: Transaction, companyId: string, id: string)
 }
 
 export async function revokeApiKey(tx: Transaction, id: string, at: Date): Promise<ApiKeyRow> {
-  const [row] = await tx.update(apiKeys).set({ revokedAt: at }).where(eq(apiKeys.id, id)).returning(fields);
-  return row;
+  const rows = await tx.update(apiKeys).set({ revokedAt: at }).where(eq(apiKeys.id, id)).returning(fields);
+  return returnedRow(rows);
 }
 
 /**

@@ -18,7 +18,7 @@ export const SHORT_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Au
 function monthColumns(report: LeaveReport): MonthColumn[] {
   const types = new Map(report.leaveTypes.map((t) => [t.id, t]));
   return report.months.map((m, i) => ({
-    label: SHORT_MONTH[i],
+    label: SHORT_MONTH[i] ?? "",
     title: formatMonth(m.month),
     segments: m.byType.map((s) => ({ key: s.leaveTypeId, name: types.get(s.leaveTypeId)?.name ?? "Leave", color: types.get(s.leaveTypeId)?.color ?? "#888888", days: s.days })),
     total: m.total,
@@ -30,7 +30,7 @@ function monthColumns(report: LeaveReport): MonthColumn[] {
 /** "Up 12% on 2025", "Down 3% on 2025", "The same as 2025", or nothing without last year's days. */
 export function changeOnLastYear(report: LeaveReport): string | undefined {
   const [before, now] = report.trend.slice(-2);
-  if (!before || before.days === 0) return undefined;
+  if (!before || !now || before.days === 0) return undefined;
   const change = Math.round(((now.days - before.days) / before.days) * 100);
   if (change === 0) return `The same as ${before.year}`;
   return `${change > 0 ? "Up" : "Down"} ${Math.abs(change)}% on ${before.year}`;

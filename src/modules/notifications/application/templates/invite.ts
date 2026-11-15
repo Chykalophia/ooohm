@@ -54,7 +54,8 @@ export function renderInviteEmail(input: InviteEmail, accent: EmailAccent = DEFA
   const expiry = "This link works once and expires in 15 minutes. After that, get a new one here with this email address:";
 
   const text = [greeting, "", ...message.text.flatMap((p) => [p, ""]), `Sign in: ${input.link}`, "", expiry, input.signInUrl, ""].join("\n");
-  const [lead, ...more] = message.html;
+  // fillMessage gives at least one paragraph, so the lead is always there.
+  const [lead = "", ...more] = message.html;
   const body =
     paragraph(escapeHtml(greeting)) +
     heading(lead) +

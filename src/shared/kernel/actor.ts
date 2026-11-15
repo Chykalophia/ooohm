@@ -25,9 +25,9 @@ export interface Actor {
 /** The subset of a session user that an `Actor` is derived from. */
 export interface ActorSource {
   id: string;
-  companyId?: string | null;
-  role?: string | null;
-  canSelfApprove?: boolean | null;
+  companyId?: string | null | undefined;
+  role?: string | null | undefined;
+  canSelfApprove?: boolean | null | undefined;
 }
 
 /**

@@ -14,7 +14,7 @@ import { type ApiClient, assertScope } from "@/modules/integrations/domain/integ
 export async function listHolidaysForApi(
   ctx: ServiceContext,
   client: ApiClient,
-  q: { year?: number },
+  q: { year?: number | undefined },
 ): Promise<ServiceResult<{ year: number; data: { id: string; date: CalendarDate; name: string }[] }>> {
   return attempt(async () => {
     assertScope(client, "read");

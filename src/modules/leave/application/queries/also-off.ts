@@ -67,9 +67,10 @@ export async function alsoOffFor(
   readerId?: string,
 ): Promise<Map<string, AlsoOff>> {
   const lines = new Map<string, AlsoOff>();
-  if (requests.length === 0) return lines;
-  const from = requests.reduce((min, r) => (r.startDate < min ? r.startDate : min), requests[0].startDate);
-  const to = requests.reduce((max, r) => (r.endDate > max ? r.endDate : max), requests[0].endDate);
+  const [first] = requests;
+  if (!first) return lines;
+  const from = requests.reduce((min, r) => (r.startDate < min ? r.startDate : min), first.startDate);
+  const to = requests.reduce((max, r) => (r.endDate > max ? r.endDate : max), first.endDate);
   const departmentIds = [...new Set(requests.flatMap((r) => (r.departmentId ? [r.departmentId] : [])))];
   const [entries, settings, holidays, limits] = await Promise.all([
     listTeamEntries(ex, companyId, from, to),

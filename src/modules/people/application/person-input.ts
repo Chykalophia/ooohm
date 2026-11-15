@@ -14,7 +14,7 @@ export interface PersonInput {
   name: string;
   departmentId: string | null;
   /** Their level, for allowance rules. Left out: unchanged (none for someone new). */
-  levelId?: string | null;
+  levelId?: string | null | undefined;
   managerId: string | null;
   role: string;
   canSelfApprove: boolean;

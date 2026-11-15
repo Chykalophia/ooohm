@@ -34,7 +34,7 @@ export interface AllowanceRepository {
    */
   writeOverride(values: { userId: string; leaveTypeId: string; year: number; days: number; adjustmentDays: number }): Promise<Allowance>;
   /** The rows of `userIds` for `fromYear` and later, optionally of some leave types only, locked until the unit of work ends; ordered by person, type and year. */
-  lockFrom(scope: { userIds: readonly string[]; fromYear: number; leaveTypeIds?: readonly string[] }): Promise<Allowance[]>;
+  lockFrom(scope: { userIds: readonly string[]; fromYear: number; leaveTypeIds?: readonly string[] | undefined }): Promise<Allowance[]>;
 }
 
 /** A stored allowance rule. */

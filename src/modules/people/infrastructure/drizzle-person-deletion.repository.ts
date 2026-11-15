@@ -38,6 +38,7 @@ import { executeRows } from "@/db/rows";
 import type { Executor, Transaction } from "@/db/types";
 import type { SettingLabel } from "@/modules/people/application/deletion/mention-store";
 import type { DeletionCounts, DeletionMode } from "@/modules/people/domain/person-deletion";
+import { returnedRow } from "@/db/rows";
 
 /** True when `column`'s text contains any of `needles` (already lowercased). */
 function mentions(column: SQL, needles: readonly string[]): SQL {
@@ -90,7 +91,7 @@ export async function countPendingAssignedTo(ex: Executor, companyId: string, us
 /** What a delete of `userId` would remove, counted in one statement. */
 export async function countDeletionFacts(ex: Executor, companyId: string, userId: string): Promise<DeletionCounts> {
   const n = (q: SQL) => sql<number>`(${q})::int`;
-  const [row] = await ex
+  const rows = await ex
     .select({
       leaveRequests: n(sql`select count(*) from ${leaveRequests} where ${leaveRequests.companyId} = ${companyId} and ${leaveRequests.userId} = ${userId}`),
       pendingRequests: n(
@@ -104,6 +105,7 @@ export async function countDeletionFacts(ex: Executor, companyId: string, userId
       calendarFeeds: n(sql`select count(*) from ${calendarFeedTokens} where ${calendarFeedTokens.userId} = ${userId}`),
     })
     .from(sql`(select 1) as one`);
+  const row = returnedRow(rows);
   return {
     leaveRequests: Number(row.leaveRequests),
     pendingRequests: Number(row.pendingRequests),

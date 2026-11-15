@@ -23,7 +23,7 @@ function Revealed({
   state: Extract<RevealState, { status: "revealed" }>;
   label: string;
   note: React.ReactNode;
-  hrefLabel?: string;
+  hrefLabel?: string | undefined;
 }) {
   const heading = useRef<HTMLParagraphElement>(null);
 
@@ -70,7 +70,7 @@ export function RevealForm({
   pendingLabel: string;
   valueLabel: string;
   note: React.ReactNode;
-  hrefLabel?: string;
+  hrefLabel?: string | undefined;
   confirm?: string;
   confirmLabel?: string;
   hideFormOnReveal?: boolean;

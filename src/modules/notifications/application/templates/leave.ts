@@ -100,11 +100,11 @@ type LeaveEmailOf<K extends LeaveKind> = Extract<LeaveEmail, { kind: K }>;
 /** What follows the message: details the email adds on its own, which copy cannot change. */
 interface Details {
   /** The requester's note, shown in quotes. */
-  quote?: string;
+  quote?: string | undefined;
   /** A labelled line, e.g. a decline reason; `quoted` for words someone typed. */
-  extra?: { label: string; value: string; quoted: boolean };
+  extra?: { label: string; value: string; quoted: boolean } | undefined;
   /** Who else is off then, after a small accent mark. */
-  overlap?: string;
+  overlap?: string | undefined;
 }
 
 /** One kind: its default words, the variables beyond the common ones, and its details. */
@@ -239,7 +239,7 @@ function withDisplayNames(input: LeaveEmail): LeaveEmail {
 }
 
 /** Approve and Open with an approve link (a request to an approver), else one button to the request. */
-function leaveButtons(kind: LeaveKind, link: string, approveLink: string | null): EmailButton[] {
+function leaveButtons(kind: LeaveKind, link: string, approveLink: string | null): [EmailButton, ...EmailButton[]] {
   return approveLink
     ? [
         { label: "Approve", href: approveLink, variant: "primary" },
@@ -291,7 +291,8 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
     "",
   ].join("\n");
 
-  const [leadHtml, ...moreHtml] = message.html;
+  // fillMessage gives at least one paragraph, so the lead is always there.
+  const [leadHtml = "", ...moreHtml] = message.html;
   const body =
     heading(leadHtml) +
     (p.quote ? paragraph(escapeHtml(quoted(p.quote)), `color:${BODY};white-space:pre-wrap`) : "") +

@@ -58,7 +58,7 @@ export async function companyEventExists(ex: Executor, companyId: string, id: st
  */
 export async function listCompanyEvents(
   ex: Executor,
-  input: { companyId: string; afterId?: string; limit: number },
+  input: { companyId: string; afterId?: string | undefined; limit: number },
 ): Promise<(OutboxRow & { companyId: string })[]> {
   const after = input.afterId
     ? sql`(${eventsOutbox.txId}, ${eventsOutbox.createdAt}, ${eventsOutbox.id}) > (select o.tx_id, o.created_at, o.id from ${eventsOutbox} o where o.id = ${input.afterId})`

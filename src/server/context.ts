@@ -36,7 +36,7 @@ export interface ServiceContext {
    * in processes that send no email: their emails carry no such links, and a link
    * cannot be checked there.
    */
-  linkKey?: string;
+  linkKey?: string | undefined;
   /** Current instant; injectable so tests can pin `decided_at`. */
   now: () => Date;
   /** New record ids; injectable so tests can pin them (ADR-0002). */
@@ -63,5 +63,5 @@ export interface ServiceContext {
    * soon: in the app's `inline` background mode. The services' after-commit seam calls it
    * through `defer`, only after a transaction that wrote outbox events. Never throws.
    */
-  wake?: () => Promise<void>;
+  wake?: (() => Promise<void>) | undefined;
 }

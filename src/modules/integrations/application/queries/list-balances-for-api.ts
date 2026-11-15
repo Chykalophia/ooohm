@@ -57,7 +57,7 @@ function apiBalance(inputs: Inputs, policy: Policy, t: LeaveTypeWithAllowance, u
 export async function listBalancesForApi(
   ctx: ServiceContext,
   client: ApiClient,
-  q: { year?: number; userId?: string },
+  q: { year?: number | undefined; userId?: string | undefined },
 ): Promise<ServiceResult<{ year: number; data: ApiBalance[] }>> {
   return attempt(async () => {
     assertScope(client, "read");

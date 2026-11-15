@@ -21,7 +21,7 @@ export interface ApiUser {
  * `read` scope first and scopes its query by the key's company: an id from another
  * company reads as absent. Fails with `forbidden` or `invalid_input` (a bad cursor).
  */
-export async function listUsersForApi(ctx: ServiceContext, client: ApiClient, q: { cursor?: string; limit: number }): Promise<ServiceResult<Page<ApiUser>>> {
+export async function listUsersForApi(ctx: ServiceContext, client: ApiClient, q: { cursor?: string | undefined; limit: number }): Promise<ServiceResult<Page<ApiUser>>> {
   return attempt(async () => {
     assertScope(client, "read");
     const after = q.cursor ? decodeCursor(q.cursor, ["id"]).id : undefined;

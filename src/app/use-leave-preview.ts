@@ -23,7 +23,7 @@ type Answer = { query: string; ok: boolean; message: string };
  *
  * @param forUserId Someone else the time off is for (`for=`): what it would cost them.
  */
-export function useLeavePreview(draft: PreviewDraft, forUserId?: string): LeavePreview {
+export function useLeavePreview(draft: PreviewDraft, forUserId?: string | undefined): LeavePreview {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const complete = draft.leaveTypeId !== "" && draft.startDate !== "";
   const query = new URLSearchParams(forUserId ? { ...draft, for: forUserId } : draft).toString();

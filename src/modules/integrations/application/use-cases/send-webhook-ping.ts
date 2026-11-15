@@ -26,6 +26,7 @@ export async function sendWebhookPing(ctx: ServiceContext, actor: Actor, id: str
       const [deliveryId] = await insertDeliveries(tx, [
         { companyId: row.companyId, endpointId: row.id, eventId: envelope.id, eventType: PING_EVENT_TYPE, body: JSON.stringify(envelope), nextAttemptAt: now },
       ]);
+      if (deliveryId === undefined) throw new Error("The ping's delivery was not stored.");
       await recordEndpointChange(tx, actor, INTEGRATION_EVENT_TYPES.webhookEndpointPinged, row, row);
       return deliveryId;
     }),

@@ -68,11 +68,12 @@ async function newCompany(tx: Transaction, rawName: string, timeoffCompany: Time
   // before its own check, so neither it nor another import can create one meanwhile.
   await lockCompaniesTable(tx);
   const existing = await listCompanyNames(tx);
-  if (existing.length > 0) {
+  const [first] = existing;
+  if (first) {
     const known = existing.map((c) => `${c.id} (${c.name})`).join(", ");
     refuse(
       `This deployment already has a company: ${known}. OOOhm runs one company per deployment, so --create-company only works on an empty database. ` +
-        `Import into the existing company with --company ${existing[0].id} instead.`,
+        `Import into the existing company with --company ${first.id} instead.`,
     );
   }
   return insertCompany(tx, { name, timezone: timeOffTimeZone(timeoffCompany) ?? "UTC", workingDays: [1, 2, 3, 4, 5] });

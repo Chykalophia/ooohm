@@ -3,6 +3,7 @@ import { and, asc, eq, isNull, lt, or } from "drizzle-orm";
 import { calendarFeedTokens, companies, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { FeedKind } from "@/shared/kernel/calendar-feed";
+import { returnedRow } from "@/db/rows";
 
 export type CalendarFeedRow = typeof calendarFeedTokens.$inferSelect;
 
@@ -123,6 +124,6 @@ export async function insertFeed(
   tx: Transaction,
   values: { companyId: string; userId: string; kind: FeedKind; tokenHash: string; tokenHint: string; createdAt: Date },
 ): Promise<CalendarFeedRow> {
-  const [row] = await tx.insert(calendarFeedTokens).values(values).returning();
-  return row;
+  const rows = await tx.insert(calendarFeedTokens).values(values).returning();
+  return returnedRow(rows);
 }

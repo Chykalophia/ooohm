@@ -86,13 +86,13 @@ export function allocateYearToMonths(range: LeaveRange, calendar: WorkCalendar, 
   const shares = counted.map((m) => (m.days / total) * tenths);
   const floors = shares.map(Math.floor);
   let left = tenths - floors.reduce((s, n) => s + n, 0);
-  const byRemainder = shares.map((s, i) => [s - floors[i], i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  const byRemainder = shares.map((s, i) => [s - Math.floor(s), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
   for (const [, i] of byRemainder) {
     if (left <= 0) break;
-    floors[i] += 1;
+    floors[i] = (floors[i] ?? 0) + 1;
     left -= 1;
   }
-  return counted.map((m, i) => ({ month: m.month, days: floors[i] / 10 })).filter((m) => m.days > 0);
+  return counted.map((m, i) => ({ month: m.month, days: (floors[i] ?? 0) / 10 })).filter((m) => m.days > 0);
 }
 
 /** One request as a report reads it: no note, no decision note. */
@@ -205,10 +205,11 @@ export interface LeaveReport {
 const perPerson = (days: number, people: number) => (people === 0 ? 0 : Math.round((days / people) * 10) / 10);
 
 function median(values: number[]): number | null {
-  if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const upper = sorted[mid];
+  if (upper === undefined) return null;
+  return sorted.length % 2 ? upper : ((sorted[mid - 1] ?? upper) + upper) / 2;
 }
 
 const daysIn = (r: ReportRequest, year: number) => r.split.find((s) => s.year === year)?.days ?? 0;

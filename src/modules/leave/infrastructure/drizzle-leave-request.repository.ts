@@ -11,6 +11,7 @@ import { earliestOverlappingStart, type LeaveStatus } from "@/shared/kernel/leav
 import type { ApiLeaveRequest, ApiLeaveRequestPage, LeaveRequestRepository } from "../application/ports";
 import type { LeaveRequest } from "../domain/leave-request";
 import { insertRequestDays, listRequestDays, replaceRequestDays } from "./drizzle-leave-request-days";
+import { returnedRow } from "@/db/rows";
 
 /** A `leave_requests` row. Stays inside this file: callers get a {@link LeaveRequest}. */
 type LeaveRequestRow = typeof leaveRequests.$inferSelect;
@@ -88,7 +89,7 @@ async function lockLeaveRequest(tx: Transaction, companyId: string, id: string) 
  */
 async function updateStatusIfCurrent(
   ex: Executor,
-  where: { companyId: string; id: string; from: LeaveStatus; approverId?: string },
+  where: { companyId: string; id: string; from: LeaveStatus; approverId?: string | undefined },
   set: { status: LeaveStatus; decidedAt?: Date; decisionNote?: string | null },
 ): Promise<LeaveRequestRow | undefined> {
   const [row] = await ex
@@ -133,11 +134,11 @@ async function reassignIfCurrent(
 
 /** Stores a new request with the id it was given; its timestamps come from the database clock. */
 async function insertLeaveRequest(ex: Executor, request: LeaveRequest): Promise<LeaveRequest> {
-  const [row] = await ex
+  const rows = await ex
     .insert(leaveRequests)
     .values({ ...request, createdAt: undefined, updatedAt: undefined, decidedAt: undefined })
     .returning();
-  return toLeaveRequest(row);
+  return toLeaveRequest(returnedRow(rows));
 }
 
 /** A request of the company; one of another company reads as missing (`undefined`). */
@@ -229,10 +230,12 @@ async function lockActiveRequestsOnDates(tx: Transaction, companyId: string, dat
       gte(leaveRequests.endDate, dates.from),
     );
   } else {
-    if (dates.length === 0) return [];
     const sorted = [...dates].sort();
+    const [first] = sorted;
+    const last = sorted.at(-1);
+    if (first === undefined || last === undefined) return [];
     where = and(
-      activeInRange(companyId, sorted[0], sorted[sorted.length - 1]),
+      activeInRange(companyId, first, last),
       or(...sorted.map((d) => and(lte(leaveRequests.startDate, d), gte(leaveRequests.endDate, d)))),
     );
   }

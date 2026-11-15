@@ -12,23 +12,23 @@ export const AUDIT_SEARCH_MAX_LENGTH = 100;
 
 /** What the viewer filters on. Anything malformed is ignored rather than refused. */
 export interface AuditLogFilter {
-  action?: string;
-  actorId?: string;
-  subjectUserId?: string;
+  action?: string | undefined;
+  actorId?: string | undefined;
+  subjectUserId?: string | undefined;
   /** First day, `YYYY-MM-DD`, in the company's time zone. */
-  from?: string;
+  from?: string | undefined;
   /** Last day, `YYYY-MM-DD`, in the company's time zone. */
-  to?: string;
+  to?: string | undefined;
   /**
    * Words to look for in the change's name ("declined"), who made it or who it is about
    * (name or email); every word must match. Matched in the app against those labels,
    * then read with the ids, so the database never scans text.
    */
-  query?: string;
+  query?: string | undefined;
   /** Oldest first instead of newest first. A cursor belongs to one order: switching starts at page 1. */
-  oldestFirst?: boolean;
+  oldestFirst?: boolean | undefined;
   /** Rows per page, one of {@link AUDIT_PAGE_SIZES}; anything else is the default. */
-  size?: number;
+  size?: number | undefined;
   /** The page, from a previous page's `previous` or `next`; the first page when absent. */
-  page?: PageCursor;
+  page?: PageCursor | undefined;
 }

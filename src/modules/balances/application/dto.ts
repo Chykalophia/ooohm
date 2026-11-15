@@ -10,7 +10,7 @@ export interface LeaveDraft {
   leaveTypeId: string;
   startDate: string;
   /** Defaults to `startDate` when empty. */
-  endDate?: string | null;
+  endDate?: string | null | undefined;
   dayPortion: DayPortion;
 }
 

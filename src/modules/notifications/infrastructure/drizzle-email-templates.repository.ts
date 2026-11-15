@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { emailTemplates } from "@/db/schema";
 import type { Executor } from "@/db/types";
+import { returnedRow } from "@/db/rows";
 
 export interface EmailTemplateRow {
   type: string;
@@ -37,12 +38,12 @@ export async function upsertEmailTemplate(
   type: string,
   copy: { subject: string | null; message: string | null },
 ): Promise<EmailTemplateRow> {
-  const [row] = await ex
+  const rows = await ex
     .insert(emailTemplates)
     .values({ companyId, type, ...copy })
     .onConflictDoUpdate({ target: [emailTemplates.companyId, emailTemplates.type], set: { ...copy, updatedAt: new Date() } })
     .returning(fields);
-  return row;
+  return returnedRow(rows);
 }
 
 /** Removes the company's words for `type`, so the email goes back to its defaults. */

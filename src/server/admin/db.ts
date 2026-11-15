@@ -42,11 +42,11 @@ export const DATABASE_ROLES_SQL = path.resolve(process.cwd(), "deploy", "db-role
 /** What deploy/db-roles.sql sets up; unset fields take the file's defaults. */
 export interface RoleSetup {
   /** Default `ooohm_owner`; in grants-only mode, the connected user. */
-  ownerRole?: string;
+  ownerRole?: string | undefined;
   /** Default `ooohm_app`. */
-  appRole?: string;
-  ownerPassword?: string;
-  appPassword?: string;
+  appRole?: string | undefined;
+  ownerPassword?: string | undefined;
+  appPassword?: string | undefined;
   /** Refresh the app role's grants only, connected as the owner (after migrations). */
   grantsOnly?: boolean;
 }
@@ -103,7 +103,7 @@ export interface OwnerMigration {
  *
  * @throws Error when `DATABASE_ADMIN_URL` is missing on Postgres, or a migration fails.
  */
-export async function migrateAsOwner(options: { purpose: string; migrationsFolder?: string; source?: Env } = { purpose: "migrations" }): Promise<OwnerMigration> {
+export async function migrateAsOwner(options: { purpose: string; migrationsFolder?: string | undefined; source?: Env } = { purpose: "migrations" }): Promise<OwnerMigration> {
   const source = options.source ?? process.env;
   const config = adminDatabaseConfig(source);
   await migrateDatabase(config, { purpose: options.purpose, migrationsFolder: options.migrationsFolder });

@@ -13,7 +13,7 @@ export async function draftCoverage(
   ex: Executor,
   companyId: string,
   userId: string,
-  draft: { startDate: string; endDate?: string | null },
+  draft: { startDate: string; endDate?: string | null | undefined },
 ): Promise<string | null> {
   const person = await findPerson(ex, companyId, userId);
   const department = person?.departmentId ? await findDepartment(ex, companyId, person.departmentId) : undefined;

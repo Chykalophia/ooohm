@@ -93,9 +93,11 @@ export function sameDays(a: readonly number[], b: readonly number[]): boolean {
 
 /** Picks the account kept when several TimeOff users share an email: active, then most leave, then oldest. */
 export function keepOne(users: readonly TimeOffUser[], isActive: (u: TimeOffUser) => boolean, leaveCount: (id: number) => number): TimeOffUser {
-  return [...users].sort(
+  const [kept] = [...users].sort(
     (a, b) => Number(isActive(b)) - Number(isActive(a)) || leaveCount(b.id) - leaveCount(a.id) || a.id - b.id,
-  )[0];
+  );
+  if (!kept) throw new Error("keepOne needs at least one user.");
+  return kept;
 }
 
 /**

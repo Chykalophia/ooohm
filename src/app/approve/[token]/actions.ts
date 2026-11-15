@@ -12,7 +12,7 @@ export type ApproveOutcome = { status: "idle" } | { status: "done"; state: strin
 const tokenSchema = z.string().min(1).max(512);
 
 /** The calm sentence for each way an approve can end. */
-const MESSAGES: Record<string, string> = {
+const MESSAGES: Record<string, string> & { invalid: string } = {
   decided: "This request is no longer waiting, so nothing changed.",
   not_yours: "This request isn't yours to decide any more. Open OOOhm to see where it went.",
   expired: "This link has expired. Open OOOhm to decide.",

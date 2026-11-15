@@ -49,11 +49,11 @@ function isLogoType(value: string): value is LogoType {
 }
 
 function u16(b: Uint8Array, at: number): number {
-  return (b[at] << 8) | b[at + 1];
+  return ((b[at] ?? 0) << 8) | (b[at + 1] ?? 0);
 }
 
 function u32(b: Uint8Array, at: number): number {
-  return ((b[at] << 24) >>> 0) + (b[at + 1] << 16) + (b[at + 2] << 8) + b[at + 3];
+  return (((b[at] ?? 0) << 24) >>> 0) + ((b[at + 1] ?? 0) << 16) + ((b[at + 2] ?? 0) << 8) + (b[at + 3] ?? 0);
 }
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -61,7 +61,7 @@ const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 /** Width and height from a PNG's IHDR chunk, which the format requires first. */
 function pngSize(b: Uint8Array): { width: number; height: number } | null {
   if (b.length < 24 || !PNG_SIGNATURE.every((v, i) => b[i] === v)) return null;
-  if (String.fromCharCode(b[12], b[13], b[14], b[15]) !== "IHDR") return null;
+  if (String.fromCharCode(...b.subarray(12, 16)) !== "IHDR") return null;
   return { width: u32(b, 16), height: u32(b, 20) };
 }
 
@@ -75,7 +75,8 @@ function jpegSize(b: Uint8Array): { width: number; height: number } | null {
   let at = 2;
   while (at + 4 <= b.length) {
     if (b[at] !== 0xff) return null;
-    const marker = b[at + 1];
+    // In bounds: the loop runs while at + 4 <= b.length.
+    const marker = b[at + 1] ?? 0;
     if (marker === 0xff) {
       at += 1;
       continue;

@@ -41,7 +41,7 @@ export interface MemberRollover {
   /** Recorded on every row it writes: the rollover itself, or the edit that re-carried. */
   source: ChangeSource;
   /** Overrides how each change is recorded (the import audits without outbox events). */
-  record?: AllowanceChangeRecorder;
+  record?: AllowanceChangeRecorder | undefined;
 }
 
 /**
@@ -133,7 +133,7 @@ export interface Recarry {
   closingYear: number;
   source: ChangeSource;
   /** Overrides how each change is recorded (the import audits without outbox events). */
-  record?: AllowanceChangeRecorder;
+  record?: AllowanceChangeRecorder | undefined;
 }
 
 /**

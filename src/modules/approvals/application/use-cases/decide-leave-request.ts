@@ -23,13 +23,13 @@ export interface DecideInput {
   requestId: string;
   decision: Decision;
   /** Optional reason, stored as `decision_note` and included in the requester's email. */
-  reason?: string | null;
+  reason?: string | null | undefined;
   /**
    * Decide only while the request is assigned to this person, checked in the same
    * transaction: an email's Approve link speaks for the approver it was sent to and
    * nobody else, admins included. Must be the actor.
    */
-  assignedTo?: string;
+  assignedTo?: string | undefined;
 }
 
 /**

@@ -86,7 +86,7 @@ export function usesTransactionPooler(url: string, pooler?: string): boolean {
   } catch {
     return false;
   }
-  if (parsed.hostname.split(".")[0].endsWith("-pooler")) return true;
+  if ((parsed.hostname.split(".")[0] ?? "").endsWith("-pooler")) return true;
   return parsed.port === "6543";
 }
 

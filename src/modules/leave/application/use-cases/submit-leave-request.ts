@@ -15,7 +15,7 @@ import { submitMail } from "../submit-mail";
 
 /** What a person fills in to ask for time off. */
 export interface SubmitLeaveInput extends LeaveDraft {
-  note?: string | null;
+  note?: string | null | undefined;
 }
 
 /**

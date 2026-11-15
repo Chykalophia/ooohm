@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, max, ne, sql } from "drizzle-orm";
 import { leaveTypes } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
+import { returnedRow } from "@/db/rows";
 
 const fields = { id: leaveTypes.id, name: leaveTypes.name, code: leaveTypes.code, color: leaveTypes.color };
 
@@ -92,8 +93,8 @@ export async function insertLeaveType(
   tx: Transaction,
   values: LeaveTypeValues & { companyId: string; sortOrder: number },
 ): Promise<LeaveTypeRow> {
-  const [row] = await tx.insert(leaveTypes).values(values).returning(adminFields);
-  return row;
+  const rows = await tx.insert(leaveTypes).values(values).returning(adminFields);
+  return returnedRow(rows);
 }
 
 export async function updateLeaveType(

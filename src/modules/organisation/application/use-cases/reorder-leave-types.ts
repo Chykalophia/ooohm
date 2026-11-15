@@ -8,8 +8,9 @@ import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { lockCompany } from "@/shared/lib/db/company-lock";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import { listAllLeaveTypes, updateLeaveType as updateLeaveTypeRow } from "@/modules/organisation/infrastructure/drizzle-leave-types.repository";
+import { listAllLeaveTypes } from "@/modules/organisation/infrastructure/drizzle-leave-types.repository";
 import { toLeaveTypeSettingsDTO } from "@/modules/organisation/application/dto";
+import { applyLeaveTypeChanges } from "@/modules/organisation/application/steps/apply-leave-type-changes";
 import { recordLeaveTypeChange } from "@/modules/organisation/application/leave-type-changes";
 import { canManageLeaveTypes } from "@/modules/organisation/application/policies";
 
@@ -46,7 +47,7 @@ export async function reorderLeaveTypes(ctx: ServiceContext, actor: Actor, order
       for (const [position, id] of order.entries()) {
         const before = active.get(id)!;
         if (before.sortOrder === position) continue;
-        const after = toLeaveTypeSettingsDTO(await updateLeaveTypeRow(tx, actor.companyId, id, { sortOrder: position }));
+        const after = await applyLeaveTypeChanges(tx, actor.companyId, id, { sortOrder: position });
         await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeReordered, before, after);
         moved = true;
       }

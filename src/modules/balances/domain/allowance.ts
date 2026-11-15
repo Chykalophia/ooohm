@@ -30,8 +30,10 @@ export interface BookedDaysOf extends BookedDays {
   year: number;
 }
 
-/** Which balances to read: people, years and optionally leave types. */
+/** Which balances to read: a company's people, years and optionally leave types. */
 export interface BalanceScope {
+  /** Only rows of this company's people: another company's user ids read nothing. */
+  companyId: string;
   userIds: readonly string[];
   years: readonly number[];
   /** Limit to these leave types; all types when omitted. */

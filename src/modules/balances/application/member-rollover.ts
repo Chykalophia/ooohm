@@ -71,8 +71,8 @@ async function carryForward(store: BalancesStore, job: MemberRollover, scope: Ro
   const userId = job.memberId;
   const nextYear = job.closingYear + 1;
   const carryIds = new Set(scope.carryTypes.map((t) => t.id));
-  const allowanceRows = await store.allowances.list({ userIds: [userId], years: [job.closingYear, nextYear], leaveTypeIds: scope.types.map((t) => t.id) });
-  const bookedRows = await store.allowances.sumBooked({ userIds: [userId], years: [job.closingYear], leaveTypeIds: [...carryIds] });
+  const allowanceRows = await store.allowances.list({ companyId: job.companyId, userIds: [userId], years: [job.closingYear, nextYear], leaveTypeIds: scope.types.map((t) => t.id) });
+  const bookedRows = await store.allowances.sumBooked({ companyId: job.companyId, userIds: [userId], years: [job.closingYear], leaveTypeIds: [...carryIds] });
   const inputs = balanceInputs(allowanceRows, bookedRows, defaults);
 
   const counts = { ...NOTHING };

@@ -8,12 +8,9 @@ import type { ServiceContext } from "@/server/context";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import {
-  findLeaveTypeForAdmin,
-  leaveTypeCodeTaken,
-  updateLeaveType as updateLeaveTypeRow,
-} from "@/modules/organisation/infrastructure/drizzle-leave-types.repository";
+import { findLeaveTypeForAdmin, leaveTypeCodeTaken } from "@/modules/organisation/infrastructure/drizzle-leave-types.repository";
 import { type LeaveTypeSettingsDTO, toLeaveTypeSettingsDTO } from "@/modules/organisation/application/dto";
+import { applyLeaveTypeChanges } from "@/modules/organisation/application/steps/apply-leave-type-changes";
 import { recordLeaveTypeChange, withUniqueCode } from "@/modules/organisation/application/leave-type-changes";
 import { canManageLeaveTypes } from "@/modules/organisation/application/policies";
 
@@ -45,7 +42,7 @@ export async function updateLeaveType(
         if (settings.code !== before.code && (await leaveTypeCodeTaken(tx, actor.companyId, settings.code, id))) {
           throw new DomainError("already_exists");
         }
-        const after = toLeaveTypeSettingsDTO(await updateLeaveTypeRow(tx, actor.companyId, id, settings));
+        const after = await applyLeaveTypeChanges(tx, actor.companyId, id, settings);
         await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeUpdated, before, after);
         return after;
       }),

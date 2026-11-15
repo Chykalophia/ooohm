@@ -1,27 +1,28 @@
 import "server-only";
 import { type AllowancePolicy, type Balance, type LeaveTypeAllowanceSettings } from "../../domain/allowance-policy";
 import { type AllowanceDefaults } from "../../domain/allowance-rules";
-import { allowanceYearsFor, type BalanceInputs, balanceInputs } from "../../domain/allowance";
+import { allowanceYearsFor, type BalanceInputs, balanceInputs, type BalanceScope } from "../../domain/allowance";
 import { resolveAllowancePolicy } from "../../domain/policy-registry";
 import type { BalancesStore } from "../ports";
 import { loadAllowanceDefaults } from "./load-allowance-defaults";
 
 /**
  * The balance inputs (allowance rows, booked days and the people's defaults) for these
- * people, leave types and years: three reads in parallel, then pure lookups.
+ * people of the company, leave types and years: three reads in parallel, then pure
+ * lookups. Another company's people read as having no rows.
  *
  * @param defaults The people's defaults when the caller already loaded them.
  */
 export async function loadBalanceInputs(
   store: Pick<BalancesStore, "allowances" | "rules">,
   companyId: string,
-  scope: { userIds: readonly string[]; years: readonly number[]; leaveTypeIds?: readonly string[] },
+  scope: Omit<BalanceScope, "companyId">,
   defaults?: AllowanceDefaults,
 ): Promise<BalanceInputs> {
   const { years, ...rest } = scope;
   const [allowanceRows, bookedRows, loaded] = await Promise.all([
-    store.allowances.list({ ...rest, years: allowanceYearsFor(years) }),
-    store.allowances.sumBooked({ ...rest, years }),
+    store.allowances.list({ ...rest, companyId, years: allowanceYearsFor(years) }),
+    store.allowances.sumBooked({ ...rest, companyId, years }),
     defaults ?? loadAllowanceDefaults(store.rules, companyId, scope.userIds),
   ]);
   return balanceInputs(allowanceRows, bookedRows, loaded);

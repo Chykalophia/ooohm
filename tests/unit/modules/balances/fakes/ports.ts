@@ -228,7 +228,7 @@ export interface BalancesKit {
 export function balancesKit(now = new Date("2027-01-04T10:00:00Z")): BalancesKit {
   const clock = new FixedClock(now);
   let n = 0;
-  const allowances = new InMemoryAllowanceRepository(() => `00000000-0000-4000-9000-${String(++n).padStart(12, "0")}`);
+  const allowances = new InMemoryAllowanceRepository(() => COMPANY, () => `00000000-0000-4000-9000-${String(++n).padStart(12, "0")}`);
   const directory = new InMemoryBalancesDirectory();
   const rules = new InMemoryAllowanceRuleRepository(directory);
   const audit = new RecordingAudit();

@@ -17,9 +17,6 @@ const PURE = "pure: reads no database and takes no company";
 const SYSTEM = "system process over every company by design (the tick, the rollover, retention); its own suite covers it";
 const CALLER_SCOPED =
   "takes no company id: it acts on rows or ids its caller has already loaded inside the actor's company (each caller has a case here)";
-const RULES_ONLY =
-  "its company id picks the allowance rules only: allowances and booked days are read by the user ids its caller loaded in its company " +
-  "(the suite's balance-read case shows no use case lets another company's ids through)";
 const GLOBAL_IDENTITY =
   "global by design: an email or user id is unique across companies, and every caller (sign-in, the approve link, " +
   "the import's duplicate check) compares the company it returns";
@@ -148,7 +145,6 @@ export const EXEMPT: Readonly<Record<string, string>> = {
     "db/leave-requests:listActiveRequestsInRange",
   ]),
   ...exempt(WRITES_GIVEN, ["db/members:insertPerson"]),
-  ...exempt(RULES_ONLY, ["balances:loadBalanceInputs", "balances:loadBalances", "balances:summarizeBalances"]),
   ...exempt(WIRING, ["leave:provideApprovalRouting", "notifications:commitThenNotify"]),
   ...exempt(RECORDER, ["people:recordPersonCreated", "leave:recordLeaveChange", "leave:recordReassignment", "organisation:recordLeaveTypeChange"]),
   ...exempt(DEPLOYMENT, ["organisation:getAppearance", "organisation:getDeploymentLogo", "organisation:getLogoFile"]),
@@ -157,6 +153,9 @@ export const EXEMPT: Readonly<Record<string, string>> = {
 
 /** Exports the suite calls with one company's actor, key or id and another company's ids. */
 export const COVERED: readonly string[] = [
+  "balances:loadBalanceInputs",
+  "balances:loadBalances",
+  "balances:summarizeBalances",
   "approvals:decideLeaveRequest",
   "approvals:getApprovalTriage",
   "approvals:getApprovalNav",

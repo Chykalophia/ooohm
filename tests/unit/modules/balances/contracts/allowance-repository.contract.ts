@@ -4,10 +4,17 @@ import type { AllowanceRepository } from "@/modules/balances/application/ports";
 import type { Allowance } from "@/modules/balances/domain/allowance";
 import type { LeaveStatus } from "@/shared/kernel/leave-range";
 
-/** The people and leave types a contract case stores allowances for: they exist in the store. */
+/**
+ * The people and leave types a contract case stores allowances for: they exist in the
+ * store. `userId` and `otherUserId` are people of `companyId`; `foreignUserId` is a
+ * person of `otherCompanyId`.
+ */
 export interface AllowanceContractFixture {
+  companyId: string;
+  otherCompanyId: string;
   userId: string;
   otherUserId: string;
+  foreignUserId: string;
   leaveTypeId: string;
   otherLeaveTypeId: string;
 }
@@ -60,12 +67,12 @@ export function allowanceRepositoryContract(name: string, make: () => Promise<Al
         { userId: f.userId, leaveTypeId: f.otherLeaveTypeId, year: 2026, days: 5 },
         { userId: f.otherUserId, leaveTypeId: f.leaveTypeId, year: 2026, days: 30 },
       ]);
-      const rows = await repo.list({ userIds: [f.userId], years: [2026, 2027], leaveTypeIds: [f.leaveTypeId] });
+      const rows = await repo.list({ companyId: f.companyId, userIds: [f.userId], years: [2026, 2027], leaveTypeIds: [f.leaveTypeId] });
       assert.deepEqual(amounts(rows).map((r) => [r.year, r.days]), [[2024, 12], [2026, 15]]);
-      const all = await repo.list({ userIds: [f.userId, f.otherUserId], years: [2026] });
+      const all = await repo.list({ companyId: f.companyId, userIds: [f.userId, f.otherUserId], years: [2026] });
       assert.equal(all.length, 4, "every type when none is named, and the latest earlier row of each");
-      assert.deepEqual(await repo.list({ userIds: [], years: [2026] }), []);
-      assert.deepEqual(await repo.list({ userIds: [f.userId], years: [2026], leaveTypeIds: [] }), []);
+      assert.deepEqual(await repo.list({ companyId: f.companyId, userIds: [], years: [2026] }), []);
+      assert.deepEqual(await repo.list({ companyId: f.companyId, userIds: [f.userId], years: [2026], leaveTypeIds: [] }), []);
     });
   });
 
@@ -78,9 +85,28 @@ export function allowanceRepositoryContract(name: string, make: () => Promise<Al
       await book({ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 4, status: "cancelled" });
       await book({ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2027, days: 1, status: "approved" });
       await book({ userId: f.otherUserId, leaveTypeId: f.leaveTypeId, year: 2026, days: 3, status: "rejected" });
-      const sums = await repo.sumBooked({ userIds: [f.userId, f.otherUserId], years: [2026], leaveTypeIds: [f.leaveTypeId] });
+      const sums = await repo.sumBooked({ companyId: f.companyId, userIds: [f.userId, f.otherUserId], years: [2026], leaveTypeIds: [f.leaveTypeId] });
       assert.deepEqual(sums, [{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, approved: 3.5, pending: 0.5 }]);
-      assert.deepEqual(await repo.sumBooked({ userIds: [f.userId], years: [2026], leaveTypeIds: [f.otherLeaveTypeId] }), []);
+      assert.deepEqual(await repo.sumBooked({ companyId: f.companyId, userIds: [f.userId], years: [2026], leaveTypeIds: [f.otherLeaveTypeId] }), []);
+    });
+  });
+
+  test(`${name}: lists and sums only the rows of the scope's company's people`, async () => {
+    const { fixture: f, use } = await make();
+    await use(async (repo, book) => {
+      await repo.insertMissing([
+        { userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 15 },
+        { userId: f.foreignUserId, leaveTypeId: f.leaveTypeId, year: 2026, days: 30 },
+      ]);
+      await book({ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 2, status: "approved" });
+      await book({ userId: f.foreignUserId, leaveTypeId: f.leaveTypeId, year: 2026, days: 3, status: "approved" });
+      const scope = { companyId: f.companyId, userIds: [f.userId, f.foreignUserId], years: [2026] };
+      assert.deepEqual(amounts(await repo.list(scope)).map((r) => [r.userId, r.days]), [[f.userId, 15]]);
+      assert.deepEqual((await repo.sumBooked(scope)).map((r) => [r.userId, r.approved]), [[f.userId, 2]]);
+      const foreign = { companyId: f.companyId, userIds: [f.foreignUserId], years: [2026] };
+      assert.deepEqual(await repo.list(foreign), [], "another company's person reads nothing");
+      assert.deepEqual(await repo.sumBooked(foreign), []);
+      assert.equal((await repo.list({ ...foreign, companyId: f.otherCompanyId })).length, 1, "their own company reads them");
     });
   });
 

@@ -101,7 +101,7 @@ export async function updateLeaveType(
   companyId: string,
   id: string,
   set: Partial<LeaveTypeValues> & { sortOrder?: number; archivedAt?: Date | null },
-): Promise<LeaveTypeRow> {
+): Promise<LeaveTypeRow | undefined> {
   const [row] = await tx
     .update(leaveTypes)
     .set(set)

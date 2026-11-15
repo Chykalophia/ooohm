@@ -21,6 +21,7 @@ import { PgTable } from "drizzle-orm/pg-core";
 import * as schema from "@/db/schema";
 import type { Database, Transaction } from "@/db/types";
 import type { Actor } from "@/shared/kernel/actor";
+import { isDomainError } from "@/shared/kernel/errors";
 import { isServiceResult, unwrap } from "@/shared/lib/result";
 import { createRateLimiter } from "@/lib/rate-limit";
 import type { ServiceContext } from "@/server/context";
@@ -239,6 +240,8 @@ interface Case {
 /** Runs `work` in a transaction that commits, as a step's caller would. */
 const inTx = <T>(w: World, work: (tx: Transaction) => Promise<T>) => w.t.db.transaction(work);
 
+/** A person id no company has. */
+const NOBODY = "00000000-0000-4000-8000-000000000000";
 const draft = (leaveTypeId: string, startDate = "2026-12-14") => ({ leaveTypeId, startDate, dayPortion: "full" as const });
 const leaveTypeInput = (name: string, code: string) => ({
   name,
@@ -407,9 +410,41 @@ const CASES: Case[] = [
     check: (value, { b }) => assert.equal((value as balances.AllowanceDefaults)(b.emp.id, { id: b.vac, defaultAllowanceDays: null }), null),
   },
   {
-    // loadBalanceInputs, loadBalances and summarizeBalances are exempt (their company id
-    // picks the allowance rules only); every use case that reaches them is called here
-    // with Bravo's ids, and this pins down the other half: no Bravo balance shows.
+    covers: ["balances:loadBalanceInputs", "balances:loadBalances", "balances:summarizeBalances"],
+    name: "balance reads by company find no allowance or booked day of another company's people",
+    run: async ({ t, a, b }) => {
+      const settings = { countsAgainstAllowance: true, defaultAllowanceDays: 20, carryoverEnabled: false, carryoverMaxDays: null };
+      const type = { id: b.vac, name: "Some type", code: "VAC", color: "#7C3AED", archived: false, ...settings };
+      const inputs = await balances.loadBalanceInputs(t.db, a.companyId, { userIds: [b.emp.id], years: [2026] });
+      const lookup = await balances.loadBalances(t.db, {
+        companyId: a.companyId,
+        allowancePolicy: balances.ANNUAL_CALENDAR_YEAR,
+        leaveTypes: [type],
+        userIds: [b.emp.id, NOBODY],
+        years: [2026],
+      });
+      const summary = await balances.summarizeBalances(t.db, { id: b.emp.id, companyId: a.companyId }, { allowancePolicy: balances.ANNUAL_CALENDAR_YEAR, types: [type], year: 2026 });
+      return {
+        row: inputs.allowanceRow(b.emp.id, b.vac, 2026) ?? null,
+        booked: inputs.hasBooked(b.emp.id, b.vac, 2026),
+        balance: lookup(b.emp.id, b.vac, 2026),
+        nobody: lookup(NOBODY, b.vac, 2026),
+        summary,
+      };
+    },
+    echoes: ({ b }) => [b.emp.id, b.vac],
+    check: (value) => {
+      const read = value as { row: unknown; booked: boolean; balance: unknown; nobody: unknown; summary: balances.BalanceSummary };
+      assert.equal(read.row, null);
+      assert.equal(read.booked, false);
+      assert.deepEqual(read.balance, read.nobody, "the balance is that of someone with no rows");
+      assert.equal(read.summary.items[0]?.row, null);
+      assert.deepEqual(read.summary.items[0]?.balance, read.nobody);
+    },
+  },
+  {
+    // Every use case that reaches the balance reads is called here with Bravo's ids, and
+    // this pins down what they show: no Bravo balance.
     covers: [],
     name: "Bravo's allowance shows through no Alpha balance read",
     run: async ({ ctx, a, b }) => [
@@ -844,8 +879,11 @@ const CASES: Case[] = [
     name: "leave type steps write only the company they are given",
     run: async (w) => [
       await inTx(w, (tx) => organisation.addLeaveType(tx, { ...leaveTypeInput("Alpha Step", "stp"), companyId: w.a.companyId, sortOrder: 50 })),
-      await inTx(w, (tx) => organisation.applyLeaveTypeChanges(tx, w.a.companyId, w.b.vac, { name: "Taken" })).catch((e: unknown) => ({ refused: String(e) })),
+      await inTx(w, (tx) => organisation.applyLeaveTypeChanges(tx, w.a.companyId, w.b.vac, { name: "Taken" })).catch((e: unknown) => ({
+        refused: isDomainError(e) ? e.code : String(e),
+      })),
     ],
+    check: (value) => assert.deepEqual((value as unknown[])[1], { refused: "not_found" }, "another company's leave type is not found"),
   },
 
   // Reports.

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, gte, inArray, lt, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { allowances, leaveRequestDays, leaveRequests } from "@/db/schema";
+import { allowances, leaveRequestDays, leaveRequests, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { AllowanceRepository } from "../application/ports";
 import type { BalanceScope } from "../domain/allowance";
@@ -32,6 +32,7 @@ export async function sumBookedDays(ex: Executor, scope: BalanceScope) {
     .innerJoin(leaveRequests, eq(leaveRequests.id, leaveRequestDays.requestId))
     .where(
       and(
+        eq(leaveRequests.companyId, scope.companyId),
         inArray(leaveRequests.userId, [...scope.userIds]),
         inArray(leaveRequestDays.year, [...scope.years]),
         inArray(leaveRequests.status, ["approved", "pending"]),
@@ -63,6 +64,7 @@ export async function listAllowances(ex: Executor, scope: BalanceScope): Promise
     .where(
       and(
         inArray(allowances.userId, [...scope.userIds]),
+        inArray(allowances.userId, ex.select({ id: user.id }).from(user).where(eq(user.companyId, scope.companyId))),
         or(inArray(allowances.year, [...scope.years]), eq(allowances.year, latestEarlierYear)),
         scope.leaveTypeIds ? inArray(allowances.leaveTypeId, [...scope.leaveTypeIds]) : undefined,
       ),

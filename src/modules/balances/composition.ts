@@ -71,7 +71,7 @@ export function loadAllowanceDefaults(ex: Executor, companyId: string, userIds: 
 }
 
 /** The balance inputs (allowances, booked days and defaults) of these people, types and years, read in `ex`. */
-export function loadBalanceInputs(ex: Executor, companyId: string, scope: BalanceScope) {
+export function loadBalanceInputs(ex: Executor, companyId: string, scope: Omit<BalanceScope, "companyId">) {
   return inputsIn(balancesStore(ex), companyId, scope);
 }
 

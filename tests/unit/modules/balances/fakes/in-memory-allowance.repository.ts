@@ -23,7 +23,13 @@ export class InMemoryAllowanceRepository implements AllowanceRepository {
   /** Ids of rows locked by {@link lockFrom}, in order. */
   readonly locked: string[] = [];
 
-  constructor(private readonly newId: () => string = randomUUID) {}
+  /**
+   * @param companyOf Each person's company: a scope reads only the rows of its company's people.
+   */
+  constructor(
+    private readonly companyOf: (userId: string) => string | undefined,
+    private readonly newId: () => string = randomUUID,
+  ) {}
 
   /** Stores a row as given (a test's setup). */
   seed(row: NewAllowance): Allowance {
@@ -45,10 +51,15 @@ export class InMemoryAllowanceRepository implements AllowanceRepository {
     return scope.userIds.includes(r.userId) && (!scope.leaveTypeIds || scope.leaveTypeIds.includes(r.leaveTypeId));
   }
 
+  /** In scope, and a person of the scope's company. */
+  private inScope(scope: BalanceScope, r: { userId: string; leaveTypeId: string }): boolean {
+    return this.companyOf(r.userId) === scope.companyId && InMemoryAllowanceRepository.covers(scope, r);
+  }
+
   async list(scope: BalanceScope): Promise<Allowance[]> {
     if (InMemoryAllowanceRepository.empty(scope)) return [];
     const firstYear = Math.min(...scope.years);
-    const inScope = [...this.rows.values()].filter((r) => InMemoryAllowanceRepository.covers(scope, r));
+    const inScope = [...this.rows.values()].filter((r) => this.inScope(scope, r));
     const latestEarlier = (r: Allowance) =>
       Math.max(...inScope.filter((o) => o.userId === r.userId && o.leaveTypeId === r.leaveTypeId && o.year < firstYear).map((o) => o.year));
     return inScope.filter((r) => scope.years.includes(r.year) || r.year === latestEarlier(r)).map((r) => ({ ...r }));
@@ -58,7 +69,7 @@ export class InMemoryAllowanceRepository implements AllowanceRepository {
     if (InMemoryAllowanceRepository.empty(scope)) return [];
     const sums = new Map<string, BookedDaysOf>();
     for (const e of this.booked) {
-      if (!InMemoryAllowanceRepository.covers(scope, e) || !scope.years.includes(e.year)) continue;
+      if (!this.inScope(scope, e) || !scope.years.includes(e.year)) continue;
       if (e.status !== "approved" && e.status !== "pending") continue;
       const sum = sums.get(key(e)) ?? { userId: e.userId, leaveTypeId: e.leaveTypeId, year: e.year, approved: 0, pending: 0 };
       sum[e.status] = addDays(sum[e.status], e.days);

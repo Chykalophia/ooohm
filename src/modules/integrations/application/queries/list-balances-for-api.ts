@@ -71,8 +71,8 @@ export async function listBalancesForApi(
     const year = q.year ?? yearInTimeZone(settings.timezone, ctx.now());
     const userIds = people.map((p) => p.id);
     const [allowanceRows, bookedRows, defaults] = await Promise.all([
-      listAllowances(ctx.db, { userIds, years: allowanceYearsFor([year]) }),
-      sumBookedDays(ctx.db, { userIds, years: [year] }),
+      listAllowances(ctx.db, { companyId: client.companyId, userIds, years: allowanceYearsFor([year]) }),
+      sumBookedDays(ctx.db, { companyId: client.companyId, userIds, years: [year] }),
       loadAllowanceDefaults(ctx.db, client.companyId, userIds),
     ]);
     const inputs = balanceInputs(allowanceRows, bookedRows, defaults);

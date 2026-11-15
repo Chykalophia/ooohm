@@ -8,12 +8,9 @@ import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { lockCompany } from "@/shared/lib/db/company-lock";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import {
-  findLeaveTypeForAdmin,
-  nextLeaveTypeSortOrder,
-  updateLeaveType as updateLeaveTypeRow,
-} from "@/modules/organisation/infrastructure/drizzle-leave-types.repository";
+import { findLeaveTypeForAdmin, nextLeaveTypeSortOrder } from "@/modules/organisation/infrastructure/drizzle-leave-types.repository";
 import { type LeaveTypeSettingsDTO, toLeaveTypeSettingsDTO } from "@/modules/organisation/application/dto";
+import { applyLeaveTypeChanges } from "@/modules/organisation/application/steps/apply-leave-type-changes";
 import { recordLeaveTypeChange } from "@/modules/organisation/application/leave-type-changes";
 import { canManageLeaveTypes } from "@/modules/organisation/application/policies";
 
@@ -42,14 +39,12 @@ export async function setLeaveTypeArchived(
       if (!found) throw new DomainError("not_found");
       const before = toLeaveTypeSettingsDTO(found);
       if ((before.archivedAt !== null) === archived) return before;
-      const after = toLeaveTypeSettingsDTO(
-        archived
-          ? await updateLeaveTypeRow(tx, actor.companyId, id, { archivedAt: ctx.now() })
-          : await updateLeaveTypeRow(tx, actor.companyId, id, {
-              archivedAt: null,
-              sortOrder: await nextLeaveTypeSortOrder(tx, actor.companyId),
-            }),
-      );
+      const after = archived
+        ? await applyLeaveTypeChanges(tx, actor.companyId, id, { archivedAt: ctx.now() })
+        : await applyLeaveTypeChanges(tx, actor.companyId, id, {
+            archivedAt: null,
+            sortOrder: await nextLeaveTypeSortOrder(tx, actor.companyId),
+          });
       await recordLeaveTypeChange(tx, actor, archived ? ADMIN_EVENT_TYPES.leaveTypeArchived : ADMIN_EVENT_TYPES.leaveTypeUnarchived, before, after);
       return after;
     }),

@@ -84,7 +84,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
         {filters.length > 1 && <PillNav label="Whose time off" items={calendarFilterItems(nav.month, filter, filters, filterLabels)} />}
 
         <div className="hidden md:block">
-          <MonthGrid weeks={weeks} caption={monthGridCaption(nav.month, filter, filterLabels)} leaveTypes={leaveTypes} />
+          <MonthGrid weeks={weeks} caption={monthGridCaption(formatMonth(nav.month), filter, filterLabels)} leaveTypes={leaveTypes} />
         </div>
 
         <div className="md:hidden">

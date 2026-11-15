@@ -58,10 +58,24 @@ sub-navigation): the header, the page's one `h1` with its description and main a
 
 **Server actions** are a zod schema (common field schemas are in `src/app/_lib/form-fields.ts`) and one
 service call, run through the pipeline in `src/app/_lib/action-pipeline.ts` (wired to Next.js in
-`server-action.ts`; its order of steps is unit-tested with fakes): session, company, role (for `who: "admin"`), parse, the service call through
+`server-action.ts`; its order of steps is unit-tested with fakes): session, company, the person's action rate limit
+(`ACTION_RATE_LIMIT`, 120 a minute per process, a calm `rate_limited` message past it), role (for `who: "admin"`), parse, the service call through
 `runActionWith`, then `refresh()` after a success. `runFormAction` returns a calm message (`FormState`),
 `runStateAction` returns an action's own state (a revealed secret, a new calendar link) and `runActionThenGo`
-navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these with `who: "admin"`.
+navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these with `who: "admin"`. Actions sit
+beside the route that uses them (`admin/people/new/actions.ts`, `admin/people/[id]/actions.ts`); a schema or wording
+several routes share is a small server-only file next to them (`admin/people/person-input.ts`).
+
+**Thin pages (F8, F12).** A page loads, calls a module's presenter and renders. Presenters are plain functions in a
+module's `ui/` (`presentAuditLog`, `presentApprovals`, `presentDelivery`, the calendar's links and captions),
+exported from its index and unit-tested (`tests/unit/page-presenters.test.ts`); markup a page would otherwise
+spell out goes in components beside the route (`admin/audit/audit-log-table.tsx`). Pages and actions import only
+module indexes, `src/app`, `src/components`, the shared kernel, `Result`, search params, `src/domain` and the pure
+`src/lib` helpers (`pages-and-actions-through-modules` in `.dependency-cruiser.cjs`; the token pages and actions
+for the email approval link, setup and sign-in are the exceptions). ESLint's size limits are errors: 100 lines for
+an action or route file, 50 per function in logic layers, 150 per component; `src/components/ui/sortable-list.tsx`
+is the one file allowed past them, with its reason in `eslint.config.mjs`. The request forms read their live
+preview through one hook, `useLeavePreview` (`src/app/use-leave-preview.ts`), the app's only client-side fetch.
 
 **Shared components** live in `src/components`, by kind; route-specific ones sit beside their route
 (`src/app/admin/people/delete-person-dialog.tsx`):

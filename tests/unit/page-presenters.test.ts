@@ -184,8 +184,8 @@ describe("calendar presenter", () => {
 
   test("the caption and pills name whose time off", () => {
     const labels = { me: "Just me", team: "My team", everyone: "Acme" };
-    assert.equal(monthGridCaption("2026-08", "everyone", labels), "Acme's time off and company holidays in August 2026");
-    assert.match(monthGridCaption("2026-08", "me", labels), /^Your time off and company holidays in /);
+    assert.equal(monthGridCaption("August 2026", "everyone", labels), "Acme's time off and company holidays in August 2026");
+    assert.match(monthGridCaption("August 2026", "me", labels), /^Your time off and company holidays in /);
     assert.deepEqual(calendarFilterItems("2026-08", "team", ["me", "team"], labels), [
       { href: "/calendar?month=2026-08", label: "Just me", current: undefined },
       { href: "/calendar?month=2026-08&show=team", label: "My team", current: "page" },

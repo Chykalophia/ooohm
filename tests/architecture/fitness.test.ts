@@ -23,6 +23,9 @@ const probes: Record<string, string> = {
   [`src/modules/${PROBE}a/application/queries/thing.ts`]: `export const thing = 1;\n`,
   [`src/modules/${PROBE}a/index.ts`]: `export { thing } from "./application/queries/thing";\n`,
   [`src/app/${PROBE}/deep-import.ts`]: `import { thing } from "@/modules/${PROBE}a/application/queries/thing";\nexport const probe = thing;\n`,
+  // F12: an action that opens its own transaction, and a page that reaches the composition root.
+  [`src/app/${PROBE}/actions.ts`]: `import { inTransaction } from "@/shared/lib/unit-of-work";\nexport const probe = inTransaction;\n`,
+  [`src/app/${PROBE}/page.tsx`]: `import { serviceContext } from "@/server/runtime";\nexport const probe = serviceContext;\n`,
   [`src/modules/${PROBE}b/application/across.ts`]: `import { thing } from "@/modules/${PROBE}a/application/queries/thing";\nexport const probe = thing;\n`,
   [`src/modules/${PROBE}b/infrastructure/repo.ts`]: `export const repo = 1;\n`,
   [`src/modules/${PROBE}b/domain/impure-layer.ts`]: `import { repo } from "../infrastructure/repo";\nexport const probe = repo;\n`,
@@ -64,6 +67,8 @@ test("each dependency rule reports a planted violation", () => {
   assert.ok(fired("no-deep-import-from-outside", "deep-import.ts"), "app → a module's application file not reported");
   assert.ok(fired("no-deep-import-across-modules", "application/across.ts"), "module → another module's internals not reported");
   assert.ok(fired("module-layers", "domain/impure-layer.ts"), "a module's domain → its infrastructure not reported");
+  assert.ok(fired("pages-and-actions-through-modules", "actions.ts"), "an action → the unit of work not reported");
+  assert.ok(fired("pages-and-actions-through-modules", "page.tsx"), "a page → the composition root not reported");
 });
 
 test("the cruise covers the whole source tree", () => {

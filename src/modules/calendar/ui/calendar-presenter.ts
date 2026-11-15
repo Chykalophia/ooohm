@@ -1,5 +1,4 @@
 import type { CalendarFilter } from "@/domain/calendar-visibility";
-import { formatMonth } from "@/lib/format";
 import type { YearNav } from "../application/calendar-viewer";
 
 /** The month view's address: `show` is left out for the default, just me. */
@@ -18,11 +17,11 @@ export function yearViewMonth(nav: YearNav): string {
   return nav.year === nav.current ? nav.today.slice(0, 7) : `${nav.year}-01`;
 }
 
-/** The month grid's caption: whose time off it shows, and the month. */
-export function monthGridCaption(month: string, filter: CalendarFilter, labels: Record<CalendarFilter, string>): string {
+/** The month grid's caption: whose time off it shows, and the month (`monthName`, as the page writes it). */
+export function monthGridCaption(monthName: string, filter: CalendarFilter, labels: Record<CalendarFilter, string>): string {
   const whose =
     filter === "me" ? "Your time off" : filter === "team" ? "Your team's time off" : labels.everyone === "Everyone" ? "Everyone's time off" : `${labels.everyone}'s time off`;
-  return `${whose} and company holidays in ${formatMonth(month)}`;
+  return `${whose} and company holidays in ${monthName}`;
 }
 
 /** The "Whose time off" pills: one per filter the person may use. */

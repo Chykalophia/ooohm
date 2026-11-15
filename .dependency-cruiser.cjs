@@ -34,6 +34,33 @@ module.exports = {
         pathNot: "^src/db/types\\.ts$",
       },
     },
+    // F12: pages and actions are thin. They reach the app through module indexes and the
+    // presentation helpers, never the services' plumbing (transactions, admin checks,
+    // repositories) or the composition root. The two token actions and their pages (the
+    // email approval link, the first install) run before or without a session, so they
+    // build their own context.
+    {
+      name: "pages-and-actions-through-modules",
+      comment:
+        "A page or action imports module indexes, src/app, src/components, the shared kernel, Result and search params, src/domain and src/lib's pure helpers; nothing else in src.",
+      severity: "error",
+      from: {
+        path: ["^src/app/page\\.tsx$", "^src/app/.*/page\\.tsx$", "^src/app/.*actions\\.ts$"],
+        pathNot: ["^src/app/approve/\\[token\\]/", "^src/app/setup/", "^src/app/sign-in/"],
+      },
+      to: {
+        path: "^src/",
+        pathNot: [
+          "^src/modules/[^/]+/index\\.ts$",
+          "^src/app/",
+          "^src/components/",
+          "^src/shared/kernel/",
+          "^src/shared/lib/(result|search-params)\\.ts$",
+          "^src/domain/",
+          "^src/lib/(format|color|brand-mark|log)\\.ts$",
+        ],
+      },
+    },
     {
       name: "components-not-to-server",
       severity: "error",

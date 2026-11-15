@@ -25,7 +25,7 @@ for processes outside Next) is the only place that wires concrete implementation
 
 | Path | Layer | Notes |
 | --- | --- | --- |
-| `src/app/**` | Presentation | Thin pages, server actions through the action pipeline (`src/app/_lib/server-action.ts`), route handlers |
+| `src/app/**` | Presentation | Thin pages (a module presenter, components beside the route), server actions beside their route through the action pipeline (`src/app/_lib/server-action.ts`, with a per-person rate limit), route handlers; they import only module indexes and the presentation helpers (F12, `pnpm arch`) |
 | `src/components/**` | Presentation (UI kit) | Renders props; never loads data |
 | `src/shared/kernel/**`, `src/shared/lib/**` | Shared | Pure kernel rules; `ServiceResult`, the unit of work (`inTransaction`), admin checks, `recordChange` and the shared reads and repository helpers (`lib/db/`) |
 | `src/server/integrations/**` | Ports | Adapter seam (the port `ServiceContext` names) |
@@ -58,6 +58,7 @@ returns what the screen needs (a DTO, not a row).
 | The code… | Goes in |
 | --- | --- |
 | is a page, layout, server action or route handler | `src/app/…`, thin: parse → one use case → map the result |
+| turns a DTO into what a page shows (labels, links, wording) | `modules/<m>/ui/` (a presenter: plain functions, no React) |
 | runs one use case | `modules/<m>/application/use-cases/` |
 | decides whether an actor may do X | `modules/<m>/application/policies.ts` (today: `src/domain/*-permissions.ts`) |
 | is a business rule | `modules/<m>/domain/` (today: `src/domain/`) |

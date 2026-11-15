@@ -1,5 +1,4 @@
 import "server-only";
-import type { Transaction } from "@/db/types";
 import type { ChangeSource } from "@/domain/change-source";
 import {
   ALLOWANCE_AUDIT_ACTIONS,
@@ -8,11 +7,22 @@ import {
   type BalanceChangeReason,
   type Unattributed,
 } from "@/domain/events";
-import type { AllowanceRow } from "@/server/repositories/balances";
-import { recordChange } from "@/shared/lib/db/change-log";
+import type { Allowance } from "../domain/allowance";
+import type { ChangeLog } from "./ports";
+
+/** One allowance change, as {@link recordAllowanceChange} records it. */
+export interface AllowanceChange {
+  companyId: string;
+  reason: BalanceChangeReason;
+  before: Allowance | null;
+  after: Allowance;
+  source: ChangeSource;
+  /** The admin's reason, kept in the audit row's `after` only. */
+  note?: string;
+}
 
 /** The audited view of an allowance row. */
-function allowanceSnapshot(row: AllowanceRow) {
+function allowanceSnapshot(row: Allowance) {
   return {
     userId: row.userId,
     leaveTypeId: row.leaveTypeId,
@@ -25,23 +35,13 @@ function allowanceSnapshot(row: AllowanceRow) {
 
 /**
  * Writes the audit row and the `balance.adjusted` event for one allowance change,
- * inside `tx`. Shared by the year rollover (a system source), the admin allowance editor
+ * through `changes` (one transaction). Shared by the year rollover (a system source), the admin allowance editor
  * and the inbound sync.
  *
  * @param change.note The admin's reason, kept in the audit row's `after` only: it is
  *   free text about a person, and the outbox payload goes to other systems.
  */
-export async function recordAllowanceChange(
-  tx: Transaction,
-  change: {
-    companyId: string;
-    reason: BalanceChangeReason;
-    before: AllowanceRow | null;
-    after: AllowanceRow;
-    source: ChangeSource;
-    note?: string;
-  },
-): Promise<void> {
+export async function recordAllowanceChange(changes: ChangeLog, change: AllowanceChange): Promise<void> {
   const { after } = change;
   const payload: Unattributed<BalanceAdjustedPayload> = {
     allowanceId: after.id,
@@ -53,7 +53,7 @@ export async function recordAllowanceChange(
     adjustmentDays: after.adjustmentDays,
     reason: change.reason,
   };
-  await recordChange(tx, {
+  await changes.record({
     source: change.source,
     audit: {
       companyId: change.companyId,

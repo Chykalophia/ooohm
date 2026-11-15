@@ -26,14 +26,14 @@ import { normalizeEmail, normalizePersonName } from "@/domain/people";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import type { InboundBalance, InboundUser } from "@/server/integrations/adapter";
-import { findAllowance } from "@/server/repositories/balances";
+import { findAllowance } from "@/modules/balances";
 import { recordChange } from "@/shared/lib/db/change-log";
 import { findCompany, findLeaveTypeByCode } from "@/modules/organisation";
 import { lockCompany } from "@/shared/lib/db/company-lock";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { findPersonByEmail, insertPerson, lockMember, type PersonRow, updatePerson } from "@/server/repositories/users";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";
-import { writeAllowance } from "./admin-allowances";
+import { writeAllowance } from "@/modules/balances";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /**

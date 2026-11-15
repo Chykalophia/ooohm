@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { isEmptyBalance } from "@/domain/allowance-policy";
+import { isEmptyBalance, summarizeBalances } from "@/modules/balances";
 import { entriesCostingDaysIn } from "@/domain/calendar";
 import { canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
@@ -16,7 +16,6 @@ import { listHolidayDates, listHolidays, listPersonLeave } from "@/server/reposi
 import { findCompany, findDepartment } from "@/modules/organisation";
 import { listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { findPerson } from "@/server/repositories/users";
-import { summarizeBalances } from "./balances";
 import { scopeOf } from "./calendar-scope";
 
 /** How far back "Recently" looks, and how far ahead "Coming up" does, in days. */

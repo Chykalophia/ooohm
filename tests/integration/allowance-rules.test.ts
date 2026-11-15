@@ -2,17 +2,22 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { and, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { listAllowanceRulesForAdmin, removeAllowanceRule, setAllowanceRule } from "@/server/services/admin-allowance-rules";
 import * as organisation from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
 import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
 import { deletePerson } from "@/server/services/admin-people-deletion";
-import { getBalanceSummary } from "@/server/services/balances";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
-import { runYearRollover } from "@/server/services/rollover";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const listAllowanceRulesForAdmin = (...args: Parameters<typeof balancesModule.listAllowanceRulesForAdmin>) => balancesModule.listAllowanceRulesForAdmin(...args).then(unwrap);
+const removeAllowanceRule = (...args: Parameters<typeof balancesModule.removeAllowanceRule>) => balancesModule.removeAllowanceRule(...args).then(unwrap);
+const setAllowanceRule = (...args: Parameters<typeof balancesModule.setAllowanceRule>) => balancesModule.setAllowanceRule(...args).then(unwrap);
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
+const runYearRollover = (...args: Parameters<typeof balancesModule.runYearRollover>) => balancesModule.runYearRollover(...args).then(unwrap);
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);

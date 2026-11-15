@@ -2,7 +2,8 @@ import "server-only";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { allowanceRules, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { Placement } from "@/domain/allowance-rules";
+import type { AllowanceRuleRepository } from "../application/ports";
+import type { Placement } from "../domain/allowance-rules";
 
 const fields = {
   id: allowanceRules.id,
@@ -93,4 +94,19 @@ export async function listMembersAt(ex: Executor, companyId: string, target: Pla
     )
     .orderBy(asc(sql`${user.id}`));
   return rows.map((r) => r.id);
+}
+
+/** The {@link AllowanceRuleRepository} on Drizzle, bound to `ex` (writes need a transaction). */
+export function drizzleAllowanceRuleRepository(ex: Executor): AllowanceRuleRepository {
+  const tx = ex as Transaction;
+  return {
+    list: (companyId, leaveTypeId) => listAllowanceRules(ex, companyId, leaveTypeId),
+    find: (companyId, id) => findAllowanceRule(ex, companyId, id),
+    findFor: (companyId, leaveTypeId, target) => findAllowanceRuleFor(ex, companyId, leaveTypeId, target),
+    insert: (values) => insertAllowanceRule(tx, values),
+    updateDays: (companyId, id, days) => updateAllowanceRuleDays(tx, companyId, id, days),
+    delete: (companyId, id) => deleteAllowanceRule(tx, companyId, id),
+    placements: (companyId, userIds) => listPlacements(ex, companyId, userIds),
+    membersAt: (companyId, target) => listMembersAt(ex, companyId, target),
+  };
 }

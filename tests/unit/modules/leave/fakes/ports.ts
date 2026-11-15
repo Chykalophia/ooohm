@@ -1,5 +1,5 @@
 import type { Actor } from "@/domain/actor";
-import { assertCovered, type Balance } from "@/domain/allowance-policy";
+import { assertCovered, type Balance, type LeaveTypeWithAllowance } from "@/modules/balances";
 import { type ApprovalContext, ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import type { ChangeSource } from "@/domain/change-source";
 import { DomainError } from "@/domain/errors";
@@ -24,7 +24,6 @@ import type {
 import type { Notification } from "@/modules/notifications";
 import type { AuditEntry, OutboxEvent } from "@/shared/lib/db/change-log";
 import type { LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";
-import type { LeaveTypeWithAllowance } from "@/server/services/balances";
 import { type IdGenerator, sequenceIds } from "@/shared/lib/id-generator";
 import { splitLeaveDaysByYear } from "@/shared/kernel/leave-days";
 import { InMemoryLeaveRequestRepository } from "./in-memory-leave-request.repository";

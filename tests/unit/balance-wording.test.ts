@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ALLOWANCE_AUDIT_ACTIONS, BALANCE_EVENT_TYPES } from "@/domain/events";
-import type { Balance } from "@/domain/allowance-policy";
+import type { Balance } from "@/modules/balances";
 import { formatAddedFor, formatBalanceTotal, formatBalanceUsage, formatRequestCost, formatShortfall, formatSubmitted } from "@/lib/format";
 
 test("the preview says what a request costs and what it leaves", () => {

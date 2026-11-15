@@ -1,6 +1,6 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { addDays } from "@/domain/allowance-policy";
+import { addDays } from "@/shared/kernel/day-amounts";
 import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
 import { DomainError } from "@/domain/errors";
 import type { YearDays } from "@/shared/kernel/leave-days";
@@ -10,7 +10,7 @@ import type { ServiceContext } from "@/server/context";
 import { listHolidayDates } from "@/server/repositories/calendar";
 import { findCompany, listDepartments } from "@/modules/organisation";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
-import { loadBalances } from "@/server/services/balances";
+import { loadBalances } from "@/modules/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import {
   buildLeaveReport,

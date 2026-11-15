@@ -11,7 +11,8 @@
 import { resolveDatabaseConfig } from "../src/db/config";
 import { openDatabase } from "../src/db/connect";
 import { nonEmptyEnv } from "../src/lib/integration-env";
-import { runYearRollover } from "../src/server/services/rollover";
+import { runYearRollover } from "../src/modules/balances";
+import { unwrap } from "../src/shared/lib/result";
 import { scriptContext } from "./script-context.mts";
 
 const config = resolveDatabaseConfig(nonEmptyEnv(process.env));
@@ -26,7 +27,7 @@ const handle = await openDatabase(config, { purpose: "pnpm job:rollover", max: 1
 const ctx = scriptContext(handle.db, "rollover job");
 
 try {
-  const result = await runYearRollover(ctx, arg === undefined ? undefined : Number(arg));
+  const result = unwrap(await runYearRollover(ctx, arg === undefined ? undefined : Number(arg)));
   console.log(
     `Rollover done: ${result.companies} companies, ${result.members} people, ` +
       `${result.carried} carryovers set, ${result.created} allowances created.`,

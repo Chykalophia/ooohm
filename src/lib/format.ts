@@ -4,7 +4,7 @@
  * Dates are formatted in UTC from their `YYYY-MM-DD` parts, so the printed day is the
  * stored day whatever the server's or browser's time zone.
  */
-import type { Balance, RequestCost } from "@/domain/allowance-policy";
+import type { Balance, RequestCost } from "@/modules/balances";
 import type { BalanceShortfallDetails } from "@/domain/errors";
 
 const dayFormat = new Intl.DateTimeFormat("en-US", {

@@ -6,7 +6,7 @@ import { formatRequestCost } from "@/lib/format";
 import { log } from "@/lib/log";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { serviceContext } from "@/server/runtime";
-import { previewLeaveRequest } from "@/server/services/balances";
+import { previewLeaveRequest } from "@/modules/balances";
 import { draftCoverage, previewLeaveFor } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { type LeavePreviewResponse, leaveDraftSchema, readDraftFields } from "@/app/_lib/leave-input";
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       const { cost, personName } = unwrap(await previewLeaveFor(ctx, actor, forUserId, parsed.data));
       return reply({ ok: true, message: await withCoverage(formatRequestCost(cost, personName), forUserId), cost });
     }
-    const cost = await previewLeaveRequest(ctx, actor, parsed.data);
+    const cost = unwrap(await previewLeaveRequest(ctx, actor, parsed.data));
     return reply({ ok: true, message: await withCoverage(formatRequestCost(cost), actor.id), cost });
   } catch (err) {
     if (isDomainError(err)) {

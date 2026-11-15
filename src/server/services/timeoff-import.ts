@@ -42,7 +42,7 @@ import "server-only";
  */
 import type { Transaction } from "@/db/types";
 import type { Role } from "@/domain/actor";
-import { addDays, resolveAllowancePolicy } from "@/domain/allowance-policy";
+import { addDays, resolveAllowancePolicy } from "@/modules/balances";
 import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { type CalendarDate } from "@/domain/calendar-date";
 import { byUser, CHANGE_PROCESSES, type UserChangeSource } from "@/domain/change-source";
@@ -99,8 +99,8 @@ import {
 } from "@/server/repositories/imports";
 import { findMembers, lockMember } from "@/server/repositories/users";
 import { loadApprovalContexts } from "./approval-routing";
-import { loadBalances } from "./balances";
-import { recarryMemberLeaveType } from "./rollover";
+import { loadBalances } from "@/modules/balances";
+import { recarryMemberLeaveType } from "@/modules/balances";
 
 /** `audit_log.after.source` and `import_runs.source` of this importer. */
 export const TIMEOFF_IMPORT_SOURCE = "timeoff";

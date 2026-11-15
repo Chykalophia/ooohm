@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getAllowanceRulesForm } from "@/server/services/admin-allowance-rules";
+import { getAllowanceRulesForm } from "@/modules/balances";
 import { getLeaveTypeForAdmin } from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
 import { AllowanceRules } from "@/app/admin/leave-types/allowance-rules";
@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Leave type · Admin · OOOhm" };
 export default async function EditLeaveTypePage({ params }: { params: Promise<{ id: string }> }) {
   const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
-  const [leaveType, rules] = await Promise.all([orNotFound(getLeaveTypeForAdmin(ctx, actor, id).then(unwrap)), getAllowanceRulesForm(ctx, actor, id)]);
+  const [leaveType, rules] = await Promise.all([orNotFound(getLeaveTypeForAdmin(ctx, actor, id).then(unwrap)), getAllowanceRulesForm(ctx, actor, id).then(unwrap)]);
 
   return (
     <AdminShell

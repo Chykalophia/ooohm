@@ -5,11 +5,14 @@ import * as schema from "@/db/schema";
 import { isDomainError } from "@/domain/errors";
 import { addLeaveFor as addLeaveForResult, cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, previewLeaveFor as previewLeaveForResult, removeLeaveFor as removeLeaveForResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { runYearRollover } from "@/server/services/rollover";
+import * as balancesModule from "@/modules/balances";
 import { getTeamMember } from "@/server/services/team-member";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, auditFor, companyAudit, eventsFor, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const runYearRollover = (...args: Parameters<typeof balancesModule.runYearRollover>) => balancesModule.runYearRollover(...args).then(unwrap);
 
 const addLeaveFor = (...args: Parameters<typeof addLeaveForResult>) => addLeaveForResult(...args).then(unwrap);
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);

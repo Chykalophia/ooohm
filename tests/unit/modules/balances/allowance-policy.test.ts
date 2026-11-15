@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  addDays,
-  AnnualCalendarYearPolicy,
   assertCovered,
   type Balance,
   type BalanceInput,
@@ -10,8 +8,10 @@ import {
   isEmptyBalance,
   type LeaveTypeAllowanceSettings,
   remainingAfter,
-  resolveAllowancePolicy,
-} from "@/domain/allowance-policy";
+} from "@/modules/balances/domain/allowance-policy";
+import { AnnualCalendarYearPolicy } from "@/modules/balances/domain/annual-calendar-year-policy";
+import { resolveAllowancePolicy } from "@/modules/balances/domain/policy-registry";
+import { addDays } from "@/shared/kernel/day-amounts";
 import { isDomainError } from "@/domain/errors";
 
 const policy = new AnnualCalendarYearPolicy();

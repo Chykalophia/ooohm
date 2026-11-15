@@ -9,7 +9,6 @@ import { tombstoneEmail } from "@/domain/person-deletion";
 import type { WebhookFetch } from "@/lib/safe-fetch";
 import { createApiKey } from "@/server/services/api-keys";
 import { listBalancesForApi } from "@/server/services/api-v1";
-import { setAllowanceOverride } from "@/server/services/admin-allowances";
 import {
   deactivatePerson,
   getPersonFormOptions,
@@ -28,6 +27,7 @@ import {
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getAuditLog as readAuditLog } from "@/modules/audit";
 import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { getTeamCalendar } from "@/server/services/calendar";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
@@ -39,6 +39,9 @@ import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/server/services/company-settings";
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const setAllowanceOverride = (...args: Parameters<typeof balancesModule.setAllowanceOverride>) => balancesModule.setAllowanceOverride(...args).then(unwrap);
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);

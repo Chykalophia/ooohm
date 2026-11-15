@@ -4,7 +4,7 @@ import { after, before, describe, test } from "node:test";
 import { and, eq, isNull } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { INVITE_SUBJECT } from "@/modules/notifications/application/templates/invite";
 import { deactivatePerson as deactivatePersonResult, getPersonDetail as getPersonDetailResult, getPersonFormOptions as getPersonFormOptionsResult, INVITE_LIMIT, invitePerson as invitePersonResult, listPeople as listPeopleResult, reactivatePerson as reactivatePersonResult, resendInvite as resendInviteResult, updatePerson as updatePersonResult } from "@/modules/people";
 import * as calendarModule from "@/modules/calendar";

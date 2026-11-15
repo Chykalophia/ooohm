@@ -1,6 +1,6 @@
 import "server-only";
-import type { TeamCalendarEntry } from "@/domain/calendar";
-import type { FeedKind } from "@/domain/calendar-feed";
+import type { TeamCalendarEntry } from "@/shared/kernel/calendar";
+import type { FeedKind } from "@/shared/kernel/calendar-feed";
 import { teamLabel } from "@/shared/kernel/person-label";
 
 /** A team row as the calendar repository reads it: the entry, plus the email its label falls back on. */

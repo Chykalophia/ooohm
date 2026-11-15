@@ -2,7 +2,7 @@
  * Colour helpers for leave type colours, which admins choose freely. Pure; safe on the
  * client.
  */
-import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
+import { DEFAULT_LEAVE_TYPE_COLOR } from "@/shared/kernel/leave-type-settings";
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 

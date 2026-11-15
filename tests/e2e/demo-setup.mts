@@ -17,7 +17,7 @@ import { eq } from "drizzle-orm";
 import { resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as schema from "../../src/db/schema";
-import { toActor } from "../../src/domain/actor";
+import { toActor } from "../../src/shared/kernel/actor";
 import { createSecretBox } from "../../src/lib/integration-crypto";
 import type { ServiceContext } from "../../src/server/context";
 import { createAdapterRegistry } from "../../src/server/integrations/adapter";

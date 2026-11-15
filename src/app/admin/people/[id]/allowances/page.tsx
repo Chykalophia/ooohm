@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { z } from "zod";
-import { ALLOWANCE_YEAR_MAX, ALLOWANCE_YEAR_MIN, MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
+import { ALLOWANCE_YEAR_MAX, ALLOWANCE_YEAR_MIN, MAX_ALLOWANCE_DAYS } from "@/shared/kernel/leave-type-settings";
 import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { formatDays } from "@/lib/format";
 import { getPersonDetail } from "@/modules/people";

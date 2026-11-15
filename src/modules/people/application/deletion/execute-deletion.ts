@@ -14,8 +14,8 @@ import "server-only";
  * rewritten only through the database owner's functions (drizzle/0030).
  */
 import type { Transaction } from "@/db/types";
-import type { ChangeSource } from "@/domain/change-source";
-import { ADMIN_EVENT_TYPES, type DeletionMode, type DepartmentEventPayload, type Unattributed, type UserDeletedPayload } from "@/domain/events";
+import type { ChangeSource } from "@/shared/kernel/change-source";
+import { ADMIN_EVENT_TYPES, type DeletionMode, type DepartmentEventPayload, type Unattributed, type UserDeletedPayload } from "@/shared/kernel/events";
 import { clearDepartmentsManagedBy } from "@/modules/organisation";
 import { nameInUse, namesInOwnRecords, personRedactions, tombstoneEmail, tombstoneName } from "@/modules/people/domain/person-deletion";
 import { drizzleMentionStore } from "@/modules/people/infrastructure/drizzle-mention-store";

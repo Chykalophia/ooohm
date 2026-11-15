@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { type FeedKind, isFeedKind } from "@/domain/calendar-feed";
+import type { Actor } from "@/shared/kernel/actor";
+import { type FeedKind, isFeedKind } from "@/shared/kernel/calendar-feed";
 import type { ServiceContext } from "@/server/context";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 import { revokeLiveFeed } from "@/modules/calendar/infrastructure/drizzle-calendar-feeds.repository";

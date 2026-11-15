@@ -1,12 +1,12 @@
 import "server-only";
-import type { ChangeSource } from "@/domain/change-source";
+import type { ChangeSource } from "@/shared/kernel/change-source";
 import {
   ALLOWANCE_AUDIT_ACTIONS,
   BALANCE_EVENT_TYPES,
   type BalanceAdjustedPayload,
   type BalanceChangeReason,
   type Unattributed,
-} from "@/domain/events";
+} from "@/shared/kernel/events";
 import type { Allowance } from "../domain/allowance";
 import type { ChangeLog } from "./ports";
 

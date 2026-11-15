@@ -8,7 +8,7 @@
  * `AnnualCalendarYearPolicy`. Balance periods are identified by a year number, which is
  * also how per-request costs are stored (`leave_request_days.year`).
  */
-import { DomainError, type BalanceShortfallDetails } from "@/domain/errors";
+import { DomainError, type BalanceShortfallDetails } from "@/shared/kernel/errors";
 import { addDays } from "@/shared/kernel/day-amounts";
 import type { WorkCalendar, YearDays } from "@/shared/kernel/leave-days";
 import type { LeaveRange } from "@/shared/kernel/leave-range";

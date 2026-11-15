@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { Actor } from "@/domain/actor";
-import { isDomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { isDomainError } from "@/shared/kernel/errors";
 import { canViewAuditLog, getAuditLog, listAuditEntriesAbout } from "@/modules/audit";
 import type { ServiceContext } from "@/server/context";
 

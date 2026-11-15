@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { entriesCostingDaysIn, groupByPerson, monthBounds } from "@/domain/calendar";
+import type { Actor } from "@/shared/kernel/actor";
+import { entriesCostingDaysIn, groupByPerson, monthBounds } from "@/shared/kernel/calendar";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listDepartments } from "@/modules/organisation";

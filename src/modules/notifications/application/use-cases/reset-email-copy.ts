@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { ADMIN_EVENT_TYPES } from "@/domain/events";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { ADMIN_EVENT_TYPES } from "@/shared/kernel/events";
+import { DomainError } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
 import { lockCompany } from "@/shared/lib/db/company-lock";
 import { deleteEmailTemplate } from "@/modules/notifications/infrastructure/drizzle-email-templates.repository";

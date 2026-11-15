@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
-import type { DomainErrorCode } from "@/domain/errors";
+import type { DomainErrorCode } from "@/shared/kernel/errors";
 import { valueOf } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import type { RevealState } from "@/components/forms/reveal-state";

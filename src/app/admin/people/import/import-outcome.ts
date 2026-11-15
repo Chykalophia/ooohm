@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import type { DomainError } from "@/domain/errors";
+import type { DomainError } from "@/shared/kernel/errors";
 import { PEOPLE_IMPORT_HOURLY_LIMIT, type PeopleImportPreview, type PeopleImportResult } from "@/modules/people";
 import { type ImportState, previewRows } from "./import-state";
 

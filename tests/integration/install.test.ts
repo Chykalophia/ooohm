@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import * as schema from "@/db/schema";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { installStatus, isSetupOpen, runFirstInstall } from "@/server/identity/install";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";

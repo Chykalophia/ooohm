@@ -4,7 +4,7 @@ import "server-only";
  * secret (sealed or not), and an API key DTO never holds the key's hash: the field is
  * not there to leak (`tests/unit/modules/integrations/dto.test.ts`).
  */
-import type { PageCursor } from "@/domain/paging";
+import type { PageCursor } from "@/shared/kernel/paging";
 import type { ApiKeyListRow } from "@/modules/integrations/infrastructure/drizzle-api-keys.repository";
 import type { WebhookDeliveryRow, WebhookEndpointRow } from "@/modules/integrations/infrastructure/drizzle-webhooks.repository";
 

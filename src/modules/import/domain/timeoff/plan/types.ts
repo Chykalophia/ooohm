@@ -2,8 +2,8 @@
  * The shapes of a TimeOff import plan: what the planner returns and the import writes,
  * and what its steps hand each other.
  */
-import type { Role } from "@/domain/actor";
-import type { CalendarDate } from "@/domain/calendar-date";
+import type { Role } from "@/shared/kernel/actor";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
 import type { YearDays } from "@/shared/kernel/leave-days";
 import type { DayPortion, LeaveStatus } from "@/shared/kernel/leave-range";
 import type { TimeOffYearBalance } from "../balance";

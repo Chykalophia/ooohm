@@ -1,4 +1,4 @@
-import type { DomainErrorCode } from "@/domain/errors";
+import type { DomainErrorCode } from "@/shared/kernel/errors";
 
 /**
  * The failures leave's rules and use cases report, each a `DomainErrorCode` with a calm

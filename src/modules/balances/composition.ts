@@ -6,7 +6,7 @@ import "server-only";
  * {@link BalancesDeps}, so tests run them on in-memory fakes.
  */
 import type { Executor, Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import type { AllowanceChange } from "./application/allowance-changes";

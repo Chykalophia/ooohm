@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError, isDomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError, isDomainError } from "@/shared/kernel/errors";
 import { personLabel } from "@/shared/kernel/person-label";
 import type { LeaveDraft } from "@/modules/balances";
 import { canAddLeaveFor, canSeeLeaveDetails, type PersonOwnership } from "../domain/leave-permissions";

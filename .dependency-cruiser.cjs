@@ -6,18 +6,18 @@ module.exports = {
     { name: "no-circular", severity: "error", from: {}, to: { circular: true } },
     {
       name: "domain-is-pure",
-      comment: "Today's domain and the shared kernel import only each other and the shared Result type (reference §2, ADR-0003).",
+      comment: "The shared kernel imports only itself and the shared Result type (reference §2, ADR-0003).",
       severity: "error",
-      from: { path: "^src/(domain|shared/kernel)/" },
-      to: { pathNot: ["^src/(domain|shared/kernel)/", "^src/shared/lib/result\\.ts$"] },
+      from: { path: "^src/shared/kernel/" },
+      to: { pathNot: ["^src/shared/kernel/", "^src/shared/lib/result\\.ts$"] },
     },
     {
       name: "module-domain-is-pure",
       comment:
-        "A module's domain imports only its own domain, the kernel and Result; never another module's domain. $1 is the module the import starts in. src/domain counts as kernel while it still holds shared pure rules (domain-is-pure keeps it pure); its files move to shared/kernel or their module.",
+        "A module's domain imports only its own domain, the kernel and Result; never another module's domain. $1 is the module the import starts in.",
       severity: "error",
       from: { path: "^src/modules/([^/]+)/domain/" },
-      to: { pathNot: ["^src/modules/$1/domain/", "^src/shared/kernel/", "^src/domain/", "^src/shared/lib/result\\.ts$"] },
+      to: { pathNot: ["^src/modules/$1/domain/", "^src/shared/kernel/", "^src/shared/lib/result\\.ts$"] },
     },
     {
       name: "app-not-to-infrastructure",
@@ -42,7 +42,7 @@ module.exports = {
     {
       name: "pages-and-actions-through-modules",
       comment:
-        "A page or action imports module indexes, src/app, src/components, the shared kernel, Result and search params, src/domain and src/lib's pure helpers; nothing else in src.",
+        "A page or action imports module indexes, src/app, src/components, the shared kernel, Result and search params, and src/lib's pure helpers; nothing else in src.",
       severity: "error",
       from: {
         path: ["^src/app/page\\.tsx$", "^src/app/.*/page\\.tsx$", "^src/app/.*actions\\.ts$"],
@@ -56,7 +56,6 @@ module.exports = {
           "^src/components/",
           "^src/shared/kernel/",
           "^src/shared/lib/(result|search-params)\\.ts$",
-          "^src/domain/",
           "^src/lib/(format|color|brand-mark|log)\\.ts$",
         ],
       },

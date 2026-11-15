@@ -4,8 +4,8 @@ import { type LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisatio
  * Import steps: the report, and, for an applied import, the `import_runs` row and the one
  * `import.completed` event.
  */
-import type { UserChangeSource } from "@/domain/change-source";
-import { IMPORT_AUDIT_ACTIONS, IMPORT_EVENT_TYPES, type ImportCompletedPayload, type Unattributed } from "@/domain/events";
+import type { UserChangeSource } from "@/shared/kernel/change-source";
+import { IMPORT_AUDIT_ACTIONS, IMPORT_EVENT_TYPES, type ImportCompletedPayload, type Unattributed } from "@/shared/kernel/events";
 import { insertImportRun } from "@/modules/import/infrastructure/drizzle-import.repository";
 import { recordChange } from "@/shared/lib/db/change-log";
 import type { ImportPlan, PlannedAllowance } from "@/modules/import/domain/timeoff/plan/types";

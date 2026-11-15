@@ -12,7 +12,7 @@ import { listFiles, read } from "./files";
  */
 const ALLOWED: Record<string, string> = {
   "src/db/schema.ts": "the column and its check",
-  "src/domain/leave-type-settings.ts": "normalizes the setting an admin enters",
+  "src/shared/kernel/leave-type-settings.ts": "normalizes the setting an admin enters",
   "src/modules/balances/domain/annual-calendar-year-policy.ts": "the policy, given the person's default by loadAllowanceDefaults",
   "src/modules/balances/domain/allowance-rules.ts": "defaultAllowanceFor and typeDefaults: a rule, else the type's own default",
   "src/modules/balances/domain/rollover.ts": "reads the types after loadAllowanceDefaults replaced their defaults",

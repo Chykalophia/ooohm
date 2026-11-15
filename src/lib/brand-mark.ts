@@ -4,7 +4,7 @@ import "server-only";
  * company's accent. Pure; the favicon route, the home-screen icon and the header mark
  * all draw from here so they never drift apart.
  */
-import { type Appearance, THEMES, followsDarkMode } from "@/domain/appearance";
+import { type Appearance, THEMES, followsDarkMode } from "@/shared/kernel/appearance";
 import { accentTokens } from "./appearance";
 import { contrastRatio, normalizeHexColor } from "./color";
 

@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
-import { CALENDAR_FILTERS } from "@/domain/calendar-visibility";
-import { isYearMonth } from "@/domain/calendar";
+import { CALENDAR_FILTERS } from "@/shared/kernel/calendar-visibility";
+import { isYearMonth } from "@/shared/kernel/calendar";
 
 /** `?month=YYYY-MM`. */
 export const monthParamSchema = z.string().refine(isYearMonth);

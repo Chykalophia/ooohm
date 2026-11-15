@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import type { Actor } from "@/domain/actor";
-import { readLogoImage } from "@/domain/company-logo";
+import type { Actor } from "@/shared/kernel/actor";
+import { readLogoImage } from "@/shared/kernel/company-logo";
 import type { ServiceContext } from "@/server/context";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";

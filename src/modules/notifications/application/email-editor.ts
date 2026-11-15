@@ -6,10 +6,10 @@ import "server-only";
  * leave out who asked for what. These are the rules its queries and use cases share.
  */
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { type EmailCopy, normalizeEmailCopy } from "@/domain/email-template";
-import type { AdminEventType, EmailTemplateEventPayload, Unattributed } from "@/domain/events";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { type EmailCopy, normalizeEmailCopy } from "@/shared/kernel/email-template";
+import type { AdminEventType, EmailTemplateEventPayload, Unattributed } from "@/shared/kernel/events";
+import { DomainError } from "@/shared/kernel/errors";
 import { recordAdminChange } from "@/shared/lib/admin-access";
 import { isNotificationKind, NOTIFICATION_TYPES, type NotificationKind } from "./catalog";
 import { variableNames } from "./copy";

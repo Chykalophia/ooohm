@@ -1,4 +1,4 @@
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 
 /**

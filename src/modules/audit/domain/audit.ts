@@ -10,7 +10,7 @@ import {
   IMPORT_AUDIT_ACTIONS,
   INTEGRATION_EVENT_TYPES,
   RECORDS_EXPORTED_AUDIT_ACTION,
-} from "./events";
+} from "@/shared/kernel/events";
 
 /** Every `audit_log.action` the app writes, with how the viewer names it. */
 export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {

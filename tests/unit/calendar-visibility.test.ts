@@ -11,9 +11,9 @@ import {
   DEFAULT_COLLEAGUE_VISIBILITY,
   narrowCalendarScope,
   readColleagueVisibility,
-} from "@/domain/calendar-visibility";
-import { type DomainErrorCode, isDomainError } from "@/domain/errors";
-import { normalizeCompanySettings } from "@/domain/company-settings";
+} from "@/shared/kernel/calendar-visibility";
+import { type DomainErrorCode, isDomainError } from "@/shared/kernel/errors";
+import { normalizeCompanySettings } from "@/shared/kernel/company-settings";
 
 const viewer = (role: "employee" | "manager" | "admin", managerId: string | null = "boss") => ({ id: "me", role, managerId });
 

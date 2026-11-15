@@ -4,8 +4,8 @@ import "server-only";
  * and corner attributes the stylesheet keys on, and, for a custom accent, the colour
  * tokens worked out so that text and buttons stay readable. Pure; safe on the client.
  */
-import { type Appearance, followsDarkMode } from "@/domain/appearance";
-import { type ColorMode, DEFAULT_COLOR_MODE } from "@/domain/color-mode";
+import { type Appearance, followsDarkMode } from "@/shared/kernel/appearance";
+import { type ColorMode, DEFAULT_COLOR_MODE } from "@/shared/kernel/color-mode";
 import { contrastRatio, normalizeHexColor, relativeLuminance } from "./color";
 
 /** WCAG AA for normal text. */

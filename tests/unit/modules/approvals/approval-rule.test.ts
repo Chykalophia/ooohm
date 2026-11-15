@@ -4,7 +4,7 @@ import type { ApprovalCandidate, ApprovalRequester } from "@/modules/approvals/d
 import { approvalRuleFor } from "@/modules/approvals/domain/approval-rule";
 import { ManagerApprovalRule, reassignApprover } from "@/modules/approvals/domain/approver-for";
 import { APPROVAL_MODES, DEFAULT_APPROVAL_MODE, isApprovalMode, readApprovalMode } from "@/shared/kernel/approval";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 
 const rule = new ManagerApprovalRule();
 

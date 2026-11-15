@@ -1,6 +1,6 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
-import type { PersonChangeSource } from "@/domain/change-source";
+import type { PersonChangeSource } from "@/shared/kernel/change-source";
 import { revokeAllLiveFeeds } from "@/modules/calendar/infrastructure/drizzle-calendar-feeds.repository";
 import { recordFeedChange } from "@/modules/calendar/application/feed-changes";
 

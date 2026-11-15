@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { diffAuditSnapshots } from "@/domain/audit";
+import { diffAuditSnapshots } from "@/modules/audit/domain/audit";
 import { authenticateApiKey, createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deleteWebhookEndpoint as deleteWebhookEndpointResult, getWebhookEndpoint as getWebhookEndpointResult, listApiKeys as listApiKeysResult, listWebhookEndpoints as listWebhookEndpointsResult, MAX_WEBHOOK_ENDPOINTS, revokeApiKey as revokeApiKeyResult, rotateWebhookSecret as rotateWebhookSecretResult, sendWebhookPing as sendWebhookPingResult, setWebhookEndpointEnabled as setWebhookEndpointEnabledResult, updateWebhookEndpoint as updateWebhookEndpointResult } from "@/modules/integrations";
 import { unwrap } from "@/shared/lib/result";
 import { hashToken } from "@/lib/token-hash";

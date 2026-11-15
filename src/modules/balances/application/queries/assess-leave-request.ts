@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
 import { assertValidRange, type LeaveRange, rangesOverlap } from "@/shared/kernel/leave-range";
 import { assertCovered } from "../../domain/allowance-policy";
 import { resolveAllowancePolicy } from "../../domain/policy-registry";

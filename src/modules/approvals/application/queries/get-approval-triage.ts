@@ -1,8 +1,8 @@
 import "server-only";
-import { type Actor, isAdmin } from "@/domain/actor";
-import { isCalendarDate } from "@/domain/calendar-date";
-import { isUuid } from "@/domain/ids";
-import { isCursorInstant, type PageCursor, readPage } from "@/domain/paging";
+import { type Actor, isAdmin } from "@/shared/kernel/actor";
+import { isCalendarDate } from "@/shared/kernel/calendar-date";
+import { isUuid } from "@/shared/kernel/uuid";
+import { isCursorInstant, type PageCursor, readPage } from "@/shared/kernel/paging";
 import type { ApprovalsView, ApprovalTriageDTO } from "../dto";
 import type { ApprovalDeps, InboxScope } from "../ports";
 

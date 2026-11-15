@@ -1,6 +1,6 @@
 import "server-only";
 /** Re-routing pending requests when an admin change moves the right to decide them. */
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { type LeaveRequest, summarize } from "@/modules/leave";
 import type { Notification } from "@/modules/notifications";
 import { approverFor } from "../domain/approver-for";

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
+import { MAX_ALLOWANCE_DAYS } from "@/shared/kernel/leave-type-settings";
 import { formatDays } from "@/lib/format";
 import { Section } from "@/components/ui/section";
 import { Item, ItemList } from "@/components/ui/card";

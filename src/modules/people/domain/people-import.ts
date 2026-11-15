@@ -19,8 +19,8 @@
  * an account, in this company or another; the reason never says which), or a problem. A
  * file with any problem is not imported at all, so a fixed file can simply be uploaded again.
  */
-import { ROLES, type Role } from "@/domain/actor";
-import { DomainError, isDomainError } from "@/domain/errors";
+import { ROLES, type Role } from "@/shared/kernel/actor";
+import { DomainError, isDomainError } from "@/shared/kernel/errors";
 import { parseCsv, toCsv } from "@/shared/kernel/csv";
 import { DEPARTMENT_NAME_MAX_LENGTH, normalizeDepartmentName, normalizeEmail, normalizePersonName } from "@/shared/kernel/names";
 import { isRole } from "./people";

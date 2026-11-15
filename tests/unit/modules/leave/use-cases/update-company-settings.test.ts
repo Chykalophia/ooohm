@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { CompanySettingsInput } from "@/domain/company-settings";
+import type { CompanySettingsInput } from "@/shared/kernel/company-settings";
 import type { CompanyChange, CompanyDTO } from "@/modules/organisation";
 import { addLeaveFor } from "@/modules/leave/application/use-cases/add-leave-for";
 import { NOTHING_RECOUNTED } from "@/modules/leave/application/use-cases/recount-leave";

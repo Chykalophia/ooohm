@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { allowanceRows, requestAuditAfter, requestRows } from "@/modules/import/application/steps/apply-leave";
 import { leaveTypeSettings, matchingLeaveType } from "@/modules/import/application/steps/apply-organisation";
 import { newAccountRows, personAfterImport } from "@/modules/import/application/steps/apply-people";

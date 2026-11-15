@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { addMonths, isYearMonth, monthOf, type YearMonth } from "@/domain/calendar";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { addMonths, isYearMonth, monthOf, type YearMonth } from "@/shared/kernel/calendar";
+import { DomainError } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
 import { findCalendarViewer } from "@/modules/calendar/infrastructure/drizzle-calendar.repository";
 import { scopeOf } from "@/modules/calendar/application/calendar-scope";

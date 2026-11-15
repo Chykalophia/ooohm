@@ -5,12 +5,12 @@ import "server-only";
  * path or the secret), and the `ping` envelope.
  */
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { buildEnvelope, type EventEnvelope } from "@/domain/event-envelope";
-import { INTEGRATION_EVENT_TYPES, type IntegrationEventType, type Unattributed, type WebhookEndpointEventPayload } from "@/domain/events";
-import { isUuid } from "@/domain/ids";
-import { normalizeWebhookUrl, urlOrigin } from "@/domain/webhook-target";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { buildEnvelope, type EventEnvelope } from "@/shared/kernel/event-envelope";
+import { INTEGRATION_EVENT_TYPES, type IntegrationEventType, type Unattributed, type WebhookEndpointEventPayload } from "@/shared/kernel/events";
+import { isUuid } from "@/shared/kernel/uuid";
+import { normalizeWebhookUrl, urlOrigin } from "@/shared/kernel/webhook-target";
 import type { ServiceContext } from "@/server/context";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { inTransaction } from "@/shared/lib/unit-of-work";

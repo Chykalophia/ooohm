@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CalendarDay, CalendarViewEntry } from "@/domain/calendar";
+import type { CalendarDay, CalendarViewEntry } from "@/shared/kernel/calendar";
 import { formatLeaveDates, formatLongDate } from "@/lib/format";
 import { IDLE } from "@/components/forms/form-state";
 import { LeaveChip } from "@/components/leave/leave-chip";

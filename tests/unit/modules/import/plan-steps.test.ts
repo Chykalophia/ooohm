@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { allowanceRow, allowanceYears, balanceYears, planAllowances } from "@/modules/import/domain/timeoff/plan/allowances";
 import { planCalendars } from "@/modules/import/domain/timeoff/plan/calendars";
 import { companyScope, planCompany } from "@/modules/import/domain/timeoff/plan/company";

@@ -7,8 +7,8 @@ import "server-only";
  * This use case joins the two in one unit of work, so organisation never depends on
  * approvals or on email.
  */
-import type { Actor } from "@/domain/actor";
-import { isUuid } from "@/domain/ids";
+import type { Actor } from "@/shared/kernel/actor";
+import { isUuid } from "@/shared/kernel/uuid";
 import type { LeaveRequest } from "@/modules/leave";
 import type { Notification } from "@/modules/notifications";
 import { canManageDepartments, type DepartmentDTO, type DepartmentManagerChange } from "@/modules/organisation";

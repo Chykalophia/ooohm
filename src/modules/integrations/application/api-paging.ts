@@ -3,7 +3,7 @@ import "server-only";
  * The REST API's pages: an opaque cursor (base64url JSON) and the `{ data, nextCursor }`
  * shape every list endpoint returns. The leave module's API list uses them too.
  */
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 
 /** A page of a list, and the opaque cursor of the next one (`null` on the last page). */
 export interface Page<T> {

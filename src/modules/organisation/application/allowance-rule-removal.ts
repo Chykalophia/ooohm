@@ -7,8 +7,8 @@ import "server-only";
  * with the same snapshot and payload.
  */
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { ADMIN_EVENT_TYPES, type AllowanceRuleEventPayload, type Unattributed } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import { ADMIN_EVENT_TYPES, type AllowanceRuleEventPayload, type Unattributed } from "@/shared/kernel/events";
 import { deleteAllowanceRulesOf } from "@/modules/organisation/infrastructure/drizzle-allowance-rules.repository";
 import { recordAdminChange } from "@/shared/lib/admin-access";
 import type { AllowanceRuleFacts } from "@/modules/organisation/application/dto";

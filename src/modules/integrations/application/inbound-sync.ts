@@ -17,11 +17,11 @@ import "server-only";
  * sign-in link on the sign-in page, like any invited person whose link expired.
  */
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { adapterSyncProcess, bySystem, type ChangeSource, through } from "@/domain/change-source";
-import { DomainError, isDomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES, type Unattributed, type UserEventPayload } from "@/domain/events";
-import { assertAllowanceYear, MAX_ALLOWANCE_DAYS, normalizeDayAmount } from "@/domain/leave-type-settings";
+import type { Actor } from "@/shared/kernel/actor";
+import { adapterSyncProcess, bySystem, type ChangeSource, through } from "@/shared/kernel/change-source";
+import { DomainError, isDomainError } from "@/shared/kernel/errors";
+import { ADMIN_EVENT_TYPES, type Unattributed, type UserEventPayload } from "@/shared/kernel/events";
+import { assertAllowanceYear, MAX_ALLOWANCE_DAYS, normalizeDayAmount } from "@/shared/kernel/leave-type-settings";
 import { normalizeEmail, normalizePersonName } from "@/shared/kernel/names";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";

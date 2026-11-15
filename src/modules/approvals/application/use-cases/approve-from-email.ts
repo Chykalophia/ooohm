@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { ok, type ServiceResult } from "@/shared/lib/result";
 import type { EmailApproval } from "../dto";
 import { resolveLink } from "../email-link";

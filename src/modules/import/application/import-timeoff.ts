@@ -41,7 +41,7 @@ import "server-only";
  * session an admin action would have.
  */
 import type { Transaction } from "@/db/types";
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
 import { findAccountsByEmail, insertAuditEntries } from "@/modules/import/infrastructure/drizzle-import.repository";
 import { selectTimeOffCompany } from "@/modules/import/domain/timeoff/plan/rules";

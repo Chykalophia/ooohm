@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { LEAVE_STATUSES, type LeaveStatus } from "@/shared/kernel/leave-range";
 import { assertCancellableOn, assertTransition, canCancelOn, canTransition, isCancellable, isClosedYearLeave } from "@/modules/leave/domain/leave-status";
 

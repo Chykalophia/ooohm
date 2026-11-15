@@ -1,5 +1,5 @@
 import "server-only";
-import { parseLogoFile } from "@/domain/company-logo";
+import { parseLogoFile } from "@/shared/kernel/company-logo";
 import type { ServiceContext } from "@/server/context";
 import { findLogoFile } from "@/modules/organisation/infrastructure/drizzle-companies.repository";
 

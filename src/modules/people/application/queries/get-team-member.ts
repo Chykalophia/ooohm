@@ -1,11 +1,11 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { isEmptyBalance, summarizeBalances } from "@/modules/balances";
-import { entriesCostingDaysIn } from "@/domain/calendar";
-import { canSeeOnCalendar } from "@/domain/calendar-visibility";
-import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
-import { DomainError, isDomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
+import { entriesCostingDaysIn } from "@/shared/kernel/calendar";
+import { canSeeOnCalendar } from "@/shared/kernel/calendar-visibility";
+import { fromEpochDay, toEpochDay } from "@/shared/kernel/calendar-date";
+import { DomainError, isDomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
 import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/shared/kernel/leave-days";
 import { canAddLeaveFor, canCorrectLeaveFor, canRemoveOn, canSeeLeaveDetails } from "@/modules/leave";
 import { teamLabel } from "@/shared/kernel/person-label";

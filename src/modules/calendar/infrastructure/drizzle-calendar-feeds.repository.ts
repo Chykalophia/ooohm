@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, isNull, lt, or } from "drizzle-orm";
 import { calendarFeedTokens, companies, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { FeedKind } from "@/domain/calendar-feed";
+import type { FeedKind } from "@/shared/kernel/calendar-feed";
 
 export type CalendarFeedRow = typeof calendarFeedTokens.$inferSelect;
 

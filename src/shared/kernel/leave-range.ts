@@ -2,8 +2,8 @@
  * The vocabulary of a leave request that every module shares: day portions, statuses,
  * the date range and its shape checks.
  */
-import { type CalendarDate, fromEpochDay, isCalendarDate, spanInDays, toEpochDay } from "@/domain/calendar-date";
-import { DomainError } from "@/domain/errors";
+import { type CalendarDate, fromEpochDay, isCalendarDate, spanInDays, toEpochDay } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
 
 export const DAY_PORTIONS = ["full", "am", "pm"] as const;
 /** Which part of a day a request covers. `am`/`pm` are half days and single-day only. */

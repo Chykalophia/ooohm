@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
+import { fromEpochDay, toEpochDay } from "@/shared/kernel/calendar-date";
 
 export type Range = { start: string; end: string };
 

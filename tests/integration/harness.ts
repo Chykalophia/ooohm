@@ -21,7 +21,7 @@ import { MIGRATIONS_FOLDER as APP_MIGRATIONS, migrateDatabase, openEmbedded } fr
 import { executeRows } from "@/db/rows";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import { STRICT_TARGET_POLICY, type TargetPolicy } from "@/domain/webhook-target";
+import { STRICT_TARGET_POLICY, type TargetPolicy } from "@/shared/kernel/webhook-target";
 import { createSecretBox } from "@/lib/integration-crypto";
 import type { MailMessage, ServiceContext } from "@/server/context";
 import { type AdapterRegistry, createAdapterRegistry } from "@/server/integrations/adapter";

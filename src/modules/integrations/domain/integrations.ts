@@ -1,10 +1,10 @@
 /**
  * Pure rules of the integrations module: which events a webhook can subscribe to, the
  * limits on endpoints and keys, the retry schedule shared by webhook and adapter
- * deliveries, and API key scopes. The envelope itself is `@/domain/event-envelope`.
+ * deliveries, and API key scopes. The envelope itself is `@/shared/kernel/event-envelope`.
  * No I/O; the use cases and the delivery jobs apply these.
  */
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 import {
   ADMIN_EVENT_TYPES,
   BALANCE_EVENT_TYPES,
@@ -14,8 +14,8 @@ import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
   LEAVE_RECOUNTED_EVENT_TYPE,
-} from "@/domain/events";
-import { oneLine } from "@/domain/text";
+} from "@/shared/kernel/events";
+import { oneLine } from "@/shared/kernel/text";
 
 /**
  * The public integration guide (docs/api.md in the published source): auth, events,

@@ -4,7 +4,7 @@
  * than drop anything silently; there is no app URL, and `defer` runs its task at once.
  */
 import type { Database } from "../src/db/types";
-import { STRICT_TARGET_POLICY, type TargetPolicy } from "../src/domain/webhook-target";
+import { STRICT_TARGET_POLICY, type TargetPolicy } from "../src/shared/kernel/webhook-target";
 import { type SecretBox, unavailableSecretBox } from "../src/lib/integration-crypto";
 import type { ServiceContext } from "../src/server/context";
 import { type AdapterRegistry, createAdapterRegistry } from "../src/server/integrations/adapter";

@@ -16,13 +16,13 @@ test("the calendar module imports no module but organisation", () => {
 });
 
 /**
- * Whose time off someone sees is one rule, `calendarScopeFor` (src/domain/calendar-visibility.ts),
+ * Whose time off someone sees is one rule, `calendarScopeFor` (src/shared/kernel/calendar-visibility.ts),
  * and the calendar module loads it in one place. Everything else asks `@/modules/calendar`
  * (`loadCalendarScope`, `scopeOf`).
  */
 test("calendarScopeFor is called only by the calendar module's scope loader", () => {
   const callers = listFiles("src", /\.tsx?$/).filter((path) => /\bcalendarScopeFor\(/.test(read(path)));
-  assert.deepEqual(callers.sort(), ["src/domain/calendar-visibility.ts", "src/modules/calendar/application/calendar-scope.ts"]);
+  assert.deepEqual(callers.sort(), ["src/modules/calendar/application/calendar-scope.ts", "src/shared/kernel/calendar-visibility.ts"]);
 });
 
 /** A holiday change recounts leave through leave's public API, so holidays may import leave, never the other way. */

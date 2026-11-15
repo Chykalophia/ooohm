@@ -1,8 +1,8 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { ADMIN_EVENT_TYPES } from "@/shared/kernel/events";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listPendingAssignedTo, listPendingRequestsOf, listPendingSelfRouted, rerouteApprovals } from "@/modules/approvals";

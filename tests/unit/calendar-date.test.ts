@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { eachDate, fromEpochDay, isCalendarDate, isoWeekday, spanInDays, toEpochDay } from "@/domain/calendar-date";
+import { eachDate, fromEpochDay, isCalendarDate, isoWeekday, spanInDays, toEpochDay } from "@/shared/kernel/calendar-date";
 
 const originalTz = process.env.TZ;
 afterEach(() => {

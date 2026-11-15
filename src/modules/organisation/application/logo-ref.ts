@@ -1,5 +1,5 @@
 import "server-only";
-import { type LogoRef, appLogoRef, readStoredLogo } from "@/domain/company-logo";
+import { type LogoRef, appLogoRef, readStoredLogo } from "@/shared/kernel/company-logo";
 import type { CompanyDTO } from "@/modules/organisation/application/dto";
 
 /** The company's logo as the header draws it, or null for the OOOhm mark. */

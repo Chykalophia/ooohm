@@ -7,8 +7,8 @@ import {
   fitLogo,
   readLogoImage,
   readStoredLogo,
-} from "@/domain/company-logo";
-import { isDomainError } from "@/domain/errors";
+} from "@/shared/kernel/company-logo";
+import { isDomainError } from "@/shared/kernel/errors";
 import { jpegHeader, pngImage } from "../support/images";
 
 const invalid = (fn: () => unknown) => assert.throws(fn, (err) => isDomainError(err, "invalid_input"));

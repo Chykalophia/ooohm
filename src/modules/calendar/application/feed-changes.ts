@@ -5,16 +5,16 @@ import "server-only";
  * its hash.
  */
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import type { PersonChangeSource } from "@/domain/change-source";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import type { PersonChangeSource } from "@/shared/kernel/change-source";
+import { DomainError } from "@/shared/kernel/errors";
 import {
   CALENDAR_FEED_EVENT_TYPES,
   type CalendarFeedEventPayload,
   type CalendarFeedRevokeReason,
   calendarFeedAuditAction,
   type Unattributed,
-} from "@/domain/events";
+} from "@/shared/kernel/events";
 import type { ServiceContext } from "@/server/context";
 import { lockMember } from "@/shared/lib/db/members";
 import { recordChange } from "@/shared/lib/db/change-log";

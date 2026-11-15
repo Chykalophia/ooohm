@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
-import { isUuid } from "@/domain/ids";
+import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/shared/kernel/calendar";
+import { isUuid } from "@/shared/kernel/uuid";
 
 /** `?department=<uuid>`. */
 export const departmentParamSchema = z.string().refine(isUuid);

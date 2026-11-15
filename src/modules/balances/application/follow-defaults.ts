@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { AllowanceDefaults } from "../domain/allowance-rules";
 import { recordAllowanceChange } from "./allowance-changes";
 import type { BalancesStore } from "./ports";

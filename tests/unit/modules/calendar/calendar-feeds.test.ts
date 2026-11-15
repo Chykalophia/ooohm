@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { Actor } from "@/domain/actor";
-import type { FeedKind } from "@/domain/calendar-feed";
+import type { Actor } from "@/shared/kernel/actor";
+import type { FeedKind } from "@/shared/kernel/calendar-feed";
 import type { ServiceContext } from "@/server/context";
 import { calendarFilterParamSchema, issueCalendarFeed, monthParamSchema, renderCalendarFeed, revokeCalendarFeed } from "@/modules/calendar";
 

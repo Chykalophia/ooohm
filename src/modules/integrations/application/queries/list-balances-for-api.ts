@@ -1,5 +1,5 @@
 import "server-only";
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { findCompanySettings } from "@/modules/calendar";

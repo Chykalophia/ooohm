@@ -1,5 +1,5 @@
-import { type Actor, isAdmin } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
+import { type Actor, isAdmin } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
 
 /**
  * Whether `actor` may use the admin screens and services: manage people, departments,

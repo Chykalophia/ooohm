@@ -1,5 +1,5 @@
 import "server-only";
-import { type Appearance, DEFAULT_APPEARANCE, readAppearance } from "@/domain/appearance";
+import { type Appearance, DEFAULT_APPEARANCE, readAppearance } from "@/shared/kernel/appearance";
 import type { ServiceContext } from "@/server/context";
 import { log } from "@/lib/log";
 import { findDeploymentAppearance } from "@/modules/organisation/infrastructure/drizzle-companies.repository";

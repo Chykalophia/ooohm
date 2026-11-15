@@ -2,8 +2,8 @@
  * Planning step: TimeOff's bank holidays, and the company calendar OOOhm counts imported
  * leave against.
  */
-import { type CalendarDate, isCalendarDate } from "@/domain/calendar-date";
-import { normalizeHolidayName } from "@/domain/holidays";
+import { type CalendarDate, isCalendarDate } from "@/shared/kernel/calendar-date";
+import { normalizeHolidayName } from "@/shared/kernel/holidays";
 import type { TimeOffBankHoliday, TimeOffSnapshot } from "../source";
 import type { PlannedHoliday, Warn } from "./types";
 

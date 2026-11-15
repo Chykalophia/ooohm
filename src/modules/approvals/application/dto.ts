@@ -1,5 +1,5 @@
 import "server-only";
-import type { PageCursor } from "@/domain/paging";
+import type { PageCursor } from "@/shared/kernel/paging";
 import type { AlsoOff } from "@/modules/leave";
 import type { InboxRequest, RecentDecision, ReviewRequest } from "./ports";
 

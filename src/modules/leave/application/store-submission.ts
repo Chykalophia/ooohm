@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
 import { unwrap } from "@/shared/lib/result";
 import type { DateRange } from "../domain/date-range";
 import type { DayCount } from "../domain/day-count";

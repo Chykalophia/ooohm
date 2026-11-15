@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { initialFocus, isSelectable, localToday, moveFocus, parseTyped, pickerGrid } from "@/components/forms/date-picker-grid";
-import { isCalendarDate } from "@/domain/calendar-date";
+import { isCalendarDate } from "@/shared/kernel/calendar-date";
 
 describe("date picker grid", () => {
   test("AC1(a) pickerGrid(2026-11) is 42 days from 2026-10-26 to 2026-12-06, 12 outside November", () => {

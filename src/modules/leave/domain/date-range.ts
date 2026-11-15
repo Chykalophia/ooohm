@@ -1,4 +1,4 @@
-import { spanInDays } from "@/domain/calendar-date";
+import { spanInDays } from "@/shared/kernel/calendar-date";
 import { assertValidRange, type DayPortion, type LeaveRange } from "@/shared/kernel/leave-range";
 import { fromDomainError, ok, type ServiceResult } from "@/shared/lib/result";
 

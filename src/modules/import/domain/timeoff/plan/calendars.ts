@@ -1,7 +1,7 @@
 /**
  * Planning step: the working calendar TimeOff counts each person's leave on.
  */
-import type { CalendarDate } from "@/domain/calendar-date";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
 import { scheduleWorkingDays, type TimeOffWorkCalendar } from "../balance";
 import type { TimeOffSnapshot } from "../source";
 import { sameDays } from "./rules";

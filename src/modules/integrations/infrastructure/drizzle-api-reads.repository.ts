@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, gt, isNull, ne, or } from "drizzle-orm";
 import { departments, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
-import type { Role } from "@/domain/actor";
+import type { Role } from "@/shared/kernel/actor";
 
 /**
  * Read queries of the REST API (`/api/v1`). Each page is one query, keyset-paged on an

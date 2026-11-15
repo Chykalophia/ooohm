@@ -1,6 +1,6 @@
-import { toActor } from "@/domain/actor";
+import { toActor } from "@/shared/kernel/actor";
 import { canAdminister } from "@/shared/kernel/admin-permissions";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { currentUser } from "@/lib/auth";
 import { isCrossSiteRequest } from "@/lib/fetch-site";
 import { log } from "@/lib/log";

@@ -8,7 +8,7 @@ import "server-only";
  * it documents.
  */
 import { z } from "zod";
-import { ENVELOPE_VERSION } from "@/domain/event-envelope";
+import { ENVELOPE_VERSION } from "@/shared/kernel/event-envelope";
 import {
   ADMIN_EVENT_TYPES,
   BALANCE_EVENT_TYPES,
@@ -18,7 +18,7 @@ import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
   LEAVE_RECOUNTED_EVENT_TYPE,
-} from "@/domain/events";
+} from "@/shared/kernel/events";
 import { PING_EVENT_TYPE } from "@/modules/integrations/domain/integrations";
 
 const id = z.string().min(1);

@@ -1,5 +1,5 @@
 import { WEBHOOK_DESCRIPTION_MAX_LENGTH, WEBHOOK_EVENT_GROUPS } from "@/modules/integrations";
-import { WEBHOOK_URL_MAX_LENGTH } from "@/domain/webhook-target";
+import { WEBHOOK_URL_MAX_LENGTH } from "@/shared/kernel/webhook-target";
 import { TextField } from "@/components/ui/fields";
 import { nativeCheck } from "@/components/ui/styles";
 

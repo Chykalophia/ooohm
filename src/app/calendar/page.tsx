@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { yearHasHolidays } from "@/domain/calendar";
-import { isHolidayYear } from "@/domain/holidays";
+import { yearHasHolidays } from "@/shared/kernel/calendar";
+import { isHolidayYear } from "@/shared/kernel/holidays";
 import { formatMonth } from "@/lib/format";
 import {
   calendarFilterItems,

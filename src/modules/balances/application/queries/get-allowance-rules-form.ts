@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { isUuid } from "@/domain/ids";
+import type { Actor } from "@/shared/kernel/actor";
+import { isUuid } from "@/shared/kernel/uuid";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";
 import type { AllowanceRulesFormDTO } from "../dto";
 import { canManageAllowanceRules } from "../policies";

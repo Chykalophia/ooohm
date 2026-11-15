@@ -1,8 +1,8 @@
 import "server-only";
 import { auditLog, eventsOutbox } from "@/db/schema";
 import type { Transaction } from "@/db/types";
-import type { ChangeSource } from "@/domain/change-source";
-import { eventAttribution } from "@/domain/events";
+import type { ChangeSource } from "@/shared/kernel/change-source";
+import { eventAttribution } from "@/shared/kernel/events";
 
 /** One `audit_log` row: which entity changed, and its state before and after. Who or what changed it is the change's `source`. */
 export interface AuditEntry {

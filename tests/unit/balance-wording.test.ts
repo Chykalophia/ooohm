@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ALLOWANCE_AUDIT_ACTIONS, BALANCE_EVENT_TYPES } from "@/domain/events";
+import { ALLOWANCE_AUDIT_ACTIONS, BALANCE_EVENT_TYPES } from "@/shared/kernel/events";
 import type { Balance } from "@/modules/balances";
 import { formatAddedFor, formatBalanceTotal, formatBalanceUsage, formatRequestCost, formatShortfall, formatSubmitted } from "@/lib/format";
 

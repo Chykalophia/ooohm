@@ -1,4 +1,4 @@
-import type { Role } from "@/domain/actor";
+import type { Role } from "@/shared/kernel/actor";
 import type { ApprovalDecision } from "@/shared/kernel/approval";
 
 export type { ApprovalDecision } from "@/shared/kernel/approval";

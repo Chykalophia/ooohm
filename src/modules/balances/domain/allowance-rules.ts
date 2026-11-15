@@ -6,8 +6,8 @@
  * as it does over the type's default (see `AnnualCalendarYearPolicy`); the services
  * keep rows that were following the rules in step when the rules change.
  */
-import { DomainError } from "@/domain/errors";
-import { MAX_ALLOWANCE_DAYS, normalizeDayAmount } from "@/domain/leave-type-settings";
+import { DomainError } from "@/shared/kernel/errors";
+import { MAX_ALLOWANCE_DAYS, normalizeDayAmount } from "@/shared/kernel/leave-type-settings";
 
 /** Where a person sits, as far as allowance rules go. */
 export interface Placement {

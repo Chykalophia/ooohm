@@ -1,5 +1,5 @@
 import "server-only";
-import type { EmailCopy } from "@/domain/email-template";
+import type { EmailCopy } from "@/shared/kernel/email-template";
 import type { EmailAccent } from "@/lib/email-layout";
 import type { EmailContent } from "./templates/content";
 import type { CopyTemplate, CopyVariable } from "./templates/copy";

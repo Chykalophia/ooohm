@@ -1,12 +1,12 @@
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { assertCovered, type Balance, type LeaveTypeWithAllowance } from "@/modules/balances";
 import type { ApprovalContext } from "@/modules/approvals/domain/approval-context";
 import { approvalRuleFor } from "@/modules/approvals/domain/approval-rule";
 import { approverFor } from "@/modules/approvals/domain/approver-for";
 import type { ApprovalMode } from "@/shared/kernel/approval";
-import type { ChangeSource } from "@/domain/change-source";
-import { DomainError } from "@/domain/errors";
-import { eventAttribution } from "@/domain/events";
+import type { ChangeSource } from "@/shared/kernel/change-source";
+import { DomainError } from "@/shared/kernel/errors";
+import { eventAttribution } from "@/shared/kernel/events";
 import type { AlsoOff } from "@/modules/leave/application/queries/also-off";
 import type {
   AllowanceReader,

@@ -1,8 +1,8 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES } from "@/domain/events";
-import { isUuid } from "@/domain/ids";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { ADMIN_EVENT_TYPES } from "@/shared/kernel/events";
+import { isUuid } from "@/shared/kernel/uuid";
 import { allowanceRulePayload as payload, allowanceRuleSnapshot as snapshot } from "@/modules/organisation";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 import { canManageAllowanceRules } from "../policies";

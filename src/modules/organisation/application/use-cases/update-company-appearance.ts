@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { type AppearanceInput, normalizeAppearance } from "@/domain/appearance";
+import type { Actor } from "@/shared/kernel/actor";
+import { type AppearanceInput, normalizeAppearance } from "@/shared/kernel/appearance";
 import type { ServiceContext } from "@/server/context";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";

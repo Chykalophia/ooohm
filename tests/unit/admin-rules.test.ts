@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { z } from "zod";
 import { canAdminister, assertCanAdminister } from "@/shared/kernel/admin-permissions";
 import { ManagerApprovalRule, reassignApprover } from "@/modules/approvals/domain/approver-for";
-import { isDomainError, type DomainErrorCode } from "@/domain/errors";
+import { isDomainError, type DomainErrorCode } from "@/shared/kernel/errors";
 import {
   assertKeepsAnActiveAdmin,
   assertNotSelfDeactivation,

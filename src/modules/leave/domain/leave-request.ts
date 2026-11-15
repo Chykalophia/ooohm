@@ -1,4 +1,4 @@
-import type { CalendarDate } from "@/domain/calendar-date";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
 import { type DayPortion, type LeaveRange, type LeaveStatus, rangesOverlap } from "@/shared/kernel/leave-range";
 import { err, fromDomainError, ok, type ServiceResult } from "@/shared/lib/result";
 import type { DateRange } from "./date-range";

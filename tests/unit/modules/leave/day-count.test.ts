@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { countLeaveDays, nextWorkingDay, splitLeaveDaysByYear, type WorkCalendar } from "@/shared/kernel/leave-days";
 import type { LeaveRange } from "@/shared/kernel/leave-range";
 import { addDayCounts, countDays, countDaysByYear, dayCount } from "@/modules/leave/domain/day-count";

@@ -9,7 +9,7 @@ import {
   THEME_KEYS,
   type ThemeKey,
   type readAppearance,
-} from "@/domain/appearance";
+} from "@/shared/kernel/appearance";
 import { ActionForm } from "@/components/forms/action-form";
 import { CheckboxField, SelectField } from "@/components/ui/fields";
 import { card, choiceCard, cx, focusRing } from "@/components/ui/styles";

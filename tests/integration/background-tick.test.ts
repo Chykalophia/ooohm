@@ -4,7 +4,7 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { createWebhookEndpoint as createWebhookEndpointResult } from "@/modules/integrations";
-import { type EventEnvelope } from "@/domain/event-envelope";
+import { type EventEnvelope } from "@/shared/kernel/event-envelope";
 import type { WebhookFetch } from "@/lib/safe-fetch";
 import { runTick } from "@/server/jobs/background-tick";
 import { cancelLeaveRequest as cancelLeaveRequestResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";

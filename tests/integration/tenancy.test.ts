@@ -20,7 +20,7 @@ import { eq, getTableColumns, inArray, is, type SQL } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
 import * as schema from "@/db/schema";
 import type { Database, Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { isServiceResult, unwrap } from "@/shared/lib/result";
 import { createRateLimiter } from "@/lib/rate-limit";
 import type { ServiceContext } from "@/server/context";

@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { type FeedKind, isFeedKind } from "@/domain/calendar-feed";
+import type { Actor } from "@/shared/kernel/actor";
+import { type FeedKind, isFeedKind } from "@/shared/kernel/calendar-feed";
 import { feedPath, feedTokenHint, generateFeedToken } from "@/lib/feed-token";
 import { hashToken } from "@/lib/token-hash";
 import type { ServiceContext } from "@/server/context";

@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
-import { isDomainError } from "../src/domain/errors";
+import { isDomainError } from "../src/shared/kernel/errors";
 import { adminDatabaseConfig, openAdminDatabase } from "../src/server/admin/db";
 import { importTimeOff, readTimeOffFile, type TimeOffImportReport } from "../src/modules/import";
 import { scriptContext } from "./script-context.mts";

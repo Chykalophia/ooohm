@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { COMPANY_NAME_MAX_LENGTH } from "@/domain/company-settings";
+import { COMPANY_NAME_MAX_LENGTH } from "@/shared/kernel/company-settings";
 import { formatRecountOutcome } from "@/lib/format";
 import { updateCompanySettings } from "@/modules/leave";
 import { map } from "@/shared/lib/result";

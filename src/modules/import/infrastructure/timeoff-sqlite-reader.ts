@@ -15,8 +15,8 @@ import "server-only";
  * This module only reads: no OOOhm database, services or configuration.
  */
 import { DatabaseSync } from "node:sqlite";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { DomainError } from "@/domain/errors";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
 import type {
   TimeOffAdjustment,
   TimeOffBankHoliday,

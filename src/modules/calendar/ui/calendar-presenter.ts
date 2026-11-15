@@ -1,4 +1,4 @@
-import type { CalendarFilter } from "@/domain/calendar-visibility";
+import type { CalendarFilter } from "@/shared/kernel/calendar-visibility";
 import type { YearNav } from "../application/calendar-viewer";
 
 /** The month view's address: `show` is left out for the default, just me. */

@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { INTEGRATION_EVENT_TYPES } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import { INTEGRATION_EVENT_TYPES } from "@/shared/kernel/events";
 import { generateWebhookSecret } from "@/lib/integration-crypto";
 import type { ServiceContext } from "@/server/context";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";

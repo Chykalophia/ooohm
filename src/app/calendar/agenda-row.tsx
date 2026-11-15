@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { AgendaItem, CalendarViewEntry } from "@/domain/calendar";
+import type { AgendaItem, CalendarViewEntry } from "@/shared/kernel/calendar";
 import { formatLeaveDates } from "@/lib/format";
 import { StatusBadge } from "@/components/leave/status-badge";
 import { Item } from "@/components/ui/card";

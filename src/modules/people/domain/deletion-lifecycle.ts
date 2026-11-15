@@ -5,7 +5,7 @@
  * passes, the daily job carries it out unless a rule now refuses it. Pure; the use cases
  * read the facts under the company and member locks and act on the step these return.
  */
-import type { DeletionMode } from "@/domain/events";
+import type { DeletionMode } from "@/shared/kernel/events";
 import { scrubDueAt } from "./person-deletion";
 
 /** What a delete request does to a person who passed the delete rules. */

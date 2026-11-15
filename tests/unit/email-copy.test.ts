@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeEmailCopy } from "@/domain/email-template";
+import { normalizeEmailCopy } from "@/shared/kernel/email-template";
 import { renderInviteEmail } from "@/modules/notifications/application/templates/invite";
 import { LEAVE_KINDS, type LeaveSummary, leaveVariables, renderLeaveEmail } from "@/modules/notifications/application/templates/leave";
 

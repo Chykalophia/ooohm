@@ -5,8 +5,8 @@ import "server-only";
  * the caller's transaction).
  */
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import type { AdminEventType, Unattributed, UserEventPayload } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import type { AdminEventType, Unattributed, UserEventPayload } from "@/shared/kernel/events";
 import { recordAdminChange } from "@/shared/lib/admin-access";
 import type { PersonRow } from "@/shared/lib/db/members";
 

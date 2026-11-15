@@ -1,6 +1,6 @@
 import "server-only";
 import type { Executor } from "@/db/types";
-import type { CalendarScope } from "@/domain/calendar-visibility";
+import type { CalendarScope } from "@/shared/kernel/calendar-visibility";
 import { listTeamEntries as read } from "@/modules/calendar/infrastructure/drizzle-calendar.repository";
 
 /**

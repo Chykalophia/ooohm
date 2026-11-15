@@ -9,8 +9,8 @@ import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { departments, session, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { ColorMode } from "@/domain/color-mode";
-import type { PageRequest } from "@/domain/paging";
+import type { ColorMode } from "@/shared/kernel/color-mode";
+import type { PageRequest } from "@/shared/kernel/paging";
 import { keysetPage } from "@/shared/lib/db/keyset";
 import { notDeleted, personFields } from "@/shared/lib/db/members";
 

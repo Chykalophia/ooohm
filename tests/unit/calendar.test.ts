@@ -12,7 +12,7 @@ import {
   monthBounds,
   monthGridBounds,
   type TeamCalendarEntry,
-} from "@/domain/calendar";
+} from "@/shared/kernel/calendar";
 
 let seq = 0;
 function entry(startDate: string, endDate = startDate, overrides: Partial<CalendarEntry> = {}): CalendarEntry {

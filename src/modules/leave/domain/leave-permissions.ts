@@ -1,4 +1,4 @@
-import { type Actor, isAdmin } from "@/domain/actor";
+import { type Actor, isAdmin } from "@/shared/kernel/actor";
 
 /** The ownership facts of a leave request that permission checks depend on. */
 export interface RequestOwnership {

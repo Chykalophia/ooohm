@@ -1,4 +1,4 @@
-import { isUuid } from "@/domain/ids";
+import { isUuid } from "@/shared/kernel/uuid";
 
 /**
  * Branded ids (shared kernel): a `UserId` cannot be passed where a `CompanyId` is

@@ -3,7 +3,7 @@ import { lookup as dnsLookup, type LookupAddress } from "node:dns";
 import http from "node:http";
 import https from "node:https";
 import type { LookupFunction } from "node:net";
-import { isBlockedAddress, isIpLiteral, type TargetPolicy } from "@/domain/webhook-target";
+import { isBlockedAddress, isIpLiteral, type TargetPolicy } from "@/shared/kernel/webhook-target";
 
 /**
  * The transport a webhook delivery POSTs through. The worker uses

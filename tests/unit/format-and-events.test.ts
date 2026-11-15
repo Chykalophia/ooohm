@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { byUser } from "@/domain/change-source";
-import { LEAVE_EVENT_TYPES, leaveAuditAction, leaveEventPayload } from "@/domain/events";
+import { byUser } from "@/shared/kernel/change-source";
+import { LEAVE_EVENT_TYPES, leaveAuditAction, leaveEventPayload } from "@/shared/kernel/events";
 import { todayInTimeZone } from "@/lib/dates";
 import {
   formatDays,

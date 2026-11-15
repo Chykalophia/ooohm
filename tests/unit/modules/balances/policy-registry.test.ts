@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import type { AllowancePolicy, Balance } from "@/modules/balances/domain/allowance-policy";
 import { AnnualCalendarYearPolicy } from "@/modules/balances/domain/annual-calendar-year-policy";
 import { AllowancePolicyRegistry, allowancePolicies, resolveAllowancePolicy } from "@/modules/balances/domain/policy-registry";

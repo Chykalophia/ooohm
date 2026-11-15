@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError, isDomainError } from "@/domain/errors";
-import { firstEditableAllowanceYear } from "@/domain/leave-type-settings";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError, isDomainError } from "@/shared/kernel/errors";
+import { firstEditableAllowanceYear } from "@/shared/kernel/leave-type-settings";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";

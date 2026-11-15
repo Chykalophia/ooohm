@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { toActor } from "@/domain/actor";
-import { isDomainError } from "@/domain/errors";
+import { toActor } from "@/shared/kernel/actor";
+import { isDomainError } from "@/shared/kernel/errors";
 import { currentUser } from "@/lib/auth";
 import { formatRequestCost } from "@/lib/format";
 import { log } from "@/lib/log";

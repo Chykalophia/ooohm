@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
+import { MAX_ALLOWANCE_DAYS } from "@/shared/kernel/leave-type-settings";
 import { formatCount } from "@/lib/format";
 import { removeAllowanceRule, setAllowanceRule } from "@/modules/balances";
 import { map } from "@/shared/lib/result";

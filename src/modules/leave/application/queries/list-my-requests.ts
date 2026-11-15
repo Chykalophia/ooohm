@@ -1,9 +1,9 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { isCalendarDate } from "@/domain/calendar-date";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
-import { isCursorInstant, type PageCursor, readPage } from "@/domain/paging";
+import type { Actor } from "@/shared/kernel/actor";
+import { isCalendarDate } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
+import { isCursorInstant, type PageCursor, readPage } from "@/shared/kernel/paging";
 import { todayInTimeZone } from "@/lib/dates";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { canCancelOn } from "../../domain/leave-status";

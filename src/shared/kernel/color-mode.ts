@@ -1,6 +1,6 @@
 /**
  * Light or dark: how a person wants the app drawn (their "colour mode"; the company's
- * look, its theme, is `@/domain/appearance`). A display preference of their own: it changes
+ * look, its theme, is `@/shared/kernel/appearance`). A display preference of their own: it changes
  * nothing anyone else sees, so it is neither audited nor sent to integrations.
  *
  * - `light`: the default, for everyone until they choose otherwise.

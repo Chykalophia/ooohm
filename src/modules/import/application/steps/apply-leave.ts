@@ -4,7 +4,7 @@ import { type LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisatio
  * Import steps: the pool type's allowances, and leave requests.
  */
 import { loadApprovalContexts, ManagerApprovalRule, reassignApprover } from "@/modules/approvals";
-import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
+import { IMPORT_AUDIT_ACTIONS } from "@/shared/kernel/events";
 import { listAllowancesOf, insertImportedRequests, type NewImportedRequest, upsertAllowances } from "@/modules/import/infrastructure/drizzle-import.repository";
 import { findMembers } from "@/shared/lib/db/members";
 import type { PlannedAllowance, PlannedRequest } from "@/modules/import/domain/timeoff/plan/types";

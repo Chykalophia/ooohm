@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { COLOR_MODES, colorModeOrDefault, DEFAULT_COLOR_MODE, isColorMode } from "@/domain/color-mode";
+import { COLOR_MODES, colorModeOrDefault, DEFAULT_COLOR_MODE, isColorMode } from "@/shared/kernel/color-mode";
 
 test("light is the default, and the three choices are light, dark and system", () => {
   assert.equal(DEFAULT_COLOR_MODE, "light");

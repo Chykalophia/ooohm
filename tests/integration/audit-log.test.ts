@@ -6,7 +6,7 @@ import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { type Adapter, createAdapterRegistry } from "@/server/integrations/adapter";
 import { invitePerson as invitePersonResult, updatePerson as updatePersonResult } from "@/modules/people";
-import { encodePageKey, type PageCursor } from "@/domain/paging";
+import { encodePageKey, type PageCursor } from "@/shared/kernel/paging";
 import { AUDIT_PAGE_SIZE, getAuditLog as readAuditLog } from "@/modules/audit";
 import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";

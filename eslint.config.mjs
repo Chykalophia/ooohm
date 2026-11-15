@@ -168,14 +168,14 @@ const layers = [
     patterns: [relative, upward("Nothing in src/server imports presentation."), belowUseCases("The runtime builds the context; pages call modules.")],
   },
   {
-    files: ["src/domain/**/*.ts"],
+    // The shared kernel: the pure rules every module shares (domain-is-pure in .dependency-cruiser.cjs).
+    files: ["src/shared/kernel/**/*.ts"],
     paths: next,
     patterns: [
-      // The shared kernel is the domain every module shares (domain-is-pure in .dependency-cruiser.cjs allows it).
-      { group: ["@/*", "!@/domain", "!@/domain/*", "!@/shared"], message: "The domain imports only from src/domain and src/shared/kernel." },
-      { group: ["@/shared/*", "!@/shared/kernel"], message: "The domain imports only from src/domain and src/shared/kernel." },
-      { group: ["../*"], message: "The domain imports only from src/domain." },
-      { group: ["next/*", "react", "react-dom", "server-only", "better-auth", "better-auth/*", "nodemailer", "node:*"], message: "The domain is pure: no framework or I/O." },
+      { group: ["@/*", "!@/shared"], message: "The shared kernel imports only from src/shared/kernel." },
+      { group: ["@/shared/*", "!@/shared/kernel"], message: "The shared kernel imports only from src/shared/kernel." },
+      { group: ["../*"], message: "The shared kernel imports only from src/shared/kernel." },
+      { group: ["next/*", "react", "react-dom", "server-only", "better-auth", "better-auth/*", "nodemailer", "node:*"], message: "The shared kernel is pure: no framework or I/O." },
       drizzle,
     ],
   },
@@ -219,7 +219,7 @@ const sizeLimits = [
     rules: { "max-lines": ["error", { max: 100, skipBlankLines: true, skipComments: true }] },
   },
   {
-    files: ["src/server/**/*.ts", "src/domain/**/*.ts", "src/modules/**/*.ts", "src/app/**/actions.ts", "src/app/**/route.ts"],
+    files: ["src/server/**/*.ts", "src/shared/kernel/**/*.ts", "src/modules/**/*.ts", "src/app/**/actions.ts", "src/app/**/route.ts"],
     rules: { "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true, IIFEs: true }] },
   },
   {

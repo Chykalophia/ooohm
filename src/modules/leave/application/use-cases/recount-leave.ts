@@ -30,10 +30,10 @@ import "server-only";
  * row `FOR SHARE` (`shareLockCompany`) while counting, so no request counted with the old
  * calendar can commit unseen while a recount runs.
  */
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { type AllowancePolicy, addDays, type LeaveTypeWithAllowance, resolveAllowancePolicy } from "@/modules/balances";
-import { CHANGE_PROCESSES, type PersonChangeSource, through } from "@/domain/change-source";
-import { DomainError } from "@/domain/errors";
+import { CHANGE_PROCESSES, type PersonChangeSource, through } from "@/shared/kernel/change-source";
+import { DomainError } from "@/shared/kernel/errors";
 import { personLabel } from "@/shared/kernel/person-label";
 import { yearInTimeZone } from "@/lib/dates";
 import { formatDays, type RecountCause } from "@/lib/format";

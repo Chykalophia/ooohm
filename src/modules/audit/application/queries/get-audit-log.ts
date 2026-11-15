@@ -1,8 +1,8 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { AUDIT_ACTION_LABELS, isAuditAction } from "@/domain/audit";
-import { isCalendarDate } from "@/domain/calendar-date";
-import { readPage } from "@/domain/paging";
+import type { Actor } from "@/shared/kernel/actor";
+import { AUDIT_ACTION_LABELS, isAuditAction } from "@/modules/audit/domain/audit";
+import { isCalendarDate } from "@/shared/kernel/calendar-date";
+import { readPage } from "@/shared/kernel/paging";
 import { personLabel } from "@/shared/kernel/person-label";
 import type { ServiceContext } from "@/server/context";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";

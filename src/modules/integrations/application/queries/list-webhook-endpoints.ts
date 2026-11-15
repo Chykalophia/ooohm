@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { findCompany } from "@/modules/organisation";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";

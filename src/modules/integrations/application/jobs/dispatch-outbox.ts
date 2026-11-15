@@ -2,7 +2,7 @@ import "server-only";
 /**
  * Step one of the outbox worker: fan new outbox events out into deliveries.
  */
-import { buildEnvelope } from "@/domain/event-envelope";
+import { buildEnvelope } from "@/shared/kernel/event-envelope";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import type { Adapter } from "@/server/integrations/adapter";

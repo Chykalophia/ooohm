@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { groupHolidays, HOLIDAY_RANGE_MAX_DAYS, holidayRangeDates } from "@/modules/holidays/domain/holiday-range";
 
 const invalid = (fn: () => unknown) => assert.throws(fn, (e) => isDomainError(e) && e.code === "invalid_input");

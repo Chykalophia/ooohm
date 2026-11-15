@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Role } from "@/domain/actor";
+import type { Role } from "@/shared/kernel/actor";
 import type { ApprovalContextReader } from "@/modules/approvals/application/ports";
 import type { ApprovalCandidate } from "@/modules/approvals/domain/approval-context";
 

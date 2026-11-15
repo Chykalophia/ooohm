@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { serviceContext } from "@/server/runtime";

@@ -3,10 +3,10 @@ import "server-only";
  * What the audit queries share: naming the ids in a row, matching a search, and reading
  * the viewer's filters.
  */
-import { AUDIT_ACTION_LABELS } from "@/domain/audit";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
-import { isCursorInstant } from "@/domain/paging";
+import { AUDIT_ACTION_LABELS } from "@/modules/audit/domain/audit";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
+import { isCursorInstant } from "@/shared/kernel/paging";
 import { personLabel } from "@/shared/kernel/person-label";
 import { formatInstantDateTime } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";

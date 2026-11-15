@@ -3,7 +3,7 @@ import "server-only";
  * The year rollover's step for one person, in the unit of work the caller opened: the
  * nightly run (`runYearRollover`), or a re-carry after an edit to a closed year.
  */
-import type { ChangeSource } from "@/domain/change-source";
+import type { ChangeSource } from "@/shared/kernel/change-source";
 import { yearInTimeZone } from "@/lib/dates";
 import type { AllowancePolicy } from "../domain/allowance-policy";
 import type { AllowanceDefaults } from "../domain/allowance-rules";

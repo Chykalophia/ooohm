@@ -2,12 +2,12 @@
  * The small rules every planning step shares: status and day-part mapping, leave type
  * codes and names, segments of a leave, and which TimeOff company is imported.
  */
-import { type CalendarDate, fromEpochDay, toEpochDay } from "@/domain/calendar-date";
-import { isSupportedTimeZone } from "@/domain/company-settings";
-import { DomainError } from "@/domain/errors";
+import { type CalendarDate, fromEpochDay, toEpochDay } from "@/shared/kernel/calendar-date";
+import { isSupportedTimeZone } from "@/shared/kernel/company-settings";
+import { DomainError } from "@/shared/kernel/errors";
 import { type DayPortion, type LeaveRange, type LeaveStatus, MAX_REQUEST_SPAN_DAYS } from "@/shared/kernel/leave-range";
-import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH, MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
-import { oneLine } from "@/domain/text";
+import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH, MAX_ALLOWANCE_DAYS } from "@/shared/kernel/leave-type-settings";
+import { oneLine } from "@/shared/kernel/text";
 import { TIMEOFF_DAY_PART, TIMEOFF_STATUS, type TimeOffCompany, type TimeOffLeave, type TimeOffLeaveType, type TimeOffSnapshot, type TimeOffUser } from "../source";
 
 

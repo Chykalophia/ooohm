@@ -4,9 +4,9 @@ import "server-only";
  * database in `infrastructure/` and in memory by the fakes in
  * `tests/unit/modules/balances/fakes`; `composition.ts` wires the real ones.
  */
-import type { Actor } from "@/domain/actor";
-import type { CalendarDate } from "@/domain/calendar-date";
-import type { ChangeSource } from "@/domain/change-source";
+import type { Actor } from "@/shared/kernel/actor";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import type { ChangeSource } from "@/shared/kernel/change-source";
 import type { recordAdminChange } from "@/shared/lib/admin-access";
 import type { AuditEntry, OutboxEvent } from "@/shared/lib/db/change-log";
 import type { DayPortion } from "@/shared/kernel/leave-range";

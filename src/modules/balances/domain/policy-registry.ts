@@ -1,4 +1,4 @@
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 import type { AllowancePolicy } from "./allowance-policy";
 import { AnnualCalendarYearPolicy } from "./annual-calendar-year-policy";
 

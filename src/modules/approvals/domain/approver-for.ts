@@ -1,4 +1,4 @@
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 import type { ApprovalContext, ApprovalDecision, ApprovalRule } from "./approval-context";
 
 /**

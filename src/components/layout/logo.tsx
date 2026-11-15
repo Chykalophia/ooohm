@@ -1,4 +1,4 @@
-import type { LogoRef } from "@/domain/company-logo";
+import type { LogoRef } from "@/shared/kernel/company-logo";
 import { OHM_OFFSET, OHM_PATH, OHM_SCALE, OHM_STROKE_WIDTH } from "@/lib/brand-mark";
 
 /** The Ω mark on its accent tile, the same drawing as the favicon. Sized by the text around it. */

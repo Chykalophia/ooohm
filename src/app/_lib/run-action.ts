@@ -1,5 +1,5 @@
 import "server-only";
-import { type DomainError, type DomainErrorCode, isDomainError } from "@/domain/errors";
+import { type DomainError, type DomainErrorCode, isDomainError } from "@/shared/kernel/errors";
 import { formatNoWorkingDays, formatShortfall } from "@/lib/format";
 import { log } from "@/lib/log";
 

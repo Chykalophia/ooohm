@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { canAdminister } from "@/shared/kernel/admin-permissions";
-import type { DomainErrorCode } from "@/domain/errors";
+import type { DomainErrorCode } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
 import type { RateLimiter } from "@/lib/rate-limit";
 import { type ServiceResult, valueOf } from "@/shared/lib/result";

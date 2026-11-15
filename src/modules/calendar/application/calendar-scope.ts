@@ -5,8 +5,8 @@ import "server-only";
  * calendar link and the "also off" line on approvals and emails.
  */
 import type { Executor } from "@/db/types";
-import type { Role } from "@/domain/actor";
-import { type CalendarScope, type CalendarScopeSettings, calendarScopeFor } from "@/domain/calendar-visibility";
+import type { Role } from "@/shared/kernel/actor";
+import { type CalendarScope, type CalendarScopeSettings, calendarScopeFor } from "@/shared/kernel/calendar-visibility";
 import { findCalendarViewer } from "@/modules/calendar/infrastructure/drizzle-calendar.repository";
 import { listManagedDepartmentIds } from "@/modules/organisation";
 

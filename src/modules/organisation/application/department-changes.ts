@@ -1,6 +1,6 @@
 import "server-only";
-import { DomainError } from "@/domain/errors";
-import type { DepartmentEventPayload, Unattributed } from "@/domain/events";
+import { DomainError } from "@/shared/kernel/errors";
+import type { DepartmentEventPayload, Unattributed } from "@/shared/kernel/events";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import type { DepartmentDTO } from "@/modules/organisation/application/dto";
 

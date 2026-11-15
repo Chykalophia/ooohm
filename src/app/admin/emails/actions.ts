@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { EMAIL_MESSAGE_MAX, EMAIL_SUBJECT_MAX } from "@/domain/email-template";
+import { EMAIL_MESSAGE_MAX, EMAIL_SUBJECT_MAX } from "@/shared/kernel/email-template";
 import { previewEmail, resetEmailCopy, saveEmailCopy } from "@/modules/notifications";
 import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";

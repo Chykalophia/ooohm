@@ -6,8 +6,8 @@ import "server-only";
  * recount belongs to leave, which reads organisation. This use case joins the two in one
  * unit of work, so organisation never depends on leave or on email.
  */
-import type { Actor } from "@/domain/actor";
-import type { CompanySettingsInput } from "@/domain/company-settings";
+import type { Actor } from "@/shared/kernel/actor";
+import type { CompanySettingsInput } from "@/shared/kernel/company-settings";
 import { canManageCompanySettings, type CompanyChange, type CompanyDTO } from "@/modules/organisation";
 import type { Notification } from "@/modules/notifications";
 import { attempt, err, type ServiceResult, unwrap } from "@/shared/lib/result";

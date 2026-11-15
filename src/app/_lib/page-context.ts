@@ -1,10 +1,10 @@
 import "server-only";
 import { notFound } from "next/navigation";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { canAdminister } from "@/shared/kernel/admin-permissions";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { canViewReports } from "@/modules/reports";
-import { type ColorMode, colorModeOrDefault } from "@/domain/color-mode";
+import { type ColorMode, colorModeOrDefault } from "@/shared/kernel/color-mode";
 import { requireActor } from "@/lib/auth";
 import type { ServiceContext } from "@/server/context";
 import { serviceContext } from "@/server/runtime";

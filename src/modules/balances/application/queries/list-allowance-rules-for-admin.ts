@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { map, type ServiceResult } from "@/shared/lib/result";
 import type { NamedAllowanceRuleDTO } from "../dto";
 import type { BalancesDeps } from "../ports";

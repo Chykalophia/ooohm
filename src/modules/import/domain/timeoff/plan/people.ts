@@ -1,7 +1,7 @@
 /**
  * Planning step: people, one per email, with their role, department and manager.
  */
-import type { CalendarDate } from "@/domain/calendar-date";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
 import { normalizeEmail, normalizePersonName, PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import type { TimeOffDepartment, TimeOffUser } from "../source";
 import { keepOne } from "./rules";

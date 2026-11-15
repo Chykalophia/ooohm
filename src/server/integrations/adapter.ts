@@ -10,7 +10,7 @@ import "server-only";
  * `applyInboundSync` writes what it returns, with audit rows and events, under the
  * same locks an admin's edits take.
  */
-import type { EventEnvelope } from "@/domain/event-envelope";
+import type { EventEnvelope } from "@/shared/kernel/event-envelope";
 
 /** What an adapter is given for one call. Configuration and credentials for a company will be added here. */
 export interface AdapterContext {

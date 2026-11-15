@@ -1,5 +1,5 @@
 import "server-only";
-import type { Role } from "@/domain/actor";
+import type { Role } from "@/shared/kernel/actor";
 import type { PersonRow } from "@/shared/lib/db/members";
 
 /**

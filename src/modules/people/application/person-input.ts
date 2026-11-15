@@ -1,9 +1,9 @@
 import "server-only";
 /** What an admin sets about a person, and the checks it passes before anything is written. */
 import type { Executor, Transaction } from "@/db/types";
-import type { Role } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
+import type { Role } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
 import { findDepartment, findLevel } from "@/modules/organisation";
 import { assertValidManager, isRole, type ReportingLine } from "@/modules/people/domain/people";
 import { listReportingLines } from "@/modules/people/infrastructure/drizzle-people.repository";

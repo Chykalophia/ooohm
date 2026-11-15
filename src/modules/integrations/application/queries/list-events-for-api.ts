@@ -1,7 +1,7 @@
 import "server-only";
-import { DomainError } from "@/domain/errors";
-import { buildEnvelope, type EventEnvelope } from "@/domain/event-envelope";
-import { isUuid } from "@/domain/ids";
+import { DomainError } from "@/shared/kernel/errors";
+import { buildEnvelope, type EventEnvelope } from "@/shared/kernel/event-envelope";
+import { isUuid } from "@/shared/kernel/uuid";
 import type { ServiceContext } from "@/server/context";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { type ApiClient, assertScope } from "@/modules/integrations/domain/integrations";

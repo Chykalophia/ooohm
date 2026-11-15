@@ -1,6 +1,6 @@
 import "server-only";
-import { buildFeedCalendar, type FeedContent, feedCalendarName, feedWindow } from "@/domain/calendar-feed";
-import { serializeCalendar } from "@/domain/ics";
+import { buildFeedCalendar, type FeedContent, feedCalendarName, feedWindow } from "@/shared/kernel/calendar-feed";
+import { serializeCalendar } from "@/shared/kernel/ics";
 import { todayInTimeZone } from "@/lib/dates";
 import { isFeedTokenShape } from "@/lib/feed-token";
 import { hashToken } from "@/lib/token-hash";

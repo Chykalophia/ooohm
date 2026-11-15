@@ -1,7 +1,7 @@
 import "server-only";
 import type { ApprovalMode } from "@/shared/kernel/approval";
-import type { CalendarDate } from "@/domain/calendar-date";
-import type { PageCursor } from "@/domain/paging";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import type { PageCursor } from "@/shared/kernel/paging";
 import type { BalanceSummary } from "@/modules/balances";
 import type { DayPortion, LeaveStatus } from "@/shared/kernel/leave-range";
 import type { LeaveRequest } from "../domain/leave-request";

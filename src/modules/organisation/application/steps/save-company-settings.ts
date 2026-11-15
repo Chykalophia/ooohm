@@ -1,8 +1,8 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { readApprovalMode } from "@/shared/kernel/approval";
-import { type CompanySettingsInput, normalizeCompanySettings } from "@/domain/company-settings";
+import { type CompanySettingsInput, normalizeCompanySettings } from "@/shared/kernel/company-settings";
 import { type CompanyChange, changeCompany } from "@/modules/organisation/application/company-changes";
 
 /**

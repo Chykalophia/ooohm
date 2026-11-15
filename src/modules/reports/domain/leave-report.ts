@@ -3,11 +3,11 @@
  * type, and how that compares with earlier years. Pure functions over rows a service
  * loaded; see `buildLeaveReport`.
  */
-import { type Actor, isAdmin } from "@/domain/actor";
+import { type Actor, isAdmin } from "@/shared/kernel/actor";
 import { addDays } from "@/shared/kernel/day-amounts";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { eachDate, isoWeekday } from "@/domain/calendar-date";
-import { monthOf, type YearMonth } from "@/domain/calendar";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { eachDate, isoWeekday } from "@/shared/kernel/calendar-date";
+import { monthOf, type YearMonth } from "@/shared/kernel/calendar";
 import { toCsv } from "@/shared/kernel/csv";
 import type { WorkCalendar, YearDays } from "@/shared/kernel/leave-days";
 import type { DayPortion, LeaveRange, LeaveStatus } from "@/shared/kernel/leave-range";

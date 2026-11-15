@@ -5,7 +5,7 @@
  * stored day whatever the server's or browser's time zone.
  */
 import type { Balance, RequestCost } from "@/modules/balances";
-import type { BalanceShortfallDetails } from "@/domain/errors";
+import type { BalanceShortfallDetails } from "@/shared/kernel/errors";
 
 const dayFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isCalendarDate } from "@/domain/calendar-date";
+import { isCalendarDate } from "@/shared/kernel/calendar-date";
 import { LEAVE_STATUSES } from "@/shared/kernel/leave-range";
 import { API_DEFAULT_PAGE_SIZE, API_MAX_PAGE_SIZE } from "@/modules/integrations";
 

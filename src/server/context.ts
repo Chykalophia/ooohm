@@ -1,7 +1,7 @@
 import "server-only";
 import type { IdGenerator } from "@/shared/lib/id-generator";
 import type { Database } from "@/db/types";
-import type { TargetPolicy } from "@/domain/webhook-target";
+import type { TargetPolicy } from "@/shared/kernel/webhook-target";
 import type { SecretBox } from "@/lib/integration-crypto";
 import type { AdapterRegistry } from "@/server/integrations/adapter";
 

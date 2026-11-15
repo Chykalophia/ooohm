@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { DEFAULT_APPEARANCE, THEME_KEYS, THEMES } from "@/domain/appearance";
+import { DEFAULT_APPEARANCE, THEME_KEYS, THEMES } from "@/shared/kernel/appearance";
 import {
   CLASSIC_DARK_MARK,
   DARK_TAB,

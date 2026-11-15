@@ -1,4 +1,4 @@
-import { type CalendarDate, eachDate, fromEpochDay, isoWeekday, toEpochDay } from "@/domain/calendar-date";
+import { type CalendarDate, eachDate, fromEpochDay, isoWeekday, toEpochDay } from "@/shared/kernel/calendar-date";
 import { assertValidRange, type LeaveRange } from "./leave-range";
 
 /** The parts of a company's calendar that decide which days cost leave. */

@@ -2,8 +2,8 @@
  * The date picker's grid and keyboard maths: pure functions over `YYYY-MM-DD` dates, no
  * DOM, so they are unit tested on their own (`tests/unit/date-picker-grid.test.ts`).
  */
-import { type CalendarDate, fromEpochDay, isCalendarDate } from "@/domain/calendar-date";
-import { addMonths, monthOf, type YearMonth } from "@/domain/calendar";
+import { type CalendarDate, fromEpochDay, isCalendarDate } from "@/shared/kernel/calendar-date";
+import { addMonths, monthOf, type YearMonth } from "@/shared/kernel/calendar";
 
 /** Six weeks, always, so the popup keeps its height from month to month. */
 export const PICKER_DAYS = 42;

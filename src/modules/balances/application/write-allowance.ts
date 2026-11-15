@@ -1,5 +1,5 @@
 import "server-only";
-import type { ChangeSource } from "@/domain/change-source";
+import type { ChangeSource } from "@/shared/kernel/change-source";
 import { resolveAllowancePolicy } from "../domain/policy-registry";
 import { recordAllowanceChange } from "./allowance-changes";
 import type { AllowanceOverrideResult } from "./dto";

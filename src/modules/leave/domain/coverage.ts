@@ -4,7 +4,7 @@
  * the approver sees it before deciding. Pending requests count as well as approved ones,
  * because both are on the calendar.
  */
-import { eachDate, isoWeekday } from "@/domain/calendar-date";
+import { eachDate, isoWeekday } from "@/shared/kernel/calendar-date";
 export { MAX_OFF_LIMIT } from "@/shared/kernel/coverage-limit";
 
 /** One person's pending or approved leave, as the team calendar has it. */

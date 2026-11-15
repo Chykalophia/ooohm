@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { z } from "zod";
 import { ACTION_RATE_LIMIT, createActionPipeline } from "@/app/_lib/action-pipeline";
 import { createRateLimiter } from "@/lib/rate-limit";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";
 

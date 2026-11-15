@@ -1,5 +1,5 @@
 import "server-only";
-import type { EmailCopy } from "@/domain/email-template";
+import type { EmailCopy } from "@/shared/kernel/email-template";
 import type { EmailAccent } from "@/lib/email-layout";
 import { NOTIFICATION_TYPES, type NotificationKind, PREVIEW_SIGN_IN_URL } from "./catalog";
 import type { EmailContent, NotificationType } from "./types";

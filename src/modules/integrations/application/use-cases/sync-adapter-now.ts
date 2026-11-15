@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";

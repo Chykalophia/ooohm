@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { type ApprovalsView, decideLeaveRequest as decideLeaveRequestResult, getApprovalNav, getApprovalTriage } from "@/modules/approvals";
 import {
   cancelLeaveRequest as cancelLeaveRequestResult,
@@ -13,7 +13,7 @@ import {
 import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { auditFor, decidable, eventsFor, seedCompany } from "./fixtures";
-import type { PageCursor } from "@/domain/paging";
+import type { PageCursor } from "@/shared/kernel/paging";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
 const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);

@@ -12,8 +12,8 @@ import {
   personIdOf,
   recordedChangeSource,
   through,
-} from "@/domain/change-source";
-import { eventActor, eventAttribution } from "@/domain/events";
+} from "@/shared/kernel/change-source";
+import { eventActor, eventAttribution } from "@/shared/kernel/events";
 
 const names: ChangeSourceNames = {
   person: (id) => ({ u1: "Peter Krzyzek" })[id],

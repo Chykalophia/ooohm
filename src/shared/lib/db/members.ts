@@ -9,7 +9,7 @@ import "server-only";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { Role } from "@/domain/actor";
+import type { Role } from "@/shared/kernel/actor";
 
 const approvalFields = {
   id: user.id,

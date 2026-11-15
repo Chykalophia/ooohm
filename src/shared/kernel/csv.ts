@@ -2,7 +2,7 @@
  * CSV (RFC 4180): writing downloads that open in a spreadsheet, and reading uploads. Pure.
  */
 
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 
 export type CsvCell = string | number | boolean | null | undefined;
 
@@ -40,7 +40,6 @@ export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
-  let quoted = false;
   // Whether the current cell was opened by a quote, so `""` alone still counts as a cell.
   let wasQuoted = false;
   let i = 0;
@@ -53,35 +52,15 @@ export function parseCsv(text: string): string[][] {
   };
   while (i < source.length) {
     const ch = source[i];
-    if (quoted) {
-      if (ch === '"') {
-        if (source[i + 1] === '"') {
-          cell += '"';
-          i += 2;
-          continue;
-        }
-        quoted = false;
-        // Only spaces may sit between a closing quote and the next delimiter; anything
-        // else means the file is not the CSV it looks like, so refuse it rather than guess.
-        i++;
-        while (source[i] === " " || source[i] === "\t") i++;
-        if (i < source.length && source[i] !== "," && source[i] !== "\r" && source[i] !== "\n") {
-          throw new DomainError("invalid_input", "A quoted cell in the file has text after its closing quote.");
-        }
-        continue;
-      } else {
-        cell += ch;
-      }
-      i++;
-      continue;
-    }
     if (ch === '"') {
       // A quote opens a cell (spaces before it are dropped); anywhere else the file is
       // not the CSV it looks like (`Ann "A, B"` would split at the comma), so refuse it.
       if (cell.trim() !== "") throw new DomainError("invalid_input", "A cell in the file has a quote in the middle. Put the whole cell in quotes.");
-      cell = "";
-      quoted = true;
+      const quotedCell = readQuotedCell(source, i + 1);
+      cell = quotedCell.text;
       wasQuoted = true;
+      i = quotedCell.end;
+      continue;
     } else if (ch === ",") {
       row.push(cell);
       cell = "";
@@ -92,7 +71,37 @@ export function parseCsv(text: string): string[][] {
     } else cell += ch;
     i++;
   }
-  if (quoted) throw new DomainError("invalid_input", "A quoted cell in the file is never closed.");
   if (cell !== "" || wasQuoted || row.length > 0) endRow();
   return rows;
+}
+
+/**
+ * Reads a quoted cell whose opening quote sits just before `start`: its text (`""` read as
+ * one quote) and where the next delimiter is, past any spaces after the closing quote.
+ */
+function readQuotedCell(source: string, start: number): { text: string; end: number } {
+  let text = "";
+  let i = start;
+  while (i < source.length) {
+    const ch = source[i];
+    if (ch !== '"') {
+      text += ch;
+      i++;
+      continue;
+    }
+    if (source[i + 1] === '"') {
+      text += '"';
+      i += 2;
+      continue;
+    }
+    // Only spaces may sit between a closing quote and the next delimiter; anything
+    // else means the file is not the CSV it looks like, so refuse it rather than guess.
+    i++;
+    while (source[i] === " " || source[i] === "\t") i++;
+    if (i < source.length && source[i] !== "," && source[i] !== "\r" && source[i] !== "\n") {
+      throw new DomainError("invalid_input", "A quoted cell in the file has text after its closing quote.");
+    }
+    return { text, end: i };
+  }
+  throw new DomainError("invalid_input", "A quoted cell in the file is never closed.");
 }

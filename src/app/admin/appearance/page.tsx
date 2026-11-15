@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { readAppearance } from "@/domain/appearance";
-import { appLogoRef, readStoredLogo } from "@/domain/company-logo";
+import { readAppearance } from "@/shared/kernel/appearance";
+import { appLogoRef, readStoredLogo } from "@/shared/kernel/company-logo";
 import { getCompanySettings } from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";

@@ -1,8 +1,8 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
-import { type PageCursor, readPage, textPart } from "@/domain/paging";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
+import { type PageCursor, readPage, textPart } from "@/shared/kernel/paging";
 import type { ServiceContext } from "@/server/context";
 import { type DepartmentDTO, findCompany, listDepartments } from "@/modules/organisation";
 import { type PersonListItemDTO, toPersonListItemDTO } from "@/modules/people/application/dto";

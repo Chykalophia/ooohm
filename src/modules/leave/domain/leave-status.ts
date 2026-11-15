@@ -1,4 +1,4 @@
-import { DomainError } from "@/domain/errors";
+import { DomainError } from "@/shared/kernel/errors";
 import type { LeaveStatus } from "@/shared/kernel/leave-range";
 
 /**

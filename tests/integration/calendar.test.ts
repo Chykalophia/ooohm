@@ -4,7 +4,7 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { LeaveStatus } from "@/shared/kernel/leave-range";
 import { violatedConstraint } from "@/shared/lib/db/errors";
 import * as calendarModule from "@/modules/calendar";

@@ -1,11 +1,11 @@
 import "server-only";
 import type { Executor } from "@/db/types";
-import { entriesCostingDaysIn } from "@/domain/calendar";
+import { entriesCostingDaysIn } from "@/shared/kernel/calendar";
 import { coverageBreach, describeCoverageBreach } from "../../domain/coverage";
 import { describeOverlap, overlapsFor } from "../../domain/overlap";
 import { formatShortDay } from "@/lib/format";
 import { teamLabel } from "@/shared/kernel/person-label";
-import { canSeeOnCalendar } from "@/domain/calendar-visibility";
+import { canSeeOnCalendar } from "@/shared/kernel/calendar-visibility";
 import { findCompanySettings, listHolidays, listTeamEntries, loadCalendarScope } from "@/modules/calendar";
 import { findDepartmentLimits } from "@/modules/organisation";
 

@@ -7,8 +7,8 @@ import { type LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisatio
 import type { Transaction } from "@/db/types";
 import { addDays } from "@/shared/kernel/day-amounts";
 import { type Balance, loadBalances, recarryMemberLeaveType, resolveAllowancePolicy } from "@/modules/balances";
-import type { UserChangeSource } from "@/domain/change-source";
-import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
+import type { UserChangeSource } from "@/shared/kernel/change-source";
+import { IMPORT_AUDIT_ACTIONS } from "@/shared/kernel/events";
 import { insertAuditEntries, listAllowancesOf } from "@/modules/import/infrastructure/drizzle-import.repository";
 import { lockMember } from "@/shared/lib/db/members";
 import type { AuditEntry } from "@/shared/lib/db/change-log";

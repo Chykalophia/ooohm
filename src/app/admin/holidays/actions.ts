@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { HOLIDAY_NAME_MAX_LENGTH } from "@/domain/holidays";
+import { HOLIDAY_NAME_MAX_LENGTH } from "@/shared/kernel/holidays";
 import { formatCount, formatDateSpan, formatRecountOutcome } from "@/lib/format";
 import { addHoliday, addHolidayRange, addUsFederalHolidays, deleteHolidays, HOLIDAY_RANGE_MAX_DAYS, renameHolidays } from "@/modules/holidays";
 import { map } from "@/shared/lib/result";

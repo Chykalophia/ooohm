@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { messageForError } from "@/app/_lib/run-action";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import * as holidaysModule from "@/modules/holidays";

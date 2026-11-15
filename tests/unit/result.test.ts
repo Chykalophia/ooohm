@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DomainError, isDomainError } from "@/domain/errors";
+import { DomainError, isDomainError } from "@/shared/kernel/errors";
 import { attempt, err, fromDomainError, isErr, isOk, isServiceResult, map, ok, unwrap, valueOf } from "@/shared/lib/result";
 
 test("ok and err build the two halves of a result", () => {

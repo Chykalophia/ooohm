@@ -5,10 +5,10 @@ import "server-only";
  * `composition.ts` wires the real ones. Leave owns these interfaces; its infrastructure
  * adapts them onto the balances module and the approval routing, which never import leave.
  */
-import type { Role } from "@/domain/actor";
-import type { CalendarDate } from "@/domain/calendar-date";
-import type { ChangeSource } from "@/domain/change-source";
-import type { PageRequest } from "@/domain/paging";
+import type { Role } from "@/shared/kernel/actor";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import type { ChangeSource } from "@/shared/kernel/change-source";
+import type { PageRequest } from "@/shared/kernel/paging";
 import type { Notification } from "@/modules/notifications";
 import type { AuditEntry, OutboxEvent } from "@/shared/lib/db/change-log";
 import type { LeaveTypeSettingsDTO as LeaveTypeRow } from "@/modules/organisation";

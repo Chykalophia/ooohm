@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { z } from "zod";
-import { HOLIDAY_NAME_MAX_LENGTH, HOLIDAY_YEAR_MAX, HOLIDAY_YEAR_MIN } from "@/domain/holidays";
+import { HOLIDAY_NAME_MAX_LENGTH, HOLIDAY_YEAR_MAX, HOLIDAY_YEAR_MIN } from "@/shared/kernel/holidays";
 import { formatCount, formatLeaveDates, formatLongDate } from "@/lib/format";
 import { groupHolidays, HOLIDAY_RANGE_MAX_DAYS, listHolidaysForAdmin } from "@/modules/holidays";
 import { unwrap } from "@/shared/lib/result";

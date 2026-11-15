@@ -2,7 +2,7 @@
  * Planning step: leave types, with TimeOff's allowance pool mapped onto one of them (the
  * pool type; see the planner's comment in `../mapping.ts`).
  */
-import { MAX_ALLOWANCE_DAYS, normalizeLeaveTypeColor } from "@/domain/leave-type-settings";
+import { MAX_ALLOWANCE_DAYS, normalizeLeaveTypeColor } from "@/shared/kernel/leave-type-settings";
 import type { TimeOffDepartment, TimeOffLeaveType } from "../source";
 import { FALLBACK_COLORS, leaveTypeCodeFor, refuse, typeName } from "./rules";
 import type { ImportPlanOptions, PlannedCompany, PlannedLeaveType, Warn } from "./types";

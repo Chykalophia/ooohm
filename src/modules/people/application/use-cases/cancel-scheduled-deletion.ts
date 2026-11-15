@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
 import { beginAdminChange } from "@/modules/people/application/admin-change";
 import { cancelScheduledScrubIn } from "@/modules/people/application/deletion/scrub-schedule";

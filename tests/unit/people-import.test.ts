@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { parseCsv, toCsv } from "@/shared/kernel/csv";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import {
   type ImportFacts,
   PEOPLE_IMPORT_COLUMNS,

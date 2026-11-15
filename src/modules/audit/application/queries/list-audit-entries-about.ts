@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import type { PageRequest } from "@/domain/paging";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import type { PageRequest } from "@/shared/kernel/paging";
 import type { ServiceContext } from "@/server/context";
 import { listAuditPage } from "@/modules/audit/infrastructure/drizzle-audit-log.repository";
 import { loadAuditNaming } from "@/modules/audit/application/audit-reading";

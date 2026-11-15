@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { remainingAfter, type RequestCost } from "../../domain/allowance-policy";
 import type { LeaveDraft } from "../dto";

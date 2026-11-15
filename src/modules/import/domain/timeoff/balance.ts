@@ -20,7 +20,7 @@
  * OOOhm grants the full year, so the full-year figure is what both sides compare.
  */
 import { addDays } from "@/shared/kernel/day-amounts";
-import { type CalendarDate, eachDate, isoWeekday, toEpochDay } from "@/domain/calendar-date";
+import { type CalendarDate, eachDate, isoWeekday, toEpochDay } from "@/shared/kernel/calendar-date";
 import { TIMEOFF_DAY_PART, TIMEOFF_SCHEDULE_WORKING_DAY, TIMEOFF_STATUS, type TimeOffSchedule } from "@/modules/import/domain/timeoff/source";
 
 /** TimeOff's default working week when no schedule is stored: Monday to Friday. */

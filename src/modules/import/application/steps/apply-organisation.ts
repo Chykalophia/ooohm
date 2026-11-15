@@ -3,7 +3,7 @@ import { type LeaveTypeSettingsDTO as LeaveTypeRow, addDepartment as insertDepar
 /**
  * Import steps: the company's settings, departments, leave types and holidays.
  */
-import { IMPORT_AUDIT_ACTIONS } from "@/domain/events";
+import { IMPORT_AUDIT_ACTIONS } from "@/shared/kernel/events";
 import { insertHolidays } from "@/modules/holidays";
 import { countRequestsByLeaveType, listDepartmentsByName } from "@/modules/import/infrastructure/drizzle-import.repository";
 import { leaveTypeCodeFor } from "@/modules/import/domain/timeoff/plan/rules";

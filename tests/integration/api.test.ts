@@ -4,7 +4,7 @@ import path from "node:path";
 import { after, before, describe, test } from "node:test";
 import { and, count, eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { type ApiClient, createApiKey as createApiKeyResult, listBalancesForApi as listBalancesForApiResult, listEventsForApi as listEventsForApiResult, listHolidaysForApi as listHolidaysForApiResult, listLeaveTypesForApi as listLeaveTypesForApiResult, listUsersForApi as listUsersForApiResult, revokeApiKey as revokeApiKeyResult } from "@/modules/integrations";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { listLeaveRequestsForApi as listLeaveRequestsForApiResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";

@@ -1,5 +1,5 @@
 import "server-only";
-import type { PageCursor } from "@/domain/paging";
+import type { PageCursor } from "@/shared/kernel/paging";
 
 /** Rows per page the viewer offers; the first is the default. */
 export const AUDIT_PAGE_SIZES = [25, 50, 100] as const;

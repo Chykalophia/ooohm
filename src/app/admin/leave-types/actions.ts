@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH } from "@/domain/leave-type-settings";
+import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH } from "@/shared/kernel/leave-type-settings";
 import { createLeaveType, reorderLeaveTypes, setLeaveTypeArchived, updateLeaveType } from "@/modules/organisation";
 import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";

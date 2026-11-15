@@ -1,4 +1,4 @@
-import type { DomainErrorCode } from "@/domain/errors";
+import type { DomainErrorCode } from "@/shared/kernel/errors";
 
 /**
  * Wording for adding time off for someone else, where the request form's defaults

@@ -1,8 +1,8 @@
 import "server-only";
 /** Scheduling a full scrub for after the grace period, and undoing one, each audited. */
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { ADMIN_EVENT_TYPES, type Unattributed, type UserDeletionScheduleEventPayload } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import { ADMIN_EVENT_TYPES, type Unattributed, type UserDeletionScheduleEventPayload } from "@/shared/kernel/events";
 import { hasScheduledScrub } from "@/modules/people/domain/deletion-lifecycle";
 import { clearScrubSchedule, scheduleScrub } from "@/modules/people/infrastructure/drizzle-person-deletion.repository";
 import { recordAdminChange } from "@/shared/lib/admin-access";

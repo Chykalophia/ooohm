@@ -6,9 +6,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
-import { buildEnvelope, type EventEnvelope } from "@/domain/event-envelope";
-import { byApiKey, bySystem, byUser, through } from "@/domain/change-source";
-import { eventAttribution, INTEGRATION_EVENT_TYPES, leaveEventPayload } from "@/domain/events";
+import { buildEnvelope, type EventEnvelope } from "@/shared/kernel/event-envelope";
+import { byApiKey, bySystem, byUser, through } from "@/shared/kernel/change-source";
+import { eventAttribution, INTEGRATION_EVENT_TYPES, leaveEventPayload } from "@/shared/kernel/events";
 import { contractProblems, EVENT_PAYLOAD_SCHEMAS, envelopeSchema, eventActorSchema } from "@/modules/integrations/application/contracts";
 import { apiKeyEventPayload } from "@/modules/integrations/application/api-key-changes";
 import { endpointEventPayload, pingEnvelope } from "@/modules/integrations/application/webhook-changes";

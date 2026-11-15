@@ -4,8 +4,8 @@ import { type CompanyDTO as CompanyRow, type LeaveTypeSettingsDTO as LeaveTypeRo
  * What every step of one TimeOff import shares, and how a step writes its audit rows.
  */
 import type { Transaction } from "@/db/types";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { DomainError } from "@/domain/errors";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
 import { normalizeEmail } from "@/shared/kernel/names";
 import type { ServiceContext } from "@/server/context";
 import type { ExistingAccount } from "@/modules/import/infrastructure/drizzle-import.repository";

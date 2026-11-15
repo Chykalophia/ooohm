@@ -1,4 +1,4 @@
-import { DomainError, type DomainErrorCode, type DomainErrorDetails, isDomainError } from "@/domain/errors";
+import { DomainError, type DomainErrorCode, type DomainErrorDetails, isDomainError } from "@/shared/kernel/errors";
 
 /**
  * What a use case returns at the application boundary (ADR-0003): a value, or an

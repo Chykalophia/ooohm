@@ -1,7 +1,7 @@
 import type { BarListItem } from "@/components/charts/bar-list";
 import type { MonthColumn } from "@/components/charts/month-columns";
 import type { PillNavItem } from "@/components/navigation/pill-nav";
-import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
+import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/shared/kernel/calendar";
 import { formatCount, formatDays, formatMonth, formatWait } from "@/lib/format";
 import type { LeaveReportDTO } from "../application/dto";
 import type { LeaveReport, ReportLeaveType } from "../domain/leave-report";

@@ -1,8 +1,8 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { resolveAllowancePolicy } from "@/modules/balances";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
 import { personLabel } from "@/shared/kernel/person-label";
 import { todayInTimeZone } from "@/lib/dates";
 import type { Notification } from "@/modules/notifications";

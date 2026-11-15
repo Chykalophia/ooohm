@@ -12,7 +12,7 @@ import {
 import { AnnualCalendarYearPolicy } from "@/modules/balances/domain/annual-calendar-year-policy";
 import { resolveAllowancePolicy } from "@/modules/balances/domain/policy-registry";
 import { addDays } from "@/shared/kernel/day-amounts";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 
 const policy = new AnnualCalendarYearPolicy();
 

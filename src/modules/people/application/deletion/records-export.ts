@@ -1,7 +1,7 @@
 import "server-only";
 /** The rows of a person's records export: their requests, balances and audit entries, one CSV. */
 import type { Executor } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { listAuditEntriesAbout } from "@/modules/audit";

@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { ROLES } from "@/domain/actor";
+import { ROLES } from "@/shared/kernel/actor";
 import { PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { formFields } from "@/app/_lib/form-fields";
 

@@ -1,5 +1,5 @@
 import "server-only";
-import type { LogoRef } from "@/domain/company-logo";
+import type { LogoRef } from "@/shared/kernel/company-logo";
 import type { ServiceContext } from "@/server/context";
 import { log } from "@/lib/log";
 import { findDeploymentBrand } from "@/modules/organisation/infrastructure/drizzle-companies.repository";

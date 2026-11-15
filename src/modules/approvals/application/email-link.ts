@@ -1,7 +1,7 @@
 import "server-only";
-import { type Actor, toActor } from "@/domain/actor";
-import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
-import { isUuid } from "@/domain/ids";
+import { type Actor, toActor } from "@/shared/kernel/actor";
+import { byUser, CHANGE_PROCESSES } from "@/shared/kernel/change-source";
+import { isUuid } from "@/shared/kernel/uuid";
 import { verifyApproveToken } from "@/lib/email-link-token";
 import type { EmailApproval } from "./dto";
 import type { ApprovalDeps } from "./ports";

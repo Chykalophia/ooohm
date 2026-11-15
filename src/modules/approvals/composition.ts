@@ -6,8 +6,8 @@ import "server-only";
  * on in-memory fakes.
  */
 import type { Executor, Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import type { PageCursor } from "@/domain/paging";
+import type { Actor } from "@/shared/kernel/actor";
+import type { PageCursor } from "@/shared/kernel/paging";
 import type { ApprovalRouting, LeaveRequest } from "@/modules/leave";
 import { commitThenNotify } from "@/modules/notifications";
 import { changeDepartmentManager } from "@/modules/organisation";

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, describe, test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { buildImportPlan } from "@/modules/import/domain/timeoff/mapping";
 import { leaveSegments, leaveTypeCodeFor } from "@/modules/import/domain/timeoff/plan/rules";
 import type { ImportPlan } from "@/modules/import/domain/timeoff/plan/types";

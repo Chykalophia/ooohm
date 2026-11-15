@@ -1,5 +1,5 @@
 import "server-only";
-import { bySystem, CHANGE_PROCESSES } from "@/domain/change-source";
+import { bySystem, CHANGE_PROCESSES } from "@/shared/kernel/change-source";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { loadDeletionFacts } from "@/modules/people/application/deletion/deletion-facts";

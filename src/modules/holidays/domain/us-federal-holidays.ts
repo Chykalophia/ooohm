@@ -1,5 +1,5 @@
 /** The optional list of US federal holidays an admin can add in one step. */
-import { type CalendarDate, fromEpochDay, isoWeekday, toEpochDay } from "@/domain/calendar-date";
+import { type CalendarDate, fromEpochDay, isoWeekday, toEpochDay } from "@/shared/kernel/calendar-date";
 
 export interface HolidayDraft {
   date: CalendarDate;

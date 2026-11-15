@@ -1,8 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { LOGO_MAX_BYTES, LOGO_RULES } from "@/domain/company-logo";
-import { DomainError } from "@/domain/errors";
+import { LOGO_MAX_BYTES, LOGO_RULES } from "@/shared/kernel/company-logo";
+import { DomainError } from "@/shared/kernel/errors";
 import { removeCompanyLogo, updateCompanyAppearance, updateCompanyLogo } from "@/modules/organisation";
 import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";

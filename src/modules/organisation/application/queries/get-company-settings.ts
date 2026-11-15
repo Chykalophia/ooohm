@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { ALLOWANCE_POLICY_KEYS } from "@/shared/kernel/allowance-policy-keys";
-import { supportedTimeZones } from "@/domain/company-settings";
+import { supportedTimeZones } from "@/shared/kernel/company-settings";
 import type { ServiceContext } from "@/server/context";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";
 import { findCompany } from "@/modules/organisation/infrastructure/drizzle-companies.repository";

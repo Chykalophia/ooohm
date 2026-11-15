@@ -3,7 +3,7 @@ import { and, asc, count, eq, gt, gte, inArray, isNull, lte, ne, or, type SQL, s
 import { alias } from "drizzle-orm/pg-core";
 import { leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { PageRequest } from "@/domain/paging";
+import type { PageRequest } from "@/shared/kernel/paging";
 import { activeInRange } from "@/shared/lib/db/active-leave";
 import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 import { listActiveRequestsInRange } from "@/shared/lib/db/leave-requests";

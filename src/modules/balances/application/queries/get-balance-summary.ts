@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { yearInTimeZone } from "@/lib/dates";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 import type { BalanceSummary } from "../dto";

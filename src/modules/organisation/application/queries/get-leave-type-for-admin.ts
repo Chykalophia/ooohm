@@ -1,6 +1,6 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { isUuid } from "@/domain/ids";
+import type { Actor } from "@/shared/kernel/actor";
+import { isUuid } from "@/shared/kernel/uuid";
 import type { ServiceContext } from "@/server/context";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";
 import { findLeaveTypeForAdmin } from "@/modules/organisation/infrastructure/drizzle-leave-types.repository";

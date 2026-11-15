@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type CompanyId, parseCompanyId, parseLeaveRequestId, parseUserId, type UserId } from "@/shared/kernel/ids";
 import { sequenceIds, uuidGenerator } from "@/shared/lib/id-generator";
-import { isUuid } from "@/domain/ids";
+import { isUuid } from "@/shared/kernel/uuid";
 
 test("branded ids parse from UUID strings and refuse anything else", () => {
   const id = "3F2504E0-4F89-41D3-9A0C-0305E82C3301";

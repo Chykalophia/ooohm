@@ -1,4 +1,4 @@
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { feedLogId, tokenFromFeedFileName } from "@/lib/feed-token";
 import { log } from "@/lib/log";
 import type { RateLimiter } from "@/lib/rate-limit";

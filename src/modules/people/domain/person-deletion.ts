@@ -12,16 +12,16 @@
  * - `records_kept`: their sign-in and email go, their history stays under
  *   "<Name> (deleted)".
  */
-import type { Role } from "@/domain/actor";
-import type { DeletionBlockers } from "@/domain/error-details";
-import { DomainError } from "@/domain/errors";
-import type { DeletionMode } from "@/domain/events";
-import { oneLine } from "@/domain/text";
+import type { Role } from "@/shared/kernel/actor";
+import type { DeletionBlockers } from "@/shared/kernel/error-details";
+import { DomainError } from "@/shared/kernel/errors";
+import type { DeletionMode } from "@/shared/kernel/events";
+import { oneLine } from "@/shared/kernel/text";
 import { confirmationMatches, displayName } from "@/shared/kernel/person-label";
 
-export type { DeletionBlockers } from "@/domain/error-details";
+export type { DeletionBlockers } from "@/shared/kernel/error-details";
 
-export type { DeletionMode } from "@/domain/events";
+export type { DeletionMode } from "@/shared/kernel/events";
 
 export const DELETION_MODES: readonly DeletionMode[] = ["scrubbed", "records_kept"];
 

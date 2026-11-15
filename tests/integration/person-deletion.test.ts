@@ -4,7 +4,7 @@ import { after, before, describe, test } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { tombstoneEmail } from "@/modules/people/domain/person-deletion";
 import type { WebhookFetch } from "@/lib/safe-fetch";
 import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deliverDueWebhooks, dispatchOutboxBatch, listBalancesForApi as listBalancesForApiResult } from "@/modules/integrations";

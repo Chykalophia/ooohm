@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, between, eq, inArray, or, type SQL, sql } from "drizzle-orm";
 import { companies, departments, holidays, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
-import type { CalendarScope } from "@/domain/calendar-visibility";
+import type { CalendarScope } from "@/shared/kernel/calendar-visibility";
 import { activeInRange } from "@/shared/lib/db/active-leave";
 
 const settingsFields = {

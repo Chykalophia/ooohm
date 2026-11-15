@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { RECORDS_EXPORTED_AUDIT_ACTION } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { RECORDS_EXPORTED_AUDIT_ACTION } from "@/shared/kernel/events";
 import type { ServiceContext } from "@/server/context";
 import { findCompany } from "@/modules/organisation";
 import { auditRows, balanceRows, EXPORT_HEADER, requestRows } from "@/modules/people/application/deletion/records-export";

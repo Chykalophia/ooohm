@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { canAdminister } from "@/shared/kernel/admin-permissions";
 
 /** Whether `actor` may read, preview, change and reset their company's email copy (Admin → Emails): admins only. */

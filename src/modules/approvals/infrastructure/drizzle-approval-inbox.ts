@@ -4,7 +4,7 @@ import { and, count, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "dri
 import { alias } from "drizzle-orm/pg-core";
 import { auditLog, departments, leaveRequests, leaveTypes, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
-import type { PageRequest } from "@/domain/paging";
+import type { PageRequest } from "@/shared/kernel/paging";
 import { alsoOffFor } from "@/modules/leave";
 import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 import type { ApprovalInbox, InboxRequest, InboxScope, RecentDecision, ReviewRequest } from "../application/ports";

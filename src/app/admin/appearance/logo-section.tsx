@@ -1,4 +1,4 @@
-import { LOGO_RULES, LOGO_TYPES, type LogoRef } from "@/domain/company-logo";
+import { LOGO_RULES, LOGO_TYPES, type LogoRef } from "@/shared/kernel/company-logo";
 import { ActionForm } from "@/components/forms/action-form";
 import { InlineAction } from "@/components/forms/inline-action";
 import { CompanyLogo, Logo } from "@/components/layout/logo";

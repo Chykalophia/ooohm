@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { monthOf } from "@/domain/calendar";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { monthOf } from "@/shared/kernel/calendar";
 import { formatShortDay } from "@/lib/format";
 import { cx, errorText, focusRing, surface } from "@/components/ui/styles";
 import {

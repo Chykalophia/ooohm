@@ -3,7 +3,7 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { exportLeaveReport as exportLeaveReportResult, getLeaveReport as getLeaveReportResult } from "@/modules/reports";
 import { unwrap } from "@/shared/lib/result";
 import { addLeaveType, seedCompany, setAllowance } from "./fixtures";

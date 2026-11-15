@@ -1,6 +1,6 @@
 "use client";
 
-import type { CalendarDate } from "@/domain/calendar-date";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
 import { FieldShell } from "@/components/ui/fields";
 import { cx, fieldClass } from "@/components/ui/styles";
 import { DatePicker } from "./date-picker";

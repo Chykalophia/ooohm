@@ -10,10 +10,10 @@ import "server-only";
  * (see `firstEditableAllowanceYear`). Lowering an allowance below what is already
  * booked is allowed; the balance then shows a negative remaining.
  */
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
-import { type AllowanceEdit, assertAllowanceYear, normalizeAllowanceEdit } from "@/domain/leave-type-settings";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
+import { type AllowanceEdit, assertAllowanceYear, normalizeAllowanceEdit } from "@/shared/kernel/leave-type-settings";
 import { yearInTimeZone } from "@/lib/dates";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 import type { AllowanceOverrideResult } from "../dto";

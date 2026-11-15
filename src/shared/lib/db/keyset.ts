@@ -1,9 +1,9 @@
 import "server-only";
 import { type AnyColumn, type SQL, asc, desc, sql } from "drizzle-orm";
-import type { PageRequest } from "@/domain/paging";
+import type { PageRequest } from "@/shared/kernel/paging";
 
 /**
- * The `where` and `order by` of one keyset page (see `@/domain/paging`): the rows after
+ * The `where` and `order by` of one keyset page (see `@/shared/kernel/paging`): the rows after
  * the key in list order, or the rows before it nearest first. `values` are the key's
  * parts as SQL, cast to their columns' types (`::timestamptz`, `::uuid`).
  *

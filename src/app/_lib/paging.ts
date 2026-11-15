@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PageCursor, Paged } from "@/domain/paging";
+import type { PageCursor, Paged } from "@/shared/kernel/paging";
 import type { PagerLinks } from "@/components/navigation/pager";
 import { readParam } from "@/shared/lib/search-params";
 

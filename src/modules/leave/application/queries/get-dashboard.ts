@@ -1,9 +1,9 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { addDays, type BalanceSummary, isEmptyBalance, type LeaveTypeWithAllowance, resolveAllowancePolicy } from "@/modules/balances";
 import { readApprovalMode } from "@/shared/kernel/approval";
-import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
-import { DomainError, isDomainError } from "@/domain/errors";
+import { fromEpochDay, toEpochDay } from "@/shared/kernel/calendar-date";
+import { DomainError, isDomainError } from "@/shared/kernel/errors";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import { nextWorkingDay, WORKING_DAY_LOOKAHEAD } from "@/shared/kernel/leave-days";

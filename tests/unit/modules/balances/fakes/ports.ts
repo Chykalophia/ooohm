@@ -1,6 +1,6 @@
-import type { Actor } from "@/domain/actor";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
 import type {
   AdminLeaveType,
   AllowanceRuleRepository,

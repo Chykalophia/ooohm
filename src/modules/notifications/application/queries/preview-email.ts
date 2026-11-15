@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 import { emailAccentFor } from "@/modules/notifications/application/accent";

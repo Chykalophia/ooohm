@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { type DomainErrorCode, isDomainError } from "@/domain/errors";
+import { type DomainErrorCode, isDomainError } from "@/shared/kernel/errors";
 
 /** Asserts that `promise` rejects with a `DomainError` carrying `code`. */
 export async function rejectsWith(promise: Promise<unknown>, code: DomainErrorCode): Promise<void> {

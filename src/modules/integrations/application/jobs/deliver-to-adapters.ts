@@ -4,7 +4,7 @@ import "server-only";
  * adapters, with the webhook retry schedule. Nothing runs here in v1, which registers no
  * adapters.
  */
-import { buildEnvelope } from "@/domain/event-envelope";
+import { buildEnvelope } from "@/shared/kernel/event-envelope";
 import { retryDelayMs } from "@/modules/integrations/domain/integrations";
 import { log } from "@/lib/log";
 import { describeTransportError } from "@/lib/safe-fetch";

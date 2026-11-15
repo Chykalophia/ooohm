@@ -3,8 +3,8 @@
  * leave differently from TimeOff.
  */
 import { addDays } from "@/shared/kernel/day-amounts";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { isCalendarDate } from "@/domain/calendar-date";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { isCalendarDate } from "@/shared/kernel/calendar-date";
 import { splitLeaveDaysByYear, type YearDays } from "@/shared/kernel/leave-days";
 import { type LeaveRange, type LeaveStatus, NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { isTimeOffApproved, timeOffDeductedDays } from "../balance";

@@ -1,6 +1,6 @@
 import "server-only";
-import { DomainError } from "@/domain/errors";
-import type { LevelEventPayload, Unattributed } from "@/domain/events";
+import { DomainError } from "@/shared/kernel/errors";
+import type { LevelEventPayload, Unattributed } from "@/shared/kernel/events";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import type { LevelDTO } from "@/modules/organisation/application/dto";
 

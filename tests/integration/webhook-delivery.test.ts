@@ -4,7 +4,7 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import { and, eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { createWebhookEndpoint as createWebhookEndpointResult, deleteWebhookEndpoint as deleteWebhookEndpointResult, deliverDueWebhooks, dispatchOutboxBatch, listWebhookEndpoints as listWebhookEndpointsResult, redeliverWebhook as redeliverWebhookResult, RETRY_DELAYS_MS, rotateWebhookSecret as rotateWebhookSecretResult, sendWebhookPing as sendWebhookPingResult, setWebhookEndpointEnabled as setWebhookEndpointEnabledResult } from "@/modules/integrations";
-import { type EventEnvelope } from "@/domain/event-envelope";
+import { type EventEnvelope } from "@/shared/kernel/event-envelope";
 import { verifyWebhookSignature } from "@/lib/integration-crypto";
 import { TransportError, type WebhookFetch } from "@/lib/safe-fetch";
 import { claimDueDeliveries, recordDeliveryOutcome } from "@/modules/integrations/infrastructure/drizzle-webhooks.repository";

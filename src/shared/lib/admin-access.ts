@@ -1,9 +1,9 @@
 import "server-only";
 import type { Executor, Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { assertCanAdminister } from "@/shared/kernel/admin-permissions";
-import { DomainError } from "@/domain/errors";
-import type { AdminEventType, IntegrationEventType } from "@/domain/events";
+import { DomainError } from "@/shared/kernel/errors";
+import type { AdminEventType, IntegrationEventType } from "@/shared/kernel/events";
 import { recordChange } from "@/shared/lib/db/change-log";
 import { findMemberStanding } from "@/shared/lib/db/admin-standing";
 
@@ -27,7 +27,7 @@ export async function assertActiveAdmin(ex: Executor, actor: Actor): Promise<voi
  * the admin as they are acting (`actor.source`). The audit `action` and the event `type`
  * are the same name (`user.created`, `holiday.deleted`).
  *
- * @param change.payload The event payload documented for `type` in `@/domain/events`,
+ * @param change.payload The event payload documented for `type` in `@/shared/kernel/events`,
  *   without `actorId` and `actor`, which `recordChange` adds. Never a token, session or
  *   sign-in link.
  */

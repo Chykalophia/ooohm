@@ -1,5 +1,5 @@
-import type { Actor, Role } from "@/domain/actor";
-import type { ChangeSource } from "@/domain/change-source";
+import type { Actor, Role } from "@/shared/kernel/actor";
+import type { ChangeSource } from "@/shared/kernel/change-source";
 import type {
   ApprovalChangeLog,
   ApprovalContextReader,

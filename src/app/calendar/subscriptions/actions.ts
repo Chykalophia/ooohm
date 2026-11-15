@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { addToCalendarLinks, FEED_KINDS, FEED_SHORT_NAMES } from "@/domain/calendar-feed";
+import { addToCalendarLinks, FEED_KINDS, FEED_SHORT_NAMES } from "@/shared/kernel/calendar-feed";
 import { issueCalendarFeed, revokeCalendarFeed } from "@/modules/calendar";
 import { map, type ServiceResult } from "@/shared/lib/result";
 import { runStateAction } from "@/app/_lib/server-action";

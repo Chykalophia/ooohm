@@ -1,7 +1,7 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { ADMIN_EVENT_TYPES } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import { ADMIN_EVENT_TYPES } from "@/shared/kernel/events";
 import { recordPersonChange } from "@/modules/people/application/person-changes";
 import type { PersonRow } from "@/shared/lib/db/members";
 

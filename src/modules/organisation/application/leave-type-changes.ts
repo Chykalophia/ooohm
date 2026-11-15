@@ -1,8 +1,8 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import type { AdminEventType, LeaveTypeEventPayload, Unattributed } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import type { AdminEventType, LeaveTypeEventPayload, Unattributed } from "@/shared/kernel/events";
 import { recordAdminChange } from "@/shared/lib/admin-access";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import type { LeaveTypeSettingsDTO } from "@/modules/organisation/application/dto";

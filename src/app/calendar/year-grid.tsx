@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { AgendaItem, CalendarDay, YearMonth } from "@/domain/calendar";
+import type { AgendaItem, CalendarDay, YearMonth } from "@/shared/kernel/calendar";
 import { formatLeaveDates, formatMonth } from "@/lib/format";
 import { cx, focusRing } from "@/components/ui/styles";
 import { MiniLegend, miniDay, WEEKDAY_INITIALS } from "./mini-day";

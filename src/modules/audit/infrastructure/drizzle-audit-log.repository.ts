@@ -3,7 +3,7 @@ import { and, count, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizzle-o
 import { alias } from "drizzle-orm/pg-core";
 import { apiKeys, auditLog, user } from "@/db/schema";
 import type { Executor } from "@/db/types";
-import type { PageRequest } from "@/domain/paging";
+import type { PageRequest } from "@/shared/kernel/paging";
 import { cursorInstant, keysetPage } from "@/shared/lib/db/keyset";
 
 /** Which audit rows to read; every filter is optional except the company. */

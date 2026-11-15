@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { buildAgenda, buildMonthGrid, type CalendarEntry, MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR, monthGridBounds, type YearMonth } from "@/domain/calendar";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { buildAgenda, buildMonthGrid, type CalendarEntry, MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR, monthGridBounds, type YearMonth } from "@/shared/kernel/calendar";
+import { DomainError } from "@/shared/kernel/errors";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { attempt, type ServiceResult } from "@/shared/lib/result";

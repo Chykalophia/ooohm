@@ -1,5 +1,5 @@
 import "server-only";
-import { type EmailCopy, unknownVariables } from "@/domain/email-template";
+import { type EmailCopy, unknownVariables } from "@/shared/kernel/email-template";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { listEmailTemplates } from "@/modules/notifications/infrastructure/drizzle-email-templates.repository";

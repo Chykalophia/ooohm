@@ -1,5 +1,5 @@
 import "server-only";
-import { type EmailCopy, fillTemplate } from "@/domain/email-template";
+import { type EmailCopy, fillTemplate } from "@/shared/kernel/email-template";
 import { escapeHtml } from "@/lib/email-layout";
 
 /** An email's words with every field set: its defaults, or an admin's copy over them. */

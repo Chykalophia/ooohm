@@ -1,6 +1,6 @@
 import "server-only";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { DomainError } from "@/domain/errors";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { findCompanySettings, listHolidayRows } from "@/modules/calendar";

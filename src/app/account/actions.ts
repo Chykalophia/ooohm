@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
-import { COLOR_MODES } from "@/domain/color-mode";
+import { COLOR_MODES } from "@/shared/kernel/color-mode";
 import { renameSelf, setColorMode } from "@/modules/people";
 import type { FormState } from "@/components/forms/form-state";
 import { runFormAction } from "@/app/_lib/server-action";

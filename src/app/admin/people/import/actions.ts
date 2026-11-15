@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { importPeople, previewPeopleImport } from "@/modules/people";
 import { unwrap } from "@/shared/lib/result";
 import { adminStateAction } from "@/app/admin/admin-action";

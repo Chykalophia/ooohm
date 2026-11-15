@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { getDeletionPreview } from "@/modules/people/application/queries/get-deletion-preview";
 import { getPersonDetail } from "@/modules/people/application/queries/get-person-detail";

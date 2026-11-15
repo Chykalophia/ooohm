@@ -11,7 +11,7 @@
  * Dates are `YYYY-MM-DD` (TimeOff stores date-times at UTC midnight); timestamps are ISO
  * strings or `null` when the file has none.
  */
-import type { CalendarDate } from "@/domain/calendar-date";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
 
 /** `Leaves.status`. */
 export const TIMEOFF_STATUS = {

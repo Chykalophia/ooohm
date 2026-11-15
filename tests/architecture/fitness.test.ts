@@ -12,7 +12,7 @@ import { ROOT } from "./files";
  */
 const PROBE = "__fitness_probe__";
 const probes: Record<string, string> = {
-  [`src/domain/${PROBE}/impure.ts`]: `import { eq } from "drizzle-orm";\nexport const probe = eq;\n`,
+  [`src/shared/kernel/${PROBE}/impure.ts`]: `import { eq } from "drizzle-orm";\nexport const probe = eq;\n`,
   [`src/app/${PROBE}/skips-layer.ts`]: `import * as repo from "@/shared/lib/db/members";\nexport const probe = repo;\n`,
   [`src/components/${PROBE}/reaches-server.ts`]: `import { serviceContext } from "@/server/runtime";\nexport const probe = serviceContext;\n`,
   [`src/lib/${PROBE}/a.ts`]: `import { b } from "./b";\nexport const a = () => b;\n`,
@@ -58,7 +58,7 @@ test("each dependency rule reports a planted violation", () => {
   const { summary } = cruise(Object.keys(probes));
   const fired = (rule: string, from: string) =>
     summary.violations.some((v) => v.rule.name === rule && v.from.includes(PROBE) && v.from.endsWith(`/${from}`));
-  assert.ok(fired("domain-is-pure", "impure.ts"), "domain → drizzle-orm not reported");
+  assert.ok(fired("domain-is-pure", "impure.ts"), "kernel → drizzle-orm not reported");
   assert.ok(fired("app-not-to-infrastructure", "skips-layer.ts"), "app → repository not reported");
   assert.ok(fired("components-not-to-server", "reaches-server.ts"), "component → server not reported");
   assert.ok(fired("no-circular", "a.ts") || fired("no-circular", "b.ts"), "cycle not reported");

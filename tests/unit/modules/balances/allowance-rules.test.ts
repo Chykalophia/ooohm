@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type AllowanceRule, defaultAllowanceFor, normalizeAllowanceRule, ruleFor } from "@/modules/balances/domain/allowance-rules";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 
 const pto = { id: "pto", defaultAllowanceDays: 15 };
 const rules: AllowanceRule[] = [

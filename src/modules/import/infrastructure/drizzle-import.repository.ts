@@ -9,8 +9,8 @@ import "server-only";
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { allowances, auditLog, companies, departments, importRuns, leaveRequestDays, leaveRequests, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
-import type { Role } from "@/domain/actor";
-import type { ChangeSource } from "@/domain/change-source";
+import type { Role } from "@/shared/kernel/actor";
+import type { ChangeSource } from "@/shared/kernel/change-source";
 import { type AuditEntry, sourceColumns } from "@/shared/lib/db/change-log";
 
 /** Rows per insert statement: well under Postgres's 65,535 bind parameters for the widest table here. */

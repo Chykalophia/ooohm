@@ -6,11 +6,11 @@ import "server-only";
  * in-memory fakes.
  */
 import type { Executor, Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { ApiClient } from "@/modules/integrations";
-import type { PageCursor } from "@/domain/paging";
+import type { PageCursor } from "@/shared/kernel/paging";
 import type { ServiceContext } from "@/server/context";
-import type { CompanySettingsInput } from "@/domain/company-settings";
+import type { CompanySettingsInput } from "@/shared/kernel/company-settings";
 import { commitThenNotify } from "@/modules/notifications";
 import { saveCompanySettings } from "@/modules/organisation";
 import type { LeaveDraft } from "@/modules/balances";

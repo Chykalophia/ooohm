@@ -1,4 +1,4 @@
-import { toActor } from "@/domain/actor";
+import { toActor } from "@/shared/kernel/actor";
 import { currentUser } from "@/lib/auth";
 import { isCrossSiteRequest } from "@/lib/fetch-site";
 import { log } from "@/lib/log";

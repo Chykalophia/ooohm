@@ -1,9 +1,9 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES } from "@/domain/events";
-import { isUuid } from "@/domain/ids";
-import { type LeaveTypeSettings, normalizeLeaveTypeSettings } from "@/domain/leave-type-settings";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import { ADMIN_EVENT_TYPES } from "@/shared/kernel/events";
+import { isUuid } from "@/shared/kernel/uuid";
+import { type LeaveTypeSettings, normalizeLeaveTypeSettings } from "@/shared/kernel/leave-type-settings";
 import type { ServiceContext } from "@/server/context";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { inTransaction } from "@/shared/lib/unit-of-work";

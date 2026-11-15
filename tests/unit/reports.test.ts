@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { formatWait } from "@/lib/format";
-import { byUser } from "@/domain/change-source";
+import { byUser } from "@/shared/kernel/change-source";
 import {
   allocateYearToMonths,
   buildLeaveReport,

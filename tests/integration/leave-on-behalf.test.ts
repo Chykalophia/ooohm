@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { addLeaveFor as addLeaveForResult, cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, previewLeaveFor as previewLeaveForResult, removeLeaveFor as removeLeaveForResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";

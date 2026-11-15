@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { changeSourceLabel, bySystem, CHANGE_PROCESSES, recordedChangeSource } from "@/domain/change-source";
+import { changeSourceLabel, bySystem, CHANGE_PROCESSES, recordedChangeSource } from "@/shared/kernel/change-source";
 import { csvCell, toCsv } from "@/shared/kernel/csv";
-import { isDomainError } from "@/domain/errors";
-import { eventAttribution } from "@/domain/events";
+import { isDomainError } from "@/shared/kernel/errors";
+import { eventAttribution } from "@/shared/kernel/events";
 import { normalizeEmail } from "@/shared/kernel/names";
 import {
   assertConfirmed,

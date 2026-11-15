@@ -3,9 +3,9 @@
  * the calendar and the API never see ranges; a run added together shares one name, and
  * the admin screen shows back-to-back days with one name as one entry.
  */
-import { type CalendarDate, eachDate, isCalendarDate, spanInDays, toEpochDay } from "@/domain/calendar-date";
-import { DomainError } from "@/domain/errors";
-import { assertHolidayDate } from "@/domain/holidays";
+import { type CalendarDate, eachDate, isCalendarDate, spanInDays, toEpochDay } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
+import { assertHolidayDate } from "@/shared/kernel/holidays";
 
 /** The longest run of days one entry can add (a shutdown, a festive break). */
 export const HOLIDAY_RANGE_MAX_DAYS = 31;

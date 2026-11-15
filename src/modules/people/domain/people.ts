@@ -4,8 +4,8 @@
  * their transaction and call them before writing. How names and emails are stored is
  * `@/shared/kernel/names`.
  */
-import { ROLES, type Role } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
+import { ROLES, type Role } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
 
 export function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);

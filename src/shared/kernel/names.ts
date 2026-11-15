@@ -3,8 +3,8 @@
  * departments and levels. Pure; the people and organisation modules, the TimeOff
  * mapping, the inbound sync and the forms (for their length limits) share them.
  */
-import { DomainError } from "@/domain/errors";
-import { oneLine } from "@/domain/text";
+import { DomainError } from "@/shared/kernel/errors";
+import { oneLine } from "@/shared/kernel/text";
 
 /** Longest name an admin may give a person. Display trims further (see `displayName`). */
 export const PERSON_NAME_MAX_LENGTH = 100;

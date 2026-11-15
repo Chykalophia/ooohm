@@ -1,11 +1,11 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { readAppearance } from "@/domain/appearance";
+import type { Actor } from "@/shared/kernel/actor";
+import { readAppearance } from "@/shared/kernel/appearance";
 import { readApprovalMode } from "@/shared/kernel/approval";
-import { readStoredLogo } from "@/domain/company-logo";
-import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "@/domain/events";
+import { readStoredLogo } from "@/shared/kernel/company-logo";
+import { DomainError } from "@/shared/kernel/errors";
+import { ADMIN_EVENT_TYPES, type CompanyEventPayload, type Unattributed } from "@/shared/kernel/events";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { type CompanyRow, lockAndFindCompany, updateCompany } from "@/modules/organisation/infrastructure/drizzle-companies.repository";
 import { type CompanyDTO, toCompanyDTO } from "@/modules/organisation/application/dto";

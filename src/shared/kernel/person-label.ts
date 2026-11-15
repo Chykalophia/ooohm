@@ -2,7 +2,7 @@
  * How people are named where others see them (emails, the team view, the team feed),
  * and the name an admin types to confirm deleting someone.
  */
-import { oneLine } from "@/domain/text";
+import { oneLine } from "@/shared/kernel/text";
 
 /** Longest display name shown; anything beyond is cut. */
 const NAME_MAX_LENGTH = 100;

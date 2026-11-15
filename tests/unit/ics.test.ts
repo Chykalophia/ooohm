@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { CalendarEntry, TeamCalendarEntry } from "@/domain/calendar";
-import { buildFeedCalendar, feedEventSummary, feedEventUid, feedWindow } from "@/domain/calendar-feed";
+import type { CalendarEntry, TeamCalendarEntry } from "@/shared/kernel/calendar";
+import { buildFeedCalendar, feedEventSummary, feedEventUid, feedWindow } from "@/shared/kernel/calendar-feed";
 import {
   escapeIcsText,
   exclusiveEndDate,
@@ -9,7 +9,7 @@ import {
   type IcsCalendar,
   type IcsEvent,
   serializeCalendar,
-} from "@/domain/ics";
+} from "@/shared/kernel/ics";
 import { only, parseIcs, unescapeText } from "../support/ics-parser";
 
 const generatedAt = new Date("2026-11-01T15:04:05.678Z");

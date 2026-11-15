@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { test } from "node:test";
-import { byUser, CHANGE_PROCESSES, changeSourceLabel } from "@/domain/change-source";
+import { byUser, CHANGE_PROCESSES, changeSourceLabel } from "@/shared/kernel/change-source";
 import { deriveLinkKey, signApproveToken, verifyApproveToken } from "@/lib/email-link-token";
 import { formatTypicalWait } from "@/lib/format";
 

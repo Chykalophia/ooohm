@@ -5,10 +5,10 @@ import { type CompanyDTO as CompanyRow, lockCompanyForChange as lockCompany } fr
  * it may take the import, then plan the import for it.
  */
 import type { Transaction } from "@/db/types";
-import { type CalendarDate } from "@/domain/calendar-date";
-import { COMPANY_NAME_MAX_LENGTH } from "@/domain/company-settings";
-import { isUuid } from "@/domain/ids";
-import { oneLine } from "@/domain/text";
+import { type CalendarDate } from "@/shared/kernel/calendar-date";
+import { COMPANY_NAME_MAX_LENGTH } from "@/shared/kernel/company-settings";
+import { isUuid } from "@/shared/kernel/uuid";
+import { oneLine } from "@/shared/kernel/text";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listHolidayRows } from "@/modules/calendar";

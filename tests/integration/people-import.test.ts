@@ -3,7 +3,7 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import { CHANGE_PROCESSES } from "@/domain/change-source";
+import { CHANGE_PROCESSES } from "@/shared/kernel/change-source";
 import { peopleImportSampleCsv } from "@/modules/people";
 import { INVITE_SUBJECT } from "@/modules/notifications/application/templates/invite";
 import { importPeople as importPeopleResult, invitePerson as invitePersonResult, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport as previewPeopleImportResult } from "@/modules/people";

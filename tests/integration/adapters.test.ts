@@ -3,7 +3,7 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { applyInboundSync, createWebhookEndpoint as createWebhookEndpointResult, deliverDueAdapterEvents, dispatchOutboxBatch, listAdapters as listAdaptersResult, RETRY_DELAYS_MS, syncAdapterNow as syncAdapterNowResult } from "@/modules/integrations";
-import { type EventEnvelope } from "@/domain/event-envelope";
+import { type EventEnvelope } from "@/shared/kernel/event-envelope";
 import { type Adapter, createAdapterRegistry, type InboundBalance, type InboundUser } from "@/server/integrations/adapter";
 import { adapterRegistry } from "@/server/integrations/registry";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";

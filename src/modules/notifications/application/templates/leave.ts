@@ -1,5 +1,5 @@
 import "server-only";
-import type { EmailCopy } from "@/domain/email-template";
+import type { EmailCopy } from "@/shared/kernel/email-template";
 import { displayName } from "@/shared/kernel/person-label";
 import { formatDateSpan, formatDays, formatLeaveDates, formatRecountCause } from "@/lib/format";
 import type { RecountCause } from "@/lib/format";

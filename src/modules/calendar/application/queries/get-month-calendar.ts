@@ -1,7 +1,7 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
-import { buildAgenda, buildMonthGrid, type CalendarViewEntry, monthGridBounds } from "@/domain/calendar";
-import { CALENDAR_FILTERS, type CalendarFilter, calendarFilterLabel, calendarFiltersFor, narrowCalendarScope } from "@/domain/calendar-visibility";
+import type { Actor } from "@/shared/kernel/actor";
+import { buildAgenda, buildMonthGrid, type CalendarViewEntry, monthGridBounds } from "@/shared/kernel/calendar";
+import { CALENDAR_FILTERS, type CalendarFilter, calendarFilterLabel, calendarFiltersFor, narrowCalendarScope } from "@/shared/kernel/calendar-visibility";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listActiveLeaveTypesWithAllowance } from "@/shared/lib/db/leave-type-allowances";

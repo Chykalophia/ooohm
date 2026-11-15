@@ -19,7 +19,7 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "../src/db/schema";
 import { yearInTimeZone } from "../src/lib/dates";
-import { DEFAULT_LEAVE_TYPES } from "../src/domain/install";
+import { DEFAULT_LEAVE_TYPES } from "../src/shared/kernel/install";
 import { adminDatabaseConfig, openAdminDatabase } from "../src/server/admin/db";
 
 const args = process.argv.slice(2);

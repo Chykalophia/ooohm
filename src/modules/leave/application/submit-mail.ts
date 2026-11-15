@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { Notification } from "@/modules/notifications";
 import type { LeaveRequest } from "../domain/leave-request";
 import { activeContactsIn, summarize } from "./leave-changes";

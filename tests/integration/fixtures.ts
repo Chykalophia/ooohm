@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import type { Actor, Role } from "@/domain/actor";
-import { byUser } from "@/domain/change-source";
+import type { Actor, Role } from "@/shared/kernel/actor";
+import { byUser } from "@/shared/kernel/change-source";
 import type { ServiceContext } from "@/server/context";
 import { getApprovalTriage } from "@/modules/approvals";
 

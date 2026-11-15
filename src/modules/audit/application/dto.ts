@@ -1,7 +1,7 @@
 import "server-only";
-import { auditActionLabel, describeAuditChange } from "@/domain/audit";
-import { type ChangeSourceKind, changeSourceLabel, recordedChangeSource } from "@/domain/change-source";
-import type { PageCursor } from "@/domain/paging";
+import { auditActionLabel, describeAuditChange } from "@/modules/audit/domain/audit";
+import { type ChangeSourceKind, changeSourceLabel, recordedChangeSource } from "@/shared/kernel/change-source";
+import type { PageCursor } from "@/shared/kernel/paging";
 import { personLabel } from "@/shared/kernel/person-label";
 import type { AuditPageSize } from "./schemas";
 

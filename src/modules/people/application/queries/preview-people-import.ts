@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { type PeopleImportPreview, planPeopleFile } from "@/modules/people/application/people-import-plan";
 import { canImportPeople } from "@/modules/people/application/policies";

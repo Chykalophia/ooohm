@@ -3,7 +3,7 @@
  * and year the import must reproduce.
  */
 import { addDays } from "@/shared/kernel/day-amounts";
-import { MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
+import { MAX_ALLOWANCE_DAYS } from "@/shared/kernel/leave-type-settings";
 import { isTimeOffApproved, timeOffDeductedDays, type TimeOffWorkCalendar, timeOffYearBalance, type TimeOffYearBalance } from "../balance";
 import type { TimeOffAdjustment, TimeOffDepartment, TimeOffLeave, TimeOffUser } from "../source";
 import { refuse, yearOf } from "./rules";

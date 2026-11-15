@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { type AgendaItem, agendaForDay, type CalendarDay, type CalendarViewEntry, type YearMonth } from "@/domain/calendar";
+import { type AgendaItem, agendaForDay, type CalendarDay, type CalendarViewEntry, type YearMonth } from "@/shared/kernel/calendar";
 import { formatLongDate, formatMonth } from "@/lib/format";
 import { ItemList } from "@/components/ui/card";
 import { cx, subtleButton } from "@/components/ui/styles";

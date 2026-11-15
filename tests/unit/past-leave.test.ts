@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { byUser } from "@/domain/change-source";
-import type { Actor } from "@/domain/actor";
-import { isDomainError } from "@/domain/errors";
+import { byUser } from "@/shared/kernel/change-source";
+import type { Actor } from "@/shared/kernel/actor";
+import { isDomainError } from "@/shared/kernel/errors";
 import { canCorrectLeaveFor } from "@/modules/leave/domain/leave-permissions";
 import { assertCancellableOn, assertRemovableOn, canCancelOn, canRemoveOn, isLeaveOver } from "@/modules/leave/domain/leave-status";
 

@@ -11,11 +11,11 @@ import "server-only";
  * their counts, so a settled balance never moves. Renaming changes no count.
  */
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
-import type { AdminEventType, HolidayEventPayload, Unattributed } from "@/domain/events";
-import { isHolidayYear } from "@/domain/holidays";
-import { isUuid } from "@/domain/ids";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
+import type { AdminEventType, HolidayEventPayload, Unattributed } from "@/shared/kernel/events";
+import { isHolidayYear } from "@/shared/kernel/holidays";
+import { isUuid } from "@/shared/kernel/uuid";
 import type { HolidayFact } from "@/modules/leave";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { lockCompany } from "@/shared/lib/db/company-lock";

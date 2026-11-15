@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { type ApiClient, authenticateApiKey } from "@/modules/integrations";
 import { apiKeyFromAuthorization } from "@/lib/integration-crypto";
 import { log } from "@/lib/log";

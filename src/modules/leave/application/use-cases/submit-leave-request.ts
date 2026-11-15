@@ -1,8 +1,8 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { readApprovalMode } from "@/shared/kernel/approval";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
 import type { Notification } from "@/modules/notifications";
 import type { LeaveDraft } from "@/modules/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";

@@ -1,5 +1,5 @@
 import "server-only";
-import type { PersonChangeSource } from "@/domain/change-source";
+import type { PersonChangeSource } from "@/shared/kernel/change-source";
 import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
@@ -8,7 +8,7 @@ import {
   type LeaveRecountedPayload,
   leaveAuditAction,
   leaveEventPayload,
-} from "@/domain/events";
+} from "@/shared/kernel/events";
 import { personLabel } from "@/shared/kernel/person-label";
 import type { LeaveSummary } from "@/modules/notifications";
 import type { LeaveDomainEvent } from "../domain/events";

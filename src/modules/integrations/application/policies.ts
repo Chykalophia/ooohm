@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { canAdminister } from "@/shared/kernel/admin-permissions";
 
 /** Whether `actor` may see and change the company's webhook endpoints and their deliveries: admins only. */

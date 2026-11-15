@@ -1,7 +1,7 @@
 import "server-only";
-import type { CalendarDate } from "@/domain/calendar-date";
-import { DomainError } from "@/domain/errors";
-import { isUuid } from "@/domain/ids";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
 import { type ApiClient, assertScope, decodeCursor, iso, page, type Page } from "@/modules/integrations";
 import type { LeaveStatus } from "@/shared/kernel/leave-range";
 import { attempt, type ServiceResult } from "@/shared/lib/result";

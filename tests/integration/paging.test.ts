@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { and, asc, eq, like, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { encodePageKey, type PageCursor, type Paged } from "@/domain/paging";
+import { encodePageKey, type PageCursor, type Paged } from "@/shared/kernel/paging";
 import { listPeople as listPeopleResult, PEOPLE_PAGE_SIZE } from "@/modules/people";
 import { cancelLeaveRequest as cancelLeaveRequestResult, DASHBOARD_REQUESTS, getDashboard as getDashboardResult, getMyRequest as getMyRequestResult, listMyRequests as listMyRequestsResult, REQUESTS_PAGE_SIZE } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";

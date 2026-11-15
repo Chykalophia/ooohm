@@ -1,5 +1,5 @@
 import "server-only";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import type { ApprovalNavDTO } from "../dto";
 import type { ApprovalDeps } from "../ports";
 import { inboxScopeFor } from "./get-approval-triage";

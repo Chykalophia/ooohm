@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { normalizeNote } from "@/modules/leave/domain/note";
 import { type LeaveRange, NOTE_MAX_LENGTH, rangesOverlap } from "@/shared/kernel/leave-range";
 

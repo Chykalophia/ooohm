@@ -7,8 +7,8 @@ import "server-only";
  * person before the change take what they give now ({@link followDefaults}). A row an
  * admin set to something else stays as it is.
  */
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import type { Placement } from "../domain/allowance-rules";
 import { followDefaults } from "./follow-defaults";

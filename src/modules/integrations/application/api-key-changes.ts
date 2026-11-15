@@ -1,6 +1,6 @@
 import "server-only";
 /** The audit snapshot and event payload of an API key: never the key or its hash. */
-import type { ApiKeyEventPayload, Unattributed } from "@/domain/events";
+import type { ApiKeyEventPayload, Unattributed } from "@/shared/kernel/events";
 import type { ApiKeyRow } from "@/modules/integrations/infrastructure/drizzle-api-keys.repository";
 
 export function apiKeySnapshot(row: ApiKeyRow) {

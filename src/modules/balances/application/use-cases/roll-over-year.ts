@@ -1,6 +1,6 @@
 import "server-only";
-import { bySystem, CHANGE_PROCESSES } from "@/domain/change-source";
-import { DomainError } from "@/domain/errors";
+import { bySystem, CHANGE_PROCESSES } from "@/shared/kernel/change-source";
+import { DomainError } from "@/shared/kernel/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import { attempt, type ServiceResult } from "@/shared/lib/result";

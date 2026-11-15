@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { canDeletePeople, canImportPeople, canManagePeople } from "@/modules/people/application/policies";
-import { ROLES } from "@/domain/actor";
+import { ROLES } from "@/shared/kernel/actor";
 
 /** Only admins manage, delete and import people; every other role is refused before any read. */
 describe("people policies", () => {

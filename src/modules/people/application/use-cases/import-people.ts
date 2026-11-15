@@ -1,9 +1,9 @@
 import "server-only";
 import type { Transaction } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { CHANGE_PROCESSES, through } from "@/domain/change-source";
-import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES } from "@/domain/events";
+import type { Actor } from "@/shared/kernel/actor";
+import { CHANGE_PROCESSES, through } from "@/shared/kernel/change-source";
+import { DomainError } from "@/shared/kernel/errors";
+import { ADMIN_EVENT_TYPES } from "@/shared/kernel/events";
 import type { ServiceContext } from "@/server/context";
 import { listPendingSelfRouted, rerouteApprovals } from "@/modules/approvals";
 import { countRecentActions } from "@/modules/audit";

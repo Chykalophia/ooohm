@@ -1,9 +1,9 @@
 import "server-only";
-import { type Actor, toActor } from "@/domain/actor";
-import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
-import { DomainError } from "@/domain/errors";
-import { ADMIN_EVENT_TYPES } from "@/domain/events";
-import { defaultLeaveTypes, type InstallInput, normalizeInstall } from "@/domain/install";
+import { type Actor, toActor } from "@/shared/kernel/actor";
+import { byUser, CHANGE_PROCESSES } from "@/shared/kernel/change-source";
+import { DomainError } from "@/shared/kernel/errors";
+import { ADMIN_EVENT_TYPES } from "@/shared/kernel/events";
+import { defaultLeaveTypes, type InstallInput, normalizeInstall } from "@/shared/kernel/install";
 import { setupTokenMatches } from "@/lib/setup-token";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";

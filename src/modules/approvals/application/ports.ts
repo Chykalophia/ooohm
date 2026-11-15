@@ -4,8 +4,8 @@ import "server-only";
  * database in `infrastructure/` and in memory by the fakes in
  * `tests/unit/modules/approvals/fakes`; `composition.ts` wires the real ones.
  */
-import type { CalendarDate } from "@/domain/calendar-date";
-import type { PageRequest } from "@/domain/paging";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import type { PageRequest } from "@/shared/kernel/paging";
 import type { AlsoOff, AlsoOffRequest, LeaveChange, LeaveRequest } from "@/modules/leave";
 import type { Notification } from "@/modules/notifications";
 import type { DayPortion, LeaveStatus } from "@/shared/kernel/leave-range";

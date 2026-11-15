@@ -1,4 +1,4 @@
-import { toActor } from "@/domain/actor";
+import { toActor } from "@/shared/kernel/actor";
 import { canAdminister } from "@/shared/kernel/admin-permissions";
 import { peopleImportSampleCsv } from "@/modules/people";
 import { currentUser } from "@/lib/auth";

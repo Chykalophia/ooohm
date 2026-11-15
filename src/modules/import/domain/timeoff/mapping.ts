@@ -24,7 +24,7 @@
  * - Types without `use_allowance` import untracked, or, when TimeOff caps them with a
  *   yearly `limit`, as a tracked type whose default allowance is that limit.
  */
-import { DomainError, isDomainError } from "@/domain/errors";
+import { DomainError, isDomainError } from "@/shared/kernel/errors";
 import { type AllowanceContext, planAllowances } from "./plan/allowances";
 import { type CalendarPlan, planCalendars } from "./plan/calendars";
 import { companyScope, planCompany } from "./plan/company";

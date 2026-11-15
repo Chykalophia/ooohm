@@ -106,3 +106,24 @@ jobs:
             if grep -rlF "$value" .next/static; then echo "::error::a server secret is in the client bundle"; status=1; fi
           done
           exit $status
+
+  e2e:
+    name: End-to-end journeys (Playwright on pnpm start:embedded)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # Playwright is not a dependency of the repo: the journeys load it from the machine.
+      - name: Playwright and Chromium
+        run: |
+          npm install --global playwright@1.63.0
+          npx --yes playwright@1.63.0 install --with-deps chromium
+          echo "NODE_PATH=$(npm root --global)" >> "$GITHUB_ENV"
+      - run: pnpm test:e2e

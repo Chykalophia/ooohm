@@ -7,10 +7,14 @@ import { encodePageKey, type PageCursor, type Paged } from "@/domain/paging";
 import { listPeople, PEOPLE_PAGE_SIZE } from "@/server/services/admin-people";
 import { cancelLeaveRequest as cancelLeaveRequestResult, DASHBOARD_REQUESTS, getDashboard as getDashboardResult, getMyRequest as getMyRequestResult, listMyRequests as listMyRequestsResult, REQUESTS_PAGE_SIZE } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { createWebhookEndpoint, DELIVERIES_PAGE_SIZE, getWebhookEndpoint } from "@/server/services/webhooks";
+import { createWebhookEndpoint as createWebhookEndpointResult, DELIVERIES_PAGE_SIZE, getWebhookEndpoint as getWebhookEndpointResult } from "@/modules/integrations";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+const getWebhookEndpoint = (...args: Parameters<typeof getWebhookEndpointResult>) => getWebhookEndpointResult(...args).then(unwrap);
 
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);

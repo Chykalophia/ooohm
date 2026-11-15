@@ -1,0 +1,20 @@
+[
+  {
+    "secret": "whsec_test-secret",
+    "timestamp": 1700000000,
+    "rawBody": "{\"id\":\"evt_1\",\"type\":\"ping\"}",
+    "signature": "45abb3712e703a38ae8d46282ef5e6c9363b7a4cf4fe6b724c19d08a666739d3"
+  },
+  {
+    "secret": "whsec_Zm9vYmFyYmF6",
+    "timestamp": 1793588645,
+    "rawBody": "{\"id\":\"6e703ccd-f3ad-4960-b62c-f80dfa6b2b68\",\"type\":\"leave.approved\",\"version\":1,\"createdAt\":\"2026-11-02T15:04:05.123Z\",\"companyId\":\"e24b2035-464a-41c7-839d-095328689365\",\"data\":{\"requestId\":\"9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a\",\"userId\":\"3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43\",\"leaveTypeId\":\"8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d\",\"startDate\":\"2026-12-21\",\"endDate\":\"2026-12-23\",\"dayPortion\":\"full\",\"days\":3,\"status\":\"approved\",\"actorId\":\"0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90\",\"actor\":{\"type\":\"user\",\"id\":\"0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90\"}}}",
+    "signature": "e7c9339557cef62a7533434103c0e78758ec64d1191111cddf85f2cc1c4f7182"
+  },
+  {
+    "secret": "whsec_unicode",
+    "timestamp": 1800000000,
+    "rawBody": "{\"name\":\"Zoë Ødegård\"}",
+    "signature": "0c84c98b2fdece9a106db7da394a9eb0303e604ceb02433768291a6a3d188d86"
+  }
+]

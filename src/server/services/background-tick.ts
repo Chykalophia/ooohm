@@ -13,10 +13,8 @@ import "server-only";
  */
 import type { WebhookFetch } from "@/lib/safe-fetch";
 import type { ServiceContext } from "@/server/context";
-import { type AdapterRunResult, deliverDueAdapterEvents } from "./adapter-delivery";
-import { dispatchOutboxBatch } from "./outbox-dispatch";
+import { type AdapterRunResult, deliverDueAdapterEvents, deliverDueWebhooks, type DeliveryRunResult, dispatchOutboxBatch } from "@/modules/integrations";
 import { runDueJobs } from "./scheduled-jobs";
-import { deliverDueWebhooks, type DeliveryRunResult } from "./webhook-delivery";
 
 export const TICK_STEPS = ["dispatch", "webhooks", "adapters", "jobs"] as const;
 export type TickStep = (typeof TICK_STEPS)[number];

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { API_GUIDE_URL } from "@/domain/integrations";
+import { API_GUIDE_URL, listWebhookEndpoints } from "@/modules/integrations";
 import { formatCount, formatInstantDateTime } from "@/lib/format";
-import { listWebhookEndpoints } from "@/server/services/webhooks";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Item, ItemList } from "@/components/ui/card";
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Webhooks · Admin · OOOhm" };
 
 export default async function WebhooksPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const { endpoints, timezone } = await listWebhookEndpoints(ctx, actor);
+  const { endpoints, timezone } = unwrap(await listWebhookEndpoints(ctx, actor));
 
   return (
     <AdminShell

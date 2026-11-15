@@ -7,8 +7,7 @@ import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import { tombstoneEmail } from "@/domain/person-deletion";
 import type { WebhookFetch } from "@/lib/safe-fetch";
-import { createApiKey } from "@/server/services/api-keys";
-import { listBalancesForApi } from "@/server/services/api-v1";
+import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deliverDueWebhooks, dispatchOutboxBatch, listBalancesForApi as listBalancesForApiResult } from "@/modules/integrations";
 import {
   deactivatePerson,
   getPersonFormOptions,
@@ -30,10 +29,7 @@ import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";
 import * as calendarModule from "@/modules/calendar";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
-import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
 import { DAILY_JOBS, runDueJobs } from "@/server/services/scheduled-jobs";
-import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
-import { createWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
@@ -43,6 +39,10 @@ import * as companySettings from "@/server/services/company-settings";
 const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
 const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
 
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+const listBalancesForApi = (...args: Parameters<typeof listBalancesForApiResult>) => listBalancesForApiResult(...args).then(unwrap);
 const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 // The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const setAllowanceOverride = (...args: Parameters<typeof balancesModule.setAllowanceOverride>) => balancesModule.setAllowanceOverride(...args).then(unwrap);

@@ -11,18 +11,8 @@ import {
   LEAVE_REASSIGNED_EVENT_TYPE,
   LEAVE_RECOUNTED_EVENT_TYPE,
 } from "@/domain/events";
-import {
-  assertScope,
-  buildEnvelope,
-  MAX_DELIVERY_ATTEMPTS,
-  normalizeApiKeyName,
-  normalizeEventTypes,
-  normalizeWebhookDescription,
-  RETRY_DELAYS_MS,
-  retryDelayMs,
-  WEBHOOK_EVENT_GROUPS,
-  WEBHOOK_EVENT_TYPES,
-} from "@/domain/integrations";
+import { assertScope, MAX_DELIVERY_ATTEMPTS, normalizeApiKeyName, normalizeEventTypes, normalizeWebhookDescription, RETRY_DELAYS_MS, retryDelayMs, WEBHOOK_EVENT_GROUPS, WEBHOOK_EVENT_TYPES } from "@/modules/integrations";
+import { buildEnvelope } from "@/domain/event-envelope";
 import { embeddedIpv4, isBlockedAddress, normalizeWebhookUrl, parseIpv6, STRICT_TARGET_POLICY, urlOrigin } from "@/domain/webhook-target";
 import {
   apiKeyFromAuthorization,

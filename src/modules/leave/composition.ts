@@ -7,7 +7,7 @@ import "server-only";
  */
 import type { Executor, Transaction } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import type { ApiClient } from "@/domain/integrations";
+import type { ApiClient } from "@/modules/integrations";
 import type { PageCursor } from "@/domain/paging";
 import type { ServiceContext } from "@/server/context";
 import { commitThenNotify } from "@/modules/notifications";

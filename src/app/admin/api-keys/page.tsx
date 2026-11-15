@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { API_KEY_NAME_MAX_LENGTH } from "@/domain/integrations";
+import { API_KEY_NAME_MAX_LENGTH, listApiKeys } from "@/modules/integrations";
 import { personLabel } from "@/domain/person";
 import { formatInstantDateTime } from "@/lib/format";
-import { listApiKeys } from "@/server/services/api-keys";
+import { unwrap } from "@/shared/lib/result";
 import { revokeApiKeyAction, createApiKeyAction } from "@/app/admin/api-keys/actions";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "API keys · Admin · OOOhm" };
 
 export default async function ApiKeysPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const { keys, timezone } = await listApiKeys(ctx, actor);
+  const { keys, timezone } = unwrap(await listApiKeys(ctx, actor));
   const at = (d: Date) => formatInstantDateTime(d, timezone);
 
   return (

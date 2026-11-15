@@ -6,7 +6,7 @@ import {
   scheduleWorkingDays,
   timeOffDeductedDays,
   timeOffYearBalance,
-} from "@/domain/timeoff/balance";
+} from "@/modules/import/domain/timeoff/balance";
 
 const MON_FRI = new Set([1, 2, 3, 4, 5]);
 const calendar = (holidays: string[] = [], workingDays = MON_FRI) => ({ workingDays, holidays: new Set(holidays) });

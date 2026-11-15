@@ -234,6 +234,57 @@ function runningSum(values: readonly number[]): number[] {
   return values.map((v) => (sum = addDays(sum, v)));
 }
 
+/** Approved days per month of the year, by leave type in the catalog's order. */
+function reportMonths(input: LeaveReportInput, thisMonth: YearMonth): ReportMonth[] {
+  const typeOrder = input.leaveTypes.map((t) => t.id);
+  return [...monthlyApproved(input, input.year)].map(([month, byTypeMap]) => {
+    const byType = typeOrder.filter((id) => byTypeMap.has(id)).map((id) => ({ leaveTypeId: id, days: byTypeMap.get(id) ?? 0 }));
+    return { month, byType, total: addDays(...byType.map((t) => t.days)), ahead: month > thisMonth };
+  });
+}
+
+/** Approved days and requests per leave type, most days first; types with none are left out. */
+function typeRows(leaveTypes: readonly ReportLeaveType[], approved: readonly ReportRequest[], year: number) {
+  return leaveTypes
+    .map((t) => {
+      const of = approved.filter((r) => r.leaveTypeId === t.id);
+      return { ...t, leaveTypeId: t.id, days: addDays(...of.map((r) => daysIn(r, year))), requests: of.length };
+    })
+    .filter((t) => t.days > 0)
+    .sort((a, b) => b.days - a.days);
+}
+
+/** One row per person still here or with days in the year, by name. */
+function personRows(input: LeaveReportInput, inYear: readonly ReportRequest[]): ReportPersonRow[] {
+  const departmentName = new Map(input.departments.map((d) => [d.id, d.name]));
+  return input.people
+    .map((p): ReportPersonRow => {
+      const mine = inYear.filter((r) => r.userId === p.id);
+      const byTypeDays: Record<string, number> = {};
+      for (const r of mine) if (r.status === "approved") byTypeDays[r.leaveTypeId] = addDays(byTypeDays[r.leaveTypeId] ?? 0, daysIn(r, input.year));
+      return {
+        userId: p.id,
+        name: p.name,
+        departmentName: p.departmentId ? (departmentName.get(p.departmentId) ?? null) : null,
+        isActive: p.isActive,
+        byType: byTypeDays,
+        approvedDays: addDays(...Object.values(byTypeDays)),
+        pendingDays: addDays(...mine.filter((r) => r.status === "pending").map((r) => daysIn(r, input.year))),
+        remaining: input.remaining?.get(p.id) ?? null,
+      };
+    })
+    .filter((p) => p.isActive || p.approvedDays > 0 || p.pendingDays > 0)
+    .sort((a, b) => a.name.localeCompare(b.name) || a.userId.localeCompare(b.userId));
+}
+
+/** Hours from asking to a decision, for requests someone else decided. */
+function decisionWaits(inYear: readonly ReportRequest[]): number[] {
+  return inYear
+    .filter((r) => (r.status === "approved" || r.status === "rejected") && r.decidedAt && r.approverId !== r.userId)
+    .map((r) => ((r.decidedAt as Date).getTime() - r.createdAt.getTime()) / 3_600_000)
+    .filter((hours) => hours > 0);
+}
+
 /**
  * Everything the reports screen and its CSV show for one year, from the people,
  * requests and balances in scope. Days come from each request's stored per-year split
@@ -243,14 +294,10 @@ function runningSum(values: readonly number[]): number[] {
 export function buildLeaveReport(input: LeaveReportInput): LeaveReport {
   const { year } = input;
   const thisMonth = monthOf(input.today);
-  const typeOrder = input.leaveTypes.map((t) => t.id);
   const inYear = input.requests.filter((r) => daysIn(r, year) > 0);
   const approved = inYear.filter((r) => r.status === "approved");
 
-  const months: ReportMonth[] = [...monthlyApproved(input, year)].map(([month, byTypeMap]) => {
-    const byType = typeOrder.filter((id) => byTypeMap.has(id)).map((id) => ({ leaveTypeId: id, days: byTypeMap.get(id) ?? 0 }));
-    return { month, byType, total: addDays(...byType.map((t) => t.days)), ahead: month > thisMonth };
-  });
+  const months = reportMonths(input, thisMonth);
   const previousYearMonths = [...monthlyApproved(input, year - 1).values()].map((byType) => addDays(...byType.values()));
 
   const trend = Array.from({ length: REPORT_TREND_YEARS }, (_, i) => year - REPORT_TREND_YEARS + 1 + i).map((y) => ({
@@ -264,13 +311,7 @@ export function buildLeaveReport(input: LeaveReportInput): LeaveReport {
   /** Per person counts only the people still here, over and under the line. */
   const daysOf = (people: readonly ReportPerson[]) => addDays(...people.flatMap((p) => approvedOf(p.id).map((r) => daysIn(r, year))));
 
-  const byType = input.leaveTypes
-    .map((t) => {
-      const of = approved.filter((r) => r.leaveTypeId === t.id);
-      return { ...t, leaveTypeId: t.id, days: addDays(...of.map((r) => daysIn(r, year))), requests: of.length };
-    })
-    .filter((t) => t.days > 0)
-    .sort((a, b) => b.days - a.days);
+  const byType = typeRows(input.leaveTypes, approved, year);
 
   const departmentGroups = [...input.departments.map((d) => ({ departmentId: d.id as string | null, name: d.name })), { departmentId: null, name: "No department" }];
   const byDepartment = departmentGroups
@@ -282,30 +323,7 @@ export function buildLeaveReport(input: LeaveReportInput): LeaveReport {
     })
     .filter((d) => d.headcount > 0 || d.days > 0);
 
-  const departmentName = new Map(input.departments.map((d) => [d.id, d.name]));
-  const people = input.people
-    .map((p): ReportPersonRow => {
-      const mine = inYear.filter((r) => r.userId === p.id);
-      const byTypeDays: Record<string, number> = {};
-      for (const r of mine) if (r.status === "approved") byTypeDays[r.leaveTypeId] = addDays(byTypeDays[r.leaveTypeId] ?? 0, daysIn(r, year));
-      return {
-        userId: p.id,
-        name: p.name,
-        departmentName: p.departmentId ? (departmentName.get(p.departmentId) ?? null) : null,
-        isActive: p.isActive,
-        byType: byTypeDays,
-        approvedDays: addDays(...Object.values(byTypeDays)),
-        pendingDays: addDays(...mine.filter((r) => r.status === "pending").map((r) => daysIn(r, year))),
-        remaining: input.remaining?.get(p.id) ?? null,
-      };
-    })
-    .filter((p) => p.isActive || p.approvedDays > 0 || p.pendingDays > 0)
-    .sort((a, b) => a.name.localeCompare(b.name) || a.userId.localeCompare(b.userId));
-
-  const waits = inYear
-    .filter((r) => (r.status === "approved" || r.status === "rejected") && r.decidedAt && r.approverId !== r.userId)
-    .map((r) => ((r.decidedAt as Date).getTime() - r.createdAt.getTime()) / 3_600_000)
-    .filter((hours) => hours > 0);
+  const waits = decisionWaits(inYear);
 
   const count = (status: LeaveStatus) => inYear.filter((r) => r.status === status).length;
   return {
@@ -328,7 +346,7 @@ export function buildLeaveReport(input: LeaveReportInput): LeaveReport {
     trend,
     byType,
     byDepartment,
-    people,
+    people: personRows(input, inYear),
   };
 }
 

@@ -227,6 +227,27 @@ function valuesFor(email: LeaveEmail): Record<string, string> {
   };
 }
 
+/** The email with every name it shows cut to one capped line ({@link displayName}). */
+function withDisplayNames(input: LeaveEmail): LeaveEmail {
+  return {
+    ...input,
+    recipientName: displayName(input.recipientName),
+    leave: { ...input.leave, requesterName: displayName(input.leave.requesterName) },
+    ...(input.kind === "added" ? { addedByName: displayName(input.addedByName) } : {}),
+    ...(input.kind === "removed" ? { removedByName: displayName(input.removedByName) } : {}),
+  } as LeaveEmail;
+}
+
+/** Approve and Open with an approve link (a request to an approver), else one button to the request. */
+function leaveButtons(kind: LeaveKind, link: string, approveLink: string | null): EmailButton[] {
+  return approveLink
+    ? [
+        { label: "Approve", href: approveLink, variant: "primary" },
+        { label: "Open in OOOhm", href: link, variant: "quiet" },
+      ]
+    : [{ label: kind === "requested" ? "Review in OOOhm" : "Open in OOOhm", href: link, variant: "primary" }];
+}
+
 /**
  * Subject, text and HTML for one leave notification, laid out like the request email on
  * the OOOhm site: the message (its first paragraph says it all), the requester's note in
@@ -239,13 +260,7 @@ function valuesFor(email: LeaveEmail): Record<string, string> {
  * HTML-escaped there, and are not variables.
  */
 export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAULT_EMAIL_ACCENT, saved?: EmailCopy | null): EmailContent {
-  const email: LeaveEmail = {
-    ...input,
-    recipientName: displayName(input.recipientName),
-    leave: { ...input.leave, requesterName: displayName(input.leave.requesterName) },
-    ...(input.kind === "added" ? { addedByName: displayName(input.addedByName) } : {}),
-    ...(input.kind === "removed" ? { removedByName: displayName(input.removedByName) } : {}),
-  } as LeaveEmail;
+  const email = withDisplayNames(input);
   const { link } = email;
   const spec = LEAVE_KINDS[email.kind] as LeaveKindSpec<LeaveKind>;
   const copy = resolveCopy(spec.defaults, saved);
@@ -256,12 +271,7 @@ export function renderLeaveEmail(input: LeaveEmail, accent: EmailAccent = DEFAUL
   const approveLink = email.kind === "requested" ? (email.approveLink ?? null) : null;
   const extra = p.extra && `${p.extra.label}: ${p.extra.quoted ? quoted(p.extra.value) : p.extra.value}`;
 
-  const actions: EmailButton[] = approveLink
-    ? [
-        { label: "Approve", href: approveLink, variant: "primary" },
-        { label: "Open in OOOhm", href: link, variant: "quiet" },
-      ]
-    : [{ label: email.kind === "requested" ? "Review in OOOhm" : "Open in OOOhm", href: link, variant: "primary" }];
+  const actions = leaveButtons(email.kind, link, approveLink);
 
   const approveNote = approveLink
     ? "The Approve link is for you alone and stops working once the request is decided. To decline, open the request in OOOhm."

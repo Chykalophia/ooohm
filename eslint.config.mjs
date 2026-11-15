@@ -210,25 +210,34 @@ const themeTokens = {
 
 
 /**
- * Size limits (F8, docs/architecture-plan/04-fitness-functions.md). Warnings until A7,
- * when they become errors: thin actions and routes, short functions in logic layers.
+ * Size limits (F8, docs/architecture-plan/04-fitness-functions.md), as errors: thin
+ * actions and routes, short functions in logic layers, components that fit on a screen.
  */
 const sizeLimits = [
   {
     files: ["src/app/**/actions.ts", "src/app/**/*-actions.ts", "src/app/**/route.ts"],
-    rules: { "max-lines": ["warn", { max: 100, skipBlankLines: true, skipComments: true }] },
+    rules: { "max-lines": ["error", { max: 100, skipBlankLines: true, skipComments: true }] },
   },
   {
     files: ["src/server/**/*.ts", "src/domain/**/*.ts", "src/modules/**/*.ts", "src/app/**/actions.ts", "src/app/**/route.ts"],
-    rules: { "max-lines-per-function": ["warn", { max: 50, skipBlankLines: true, skipComments: true, IIFEs: true }] },
+    rules: { "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true, IIFEs: true }] },
   },
   {
     files: ["src/modules/*/application/**/*.ts"],
-    rules: { "max-lines": ["warn", { max: 500, skipBlankLines: true, skipComments: true }] },
+    rules: { "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }] },
   },
   {
     files: ["src/**/*.tsx"],
-    rules: { "max-lines-per-function": ["warn", { max: 150, skipBlankLines: true, skipComments: true }] },
+    rules: { "max-lines-per-function": ["error", { max: 150, skipBlankLines: true, skipComments: true }] },
+  },
+  {
+    // Files allowed past a size limit, each with its reason. Keep this list short.
+    //
+    // sortable-list.tsx: one drag-and-drop state machine (pointer, keyboard, the slide,
+    // save and undo) whose handlers share its refs and state; split apart, one interaction
+    // would be spread across files.
+    files: ["src/components/ui/sortable-list.tsx"],
+    rules: { "max-lines-per-function": "off" },
   },
 ];
 

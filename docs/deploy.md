@@ -267,6 +267,28 @@ the database), plus `OOOHM_DB_OWNER_PASSWORD` and `OOOHM_DB_APP_PASSWORD`. Then 
 release step that migrates and `DATABASE_URL` for the app and the worker. `OOOHM_DB_OWNER_ROLE` and
 `OOOHM_DB_APP_ROLE` change the role names (defaults `ooohm_owner` and `ooohm_app`).
 
+### Schema drift
+
+The schema changes only through migrations (ADR-0011). Two checks keep it that way:
+
+- **Schema against migrations, on every PR.** `pnpm db:check-drift` runs `drizzle-kit generate` against a scratch
+  copy of `drizzle/` and fails, printing the SQL it would write, if `src/db/schema.ts` has a change no committed
+  migration makes. It never connects to a database. CI runs it.
+- **A live database against migrations, on a schedule (runbook, not yet automated).** This catches a hand edit to
+  production (a column added in the Neon console, an index dropped). Weekly, and after anyone touches production
+  by hand:
+  1. Apply `drizzle/` to an empty database: `createdb ooohm_drift && DATABASE_ADMIN_URL=postgres://…/ooohm_drift
+     DATABASE_URL=postgres://…/ooohm_drift pnpm db:migrate` (a local Postgres of the same major version as
+     production).
+  2. Dump both schemas the same way: `pg_dump --schema-only --no-owner --no-privileges --exclude-schema=drizzle`
+     against the fresh database and against production. For Neon, use a read-only role on the **direct** (not
+     `-pooler`) host; `pg_dump` must be the same major version as the server or newer.
+  3. `diff` the two dumps. Any line that differs is drift: undo the hand edit, or write the migration that makes
+     it and ship it the usual way. Never edit `drizzle/` to match production.
+
+  Keep the read-only role's password out of the app's environment. When this becomes a scheduled job, it runs
+  outside the PR checks with that role only.
+
 ## 10. Email: provider, SPF, DKIM, DMARC (30 min, then DNS propagation)
 
 Sign-in links are email, so mail must be delivered reliably. Use a transactional provider rather than sending

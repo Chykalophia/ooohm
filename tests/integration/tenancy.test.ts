@@ -37,8 +37,8 @@ import * as reports from "@/modules/reports";
 import * as people from "@/modules/people";
 import { findMemberStanding } from "@/shared/lib/db/admin-standing";
 import * as members from "@/shared/lib/db/members";
-import * as companySettings from "@/server/services/company-settings";
-import * as departmentManager from "@/server/services/department-manager";
+import * as leaveRequestReads from "@/shared/lib/db/leave-requests";
+import * as leaveTypeReads from "@/shared/lib/db/leave-type-allowances";
 import { handleApiRequest, parseQuery, REQUESTS_PER_KEY_PER_MINUTE, UNAUTHORIZED_PER_CLIENT_PER_MINUTE } from "@/app/api/v1/_lib/handler";
 import { balancesQuery, eventsQuery, holidaysQuery, leaveRequestsQuery, usersQuery } from "@/app/api/v1/_lib/query";
 import { pngImage } from "../support/images";
@@ -98,7 +98,7 @@ async function seedTenant(t: TestDatabase, label: string, holidayDate: string): 
   const department = unwrap(await organisation.createDepartment(ctx, admin, `${token} Ops`));
   const level = unwrap(await organisation.createLevel(ctx, admin, `${token} Senior`));
   await t.db.update(schema.user).set({ departmentId: department.id, levelId: level.id }).where(inArray(schema.user.id, [emp.id, pal.id, boss.id]));
-  unwrap(await departmentManager.setDepartmentManager(ctx, admin, department.id, boss.id));
+  unwrap(await approvals.setDepartmentManager(ctx, admin, department.id, boss.id));
   await setAllowance(t.db, { userId: emp.id, leaveTypeId: vac, year: 2026, days: label === "bravo" ? BRAVO_ALLOWANCE : 20 });
   const rule = unwrap(await balances.setAllowanceRule(ctx, admin, { leaveTypeId: vac, departmentId: department.id, levelId: null, days: 22 }));
   const holiday = unwrap(await holidays.addHoliday(ctx, admin, { date: holidayDate, name: `${token} Eve` }));
@@ -723,9 +723,9 @@ const CASES: Case[] = [
       ]),
   },
   {
-    covers: ["services/company-settings:updateCompanySettings"],
+    covers: ["leave:updateCompanySettings"],
     name: "changing working days recounts only the company's leave",
-    run: ({ ctx, a }) => companySettings.updateCompanySettings(ctx, a.admin, { name: "Alpha renamed", timezone: "UTC", workingDays: [1, 2, 3, 4], allowancePolicy: balances.ANNUAL_CALENDAR_YEAR }),
+    run: ({ ctx, a }) => leave.updateCompanySettings(ctx, a.admin, { name: "Alpha renamed", timezone: "UTC", workingDays: [1, 2, 3, 4], allowancePolicy: balances.ANNUAL_CALENDAR_YEAR }),
   },
 
   // Organisation: departments.
@@ -748,11 +748,11 @@ const CASES: Case[] = [
     ],
   },
   {
-    covers: ["organisation:changeDepartmentManager", "services/department-manager:setDepartmentManager"],
+    covers: ["organisation:changeDepartmentManager", "approvals:setDepartmentManager"],
     name: "a department's manager is never another company's department or person",
     run: async (w) => [
-      await departmentManager.setDepartmentManager(w.ctx, w.a.admin, w.b.department, w.a.boss.id),
-      await departmentManager.setDepartmentManager(w.ctx, w.a.admin, w.a.department, w.b.boss.id),
+      await approvals.setDepartmentManager(w.ctx, w.a.admin, w.b.department, w.a.boss.id),
+      await approvals.setDepartmentManager(w.ctx, w.a.admin, w.a.department, w.b.boss.id),
       await inTx(w, (tx) => organisation.changeDepartmentManager(tx, w.a.admin, w.b.department, w.a.boss.id)).catch((e: unknown) => ({ refused: String(e) })),
       await inTx(w, (tx) => organisation.changeDepartmentManager(tx, w.a.admin, w.a.department, w.b.boss.id)).catch((e: unknown) => ({ refused: String(e) })),
     ],
@@ -860,7 +860,7 @@ const CASES: Case[] = [
     ],
   },
 
-  // People (services not yet in a module).
+  // People.
   {
     covers: ["people:getAccount", "people:hasPasskey", "people:renameSelf", "people:setColorMode"],
     name: "account reads and edits are the person's own",
@@ -946,6 +946,27 @@ const CASES: Case[] = [
     name: "a member write by company never changes another company's person",
     run: (w) => inTx(w, (tx) => members.updatePerson(tx, w.a.companyId, w.b.emp.id, { name: "Taken Over", role: "admin" })),
     check: (value) => assert.equal(value, undefined),
+  },
+  {
+    covers: [
+      "db/leave-requests:hasApprovedRequest",
+      "db/leave-type-allowances:findActiveLeaveType",
+      "db/leave-type-allowances:listActiveLeaveTypesWithAllowance",
+      "db/leave-type-allowances:listLeaveTypesWithAllowance",
+    ],
+    name: "leave type and request reads by company never find another company's",
+    run: async ({ t, a, b }) => ({
+      approved: await leaveRequestReads.hasApprovedRequest(t.db, a.companyId, b.emp.id),
+      found: await leaveTypeReads.findActiveLeaveType(t.db, a.companyId, b.vac),
+      active: await leaveTypeReads.listActiveLeaveTypesWithAllowance(t.db, a.companyId),
+      all: await leaveTypeReads.listLeaveTypesWithAllowance(t.db, a.companyId),
+    }),
+    check: (value) => {
+      const v = value as { approved: boolean; found: unknown; active: unknown[]; all: unknown[] };
+      assert.equal(v.approved, false);
+      assert.equal(v.found, undefined);
+      assert.ok(v.active.length > 0 && v.all.length > 0);
+    },
   },
   {
     covers: ["people:listPeople", "people:getPersonFormOptions", "people:getPersonDetail"],

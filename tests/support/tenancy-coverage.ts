@@ -2,10 +2,10 @@
  * Which exported functions the tenant-isolation suite (`tests/integration/tenancy.test.ts`)
  * calls across companies, and why the rest need no case.
  *
- * Every function exported by a module's `index.ts`, by a file in `src/server/services`,
- * `src/server/jobs` or `src/server/identity`, and by the shared member reads in
+ * Every function exported by a module's `index.ts`, by a file in
+ * `src/server/jobs` or `src/server/identity`, and by the shared reads in
  * `src/shared/lib/db` ({@link TENANCY_SOURCES}) is listed here, keyed `<source>:<name>`
- * (`leave:cancelLeaveRequest`, `services/company-settings:updateCompanySettings`,
+ * (`leave:cancelLeaveRequest`, `identity/install:runFirstInstall`,
  * `db/members:findPerson`). `tests/architecture/tenancy-coverage.test.ts` fails when an export is in neither list, or a listed one no longer exists; the suite
  * fails when a name in {@link COVERED} has no case or a case covers a name not listed.
  * Constants and schemas need no entry: they read nothing.
@@ -122,6 +122,8 @@ export const EXEMPT: Readonly<Record<string, string>> = {
     "identity/install:runFirstInstall",
     "identity/installation.repository:isInstalled",
     "identity/installation.repository:markInstalled",
+    "db/company-creation:lockCompaniesTable",
+    "db/company-creation:insertCompany",
   ]),
   ...exempt(GLOBAL_IDENTITY, ["db/members:findPersonByEmail", "db/members:findActorById"]),
   ...exempt(CALLER_SCOPED, [
@@ -131,6 +133,7 @@ export const EXEMPT: Readonly<Record<string, string>> = {
     "balances:recarryMemberLeaveType",
     "balances:writeAllowance",
     "calendar:revokeFeedsOnDeactivation",
+    "db/leave-requests:listActiveRequestsInRange",
   ]),
   ...exempt(WRITES_GIVEN, ["db/members:insertPerson"]),
   ...exempt(RULES_ONLY, ["balances:loadBalanceInputs", "balances:loadBalances", "balances:summarizeBalances"]),
@@ -299,8 +302,12 @@ export const COVERED: readonly string[] = [
   "people:updatePerson",
   "people:deactivatePerson",
   "people:reactivatePerson",
-  "services/company-settings:updateCompanySettings",
-  "services/department-manager:setDepartmentManager",
+  "leave:updateCompanySettings",
+  "approvals:setDepartmentManager",
+  "db/leave-requests:hasApprovedRequest",
+  "db/leave-type-allowances:findActiveLeaveType",
+  "db/leave-type-allowances:listActiveLeaveTypesWithAllowance",
+  "db/leave-type-allowances:listLeaveTypesWithAllowance",
   "people:getTeamMember",
   "db/members:lockMembers",
   "db/members:lockMember",
@@ -326,6 +333,12 @@ export const API_ROUTES_EXEMPT: Readonly<Record<string, string>> = { "openapi.js
  */
 export const TENANCY_SOURCES = {
   modules: "src/modules",
-  folders: { services: "src/server/services", jobs: "src/server/jobs", identity: "src/server/identity" },
-  files: { "db/members": "src/shared/lib/db/members.ts", "db/admin-standing": "src/shared/lib/db/admin-standing.ts" },
+  folders: { jobs: "src/server/jobs", identity: "src/server/identity" },
+  files: {
+    "db/members": "src/shared/lib/db/members.ts",
+    "db/admin-standing": "src/shared/lib/db/admin-standing.ts",
+    "db/leave-requests": "src/shared/lib/db/leave-requests.ts",
+    "db/leave-type-allowances": "src/shared/lib/db/leave-type-allowances.ts",
+    "db/company-creation": "src/shared/lib/db/company-creation.ts",
+  },
 } as const;

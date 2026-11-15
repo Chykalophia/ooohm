@@ -16,7 +16,7 @@ import {
 import { defaultAllowanceFor } from "@/domain/allowance-rules";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
-import { assertValidRange, type DayPortion, type LeaveRange, rangesOverlap } from "@/domain/leave-request";
+import { assertValidRange, type DayPortion, type LeaveRange, rangesOverlap } from "@/shared/kernel/leave-range";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listAllowanceRules, listPlacements } from "@/server/repositories/allowance-rules";

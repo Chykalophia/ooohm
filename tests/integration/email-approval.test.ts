@@ -4,9 +4,13 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { approveFromEmail, approveLinkFor, readEmailApproval } from "@/server/services/email-approval";
-import { getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
+import { getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { auditFor, eventsFor, seedCompany, REVIEW_SUBJECT } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 describe("approve from the email", { skip }, () => {
   let t: TestDatabase;

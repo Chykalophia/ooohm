@@ -30,7 +30,7 @@ import { getAuditLog as readAuditLog } from "@/modules/audit";
 import { unwrap } from "@/shared/lib/result";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { getTeamCalendar } from "@/server/services/calendar";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
 import { DAILY_JOBS, runDueJobs } from "@/server/services/scheduled-jobs";
 import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
@@ -43,6 +43,7 @@ import * as companySettings from "@/server/services/company-settings";
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
 
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 /** Reads the audit log and unwraps its ServiceResult, so the calls and assertions below stay plain. */
 const getAuditLog = (...a: Parameters<typeof readAuditLog>) => readAuditLog(...a).then(unwrap);
 

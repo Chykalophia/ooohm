@@ -11,8 +11,8 @@ import type { CompanySettingsInput } from "@/domain/company-settings";
 import type { ServiceContext } from "@/server/context";
 import { canManageCompanySettings, type CompanyDTO, saveCompanySettings } from "@/modules/organisation";
 import { commitThenNotify } from "@/modules/notifications";
-import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "./leave-recount";
+import { attempt, err, type ServiceResult, unwrap } from "@/shared/lib/result";
+import { NOTHING_RECOUNTED, type RecountOutcome, recountLeave } from "@/modules/leave";
 
 /**
  * Saves the company's settings. A new time zone changes which day is "today" from now
@@ -36,7 +36,7 @@ export async function updateCompanySettings(
       const { before, after, changed } = await saveCompanySettings(tx, actor, input);
       const workingDaysChanged = JSON.stringify(after.workingDays) !== JSON.stringify(before.workingDays);
       if (!changed || !workingDaysChanged) return { result: { company: after, recount: NOTHING_RECOUNTED }, notify: [] };
-      const { outcome, notify } = await recountLeave(tx, ctx, actor, { kind: "working_days", previous: before.workingDays });
+      const { outcome, notify } = unwrap(await recountLeave(tx, ctx, actor, { kind: "working_days", previous: before.workingDays }));
       return { result: { company: after, recount: outcome }, notify };
     }),
   );

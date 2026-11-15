@@ -12,18 +12,21 @@ import {
   listBalancesForApi,
   listEventsForApi,
   listHolidaysForApi,
-  listLeaveRequestsForApi,
   listLeaveTypesForApi,
   listUsersForApi,
 } from "@/server/services/api-v1";
+import { listLeaveRequestsForApi as listLeaveRequestsForApiResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { getBalanceSummary } from "@/server/services/balances";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
 import { type ApiLimits, handleApiRequest, parseQuery, REQUESTS_PER_KEY_PER_MINUTE, UNAUTHORIZED_PER_CLIENT_PER_MINUTE } from "@/app/api/v1/_lib/handler";
 import { openApiDocument } from "@/app/api/v1/_lib/openapi";
 import { balancesQuery, eventsQuery, holidaysQuery, leaveRequestsQuery, usersQuery } from "@/app/api/v1/_lib/query";
 import type { ServiceContext } from "@/server/context";
 import { companyEvents, eventsFor, setAllowance, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+
+const listLeaveRequestsForApi = (...args: Parameters<typeof listLeaveRequestsForApiResult>) => listLeaveRequestsForApiResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 /** What each route file does: the same one-line parse-and-call, without Next. */
 const ROUTES: Record<string, (ctx: ServiceContext, client: Parameters<typeof listUsersForApi>[1], q: URLSearchParams) => Promise<unknown>> = {

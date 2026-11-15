@@ -3,7 +3,7 @@
  * grouping. Pure functions over `YYYY-MM-DD` dates (see `calendar-date.ts`).
  */
 import { type CalendarDate, eachDate, fromEpochDay, isoWeekday, toEpochDay } from "./calendar-date";
-import { ACTIVE_STATUSES, type DayPortion, type LeaveStatus } from "./leave-request";
+import { ACTIVE_STATUSES, type DayPortion, type LeaveStatus } from "@/shared/kernel/leave-range";
 
 /** A calendar month as `YYYY-MM`. */
 export type YearMonth = string;

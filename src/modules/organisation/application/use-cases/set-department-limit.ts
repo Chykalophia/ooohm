@@ -1,10 +1,10 @@
 import "server-only";
 import type { Actor } from "@/domain/actor";
-import { MAX_OFF_LIMIT } from "@/domain/coverage";
 import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import type { ServiceContext } from "@/server/context";
+import { MAX_OFF_LIMIT } from "@/shared/kernel/coverage-limit";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";

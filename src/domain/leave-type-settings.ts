@@ -5,7 +5,7 @@
  */
 import { addDays } from "./allowance-policy";
 import { DomainError } from "./errors";
-import { NOTE_MAX_LENGTH } from "./leave-request";
+import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { oneLine } from "./text";
 
 export const LEAVE_TYPE_NAME_MAX_LENGTH = 60;

@@ -11,7 +11,7 @@ import { ItemList, Item } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { BackLink, Section } from "@/components/ui/section";
 import { textLink } from "@/components/ui/styles";
-import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { RequestLeaveForm } from "@/app/request-leave-form";
 import { orNotFound, requireMemberPage } from "@/app/_lib/page-context";
 import { removeLeaveForAction } from "@/app/actions";

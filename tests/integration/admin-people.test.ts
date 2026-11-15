@@ -20,11 +20,14 @@ import {
 import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { createWebhookEndpoint, deleteWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { captureStderr, companyAudit, companyEvents, decidable, type PersonSpec, seedCompany, setAllowance, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 async function userRow(db: Database, id: string) {
   const [row] = await db.select().from(schema.user).where(eq(schema.user.id, id));

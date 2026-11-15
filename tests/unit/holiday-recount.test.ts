@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyCalendarChange, sameSplit } from "@/domain/leave-days";
+import { applyCalendarChange, sameSplit } from "@/modules/leave/domain/recount";
 import { formatNoWorkingDays, formatRecountCause, formatRecountOutcome } from "@/lib/format";
 import { renderLeaveEmail } from "@/modules/notifications/application/templates/leave";
 

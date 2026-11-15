@@ -3,7 +3,7 @@ import type { FeedKind } from "./calendar-feed";
 import type { Role } from "./actor";
 import type { LogoType } from "./company-logo";
 import type { ChangeProcess, ChangeSource, PersonChangeSource } from "./change-source";
-import type { DayPortion, LeaveStatus } from "./leave-request";
+import type { DayPortion, LeaveStatus } from "@/shared/kernel/leave-range";
 
 /**
  * Who or what made a change, as every event payload publishes it in `actor` (added

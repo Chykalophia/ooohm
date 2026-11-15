@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { byUser } from "@/domain/change-source";
 import type { Actor } from "@/domain/actor";
 import { isDomainError } from "@/domain/errors";
-import { canCorrectLeaveFor } from "@/domain/leave-permissions";
-import { assertCancellableOn, assertRemovableOn, canCancelOn, canRemoveOn, isLeaveOver } from "@/domain/request-status";
+import { canCorrectLeaveFor } from "@/modules/leave/domain/leave-permissions";
+import { assertCancellableOn, assertRemovableOn, canCancelOn, canRemoveOn, isLeaveOver } from "@/modules/leave/domain/leave-status";
 
 const approved = (endDate: string) => ({ status: "approved" as const, endDate });
 const TODAY = "2026-11-06";

@@ -16,7 +16,7 @@ import {
 } from "@/server/services/admin-holidays";
 import { getPersonDetail, getPersonFormOptions, listPeople } from "@/server/services/admin-people";
 import { getBalanceSummary } from "@/server/services/balances";
-import { getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
+import { getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, requestDaysOf, seedCompany } from "./fixtures";
@@ -38,6 +38,9 @@ const reorderLeaveTypes = (...args: Parameters<typeof organisation.reorderLeaveT
 const setLeaveTypeArchived = (...args: Parameters<typeof organisation.setLeaveTypeArchived>) => organisation.setLeaveTypeArchived(...args).then(unwrap);
 const updateLeaveType = (...args: Parameters<typeof organisation.updateLeaveType>) => organisation.updateLeaveType(...args).then(unwrap);
 const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
+
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 // The level use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const createLevel = (...args: Parameters<typeof organisation.createLevel>) => organisation.createLevel(...args).then(unwrap);

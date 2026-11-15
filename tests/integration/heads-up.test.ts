@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
+import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, auditFor, companyAudit, companyEvents, decidable, eventsFor, requestsOf, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
@@ -13,6 +13,10 @@ import { unwrap } from "@/shared/lib/result";
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const getCompanySettings = (...args: Parameters<typeof organisation.getCompanySettings>) => organisation.getCompanySettings(...args).then(unwrap);
 const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 // Heads-up time off: an admin turns approval off for the whole company, so people tell
 // the company they're off instead of asking. Dates: 2026-11-02 is a Monday.

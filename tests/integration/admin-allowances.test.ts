@@ -3,11 +3,14 @@ import { after, before, describe, test } from "node:test";
 import { sql } from "drizzle-orm";
 import { setAllowanceOverride } from "@/server/services/admin-allowances";
 import { getPersonDetail } from "@/server/services/admin-people";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { runYearRollover } from "@/server/services/rollover";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 describe("admin: allowance overrides", { skip }, () => {
   let t: TestDatabase;

@@ -30,8 +30,8 @@ import { type CalendarDate, fromEpochDay, isCalendarDate, toEpochDay } from "@/d
 import { isSupportedTimeZone } from "@/domain/company-settings";
 import { DomainError, isDomainError } from "@/domain/errors";
 import { normalizeHolidayName } from "@/domain/holidays";
-import { splitLeaveDaysByYear, type YearDays } from "@/domain/leave-days";
-import { type DayPortion, type LeaveRange, type LeaveStatus, MAX_REQUEST_SPAN_DAYS, NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { splitLeaveDaysByYear, type YearDays } from "@/shared/kernel/leave-days";
+import { type DayPortion, type LeaveRange, type LeaveStatus, MAX_REQUEST_SPAN_DAYS, NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import {
   LEAVE_TYPE_CODE_MAX_LENGTH,
   LEAVE_TYPE_NAME_MAX_LENGTH,

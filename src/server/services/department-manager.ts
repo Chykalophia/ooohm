@@ -13,7 +13,7 @@ import { listPendingRequestsInDepartment } from "@/server/repositories/leave-req
 import { canManageDepartments, changeDepartmentManager, type DepartmentDTO } from "@/modules/organisation";
 import { commitThenNotify } from "@/modules/notifications";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import { rerouteApprovals } from "./approval-routing";
+import { rerouteApprovals } from "./approval-reroute";
 
 /** What setting a department's manager did. */
 export interface DepartmentManagerResult extends DepartmentDTO {

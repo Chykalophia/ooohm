@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { draftCoverage } from "@/server/services/also-off";
+import { draftCoverage, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { getApprovalTriage } from "@/server/services/approvals";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
@@ -15,6 +14,8 @@ import { unwrap } from "@/shared/lib/result";
 const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);
 const listDepartmentsForAdmin = (...args: Parameters<typeof organisation.listDepartmentsForAdmin>) => organisation.listDepartmentsForAdmin(...args).then(unwrap);
 const setDepartmentLimit = (...args: Parameters<typeof organisation.setDepartmentLimit>) => organisation.setDepartmentLimit(...args).then(unwrap);
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const NOW = new Date("2026-11-03T09:00:00Z");
 

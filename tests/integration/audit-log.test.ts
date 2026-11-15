@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { type Adapter, createAdapterRegistry } from "@/server/integrations/adapter";
-import { invitePerson, updatePerson } from "@/server/services/admin-people";
+import { invitePerson as invitePersonResult, updatePerson as updatePersonResult } from "@/modules/people";
 import { encodePageKey, type PageCursor } from "@/domain/paging";
 import { AUDIT_PAGE_SIZE, getAuditLog as readAuditLog } from "@/modules/audit";
 import { unwrap } from "@/shared/lib/result";
@@ -13,6 +13,9 @@ import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/server/services/company-settings";
+
+const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
+const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);

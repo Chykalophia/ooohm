@@ -24,13 +24,16 @@ import type { ServiceContext } from "../../src/server/context";
 import { createAdapterRegistry } from "../../src/server/integrations/adapter";
 import { uuidGenerator } from "../../src/shared/lib/id-generator";
 import { wireModules } from "../../src/server/wiring";
-import { getPersonDetail, listPeople } from "../../src/server/services/admin-people";
+import { getPersonDetail as getPersonDetailResult, listPeople as listPeopleResult } from "../../src/modules/people/index";
 import { listBalancesForApi as listBalancesForApiResult, listEventsForApi as listEventsForApiResult, listUsersForApi as listUsersForApiResult } from "../../src/modules/integrations";
 import { getApprovalNav, getApprovalTriage } from "../../src/modules/approvals";
 import { getAuditLog } from "../../src/modules/audit";
 import * as calendarModule from "../../src/modules/calendar";
 import { getDashboard as getDashboardResult, listLeaveRequestsForApi as listLeaveRequestsForApiResult } from "../../src/modules/leave";
 import { unwrap } from "../../src/shared/lib/result";
+
+const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
+const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
 
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);

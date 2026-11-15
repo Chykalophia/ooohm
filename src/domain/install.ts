@@ -4,7 +4,7 @@
  */
 import { COMPANY_NAME_MAX_LENGTH, isSupportedTimeZone } from "./company-settings";
 import { DomainError } from "./errors";
-import { normalizeEmail, normalizePersonName } from "./people";
+import { normalizeEmail, normalizePersonName } from "@/shared/kernel/names";
 import { oneLine } from "./text";
 
 /**

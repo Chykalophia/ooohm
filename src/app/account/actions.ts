@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { COLOR_MODES } from "@/domain/color-mode";
-import { renameSelf, setColorMode } from "@/server/services/account";
+import { renameSelf, setColorMode } from "@/modules/people";
 import type { FormState } from "@/components/forms/form-state";
 import { runFormAction } from "@/app/_lib/server-action";
 import { map } from "@/shared/lib/result";
@@ -34,10 +34,7 @@ export async function setColorModeAction(_prev: FormState, formData: FormData): 
     "account_color_mode",
     formData,
     colorModeSchema,
-    async (ctx, actor, { colorMode }) => {
-      await setColorMode(ctx, actor, colorMode);
-      return "Saved.";
-    },
+    async (ctx, actor, { colorMode }) => map(await setColorMode(ctx, actor, colorMode), () => "Saved."),
     { messages: { forbidden: ACCOUNT_LOCKED_MESSAGE } },
   );
 }

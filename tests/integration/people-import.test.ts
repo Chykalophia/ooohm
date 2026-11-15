@@ -6,13 +6,16 @@ import type { Database } from "@/db/types";
 import { CHANGE_PROCESSES } from "@/domain/change-source";
 import { peopleImportSampleCsv } from "@/modules/people";
 import { INVITE_SUBJECT } from "@/modules/notifications/application/templates/invite";
-import { invitePerson } from "@/server/services/admin-people";
-import { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport } from "@/server/services/admin-people-import";
+import { importPeople as importPeopleResult, invitePerson as invitePersonResult, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport as previewPeopleImportResult } from "@/modules/people";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
+const importPeople = (...args: Parameters<typeof importPeopleResult>) => importPeopleResult(...args).then(unwrap);
+const previewPeopleImport = (...args: Parameters<typeof previewPeopleImportResult>) => previewPeopleImportResult(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 

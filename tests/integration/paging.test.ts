@@ -4,13 +4,15 @@ import { after, before, describe, test } from "node:test";
 import { and, asc, eq, like, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { encodePageKey, type PageCursor, type Paged } from "@/domain/paging";
-import { listPeople, PEOPLE_PAGE_SIZE } from "@/server/services/admin-people";
+import { listPeople as listPeopleResult, PEOPLE_PAGE_SIZE } from "@/modules/people";
 import { cancelLeaveRequest as cancelLeaveRequestResult, DASHBOARD_REQUESTS, getDashboard as getDashboardResult, getMyRequest as getMyRequestResult, listMyRequests as listMyRequestsResult, REQUESTS_PAGE_SIZE } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { createWebhookEndpoint as createWebhookEndpointResult, DELIVERIES_PAGE_SIZE, getWebhookEndpoint as getWebhookEndpointResult } from "@/modules/integrations";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);

@@ -13,7 +13,7 @@ import { personSnapshot, recordPersonChange } from "@/modules/people/application
 import { canManagePeople } from "@/modules/people/application/policies";
 import { assertKeepsAnActiveAdmin, assertNotSelfDeactivation } from "@/modules/people/domain/people";
 import { deleteSessionsOf } from "@/modules/people/infrastructure/drizzle-people.repository";
-import { revokeFeedsOnDeactivation } from "@/server/services/calendar-feeds";
+import { revokeFeedsOnDeactivation } from "@/modules/calendar";
 import { listActiveAdmins, lockPerson, type PersonRow, updatePerson as updatePersonRow } from "@/shared/lib/db/members";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
 

@@ -7,12 +7,14 @@ import postgres from "postgres";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { applyDatabaseRoles, migrateAsOwner } from "@/server/admin/db";
-import { deactivatePerson } from "@/server/services/admin-people";
-import { deletePerson } from "@/server/services/admin-people-deletion";
+import { deactivatePerson as deactivatePersonResult, deletePerson as deletePersonResult } from "@/modules/people";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+
+const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
+const deletePerson = (...args: Parameters<typeof deletePersonResult>) => deletePersonResult(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 

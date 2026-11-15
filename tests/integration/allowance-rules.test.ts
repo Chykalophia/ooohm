@@ -5,12 +5,15 @@ import * as schema from "@/db/schema";
 import * as organisation from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";
-import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
-import { deletePerson } from "@/server/services/admin-people-deletion";
+import { deactivatePerson as deactivatePersonResult, deletePerson as deletePersonResult, updatePerson as updatePersonResult } from "@/modules/people";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
+const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
+const deletePerson = (...args: Parameters<typeof deletePersonResult>) => deletePersonResult(...args).then(unwrap);
 
 // The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const listAllowanceRulesForAdmin = (...args: Parameters<typeof balancesModule.listAllowanceRulesForAdmin>) => balancesModule.listAllowanceRulesForAdmin(...args).then(unwrap);

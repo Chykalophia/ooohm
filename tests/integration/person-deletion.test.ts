@@ -5,24 +5,10 @@ import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
-import { tombstoneEmail } from "@/modules/people";
+import { tombstoneEmail } from "@/modules/people/domain/person-deletion";
 import type { WebhookFetch } from "@/lib/safe-fetch";
 import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deliverDueWebhooks, dispatchOutboxBatch, listBalancesForApi as listBalancesForApiResult } from "@/modules/integrations";
-import {
-  deactivatePerson,
-  getPersonFormOptions,
-  invitePerson,
-  listPeople,
-  reactivatePerson,
-  updatePerson,
-} from "@/server/services/admin-people";
-import {
-  cancelScheduledDeletion,
-  deletePerson,
-  exportPersonRecords,
-  getDeletionPreview,
-  runDueScrubs,
-} from "@/server/services/admin-people-deletion";
+import { cancelScheduledDeletion as cancelScheduledDeletionResult, deactivatePerson as deactivatePersonResult, deletePerson as deletePersonResult, exportPersonRecords as exportPersonRecordsResult, getDeletionPreview as getDeletionPreviewResult, getPersonFormOptions as getPersonFormOptionsResult, invitePerson as invitePersonResult, listPeople as listPeopleResult, reactivatePerson as reactivatePersonResult, runDueScrubs, updatePerson as updatePersonResult } from "@/modules/people";
 import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { getAuditLog as readAuditLog } from "@/modules/audit";
 import { unwrap } from "@/shared/lib/result";
@@ -34,6 +20,17 @@ import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/server/services/company-settings";
+
+const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
+const getPersonFormOptions = (...args: Parameters<typeof getPersonFormOptionsResult>) => getPersonFormOptionsResult(...args).then(unwrap);
+const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
+const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
+const reactivatePerson = (...args: Parameters<typeof reactivatePersonResult>) => reactivatePersonResult(...args).then(unwrap);
+const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
+const cancelScheduledDeletion = (...args: Parameters<typeof cancelScheduledDeletionResult>) => cancelScheduledDeletionResult(...args).then(unwrap);
+const deletePerson = (...args: Parameters<typeof deletePersonResult>) => deletePersonResult(...args).then(unwrap);
+const exportPersonRecords = (...args: Parameters<typeof exportPersonRecordsResult>) => exportPersonRecordsResult(...args).then(unwrap);
+const getDeletionPreview = (...args: Parameters<typeof getDeletionPreviewResult>) => getDeletionPreviewResult(...args).then(unwrap);
 
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);

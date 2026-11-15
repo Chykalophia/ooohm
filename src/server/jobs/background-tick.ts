@@ -77,42 +77,8 @@ export async function runTick(ctx: ServiceContext, deps: TickDeps): Promise<Tick
   const steps = new Set(deps.steps ?? TICK_STEPS);
   const remains = () => !signal.aborted && clock() - started < budget;
 
-  const summary: TickSummary = {
-    events: 0,
-    webhookDeliveriesCreated: 0,
-    adapterDeliveriesCreated: 0,
-    webhooks: { attempted: 0, delivered: 0, retried: 0, failed: 0 },
-    adapters: { attempted: 0, delivered: 0, retried: 0, failed: 0 },
-    jobs: 0,
-    stoppedEarly: false,
-    durationMs: 0,
-  };
-
-  const deliver = async () => {
-    if (steps.has("dispatch")) {
-      while (remains()) {
-        const r = await dispatchOutboxBatch(ctx);
-        summary.events += r.events;
-        summary.webhookDeliveriesCreated += r.webhookDeliveries;
-        summary.adapterDeliveriesCreated += r.adapterDeliveries;
-        if (r.events === 0) break;
-      }
-    }
-    if (steps.has("webhooks")) {
-      while (remains()) {
-        const r = await deliverDueWebhooks(ctx, { fetch: deps.fetch, signal });
-        addInto(summary.webhooks, r);
-        if (r.attempted === 0) break;
-      }
-    }
-    if (steps.has("adapters")) {
-      while (remains()) {
-        const r = await deliverDueAdapterEvents(ctx, { signal });
-        addInto(summary.adapters, r);
-        if (r.attempted === 0) break;
-      }
-    }
-  };
+  const summary = emptySummary();
+  const deliver = () => deliverOutbox(ctx, { steps, signal, fetch: deps.fetch, remains }, summary);
 
   try {
     await deliver();
@@ -127,6 +93,51 @@ export async function runTick(ctx: ServiceContext, deps: TickDeps): Promise<Tick
     summary.durationMs = Math.round(clock() - started);
   }
   return summary;
+}
+
+function emptySummary(): TickSummary {
+  return {
+    events: 0,
+    webhookDeliveriesCreated: 0,
+    adapterDeliveriesCreated: 0,
+    webhooks: { attempted: 0, delivered: 0, retried: 0, failed: 0 },
+    adapters: { attempted: 0, delivered: 0, retried: 0, failed: 0 },
+    jobs: 0,
+    stoppedEarly: false,
+    durationMs: 0,
+  };
+}
+
+/** The delivery steps the tick runs, each repeated while it finds work and the budget lasts, adding into `summary`. */
+async function deliverOutbox(
+  ctx: ServiceContext,
+  run: { steps: ReadonlySet<TickStep>; signal: AbortSignal; fetch: WebhookFetch; remains: () => boolean },
+  summary: TickSummary,
+): Promise<void> {
+  const { steps, signal, remains } = run;
+  if (steps.has("dispatch")) {
+    while (remains()) {
+      const r = await dispatchOutboxBatch(ctx);
+      summary.events += r.events;
+      summary.webhookDeliveriesCreated += r.webhookDeliveries;
+      summary.adapterDeliveriesCreated += r.adapterDeliveries;
+      if (r.events === 0) break;
+    }
+  }
+  if (steps.has("webhooks")) {
+    while (remains()) {
+      const r = await deliverDueWebhooks(ctx, { fetch: run.fetch, signal });
+      addInto(summary.webhooks, r);
+      if (r.attempted === 0) break;
+    }
+  }
+  if (steps.has("adapters")) {
+    while (remains()) {
+      const r = await deliverDueAdapterEvents(ctx, { signal });
+      addInto(summary.adapters, r);
+      if (r.attempted === 0) break;
+    }
+  }
 }
 
 /** Whether a summary did anything worth a log line. */

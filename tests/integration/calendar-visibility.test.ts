@@ -7,12 +7,14 @@ import type { Actor } from "@/domain/actor";
 import type { ColleagueVisibility } from "@/domain/calendar-visibility";
 import { isDomainError } from "@/domain/errors";
 import * as calendarModule from "@/modules/calendar";
-import { getTeamMember } from "@/server/services/team-member";
+import { getTeamMember as getTeamMemberResult } from "@/modules/people";
 import { companyAudit, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as organisation from "@/modules/organisation";
 import * as companySettings from "@/server/services/company-settings";
 import { unwrap } from "@/shared/lib/result";
+
+const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
 
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);

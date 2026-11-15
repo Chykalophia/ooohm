@@ -5,7 +5,7 @@ import "server-only";
  * them out. The member reads and the person row other modules share are
  * `src/shared/lib/db/members.ts`.
  */
-import { and, asc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { departments, session, user } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";

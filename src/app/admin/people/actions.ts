@@ -4,12 +4,21 @@ import { z } from "zod";
 import { ROLES } from "@/domain/actor";
 import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { EMAIL_MAX_LENGTH, PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
-import { isDomainError } from "@/domain/errors";
-import { DELETION_MODES, type DeletionBlockers, type DeletionMode, deletionBlockersOf } from "@/modules/people";
 import { setAllowanceOverride } from "@/modules/balances";
 import { map } from "@/shared/lib/result";
-import { deactivatePerson, invitePerson, reactivatePerson, resendInvite, updatePerson } from "@/server/services/admin-people";
-import { cancelScheduledDeletion, deletePerson } from "@/server/services/admin-people-deletion";
+import {
+  cancelScheduledDeletion,
+  deactivatePerson,
+  DELETION_MODES,
+  type DeletionBlockers,
+  type DeletionMode,
+  deletePerson,
+  deletionBlockersOf,
+  invitePerson,
+  reactivatePerson,
+  resendInvite,
+  updatePerson,
+} from "@/modules/people";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction, adminActionThenGo } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -50,10 +59,7 @@ export async function inviteAction(_prev: FormState, formData: FormData): Promis
     "person_invite",
     formData,
     inviteSchema,
-    async (ctx, actor, input) => {
-      const person = await invitePerson(ctx, actor, input);
-      return `Invited. ${person.email} will get an email with a sign-in link.`;
-    },
+    async (ctx, actor, input) => map(await invitePerson(ctx, actor, input), (person) => `Invited. ${person.email} will get an email with a sign-in link.`),
     INVITE_MESSAGES,
   );
 }
@@ -64,10 +70,10 @@ export async function updatePersonAction(_prev: FormState, formData: FormData): 
     "person_update",
     formData,
     editSchema,
-    async (ctx, actor, { userId, ...input }) => {
-      const { requestsReassigned: n } = await updatePerson(ctx, actor, userId, input);
-      return n === 0 ? "Saved." : `Saved. ${n} pending ${n === 1 ? "request" : "requests"} moved to another approver.`;
-    },
+    async (ctx, actor, { userId, ...input }) =>
+      map(await updatePerson(ctx, actor, userId, input), ({ requestsReassigned: n }) =>
+        n === 0 ? "Saved." : `Saved. ${n} pending ${n === 1 ? "request" : "requests"} moved to another approver.`,
+      ),
     PERSON_MESSAGES,
   );
 }
@@ -77,10 +83,7 @@ export async function resendInviteAction(_prev: FormState, formData: FormData): 
     "person_resend_invite",
     formData,
     personSchema,
-    async (ctx, actor, { userId }) => {
-      const person = await resendInvite(ctx, actor, userId);
-      return `Sent. ${person.email} will get a new sign-in link.`;
-    },
+    async (ctx, actor, { userId }) => map(await resendInvite(ctx, actor, userId), (person) => `Sent. ${person.email} will get a new sign-in link.`),
     { ...PERSON_MESSAGES, forbidden: "Reactivate them before sending a link.", rate_limited: INVITE_MESSAGES.rate_limited },
   );
 }
@@ -90,9 +93,7 @@ export async function deactivateAction(_prev: FormState, formData: FormData): Pr
     "person_deactivate",
     formData,
     personSchema,
-    async (ctx, actor, { userId }) => {
-      return deactivationMessage(await deactivatePerson(ctx, actor, userId));
-    },
+    async (ctx, actor, { userId }) => map(await deactivatePerson(ctx, actor, userId), deactivationMessage),
     PERSON_MESSAGES,
   );
 }
@@ -102,10 +103,7 @@ export async function reactivateAction(_prev: FormState, formData: FormData): Pr
     "person_reactivate",
     formData,
     personSchema,
-    async (ctx, actor, { userId }) => {
-      await reactivatePerson(ctx, actor, userId);
-      return "Reactivated. They can sign in again.";
-    },
+    async (ctx, actor, { userId }) => map(await reactivatePerson(ctx, actor, userId), () => "Reactivated. They can sign in again."),
     PERSON_MESSAGES,
   );
 }
@@ -131,14 +129,13 @@ export async function deletePersonAction(_prev: DeleteState, formData: FormData)
     formData,
     deleteSchema,
     async (ctx, actor, { userId, mode, confirmName }) => {
-      try {
-        const outcome = await deletePerson(ctx, actor, userId, { mode, confirmName });
-        if (outcome.outcome === "deleted") return `/admin/people?notice=${outcome.mode}`;
-        return `/admin/people?inactive=1&notice=${outcome.alreadyScheduled ? "already_scheduled" : "scheduled"}`;
-      } catch (err) {
-        if (isDomainError(err)) refused.blockers = deletionBlockersOf(err);
-        throw err;
-      }
+      const result = await deletePerson(ctx, actor, userId, { mode, confirmName });
+      if (!result.ok) refused.blockers = deletionBlockersOf(result.error);
+      return map(result, (outcome) =>
+        outcome.outcome === "deleted"
+          ? `/admin/people?notice=${outcome.mode}`
+          : `/admin/people?inactive=1&notice=${outcome.alreadyScheduled ? "already_scheduled" : "scheduled"}`,
+      );
     },
     { ...PERSON_MESSAGES, not_found: "That person isn't in your company, or was already deleted." },
   );
@@ -151,10 +148,8 @@ export async function cancelDeletionAction(_prev: FormState, formData: FormData)
     "person_delete_cancel",
     formData,
     personSchema,
-    async (ctx, actor, { userId }) => {
-      const cancelled = await cancelScheduledDeletion(ctx, actor, userId);
-      return cancelled ? "Undone. They stay, deactivated." : "Nothing was scheduled.";
-    },
+    async (ctx, actor, { userId }) =>
+      map(await cancelScheduledDeletion(ctx, actor, userId), (cancelled) => (cancelled ? "Undone. They stay, deactivated." : "Nothing was scheduled.")),
     PERSON_MESSAGES,
   );
 }

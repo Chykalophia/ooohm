@@ -30,6 +30,10 @@ export { previewPeopleImport } from "./application/queries/preview-people-import
 export { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, PEOPLE_IMPORT_WINDOW_MINUTES } from "./application/use-cases/import-people";
 export { PEOPLE_IMPORT_MAX_ROWS, peopleImportSampleCsv } from "./domain/people-import";
 
+// A member as their page on Team shows them.
+export { getTeamMember } from "./application/queries/get-team-member";
+export type { TeamMemberDTO } from "./application/queries/get-team-member";
+
 // The signed-in person's own account.
 export { getAccount } from "./application/queries/get-account";
 export { hasPasskey } from "./application/queries/has-passkey";

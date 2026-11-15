@@ -22,7 +22,7 @@ export interface PersonDetailDTO {
   /** `null` when the company's allowance policy is unknown. */
   balances: BalanceSummary | null;
   /** Each type's allowance settings, by id, for the allowance editor: the default is this person's (allowance rules applied). */
-  leaveTypes: Map<string, { countsAgainstAllowance: boolean; defaultAllowanceDays: number }>;
+  leaveTypes: Map<string, { countsAgainstAllowance: boolean; defaultAllowanceDays: number | null }>;
 }
 
 /**

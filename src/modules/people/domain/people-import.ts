@@ -183,102 +183,13 @@ const ALREADY_HERE = "Already has an account, so left as is.";
  *   that loop back on themselves are a problem on every row of the loop.
  */
 export function planPeopleImport(rows: readonly PeopleCsvRow[], facts: ImportFacts): PeopleImportPlan {
-  type Draft = { line: number; email: string; rawName: string; problems: string[]; skip: boolean; person: PlannedPerson; managerEmail: string | null };
-  const firstLine = new Map<string, number>();
-  const newDepartments = new Map<string, string>();
-
-  const drafts: Draft[] = rows.map((row) => {
-    const problems: string[] = [];
-    let email = row.email.trim().toLowerCase();
-    const emailProblem = refusal(() => (email = normalizeEmail(row.email)), "That isn't an email address.");
-    if (emailProblem) problems.push(row.email === "" ? "The email is missing." : `“${row.email}” isn't an email address.`);
-    else if (firstLine.has(email)) problems.push(`This email is also on line ${firstLine.get(email)}.`);
-    else firstLine.set(email, row.line);
-
-    let name = "";
-    const nameProblem = refusal(() => (name = normalizePersonName(row.name)), "The name is missing.");
-    if (nameProblem) problems.push(row.name.trim() === "" ? "The name is missing." : nameProblem);
-
-    const roleText = row.role.trim().toLowerCase();
-    const role: Role = roleText === "" ? "employee" : isRole(roleText) ? roleText : "employee";
-    if (roleText !== "" && !isRole(roleText)) problems.push(`Role must be ${ROLES.join(", ").replace(/, (\w+)$/, " or $1")}, not “${row.role}”.`);
-
-    const approval = row.canSelfApprove.trim().toLowerCase();
-    if (!YES.has(approval) && !NO.has(approval)) problems.push(`can_self_approve must be yes or no, not “${row.canSelfApprove}”.`);
-
-    // Someone already here is left as is, so the rest of their row does not matter.
-    const skip = !emailProblem && firstLine.get(email) === row.line && facts.takenEmails.has(email);
-
-    let department: PlannedPerson["department"] = null;
-    if (row.department.trim() !== "") {
-      let deptName = "";
-      const deptProblem = refusal(() => (deptName = normalizeDepartmentName(row.department)), "");
-      if (deptProblem) problems.push(`Department names are up to ${DEPARTMENT_NAME_MAX_LENGTH} characters.`);
-      else {
-        const key = deptName.toLowerCase();
-        const existing = facts.departments.get(key);
-        department = existing ? { id: existing.id, name: existing.name } : { id: null, name: newDepartments.get(key) ?? deptName };
-        if (!existing && !skip && !newDepartments.has(key)) newDepartments.set(key, deptName);
-      }
-    }
-
-    let managerEmail: string | null = null;
-    if (row.managerEmail.trim() !== "") {
-      const managerProblem = refusal(() => (managerEmail = normalizeEmail(row.managerEmail)), "");
-      if (managerProblem) problems.push(`The manager's email “${row.managerEmail}” isn't an email address.`);
-      else if (managerEmail === email) problems.push("Someone can't be their own manager.");
-    }
-
-    return {
-      line: row.line,
-      email,
-      problems: skip ? [] : problems,
-      skip,
-      managerEmail,
-      rawName: name || row.name.trim(),
-      person: { email, name, role, department, manager: null, canSelfApprove: YES.has(approval) },
-    };
-  });
-
+  const seen: Seen = { firstLine: new Map(), newDepartments: new Map() };
+  const drafts = rows.map((row) => draftRow(row, facts, seen));
   // Only rows that are to be added can be another row's manager: the first row of each email.
-  const byEmail = new Map(drafts.filter((d) => firstLine.get(d.email) === d.line && !d.skip).map((d) => [d.email, d]));
-
-  for (const d of drafts) {
-    if (d.skip || d.managerEmail === null) continue;
-    const member = facts.members.get(d.managerEmail);
-    if (member) {
-      if (member.isActive) d.person.manager = { kind: "member", id: member.id, email: d.managerEmail };
-      else d.problems.push("The manager is deactivated.");
-    } else if (byEmail.has(d.managerEmail)) d.person.manager = { kind: "row", email: d.managerEmail };
-    else d.problems.push(`Nobody with the manager's email (${d.managerEmail}) is in OOOhm or in this file.`);
-  }
-
-  // Loops among the rows: walk up from each row; a walk that returns to its start is a loop.
-  for (const d of drafts) {
-    if (d.problems.length > 0 || d.person.manager?.kind !== "row") continue;
-    const seen = new Set<string>();
-    for (let at: Draft | undefined = d; at?.person.manager?.kind === "row"; at = byEmail.get(at.person.manager.email)) {
-      if (seen.has(at.email)) break;
-      seen.add(at.email);
-      if (at.person.manager.email === d.email) {
-        d.problems.push("The managers in this file loop back to this person.");
-        break;
-      }
-    }
-  }
-
-  // A row whose manager's row fails fails too, until nothing changes.
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const d of drafts) {
-      if (d.problems.length > 0 || d.person.manager?.kind !== "row") continue;
-      const manager = byEmail.get(d.person.manager.email);
-      if (manager && manager.problems.length > 0) {
-        d.problems.push(`The manager's row (line ${manager.line}) has a problem.`);
-        changed = true;
-      }
-    }
-  }
+  const byEmail = new Map(drafts.filter((d) => seen.firstLine.get(d.email) === d.line && !d.skip).map((d) => [d.email, d]));
+  linkManagers(drafts, facts, byEmail);
+  flagLoops(drafts, byEmail);
+  flagFailedManagers(drafts, byEmail);
 
   const planned: PlannedRow[] = drafts.map((d) =>
     d.problems.length > 0
@@ -290,7 +201,118 @@ export function planPeopleImport(rows: readonly PeopleCsvRow[], facts: ImportFac
   const errors = planned.filter((r) => r.status === "error").length;
   const adds = planned.filter((r) => r.status === "add").length;
   // A department only an erroring row names is still listed: nothing is created until every row is fine.
-  return { rows: planned, newDepartments: [...newDepartments.values()], adds, skips: planned.length - adds - errors, errors };
+  return { rows: planned, newDepartments: [...seen.newDepartments.values()], adds, skips: planned.length - adds - errors, errors };
+}
+
+/** One row on its way to the plan. */
+type Draft = { line: number; email: string; rawName: string; problems: string[]; skip: boolean; person: PlannedPerson; managerEmail: string | null };
+
+/** What the rows before this one have used: the first line of each email, and the departments to create. */
+type Seen = { firstLine: Map<string, number>; newDepartments: Map<string, string> };
+
+/** A row's own cells, checked; its manager is linked afterwards ({@link linkManagers}). */
+function draftRow(row: PeopleCsvRow, facts: ImportFacts, seen: Seen): Draft {
+  const problems: string[] = [];
+  let email = row.email.trim().toLowerCase();
+  const emailProblem = refusal(() => (email = normalizeEmail(row.email)), "That isn't an email address.");
+  if (emailProblem) problems.push(row.email === "" ? "The email is missing." : `“${row.email}” isn't an email address.`);
+  else if (seen.firstLine.has(email)) problems.push(`This email is also on line ${seen.firstLine.get(email)}.`);
+  else seen.firstLine.set(email, row.line);
+
+  let name = "";
+  const nameProblem = refusal(() => (name = normalizePersonName(row.name)), "The name is missing.");
+  if (nameProblem) problems.push(row.name.trim() === "" ? "The name is missing." : nameProblem);
+
+  const roleText = row.role.trim().toLowerCase();
+  const role: Role = roleText === "" ? "employee" : isRole(roleText) ? roleText : "employee";
+  if (roleText !== "" && !isRole(roleText)) problems.push(`Role must be ${ROLES.join(", ").replace(/, (\w+)$/, " or $1")}, not “${row.role}”.`);
+
+  const approval = row.canSelfApprove.trim().toLowerCase();
+  if (!YES.has(approval) && !NO.has(approval)) problems.push(`can_self_approve must be yes or no, not “${row.canSelfApprove}”.`);
+
+  // Someone already here is left as is, so the rest of their row does not matter.
+  const skip = !emailProblem && seen.firstLine.get(email) === row.line && facts.takenEmails.has(email);
+  const department = departmentOf(row, facts, seen, skip, problems);
+  const managerEmail = managerEmailOf(row, email, problems);
+  return {
+    line: row.line,
+    email,
+    problems: skip ? [] : problems,
+    skip,
+    managerEmail,
+    rawName: name || row.name.trim(),
+    person: { email, name, role, department, manager: null, canSelfApprove: YES.has(approval) },
+  };
+}
+
+/** The row's department: an existing one, or one to create (noted in `seen` unless the row is skipped). */
+function departmentOf(row: PeopleCsvRow, facts: ImportFacts, seen: Seen, skip: boolean, problems: string[]): PlannedPerson["department"] {
+  if (row.department.trim() === "") return null;
+  let deptName = "";
+  const deptProblem = refusal(() => (deptName = normalizeDepartmentName(row.department)), "");
+  if (deptProblem) {
+    problems.push(`Department names are up to ${DEPARTMENT_NAME_MAX_LENGTH} characters.`);
+    return null;
+  }
+  const key = deptName.toLowerCase();
+  const existing = facts.departments.get(key);
+  const department = existing ? { id: existing.id, name: existing.name } : { id: null, name: seen.newDepartments.get(key) ?? deptName };
+  if (!existing && !skip && !seen.newDepartments.has(key)) seen.newDepartments.set(key, deptName);
+  return department;
+}
+
+/** The manager's email as stored, or `null` when the cell is blank or wrong (a problem then says why). */
+function managerEmailOf(row: PeopleCsvRow, email: string, problems: string[]): string | null {
+  if (row.managerEmail.trim() === "") return null;
+  let managerEmail: string | null = null;
+  const managerProblem = refusal(() => (managerEmail = normalizeEmail(row.managerEmail)), "");
+  if (managerProblem) problems.push(`The manager's email “${row.managerEmail}” isn't an email address.`);
+  else if (managerEmail === email) problems.push("Someone can't be their own manager.");
+  return managerEmail;
+}
+
+/** Links each row to its manager: one of the company's active people first, then a row being added. */
+function linkManagers(drafts: readonly Draft[], facts: ImportFacts, byEmail: ReadonlyMap<string, Draft>): void {
+  for (const d of drafts) {
+    if (d.skip || d.managerEmail === null) continue;
+    const member = facts.members.get(d.managerEmail);
+    if (member) {
+      if (member.isActive) d.person.manager = { kind: "member", id: member.id, email: d.managerEmail };
+      else d.problems.push("The manager is deactivated.");
+    } else if (byEmail.has(d.managerEmail)) d.person.manager = { kind: "row", email: d.managerEmail };
+    else d.problems.push(`Nobody with the manager's email (${d.managerEmail}) is in OOOhm or in this file.`);
+  }
+}
+
+/** Loops among the rows: walk up from each row; a walk that returns to its start is a loop. */
+function flagLoops(drafts: readonly Draft[], byEmail: ReadonlyMap<string, Draft>): void {
+  for (const d of drafts) {
+    if (d.problems.length > 0 || d.person.manager?.kind !== "row") continue;
+    const visited = new Set<string>();
+    for (let at: Draft | undefined = d; at?.person.manager?.kind === "row"; at = byEmail.get(at.person.manager.email)) {
+      if (visited.has(at.email)) break;
+      visited.add(at.email);
+      if (at.person.manager.email === d.email) {
+        d.problems.push("The managers in this file loop back to this person.");
+        break;
+      }
+    }
+  }
+}
+
+/** A row whose manager's row fails fails too, until nothing changes. */
+function flagFailedManagers(drafts: readonly Draft[], byEmail: ReadonlyMap<string, Draft>): void {
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const d of drafts) {
+      if (d.problems.length > 0 || d.person.manager?.kind !== "row") continue;
+      const manager = byEmail.get(d.person.manager.email);
+      if (manager && manager.problems.length > 0) {
+        d.problems.push(`The manager's row (line ${manager.line}) has a problem.`);
+        changed = true;
+      }
+    }
+  }
 }
 
 /**

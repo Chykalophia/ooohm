@@ -11,12 +11,12 @@ import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
 import { toActor } from "@/domain/actor";
 import { byUser, CHANGE_PROCESSES } from "@/domain/change-source";
-import { readTimeOffSqlite } from "@/server/importers/timeoff/sqlite-reader";
+import { readTimeOffSqlite } from "@/modules/import/infrastructure/timeoff-sqlite-reader";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary } from "@/server/services/balances";
 import { cancelLeaveRequest, getDashboard } from "@/server/services/leave-requests";
 import { runYearRollover } from "@/server/services/rollover";
-import { importTimeOff, type TimeOffImportInput } from "@/server/services/timeoff-import";
+import { importTimeOff, type TimeOffImportInput } from "@/modules/import";
 import { DatabaseSync } from "node:sqlite";
 import { buildTimeOffFixtureThrough } from "../support/timeoff-carry-forward";
 import {

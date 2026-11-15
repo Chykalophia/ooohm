@@ -21,7 +21,7 @@
  */
 import { addDays } from "@/domain/allowance-policy";
 import { type CalendarDate, eachDate, isoWeekday, toEpochDay } from "@/domain/calendar-date";
-import { TIMEOFF_DAY_PART, TIMEOFF_SCHEDULE_WORKING_DAY, TIMEOFF_STATUS, type TimeOffSchedule } from "@/domain/timeoff/source";
+import { TIMEOFF_DAY_PART, TIMEOFF_SCHEDULE_WORKING_DAY, TIMEOFF_STATUS, type TimeOffSchedule } from "@/modules/import/domain/timeoff/source";
 
 /** TimeOff's default working week when no schedule is stored: Monday to Friday. */
 export const TIMEOFF_DEFAULT_WORKING_DAYS: readonly number[] = [1, 2, 3, 4, 5];

@@ -24,7 +24,7 @@ const layers = [
       relative,
       { group: ["@/server/repositories/*"], message: "Pages and actions call services, not repositories." },
       {
-        group: ["@/server/importers/*", "@/server/importers/**", "@/server/services/timeoff-import"],
+        group: ["@/modules/import", "@/modules/import/*", "@/modules/import/**"],
         message: "The TimeOff import is CLI-only: it has no actor or authorization.",
       },
     ],
@@ -53,7 +53,13 @@ const layers = [
   {
     // Use cases: the old services, the shared unit of work and admin checks, and the
     // application layer of the modules whose old service sat here.
-    files: ["src/server/services/**/*.ts", "src/shared/lib/unit-of-work.ts", "src/shared/lib/admin-access.ts", "src/modules/audit/application/**/*.ts"],
+    files: [
+      "src/server/services/**/*.ts",
+      "src/shared/lib/unit-of-work.ts",
+      "src/shared/lib/admin-access.ts",
+      "src/modules/audit/application/**/*.ts",
+      "src/modules/import/application/**/*.ts",
+    ],
     paths: [
       ...next,
       pool,
@@ -139,7 +145,7 @@ const layers = [
   {
     // Source readers for one-time imports turn another system's files into plain domain
     // records. They read files only: never OOOhm's database, configuration or session.
-    files: ["src/server/importers/**/*.ts"],
+    files: ["src/modules/import/infrastructure/**/*.ts"],
     paths: [
       ...next,
       pool,

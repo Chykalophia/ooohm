@@ -34,13 +34,11 @@ import * as leave from "@/modules/leave";
 import * as notifications from "@/modules/notifications";
 import * as organisation from "@/modules/organisation";
 import * as reports from "@/modules/reports";
-import * as account from "@/server/services/account";
-import * as deletion from "@/server/services/admin-people-deletion";
-import * as peopleImport from "@/server/services/admin-people-import";
-import * as people from "@/server/services/admin-people";
+import * as people from "@/modules/people";
+import { findMemberStanding } from "@/shared/lib/db/admin-standing";
+import * as members from "@/shared/lib/db/members";
 import * as companySettings from "@/server/services/company-settings";
 import * as departmentManager from "@/server/services/department-manager";
-import * as teamMember from "@/server/services/team-member";
 import { handleApiRequest, parseQuery, REQUESTS_PER_KEY_PER_MINUTE, UNAUTHORIZED_PER_CLIENT_PER_MINUTE } from "@/app/api/v1/_lib/handler";
 import { balancesQuery, eventsQuery, holidaysQuery, leaveRequestsQuery, usersQuery } from "@/app/api/v1/_lib/query";
 import { pngImage } from "../support/images";
@@ -200,6 +198,7 @@ function markersOf(rows: Record<string, string[]>, token: string): Set<string> {
 
 /** JSON of anything a call returns, with Maps, Sets, binary data and functions spelled out. */
 function serialize(value: unknown): string {
+  if (value === undefined) return "undefined";
   return JSON.stringify(value, (_key, v: unknown) => {
     if (v instanceof Map) return { map: [...v.entries()] };
     if (v instanceof Set) return { set: [...v] };
@@ -863,51 +862,93 @@ const CASES: Case[] = [
 
   // People (services not yet in a module).
   {
-    covers: ["services/account:getAccount", "services/account:hasPasskey", "services/account:renameSelf", "services/account:setColorMode"],
+    covers: ["people:getAccount", "people:hasPasskey", "people:renameSelf", "people:setColorMode"],
     name: "account reads and edits are the person's own",
     run: async ({ ctx, a }) => [
-      await account.getAccount(ctx, a.pal),
-      await account.hasPasskey(ctx, a.pal),
-      await account.renameSelf(ctx, a.pal, "Alpha Pal"),
-      await account.setColorMode(ctx, a.pal, "dark"),
+      await people.getAccount(ctx, a.pal),
+      await people.hasPasskey(ctx, a.pal),
+      await people.renameSelf(ctx, a.pal, "Alpha Pal"),
+      await people.setColorMode(ctx, a.pal, "dark"),
     ],
   },
   {
     covers: [
-      "services/admin-people-deletion:getDeletionPreview",
-      "services/admin-people-deletion:exportPersonRecords",
-      "services/admin-people-deletion:cancelScheduledDeletion",
-      "services/admin-people-deletion:deletePerson",
+      "people:getDeletionPreview",
+      "people:exportPersonRecords",
+      "people:cancelScheduledDeletion",
+      "people:deletePerson",
     ],
     name: "another company's person can be neither previewed, exported nor deleted",
     run: async ({ ctx, a, b }) => {
       const refused = (e: unknown) => ({ refused: String(e) });
       return [
-        await deletion.getDeletionPreview(ctx, a.admin, b.emp.id).catch(refused),
-        await deletion.exportPersonRecords(ctx, a.admin, b.emp.id).catch(refused),
-        await deletion.cancelScheduledDeletion(ctx, a.admin, b.emp.id).catch(refused),
-        await deletion.deletePerson(ctx, a.admin, b.emp.id, { mode: "scrubbed", confirmName: b.emp.name }).catch(refused),
-        await deletion.deletePerson(ctx, a.admin, b.emp.id, { mode: "records_kept", confirmName: b.emp.name }).catch(refused),
+        await people.getDeletionPreview(ctx, a.admin, b.emp.id).catch(refused),
+        await people.exportPersonRecords(ctx, a.admin, b.emp.id).catch(refused),
+        await people.cancelScheduledDeletion(ctx, a.admin, b.emp.id).catch(refused),
+        await people.deletePerson(ctx, a.admin, b.emp.id, { mode: "scrubbed", confirmName: b.emp.name }).catch(refused),
+        await people.deletePerson(ctx, a.admin, b.emp.id, { mode: "records_kept", confirmName: b.emp.name }).catch(refused),
       ];
     },
   },
   {
-    covers: ["services/admin-people-import:previewPeopleImport", "services/admin-people-import:importPeople"],
+    covers: ["people:previewPeopleImport", "people:importPeople"],
     name: "a people import neither takes over nor reveals another company's people",
     run: async ({ ctx, a, b }) => {
       const csv = ["email,name,role,department,manager_email", `${b.emp.email},Taken Over,admin,,`, `alpha.new@example.com,Alpha New,employee,,${b.boss.email}`].join("\n");
       const refused = (e: unknown) => ({ refused: String(e) });
-      return [await peopleImport.previewPeopleImport(ctx, a.admin, csv).catch(refused), await peopleImport.importPeople(ctx, a.admin, { csv, sendInvites: true }).catch(refused)];
+      return [await people.previewPeopleImport(ctx, a.admin, csv).catch(refused), await people.importPeople(ctx, a.admin, { csv, sendInvites: true }).catch(refused)];
     },
     echoes: ({ b }) => [b.emp.email, b.boss.email],
   },
   {
-    covers: ["services/admin-people:beginAdminChange", "services/admin-people:inviterName"],
-    name: "admin change helpers read the actor's own company",
-    run: (w) => inTx(w, async (tx) => [await people.beginAdminChange(tx, w.a.admin), await people.inviterName(tx, w.a.admin)]),
+    covers: [
+      "db/members:lockMembers",
+      "db/members:lockMember",
+      "db/members:findMembers",
+      "db/members:findMember",
+      "db/members:findContacts",
+      "db/members:findPerson",
+      "db/members:lockPerson",
+      "db/admin-standing:findMemberStanding",
+    ],
+    name: "member reads by company never find another company's person",
+    run: (w) =>
+      inTx(w, async (tx) => {
+        const { a, b } = w;
+        await members.lockMembers(tx, a.companyId, [b.emp.id, b.boss.id]);
+        return [
+          await members.lockMember(tx, a.companyId, b.emp.id),
+          await members.findMembers(tx, a.companyId, [b.emp.id, b.boss.id]),
+          await members.findMember(tx, a.companyId, b.emp.id),
+          await members.findContacts(tx, a.companyId, [b.emp.id, b.boss.id]),
+          await members.findPerson(tx, a.companyId, b.emp.id),
+          await members.lockPerson(tx, a.companyId, b.emp.id),
+          await findMemberStanding(tx, a.companyId, b.admin.id),
+        ];
+      }),
+    check: (value) => {
+      for (const found of value as unknown[]) {
+        assert.ok(found === undefined || (Array.isArray(found) && found.length === 0) || (found instanceof Map && found.size === 0), serialize(found));
+      }
+    },
   },
   {
-    covers: ["services/admin-people:listPeople", "services/admin-people:getPersonFormOptions", "services/admin-people:getPersonDetail"],
+    covers: ["db/members:listActiveAdmins", "db/members:listActiveMembers", "db/members:listPeopleNames"],
+    name: "member lists by company hold only the company's people",
+    run: async ({ t, a }) => [
+      await members.listActiveAdmins(t.db, a.companyId),
+      await members.listActiveMembers(t.db, a.companyId),
+      await members.listPeopleNames(t.db, a.companyId, { includeDeleted: true }),
+    ],
+  },
+  {
+    covers: ["db/members:updatePerson"],
+    name: "a member write by company never changes another company's person",
+    run: (w) => inTx(w, (tx) => members.updatePerson(tx, w.a.companyId, w.b.emp.id, { name: "Taken Over", role: "admin" })),
+    check: (value) => assert.equal(value, undefined),
+  },
+  {
+    covers: ["people:listPeople", "people:getPersonFormOptions", "people:getPersonDetail"],
     name: "Admin → People lists and opens only the company's people",
     run: async ({ ctx, a, b }) => {
       const refused = (e: unknown) => ({ refused: String(e) });
@@ -922,7 +963,7 @@ const CASES: Case[] = [
     echoes: ({ b }) => [b.token],
   },
   {
-    covers: ["services/admin-people:invitePerson"],
+    covers: ["people:invitePerson"],
     name: "an invite cannot place someone in another company's department, level or team",
     run: async ({ ctx, a, b }) => {
       const refused = (e: unknown) => ({ refused: String(e) });
@@ -936,7 +977,7 @@ const CASES: Case[] = [
     echoes: ({ b }) => [b.emp.email],
   },
   {
-    covers: ["services/admin-people:updatePerson", "services/admin-people:resendInvite", "services/admin-people:deactivatePerson", "services/admin-people:reactivatePerson"],
+    covers: ["people:updatePerson", "people:resendInvite", "people:deactivatePerson", "people:reactivatePerson"],
     name: "another company's person cannot be edited, invited, deactivated or reactivated, nor linked to",
     run: async ({ ctx, a, b }) => {
       const refused = (e: unknown) => ({ refused: String(e) });
@@ -952,11 +993,11 @@ const CASES: Case[] = [
     },
   },
   {
-    covers: ["services/team-member:getTeamMember"],
+    covers: ["people:getTeamMember"],
     name: "a team member page cannot open another company's person",
     run: async ({ ctx, a, b }) => {
       const refused = (e: unknown) => ({ refused: String(e) });
-      return [await teamMember.getTeamMember(ctx, a.admin, b.emp.id).catch(refused), await teamMember.getTeamMember(ctx, a.boss, b.emp.id).catch(refused)];
+      return [await people.getTeamMember(ctx, a.admin, b.emp.id).catch(refused), await people.getTeamMember(ctx, a.boss, b.emp.id).catch(refused)];
     },
   },
 ];

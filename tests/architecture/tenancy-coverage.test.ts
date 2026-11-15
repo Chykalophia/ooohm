@@ -2,28 +2,31 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { API_ROUTES_COVERED, API_ROUTES_EXEMPT, COVERED, EXEMPT, TENANCY_SOURCE_DIRS } from "../support/tenancy-coverage";
+import { API_ROUTES_COVERED, API_ROUTES_EXEMPT, COVERED, EXEMPT, TENANCY_SOURCES } from "../support/tenancy-coverage";
 import { ROOT } from "./files";
 
 /**
  * The tenant-isolation suite (tests/integration/tenancy.test.ts) must keep up with the
- * code: every function a module's index or a service file exports either has a
- * cross-company case there or an exemption with its reason in tests/support/tenancy-coverage.ts.
+ * code: every function exported by a source in `TENANCY_SOURCES` (module indexes, service,
+ * job and identity files, the shared member reads) has a cross-company case there or an
+ * exemption with its reason in tests/support/tenancy-coverage.ts.
  */
 
 async function exportedFunctions(): Promise<string[]> {
-  const out: string[] = [];
-  const modules = join(ROOT, TENANCY_SOURCE_DIRS.modules);
+  const sources: [prefix: string, path: string][] = [];
+  const modules = join(ROOT, TENANCY_SOURCES.modules);
   for (const m of readdirSync(modules).sort()) {
-    const index = join(modules, m, "index.ts");
-    if (!existsSync(index)) continue;
-    const mod = (await import(index)) as Record<string, unknown>;
-    for (const [name, value] of Object.entries(mod)) if (typeof value === "function") out.push(`${m}:${name}`);
+    if (existsSync(join(modules, m, "index.ts"))) sources.push([m, join(modules, m, "index.ts")]);
   }
-  const services = join(ROOT, TENANCY_SOURCE_DIRS.services);
-  for (const f of readdirSync(services).filter((f) => f.endsWith(".ts")).sort()) {
-    const mod = (await import(join(services, f))) as Record<string, unknown>;
-    for (const [name, value] of Object.entries(mod)) if (typeof value === "function") out.push(`services/${f.replace(/\.ts$/, "")}:${name}`);
+  for (const [prefix, dir] of Object.entries(TENANCY_SOURCES.folders)) {
+    for (const f of readdirSync(join(ROOT, dir)).filter((f) => f.endsWith(".ts")).sort()) sources.push([`${prefix}/${f.replace(/\.ts$/, "")}`, join(ROOT, dir, f)]);
+  }
+  for (const [prefix, file] of Object.entries(TENANCY_SOURCES.files)) sources.push([prefix, join(ROOT, file)]);
+
+  const out: string[] = [];
+  for (const [prefix, path] of sources) {
+    const mod = (await import(path)) as Record<string, unknown>;
+    for (const [name, value] of Object.entries(mod)) if (typeof value === "function") out.push(`${prefix}:${name}`);
   }
   return out;
 }

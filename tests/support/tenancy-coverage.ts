@@ -2,10 +2,11 @@
  * Which exported functions the tenant-isolation suite (`tests/integration/tenancy.test.ts`)
  * calls across companies, and why the rest need no case.
  *
- * Every function exported by a module's `index.ts` and by a file in `src/server/services`
- * is listed here, keyed `<source>:<name>` (`leave:cancelLeaveRequest`,
- * `services/admin-people:updatePerson`). `tests/architecture/tenancy-coverage.test.ts`
- * fails when an export is in neither list, or a listed one no longer exists; the suite
+ * Every function exported by a module's `index.ts`, by a file in `src/server/services`,
+ * `src/server/jobs` or `src/server/identity`, and by the shared member reads in
+ * `src/shared/lib/db` ({@link TENANCY_SOURCES}) is listed here, keyed `<source>:<name>`
+ * (`leave:cancelLeaveRequest`, `services/company-settings:updateCompanySettings`,
+ * `db/members:findPerson`). `tests/architecture/tenancy-coverage.test.ts` fails when an export is in neither list, or a listed one no longer exists; the suite
  * fails when a name in {@link COVERED} has no case or a case covers a name not listed.
  * Constants and schemas need no entry: they read nothing.
  *
@@ -19,7 +20,11 @@ const CALLER_SCOPED =
 const RULES_ONLY =
   "its company id picks the allowance rules only: allowances and booked days are read by the user ids its caller loaded in its company " +
   "(the suite's balance-read case shows no use case lets another company's ids through)";
-const WIRING ="composition: wires or binds the module and reads nothing itself";
+const GLOBAL_IDENTITY =
+  "global by design: an email or user id is unique across companies, and every caller (sign-in, the approve link, " +
+  "the import's duplicate check) compares the company it returns";
+const WRITES_GIVEN = "inserts a row for the company id it is handed; its callers (invite, import, sync) have cases here";
+const WIRING = "composition: wires or binds the module and reads nothing itself";
 const RECORDER = "writes the audit and outbox rows of a change it is handed; every caller has a case here";
 const DEPLOYMENT = "deployment-wide by design: read before sign-in, from the one deployment company or a content-addressed file";
 const CLI = "CLI-only, owner role, with an explicit --company; tests/integration/timeoff-import.test.ts covers it";
@@ -93,10 +98,12 @@ export const EXEMPT: Readonly<Record<string, string>> = {
     "reports:canViewReports",
     "reports:presentLeaveReport",
     "reports:typesInMonths",
-    "services/admin-people:personSnapshot",
-    "services/admin-people:personPayload",
-    "services/admin-people:inviteEmail",
-    "services/background-tick:tickDidWork",
+    "people:canDeletePeople",
+    "people:canImportPeople",
+    "people:canManagePeople",
+    "people:deletionBlockersOf",
+    "people:peopleImportSampleCsv",
+    "jobs/background-tick:tickDidWork",
   ]),
   ...exempt(SYSTEM, [
     "balances:runYearRollover",
@@ -104,16 +111,19 @@ export const EXEMPT: Readonly<Record<string, string>> = {
     "integrations:dispatchOutboxBatch",
     "integrations:deliverDueWebhooks",
     "integrations:deliverDueAdapterEvents",
-    "services/admin-people-deletion:runDueScrubs",
-    "services/background-tick:runTick",
-    "services/background-tick:createTickScheduler",
-    "services/retention:pruneIntegrationData",
-    "services/scheduled-jobs:runDueJobs",
-    "services/health:isDatabaseReachable",
-    "services/install:installStatus",
-    "services/install:isSetupOpen",
-    "services/install:runFirstInstall",
+    "people:runDueScrubs",
+    "jobs/background-tick:runTick",
+    "jobs/background-tick:createTickScheduler",
+    "jobs/retention:pruneIntegrationData",
+    "jobs/scheduled-jobs:runDueJobs",
+    "jobs/health:isDatabaseReachable",
+    "identity/install:installStatus",
+    "identity/install:isSetupOpen",
+    "identity/install:runFirstInstall",
+    "identity/installation.repository:isInstalled",
+    "identity/installation.repository:markInstalled",
   ]),
+  ...exempt(GLOBAL_IDENTITY, ["db/members:findPersonByEmail", "db/members:findActorById"]),
   ...exempt(CALLER_SCOPED, [
     "balances:findAllowance",
     "balances:listAllowances",
@@ -121,11 +131,11 @@ export const EXEMPT: Readonly<Record<string, string>> = {
     "balances:recarryMemberLeaveType",
     "balances:writeAllowance",
     "calendar:revokeFeedsOnDeactivation",
-    "services/admin-people-deletion:cancelScheduledScrubIn",
   ]),
+  ...exempt(WRITES_GIVEN, ["db/members:insertPerson"]),
   ...exempt(RULES_ONLY, ["balances:loadBalanceInputs", "balances:loadBalances", "balances:summarizeBalances"]),
   ...exempt(WIRING, ["leave:provideApprovalRouting", "notifications:commitThenNotify"]),
-  ...exempt(RECORDER, ["leave:recordLeaveChange", "leave:recordReassignment", "organisation:recordLeaveTypeChange"]),
+  ...exempt(RECORDER, ["people:recordPersonCreated", "leave:recordLeaveChange", "leave:recordReassignment", "organisation:recordLeaveTypeChange"]),
   ...exempt(DEPLOYMENT, ["organisation:getAppearance", "organisation:getDeploymentLogo", "organisation:getLogoFile"]),
   ...exempt(CLI, ["import:importTimeOff", "import:readTimeOffFile"]),
 };
@@ -271,34 +281,51 @@ export const COVERED: readonly string[] = [
   "organisation:applyLeaveTypeChanges",
   "reports:getLeaveReport",
   "reports:exportLeaveReport",
-  "services/account:getAccount",
-  "services/account:hasPasskey",
-  "services/account:renameSelf",
-  "services/account:setColorMode",
-  "services/admin-people-deletion:getDeletionPreview",
-  "services/admin-people-deletion:deletePerson",
-  "services/admin-people-deletion:cancelScheduledDeletion",
-  "services/admin-people-deletion:exportPersonRecords",
-  "services/admin-people-import:previewPeopleImport",
-  "services/admin-people-import:importPeople",
-  "services/admin-people:beginAdminChange",
-  "services/admin-people:inviterName",
-  "services/admin-people:listPeople",
-  "services/admin-people:getPersonFormOptions",
-  "services/admin-people:getPersonDetail",
-  "services/admin-people:invitePerson",
-  "services/admin-people:resendInvite",
-  "services/admin-people:updatePerson",
-  "services/admin-people:deactivatePerson",
-  "services/admin-people:reactivatePerson",
+  "people:getAccount",
+  "people:hasPasskey",
+  "people:renameSelf",
+  "people:setColorMode",
+  "people:getDeletionPreview",
+  "people:deletePerson",
+  "people:cancelScheduledDeletion",
+  "people:exportPersonRecords",
+  "people:previewPeopleImport",
+  "people:importPeople",
+  "people:listPeople",
+  "people:getPersonFormOptions",
+  "people:getPersonDetail",
+  "people:invitePerson",
+  "people:resendInvite",
+  "people:updatePerson",
+  "people:deactivatePerson",
+  "people:reactivatePerson",
   "services/company-settings:updateCompanySettings",
   "services/department-manager:setDepartmentManager",
-  "services/team-member:getTeamMember",
+  "people:getTeamMember",
+  "db/members:lockMembers",
+  "db/members:lockMember",
+  "db/members:findMembers",
+  "db/members:findMember",
+  "db/members:listActiveAdmins",
+  "db/members:listActiveMembers",
+  "db/members:findContacts",
+  "db/members:findPerson",
+  "db/members:lockPerson",
+  "db/members:listPeopleNames",
+  "db/members:updatePerson",
+  "db/admin-standing:findMemberStanding",
 ];
 
 /** Every `/api/v1` route the suite calls with another company's key; `openapi.json` is static and public. */
 export const API_ROUTES_COVERED: readonly string[] = ["balances", "events", "holidays", "leave-requests", "leave-types", "users"];
 export const API_ROUTES_EXEMPT: Readonly<Record<string, string>> = { "openapi.json": "static document, the same for everyone" };
 
-/** Where the exports come from: each module's index and each file in src/server/services. */
-export const TENANCY_SOURCE_DIRS = { modules: "src/modules", services: "src/server/services" } as const;
+/**
+ * Where the exports come from: `modules` is every module's index; each folder gives every
+ * `.ts` file in it (keyed `<prefix>/<file>`); each file is keyed by its prefix.
+ */
+export const TENANCY_SOURCES = {
+  modules: "src/modules",
+  folders: { services: "src/server/services", jobs: "src/server/jobs", identity: "src/server/identity" },
+  files: { "db/members": "src/shared/lib/db/members.ts", "db/admin-standing": "src/shared/lib/db/admin-standing.ts" },
+} as const;

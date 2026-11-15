@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { pickerGrid } from "@/components/forms/date-picker-grid";
-import { isoWeekday } from "@/domain/calendar-date";
+import { isoWeekday } from "@/shared/kernel/calendar-date";
 
 test("attack: picker grid near MAX_DATE must align with Monday-first header", () => {
   const grid = pickerGrid("9999-12");

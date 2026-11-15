@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * The seam between OOOhm and whatever delivers its email. Services never see this: they
  * call `ctx.mailer` (`Mailer`, in `src/server/context.ts`), and the composition root wires
@@ -44,7 +45,8 @@ export class MailSendError extends Error {
 /** A mailbox split into address and display name: `OOOhm <no-reply@ooohm.team>` or `no-reply@ooohm.team`. */
 export function parseMailbox(value: string): { email: string; name?: string } {
   const match = /^\s*(.*?)\s*<\s*([^<>\s]+)\s*>\s*$/.exec(value);
-  if (!match) return { email: value.trim() };
-  const name = match[1].replace(/^"(.*)"$/, "$1").trim();
-  return name ? { email: match[2], name } : { email: match[2] };
+  const [, display = "", email] = match ?? [];
+  if (email === undefined) return { email: value.trim() };
+  const name = display.replace(/^"(.*)"$/, "$1").trim();
+  return name ? { email, name } : { email };
 }

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { APPROVAL_MODES, readApprovalMode } from "@/domain/approval-rule";
-import { ALLOWANCE_POLICY_LABELS, APPROVAL_MODE_LABELS, COMPANY_NAME_MAX_LENGTH, ISO_WEEKDAYS } from "@/domain/company-settings";
-import { COLLEAGUE_VISIBILITY, COLLEAGUE_VISIBILITY_LABELS, readColleagueVisibility } from "@/domain/calendar-visibility";
-import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
-import { getCompanySettings } from "@/server/services/admin-company";
+import { APPROVAL_MODES, readApprovalMode } from "@/shared/kernel/approval";
+import { ALLOWANCE_POLICY_LABELS, APPROVAL_MODE_LABELS, COMPANY_NAME_MAX_LENGTH, ISO_WEEKDAYS } from "@/shared/kernel/company-settings";
+import { COLLEAGUE_VISIBILITY, COLLEAGUE_VISIBILITY_LABELS, readColleagueVisibility } from "@/shared/kernel/calendar-visibility";
+import { DELETION_GRACE_DAYS } from "@/modules/people";
+import { getCompanySettings } from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card } from "@/components/ui/card";
@@ -18,7 +19,7 @@ export const metadata: Metadata = { title: "Company · Admin · OOOhm" };
 
 export default async function CompanyPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const { company, timeZones, allowancePolicies } = await getCompanySettings(ctx, actor);
+  const { company, timeZones, allowancePolicies } = unwrap(await getCompanySettings(ctx, actor));
   const approvalMode = readApprovalMode(company.approvalMode);
 
   return (

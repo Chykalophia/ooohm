@@ -1,6 +1,6 @@
 import Link from "next/link";
-import type { CalendarEntry } from "@/domain/calendar";
-import { feedEventSummary } from "@/domain/calendar-feed";
+import type { CalendarEntry } from "@/shared/kernel/calendar";
+import { feedEventSummary } from "@/shared/kernel/calendar-feed";
 import { normalizeHexColor, readableTextColor } from "@/lib/color";
 import { cx, focusRing } from "@/components/ui/styles";
 

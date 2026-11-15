@@ -11,8 +11,14 @@ at all. This page lists the supported setups and exactly what each one needs. Ho
 RDS. `sslmode` and the other parameters in the URL are honoured. Behind a *transaction* pooler (Neon's `-pooler`
 host, Supabase on port 6543, PgBouncer in transaction mode) prepared statements must be off: OOOhm detects Neon and
 Supabase and turns them off; for any other pooler set `DATABASE_POOLER=transaction`. When the URL is pooled, also set
-`DATABASE_URL_UNPOOLED` to the direct URL: migrations use it. Or set `OOOHM_DB=embedded` for **embedded** Postgres
+`DATABASE_URL_UNPOOLED` to the direct URL. Or set `OOOHM_DB=embedded` for **embedded** Postgres
 (PGlite, in the app's own process, data in `OOOHM_DATA_DIR`, default `./data/pglite`).
+
+**Database roles.** On Postgres, OOOhm uses two roles: the app, the cron route and the worker connect as the app role
+(`DATABASE_URL`: rows only, no DDL, and `audit_log` only grows), and migrations, the seed and the TimeOff import as
+the owner (`DATABASE_ADMIN_URL`, a direct connection, **required**: they stop without it). `pnpm db:roles`
+(`deploy/db-roles.sql`) creates both; docker compose runs it for you. Neon, Vercel and other hosts:
+[deploy.md](deploy.md#database-roles). Embedded mode has one built-in user and needs neither.
 
 **Background work.** Events go out to webhooks (and adapters) with retries, and two jobs run daily (the year
 rollover and retention). `OOOHM_BACKGROUND` says who does it:
@@ -26,17 +32,17 @@ rollover and retention). `OOOHM_BACKGROUND` says who does it:
 The cron route and `inline` work alongside a worker too: every claim is `SKIP LOCKED` or a compare-and-set, so nothing
 is sent twice. The route refuses every call until `CRON_SECRET` (32+ characters, `openssl rand -hex 32`) is set.
 
-**Migrations.** `pnpm db:migrate` applies pending migrations; it is safe to run on every start. Embedded mode also
-migrates when the app starts.
+**Migrations.** `pnpm db:migrate` applies pending migrations as the owner (`DATABASE_ADMIN_URL`), then refreshes the
+app role's grants; it is safe to run on every start. Embedded mode also migrates when the app starts.
 
 ## Setups
 
 | Setup | Database | Background | Migrations | Backups | Email |
 | --- | --- | --- | --- | --- | --- |
 | **Docker compose on your server** ([deploy.md](deploy.md)) | The compose `db` service (Postgres 17) | `worker` service | `migrate` service on every `up` | `deploy/backup.sh` nightly (systemd timer), off-site with `OFFSITE_HOOK` | Any SMTP provider on 587 |
-| **Node on a VM with systemd** | Any Postgres (local or managed) | Two units: `pnpm start` (or `node .next/standalone/server.js`) and `pnpm worker`, both `Restart=always` | `pnpm db:migrate` before starting the new version | `deploy/backup.sh` with `PG_DUMP='pg_dump -d "$DATABASE_URL"'` from a timer | Any SMTP provider |
-| **Vercel + Neon or Supabase** ([deploy-vercel.md](deploy-vercel.md)) | Neon / Supabase pooled URL as `DATABASE_URL`, direct URL as `DATABASE_URL_UNPOOLED` | `inline` (default there) plus Vercel Cron on `/api/cron/tick` (`vercel.json`) | The `vercel-build` script, production deployments only | The provider's restore window, plus `deploy/backup.sh` against the direct URL from any machine | SendGrid's API (`MAIL_TRANSPORT=sendgrid`), or SMTP on 587 (Vercel blocks 25) |
-| **Railway, Render or Fly** | The platform's Postgres, or any other | Either a second process (`pnpm worker`, `worker` mode, the default) or `OOOHM_BACKGROUND=inline` plus the platform's scheduler calling `/api/cron/tick` every few minutes | `pnpm db:migrate` as a release / pre-deploy command | The platform's backups, or `deploy/backup.sh` from a scheduled job | Any SMTP provider |
+| **Node on a VM with systemd** | Any Postgres (local or managed), with the two roles (`pnpm db:roles` once) | Two units: `pnpm start` (or `node .next/standalone/server.js`) and `pnpm worker`, both `Restart=always` | `pnpm db:migrate` (with `DATABASE_ADMIN_URL`) before starting the new version | `deploy/backup.sh` with `PG_DUMP='pg_dump -d "$DATABASE_ADMIN_URL"'` from a timer | Any SMTP provider |
+| **Vercel + Neon or Supabase** ([deploy-vercel.md](deploy-vercel.md)) | Neon / Supabase: the app role's pooled URL as `DATABASE_URL`, the owner's direct URL as `DATABASE_ADMIN_URL` | `inline` (default there) plus Vercel Cron on `/api/cron/tick` (`vercel.json`) | The `vercel-build` script, production deployments only | The provider's restore window, plus `deploy/backup.sh` against the direct URL from any machine | SendGrid's API (`MAIL_TRANSPORT=sendgrid`), or SMTP on 587 (Vercel blocks 25) |
+| **Railway, Render or Fly** | The platform's Postgres, or any other | Either a second process (`pnpm worker`, `worker` mode, the default) or `OOOHM_BACKGROUND=inline` plus the platform's scheduler calling `/api/cron/tick` every few minutes | `pnpm db:migrate` (with `DATABASE_ADMIN_URL`) as a release / pre-deploy command | The platform's backups, or `deploy/backup.sh` from a scheduled job | Any SMTP provider |
 | **Embedded** (no database server) | PGlite in `./data/pglite` (`OOOHM_DATA_DIR`) | In the app: `inline` after each change, and its own timer every `OOOHM_TICK_INTERVAL_SECONDS` (30) for retries and the daily jobs | On every start | Copy the data directory while the app is stopped (a nightly timer that stops it, `tar`s `OOOHM_DATA_DIR`, and starts it again), keeping copies for your backup retention (30 days by default) | Any SMTP provider |
 
 Embedded mode, from a checkout: `pnpm install`, `pnpm build`, then `pnpm start:embedded` with `BETTER_AUTH_SECRET`,

@@ -2,35 +2,58 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { getCompanySettings, updateCompanyAppearance, updateCompanySettings } from "@/server/services/admin-company";
-import { getAppearance } from "@/server/services/appearance";
-import { createDepartment, deleteDepartment, listDepartmentsForAdmin, renameDepartment } from "@/server/services/admin-departments";
-import { createLevel, deleteLevel, listLevelsForAdmin } from "@/server/services/admin-levels";
-import {
-  addHoliday,
-  addHolidayRange,
-  addUsFederalHolidays,
-  deleteHoliday,
-  deleteHolidays,
-  listHolidaysForAdmin,
-  renameHoliday,
-  renameHolidays,
-} from "@/server/services/admin-holidays";
-import {
-  createLeaveType,
-  getLeaveTypeForAdmin,
-  listLeaveTypesForAdmin,
-  reorderLeaveTypes,
-  setLeaveTypeArchived,
-  updateLeaveType,
-} from "@/server/services/admin-leave-types";
-import { getPersonDetail, getPersonFormOptions, listPeople } from "@/server/services/admin-people";
-import { getBalanceSummary } from "@/server/services/balances";
-import { getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
-import { isUniqueViolation } from "@/server/repositories/errors";
+import * as organisation from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
+import * as holidaysModule from "@/modules/holidays";
+import { getPersonDetail as getPersonDetailResult, getPersonFormOptions as getPersonFormOptionsResult, listPeople as listPeopleResult } from "@/modules/people";
+import { getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { isUniqueViolation } from "@/shared/lib/db/errors";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, requestDaysOf, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { getAppearance } from "@/modules/organisation";
+import * as companySettings from "@/modules/leave";
+
+const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
+const getPersonFormOptions = (...args: Parameters<typeof getPersonFormOptionsResult>) => getPersonFormOptionsResult(...args).then(unwrap);
+const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const getCompanySettings = (...args: Parameters<typeof organisation.getCompanySettings>) => organisation.getCompanySettings(...args).then(unwrap);
+const updateCompanyAppearance = (...args: Parameters<typeof organisation.updateCompanyAppearance>) => organisation.updateCompanyAppearance(...args).then(unwrap);
+const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);
+const deleteDepartment = (...args: Parameters<typeof organisation.deleteDepartment>) => organisation.deleteDepartment(...args).then(unwrap);
+const listDepartmentsForAdmin = (...args: Parameters<typeof organisation.listDepartmentsForAdmin>) => organisation.listDepartmentsForAdmin(...args).then(unwrap);
+const renameDepartment = (...args: Parameters<typeof organisation.renameDepartment>) => organisation.renameDepartment(...args).then(unwrap);
+const createLeaveType = (...args: Parameters<typeof organisation.createLeaveType>) => organisation.createLeaveType(...args).then(unwrap);
+const getLeaveTypeForAdmin = (...args: Parameters<typeof organisation.getLeaveTypeForAdmin>) => organisation.getLeaveTypeForAdmin(...args).then(unwrap);
+const listLeaveTypesForAdmin = (...args: Parameters<typeof organisation.listLeaveTypesForAdmin>) => organisation.listLeaveTypesForAdmin(...args).then(unwrap);
+const reorderLeaveTypes = (...args: Parameters<typeof organisation.reorderLeaveTypes>) => organisation.reorderLeaveTypes(...args).then(unwrap);
+const setLeaveTypeArchived = (...args: Parameters<typeof organisation.setLeaveTypeArchived>) => organisation.setLeaveTypeArchived(...args).then(unwrap);
+const updateLeaveType = (...args: Parameters<typeof organisation.updateLeaveType>) => organisation.updateLeaveType(...args).then(unwrap);
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
+
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
+
+// The level use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const createLevel = (...args: Parameters<typeof organisation.createLevel>) => organisation.createLevel(...args).then(unwrap);
+const deleteLevel = (...args: Parameters<typeof organisation.deleteLevel>) => organisation.deleteLevel(...args).then(unwrap);
+const listLevelsForAdmin = (...args: Parameters<typeof organisation.listLevelsForAdmin>) => organisation.listLevelsForAdmin(...args).then(unwrap);
+
+// The holiday use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const addHoliday = (...args: Parameters<typeof holidaysModule.addHoliday>) => holidaysModule.addHoliday(...args).then(unwrap);
+const addHolidayRange = (...args: Parameters<typeof holidaysModule.addHolidayRange>) => holidaysModule.addHolidayRange(...args).then(unwrap);
+const addUsFederalHolidays = (...args: Parameters<typeof holidaysModule.addUsFederalHolidays>) => holidaysModule.addUsFederalHolidays(...args).then(unwrap);
+const deleteHoliday = (...args: Parameters<typeof holidaysModule.deleteHoliday>) => holidaysModule.deleteHoliday(...args).then(unwrap);
+const deleteHolidays = (...args: Parameters<typeof holidaysModule.deleteHolidays>) => holidaysModule.deleteHolidays(...args).then(unwrap);
+const listHolidaysForAdmin = (...args: Parameters<typeof holidaysModule.listHolidaysForAdmin>) => holidaysModule.listHolidaysForAdmin(...args).then(unwrap);
+const renameHoliday = (...args: Parameters<typeof holidaysModule.renameHoliday>) => holidaysModule.renameHoliday(...args).then(unwrap);
+const renameHolidays = (...args: Parameters<typeof holidaysModule.renameHolidays>) => holidaysModule.renameHolidays(...args).then(unwrap);
 
 const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
 

@@ -1,9 +1,10 @@
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { feedLogId, tokenFromFeedFileName } from "@/lib/feed-token";
 import { log } from "@/lib/log";
 import type { RateLimiter } from "@/lib/rate-limit";
 import type { ServiceContext } from "@/server/context";
-import { renderCalendarFeed } from "@/server/services/calendar-feeds";
+import { renderCalendarFeed } from "@/modules/calendar";
+import { unwrap } from "@/shared/lib/result";
 
 /** The two limits on the public feed route. */
 export interface FeedLimits {
@@ -50,7 +51,9 @@ export async function handleFeedFetch(input: { ctx: ServiceContext; file: string
   if (!token) return plain(404, "Not found");
 
   try {
-    const feed = await renderCalendarFeed(ctx, token, { admit: (feedId) => limits.perFeed.take(feedId) });
+    const rendered = await renderCalendarFeed(ctx, token, { admit: (feedId) => limits.perFeed.take(feedId) });
+    if (!rendered.ok && rendered.error.code === "rate_limited") return tooMany();
+    const feed = unwrap(rendered);
     if (!feed) return limits.misses.take(client) ? plain(404, "Not found") : tooMany();
     return new Response(feed.body, {
       headers: {

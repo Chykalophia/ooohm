@@ -4,12 +4,18 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import type { LeaveStatus } from "@/domain/leave-request";
-import { violatedConstraint } from "@/server/repositories/errors";
-import { getMonthCalendar, getTeamCalendar, getYearCalendar } from "@/server/services/calendar";
+import type { Actor } from "@/shared/kernel/actor";
+import type { LeaveStatus } from "@/shared/kernel/leave-range";
+import { violatedConstraint } from "@/shared/lib/db/errors";
+import * as calendarModule from "@/modules/calendar";
+import { unwrap } from "@/shared/lib/result";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);
+const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
+const getYearCalendar = (...args: Parameters<typeof calendarModule.getYearCalendar>) => calendarModule.getYearCalendar(...args).then(unwrap);
 
 // The test clock is 2026-11-01 15:00 UTC: Nov 1 in Chicago, so "this month" is 2026-11.
 // 2026-11-02 is a Monday; Thanksgiving (Thu 2026-11-26) is the seeded holiday.

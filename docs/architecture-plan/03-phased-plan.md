@@ -328,6 +328,12 @@ exports only use cases, queries, DTO types and policies (ADR-0009), never a row 
 - DORA baseline recorded (A0) and re-measured: lead time not worse, change-failure rate not worse. If layering slows
   lead time without lowering failures, simplify (reference §28).
 
+**Status.** Done: the strict flags for `src` (`tsconfig.src.json`, run by `pnpm typecheck`); empty baselines (no
+dependency-cruiser known violations, no server-only allow-list; the one ESLint size exception is
+`src/components/ui/sortable-list.tsx`, with its reason); `src/domain` emptied into `src/shared/kernel` and module
+`domain/` folders; the tenant-isolation, drift and e2e suites in CI; the two database roles. Still open: the strict
+flags for tests (about 2,700 errors, mostly `rows[0]` in integration tests), the RLS decision (ADR-0004, still Proposed) and the DORA re-measure.
+
 ---
 
 ## Sequencing and size

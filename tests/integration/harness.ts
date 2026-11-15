@@ -21,10 +21,14 @@ import { MIGRATIONS_FOLDER as APP_MIGRATIONS, migrateDatabase, openEmbedded } fr
 import { executeRows } from "@/db/rows";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import { STRICT_TARGET_POLICY, type TargetPolicy } from "@/domain/webhook-target";
+import { STRICT_TARGET_POLICY, type TargetPolicy } from "@/shared/kernel/webhook-target";
 import { createSecretBox } from "@/lib/integration-crypto";
 import type { MailMessage, ServiceContext } from "@/server/context";
 import { type AdapterRegistry, createAdapterRegistry } from "@/server/integrations/adapter";
+import { uuidGenerator } from "@/shared/lib/id-generator";
+import { wireModules } from "@/server/wiring";
+
+wireModules();
 
 const baseUrl = process.env.TEST_DATABASE_URL;
 
@@ -159,6 +163,7 @@ export function createTestContext(
     appUrl: "https://ooohm.test",
     linkKey: TEST_LINK_KEY,
     now: () => options.now ?? new Date("2026-11-01T15:00:00Z"),
+    ids: uuidGenerator,
     mailer: options.mailer ?? (async (m) => void sent.push(m)),
     defer: (task) => {
       scheduled++;

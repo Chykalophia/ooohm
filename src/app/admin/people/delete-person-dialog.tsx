@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
-import { confirmationMatches, type DeletionBlockers, type DeletionMode } from "@/domain/person-deletion";
+import type { DeletionBlockers } from "@/shared/kernel/error-details";
+import type { DeletionMode } from "@/shared/kernel/events";
+import { confirmationMatches } from "@/shared/kernel/person-label";
 import { IDLE } from "@/components/forms/form-state";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { useFormAction } from "@/components/forms/use-form-action";

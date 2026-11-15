@@ -1,0 +1,129 @@
+# The merge gate (ADR-0012, docs/architecture-plan/04-fitness-functions.md §4.2).
+# Vercel keeps deploying on merge; this decides what may merge.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Typecheck, lint, architecture, unit and component tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm arch
+      - run: pnpm madge
+      - name: Schema drift (src/db/schema.ts against drizzle/, ADR-0011)
+        run: pnpm db:check-drift
+      - run: pnpm test
+      - run: pnpm test:components
+
+  integration-postgres:
+    name: Integration tests (Postgres 16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ooohm
+          POSTGRES_PASSWORD: ooohm
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ooohm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://ooohm:ooohm@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration
+
+  integration-embedded:
+    name: Integration tests (embedded PGlite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration:embedded
+
+  build:
+    name: Build, and no secret in the client bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Sentinels: F16 greps the client bundle for each value after the build.
+      BETTER_AUTH_SECRET: ci-sentinel-better-auth-secret-0123456789abcdef
+      WEBHOOK_ENCRYPTION_KEY: Y2ktc2VudGluZWwtd2ViaG9vay1rZXktMDEyMzQ1Njc=
+      CRON_SECRET: ci-sentinel-cron-secret-0123456789
+      SEED_ADMIN_EMAIL: ci-sentinel-seed-admin@example.invalid
+      DATABASE_URL: postgres://ci:ci-sentinel-db-password@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: No server secret reaches the client bundle (F16)
+        run: |
+          status=0
+          for value in "$BETTER_AUTH_SECRET" "$WEBHOOK_ENCRYPTION_KEY" "$CRON_SECRET" "$DATABASE_URL" "$SEED_ADMIN_EMAIL"; do
+            if grep -rlF "$value" .next/static; then echo "::error::a server secret is in the client bundle"; status=1; fi
+          done
+          exit $status
+
+  e2e:
+    name: End-to-end journeys (Playwright on pnpm start:embedded)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # Playwright is not a dependency of the repo: the journeys load it from the machine.
+      - name: Playwright and Chromium
+        run: |
+          npm install --global playwright@1.63.0
+          npx --yes playwright@1.63.0 install --with-deps chromium
+          echo "NODE_PATH=$(npm root --global)" >> "$GITHUB_ENV"
+      - run: pnpm test:e2e

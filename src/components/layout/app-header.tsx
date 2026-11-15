@@ -5,7 +5,7 @@ import { type JumpItem, JumpMenu } from "@/components/navigation/jump-menu";
 import { SteadyLabel } from "@/components/ui/steady-label";
 import { buttonClass, cx, focusRing } from "@/components/ui/styles";
 import { AccountMenu } from "./account-menu";
-import type { LogoRef } from "@/domain/company-logo";
+import type { LogoRef } from "@/shared/kernel/company-logo";
 import { BrandLogo } from "./logo";
 
 /** Which header link marks the page. "requests" (Your requests) is reached from the account menu, so no link is marked. */

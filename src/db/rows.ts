@@ -1,3 +1,4 @@
+import "server-only";
 import type { SQL } from "drizzle-orm";
 import type { Executor } from "./types";
 
@@ -12,4 +13,15 @@ export async function executeRows<T extends Record<string, unknown>>(ex: Executo
   const result: unknown = await ex.execute(query);
   if (Array.isArray(result)) return result as T[];
   return ((result as { rows?: T[] }).rows ?? []) as T[];
+}
+
+/**
+ * The one row a statement always returns: an insert's `RETURNING`, an update's of a row
+ * its caller found or locked earlier in the same transaction, or a select of counts. None
+ * means that invariant broke, so this throws rather than hand back `undefined` as a row.
+ */
+export function returnedRow<T>(rows: readonly T[]): T {
+  const [row] = rows;
+  if (row === undefined) throw new Error("The statement returned no row.");
+  return row;
 }

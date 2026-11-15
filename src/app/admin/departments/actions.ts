@@ -1,9 +1,11 @@
 "use server";
 
 import { z } from "zod";
-import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
-import { MAX_OFF_LIMIT } from "@/domain/coverage";
-import { createDepartment, deleteDepartment, renameDepartment, setDepartmentLimit, setDepartmentManager } from "@/server/services/admin-departments";
+import { DEPARTMENT_NAME_MAX_LENGTH } from "@/shared/kernel/names";
+import { MAX_OFF_LIMIT } from "@/modules/leave";
+import { createDepartment, deleteDepartment, renameDepartment, setDepartmentLimit } from "@/modules/organisation";
+import { setDepartmentManager } from "@/modules/approvals";
+import { map } from "@/shared/lib/result";
 import { formatCount } from "@/lib/format";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
@@ -25,10 +27,7 @@ export async function createDepartmentAction(_prev: FormState, formData: FormDat
     "department_create",
     formData,
     z.object({ name: nameField }),
-    async (ctx, actor, { name }) => {
-      const row = await createDepartment(ctx, actor, name);
-      return `Added ${row.name}.`;
-    },
+    async (ctx, actor, { name }) => map(await createDepartment(ctx, actor, name), (department) => `Added ${department.name}.`),
     MESSAGES,
   );
 }
@@ -38,10 +37,7 @@ export async function renameDepartmentAction(_prev: FormState, formData: FormDat
     "department_rename",
     formData,
     z.object({ id: formFields.id, name: nameField }),
-    async (ctx, actor, { id, name }) => {
-      await renameDepartment(ctx, actor, id, name);
-      return "Renamed.";
-    },
+    async (ctx, actor, { id, name }) => map(await renameDepartment(ctx, actor, id, name), () => "Renamed."),
     MESSAGES,
   );
 }
@@ -51,10 +47,7 @@ export async function deleteDepartmentAction(_prev: FormState, formData: FormDat
     "department_delete",
     formData,
     z.object({ id: formFields.id }),
-    async (ctx, actor, { id }) => {
-      await deleteDepartment(ctx, actor, id);
-      return "Deleted.";
-    },
+    async (ctx, actor, { id }) => map(await deleteDepartment(ctx, actor, id), () => "Deleted."),
     MESSAGES,
   );
 }
@@ -64,11 +57,11 @@ export async function setDepartmentManagerAction(_prev: FormState, formData: For
     "department_manager",
     formData,
     z.object({ id: formFields.id, managerId: formFields.optionalId }),
-    async (ctx, actor, { id, managerId }) => {
-      const result = await setDepartmentManager(ctx, actor, id, managerId);
-      const moved = result.requestsReassigned > 0 ? ` ${formatCount(result.requestsReassigned, "waiting request", "waiting requests")} moved to the new approver.` : "";
-      return `Saved.${moved}`;
-    },
+    async (ctx, actor, { id, managerId }) =>
+      map(await setDepartmentManager(ctx, actor, id, managerId), (result) => {
+        const moved = result.requestsReassigned > 0 ? ` ${formatCount(result.requestsReassigned, "waiting request", "waiting requests")} moved to the new approver.` : "";
+        return `Saved.${moved}`;
+      }),
     MESSAGES,
   );
 }
@@ -78,10 +71,10 @@ export async function setDepartmentLimitAction(_prev: FormState, formData: FormD
     "department_limit",
     formData,
     z.object({ id: formFields.id, maxOff: formFields.optionalNumber }),
-    async (ctx, actor, { id, maxOff }) => {
-      const row = await setDepartmentLimit(ctx, actor, id, maxOff);
-      return row.maxOff === null ? "Saved. No limit." : `Saved. People get a warning past ${formatCount(row.maxOff, "person", "people")} off at once.`;
-    },
+    async (ctx, actor, { id, maxOff }) =>
+      map(await setDepartmentLimit(ctx, actor, id, maxOff), (department) =>
+        department.maxOff === null ? "Saved. No limit." : `Saved. People get a warning past ${formatCount(department.maxOff, "person", "people")} off at once.`,
+      ),
     LIMIT_MESSAGES,
   );
 }

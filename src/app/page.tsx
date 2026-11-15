@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatExpiring } from "@/lib/format";
-import { hasPasskey } from "@/server/services/account";
-import { shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
-import { getDashboard } from "@/server/services/leave-requests";
+import { hasPasskey } from "@/modules/people";
+import { shouldSuggestCalendarFeed } from "@/modules/calendar";
+import { getDashboard } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { BalanceSummary } from "@/components/leave/balance-summary";
@@ -29,7 +30,7 @@ export default async function HomePage() {
   // Once someone has approved time off, suggest putting it in their own calendar, until they have.
   // Until someone has a passkey, suggest one: signing in is then a tap instead of an email.
   const [dashboard, suggestFeed, appearance, passkeyAdded] = await Promise.all([
-    getDashboard(page.ctx, actor),
+    getDashboard(page.ctx, actor).then(unwrap),
     shouldSuggestCalendarFeed(page.ctx, actor),
     requestAppearance(),
     hasPasskey(page.ctx, actor),

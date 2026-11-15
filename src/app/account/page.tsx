@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
-import { followsDarkMode, THEMES } from "@/domain/appearance";
-import { COLOR_MODES, type ColorMode } from "@/domain/color-mode";
+import { PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
+import { followsDarkMode, THEMES } from "@/shared/kernel/appearance";
+import { COLOR_MODES, type ColorMode } from "@/shared/kernel/color-mode";
 import { formatInstantDate, ROLE_LABEL } from "@/lib/format";
-import { getAccount } from "@/server/services/account";
+import { getAccount } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { ActionForm } from "@/components/forms/action-form";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
@@ -25,7 +26,7 @@ export default async function AccountPage() {
   const page = await requireMemberPage();
   if (!page.actor) return <NoCompany nav={page.nav} current="account" />;
 
-  const [account, appearance] = await Promise.all([getAccount(page.ctx, page.actor), requestAppearance()]);
+  const [account, appearance] = await Promise.all([getAccount(page.ctx, page.actor).then(unwrap), requestAppearance()]);
   // Only some company themes have a dark version; on the others, pages stay light.
   const darkAvailable = followsDarkMode(appearance);
   const details: [string, string][] = [

@@ -1,19 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import { canAdminister, assertCanAdminister } from "@/domain/admin-permissions";
-import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
-import { isDomainError, type DomainErrorCode } from "@/domain/errors";
+import { canAdminister, assertCanAdminister } from "@/shared/kernel/admin-permissions";
+import { ManagerApprovalRule, reassignApprover } from "@/modules/approvals/domain/approver-for";
+import { isDomainError, type DomainErrorCode } from "@/shared/kernel/errors";
 import {
   assertKeepsAnActiveAdmin,
   assertNotSelfDeactivation,
   assertValidManager,
   managerCandidates,
-  normalizeDepartmentName,
-  normalizeEmail,
-  normalizePersonName,
   type ReportingLine,
-} from "@/domain/people";
+} from "@/modules/people/domain/people";
+import { normalizeDepartmentName, normalizeEmail, normalizePersonName } from "@/shared/kernel/names";
 
 function throwsCode(fn: () => unknown, code: DomainErrorCode) {
   assert.throws(fn, (err) => isDomainError(err, code));

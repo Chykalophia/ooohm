@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { listUsersForApi } from "@/server/services/api-v1";
+import { listUsersForApi } from "@/modules/integrations";
 import { parseQuery } from "@/app/api/v1/_lib/handler";
 import { usersQuery } from "@/app/api/v1/_lib/query";
 import { apiGet } from "@/app/api/v1/_lib/api-get";

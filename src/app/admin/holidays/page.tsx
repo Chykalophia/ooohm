@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { z } from "zod";
-import { groupHolidays, HOLIDAY_NAME_MAX_LENGTH, HOLIDAY_RANGE_MAX_DAYS, HOLIDAY_YEAR_MAX, HOLIDAY_YEAR_MIN } from "@/domain/holidays";
+import { HOLIDAY_NAME_MAX_LENGTH, HOLIDAY_YEAR_MAX, HOLIDAY_YEAR_MIN } from "@/shared/kernel/holidays";
 import { formatCount, formatLeaveDates, formatLongDate } from "@/lib/format";
-import { listHolidaysForAdmin } from "@/server/services/admin-holidays";
+import { groupHolidays, HOLIDAY_RANGE_MAX_DAYS, listHolidaysForAdmin } from "@/modules/holidays";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card, Item, ItemList } from "@/components/ui/card";
@@ -21,7 +22,7 @@ const yearSchema = z.coerce.number().int().min(HOLIDAY_YEAR_MIN).max(HOLIDAY_YEA
 
 export default async function HolidaysPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { actor, ctx, nav } = await requireAdminPage();
-  const { year, holidays } = await listHolidaysForAdmin(ctx, actor, yearSchema.parse((await searchParams).year));
+  const { year, holidays } = unwrap(await listHolidaysForAdmin(ctx, actor, yearSchema.parse((await searchParams).year)));
   const yearHref = (y: number) => `/admin/holidays?year=${y}`;
   // Back-to-back days with one name (a shutdown) are one entry here, stored per day.
   const groups = groupHolidays(holidays);

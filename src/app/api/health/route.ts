@@ -1,5 +1,5 @@
 import { serviceContext } from "@/server/runtime";
-import { isDatabaseReachable } from "@/server/services/health";
+import { isDatabaseReachable } from "@/server/jobs/health";
 
 const headers = { "Cache-Control": "no-store" };
 

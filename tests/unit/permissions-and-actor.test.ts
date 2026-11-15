@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type Actor, toActor } from "@/domain/actor";
-import { byUser } from "@/domain/change-source";
-import { canAddLeaveFor, canCancel, canDecide, canSeeLeaveDetails, decidesByAssignment, type RequestOwnership } from "@/domain/leave-permissions";
+import { type Actor, toActor } from "@/shared/kernel/actor";
+import { byUser } from "@/shared/kernel/change-source";
+import { canAddLeaveFor, canCancel, canDecide, canSeeLeaveDetails, decidesByAssignment, type RequestOwnership } from "@/modules/leave/domain/leave-permissions";
 
 const actor = (id: string, role: Actor["role"], companyId = "c1"): Actor => ({ id, companyId, role, canSelfApprove: false, source: byUser(id) });
 const request = (over: Partial<RequestOwnership> = {}): RequestOwnership => ({

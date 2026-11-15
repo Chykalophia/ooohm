@@ -12,7 +12,7 @@ import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource-variable/sora";
 import "@fontsource-variable/source-sans-3";
 import "./globals.css";
-import { colorModeOrDefault } from "@/domain/color-mode";
+import { colorModeOrDefault } from "@/shared/kernel/color-mode";
 import { htmlAppearance } from "@/lib/appearance";
 import { currentUser } from "@/lib/auth";
 import { requestAppearance } from "./_lib/appearance";

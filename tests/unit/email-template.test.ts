@@ -7,8 +7,8 @@ import {
   normalizeEmailCopy,
   templateVariables,
   unknownVariables,
-} from "@/domain/email-template";
-import { DomainError } from "@/domain/errors";
+} from "@/shared/kernel/email-template";
+import { DomainError } from "@/shared/kernel/errors";
 
 test("a template's variables are the names in double braces, spaces allowed inside", () => {
   assert.deepEqual(templateVariables("{{requester}} asked for {{ leave_type }}, {{dates}}."), ["requester", "leave_type", "dates"]);

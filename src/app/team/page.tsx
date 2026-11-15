@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatLeaveDates, formatMonth } from "@/lib/format";
-import { getTeamCalendar } from "@/server/services/calendar";
+import { getTeamCalendar, monthParamSchema } from "@/modules/calendar";
+import { unwrap } from "@/shared/lib/result";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { StatusBadge } from "@/components/leave/status-badge";
@@ -10,7 +11,7 @@ import { PillNav } from "@/components/navigation/pill-nav";
 import { Card } from "@/components/ui/card";
 import { ColorLabel } from "@/components/ui/color-label";
 import { cx, linkedRow, quietLink, textLink } from "@/components/ui/styles";
-import { departmentParamSchema, monthParamSchema, readParam } from "@/app/_lib/calendar-input";
+import { departmentParamSchema, readParam } from "@/shared/lib/search-params";
 import { requireMemberPage } from "@/app/_lib/page-context";
 
 export const metadata: Metadata = { title: "Team · OOOhm" };
@@ -28,10 +29,12 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   if (!page.actor) return <NoCompany nav={page.nav} current="team" />;
 
   const params = await searchParams;
-  const { nav, departments, department, people } = await getTeamCalendar(page.ctx, page.actor, {
-    month: readParam(monthParamSchema, params.month),
-    departmentId: readParam(departmentParamSchema, params.department),
-  });
+  const { nav, departments, department, people } = unwrap(
+    await getTeamCalendar(page.ctx, page.actor, {
+      month: readParam(monthParamSchema, params.month),
+      departmentId: readParam(departmentParamSchema, params.department),
+    }),
+  );
   const departmentId = department?.id ?? null;
 
   return (

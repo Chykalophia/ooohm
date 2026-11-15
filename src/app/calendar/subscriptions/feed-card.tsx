@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import type { AddToCalendarLinks, FeedKind } from "@/domain/calendar-feed";
+import type { AddToCalendarLinks, FeedKind } from "@/shared/kernel/calendar-feed";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { KeepIt } from "@/components/forms/keep-it";
 import { useConfirm } from "@/components/forms/use-confirm";

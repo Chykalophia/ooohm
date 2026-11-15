@@ -3,10 +3,13 @@ import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { deleteSignInOf } from "@/server/repositories/person-deletion";
-import { getAccount, hasPasskey } from "@/server/services/account";
+import { deleteSignInOf } from "@/modules/people/infrastructure/drizzle-person-deletion.repository";
+import { unwrap } from "@/shared/lib/result";
+import { getAccount as getAccountResult, hasPasskey } from "@/modules/people";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const getAccount = (...args: Parameters<typeof getAccountResult>) => getAccountResult(...args).then(unwrap);
 
 /** A passkey row as Better Auth's plugin writes it, with key material nobody should ever be shown. */
 let added = 0;

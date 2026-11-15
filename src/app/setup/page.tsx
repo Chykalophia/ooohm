@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { COMPANY_NAME_MAX_LENGTH, supportedTimeZones } from "@/domain/company-settings";
-import { PERSON_NAME_MAX_LENGTH } from "@/domain/people";
+import { COMPANY_NAME_MAX_LENGTH, supportedTimeZones } from "@/shared/kernel/company-settings";
+import { PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { env } from "@/lib/env";
 import { serviceContext } from "@/server/runtime";
-import { isSetupOpen } from "@/server/services/install";
+import { isSetupOpen } from "@/server/identity/install";
 import { ActionForm } from "@/components/forms/action-form";
 import { Logo } from "@/components/layout/logo";
 import { Card } from "@/components/ui/card";

@@ -16,8 +16,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { buildImportPlan } from "@/domain/timeoff/mapping";
-import { readTimeOffSqlite } from "@/server/importers/timeoff/sqlite-reader";
+import { buildImportPlan } from "@/modules/import/domain/timeoff/mapping";
+import { readTimeOffSqlite } from "@/modules/import/infrastructure/timeoff-sqlite-reader";
 import { buildTimeOffFixture, type FixtureData } from "./timeoff-fixture";
 
 /** The last year the default fixture has data for. */

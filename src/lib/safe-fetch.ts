@@ -1,8 +1,9 @@
+import "server-only";
 import { lookup as dnsLookup, type LookupAddress } from "node:dns";
 import http from "node:http";
 import https from "node:https";
 import type { LookupFunction } from "node:net";
-import { isBlockedAddress, isIpLiteral, type TargetPolicy } from "@/domain/webhook-target";
+import { isBlockedAddress, isIpLiteral, type TargetPolicy } from "@/shared/kernel/webhook-target";
 
 /**
  * The transport a webhook delivery POSTs through. The worker uses
@@ -38,7 +39,10 @@ function guardedLookup(policy: TargetPolicy): LookupFunction {
         return callback(new TransportError("blocked_address"), "", 0);
       }
       if (options.all) return (callback as unknown as (e: null, a: LookupAddress[]) => void)(null, addresses);
-      callback(null, addresses[0].address, addresses[0].family);
+      const [first] = addresses;
+      // dns.lookup answers ENOTFOUND rather than no addresses, so this only guards the type.
+      if (!first) return callback(new TransportError("no_address"), "", 0);
+      callback(null, first.address, first.family);
     });
   };
 }

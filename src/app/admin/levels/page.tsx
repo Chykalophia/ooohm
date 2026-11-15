@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { LEVEL_NAME_MAX_LENGTH } from "@/domain/people";
+import { LEVEL_NAME_MAX_LENGTH } from "@/shared/kernel/names";
 import { formatCount } from "@/lib/format";
-import { listLevelsForAdmin } from "@/server/services/admin-levels";
+import { listLevelsForAdmin } from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card, Item, ItemList } from "@/components/ui/card";
@@ -16,7 +17,7 @@ export const metadata: Metadata = { title: "Levels · Admin · OOOhm" };
 
 export default async function LevelsPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const levels = await listLevelsForAdmin(ctx, actor);
+  const levels = unwrap(await listLevelsForAdmin(ctx, actor));
 
   return (
     <AdminShell

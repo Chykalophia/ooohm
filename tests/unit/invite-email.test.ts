@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { INVITE_SUBJECT, renderInviteEmail } from "@/server/notifications/templates/invite";
+import { INVITE_SUBJECT, renderInviteEmail } from "@/modules/notifications/application/templates/invite";
 
 const base = {
   recipientName: "Ana",

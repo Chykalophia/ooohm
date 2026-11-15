@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { listLeaveTypesForApi } from "@/server/services/api-v1";
+import { listLeaveTypesForApi } from "@/modules/integrations";
 import { apiGet } from "@/app/api/v1/_lib/api-get";
 
 /** `GET /api/v1/leave-types`: every leave type, archived ones flagged, in display order. */

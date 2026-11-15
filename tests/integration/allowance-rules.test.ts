@@ -2,17 +2,36 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { and, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { listAllowanceRulesForAdmin, removeAllowanceRule, setAllowanceRule } from "@/server/services/admin-allowance-rules";
-import { createDepartment, deleteDepartment } from "@/server/services/admin-departments";
-import { createLevel, deleteLevel, listLevelsForAdmin, renameLevel } from "@/server/services/admin-levels";
-import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
-import { deletePerson } from "@/server/services/admin-people-deletion";
-import { getBalanceSummary } from "@/server/services/balances";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
-import { runYearRollover } from "@/server/services/rollover";
+import * as organisation from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
+import { deactivatePerson as deactivatePersonResult, deletePerson as deletePersonResult, updatePerson as updatePersonResult } from "@/modules/people";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
+const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
+const deletePerson = (...args: Parameters<typeof deletePersonResult>) => deletePersonResult(...args).then(unwrap);
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const listAllowanceRulesForAdmin = (...args: Parameters<typeof balancesModule.listAllowanceRulesForAdmin>) => balancesModule.listAllowanceRulesForAdmin(...args).then(unwrap);
+const removeAllowanceRule = (...args: Parameters<typeof balancesModule.removeAllowanceRule>) => balancesModule.removeAllowanceRule(...args).then(unwrap);
+const setAllowanceRule = (...args: Parameters<typeof balancesModule.setAllowanceRule>) => balancesModule.setAllowanceRule(...args).then(unwrap);
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
+const runYearRollover = (...args: Parameters<typeof balancesModule.runYearRollover>) => balancesModule.runYearRollover(...args).then(unwrap);
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);
+const deleteDepartment = (...args: Parameters<typeof organisation.deleteDepartment>) => organisation.deleteDepartment(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
+
+// The level use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const createLevel = (...args: Parameters<typeof organisation.createLevel>) => organisation.createLevel(...args).then(unwrap);
+const deleteLevel = (...args: Parameters<typeof organisation.deleteLevel>) => organisation.deleteLevel(...args).then(unwrap);
+const listLevelsForAdmin = (...args: Parameters<typeof organisation.listLevelsForAdmin>) => organisation.listLevelsForAdmin(...args).then(unwrap);
+const renameLevel = (...args: Parameters<typeof organisation.renameLevel>) => organisation.renameLevel(...args).then(unwrap);
 
 const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
 const NOW = new Date("2026-11-03T09:00:00Z");

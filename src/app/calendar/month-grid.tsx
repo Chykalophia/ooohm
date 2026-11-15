@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { fromEpochDay, toEpochDay } from "@/domain/calendar-date";
-import type { CalendarDay, CalendarViewEntry } from "@/domain/calendar";
+import { useState } from "react";
+import type { CalendarDay, CalendarViewEntry } from "@/shared/kernel/calendar";
 import { formatLeaveDates, formatLongDate } from "@/lib/format";
 import { IDLE } from "@/components/forms/form-state";
 import { LeaveChip } from "@/components/leave/leave-chip";
 import { cx, selectClass, subtleButton } from "@/components/ui/styles";
-import { type LeaveTypeOption, LeavePreviewLine, SubmitRow, useLeavePreview, useRequestAction } from "@/app/request-leave-form";
+import { type LeaveTypeOption, LeavePreviewLine, SubmitRow, useRequestAction } from "@/app/request-leave-form";
+import { useLeavePreview } from "@/app/use-leave-preview";
+import { type Range, useDayPicker } from "./use-day-picker";
 
 const WEEKDAYS = [
   ["Mon", "Monday"],
@@ -48,12 +49,6 @@ export function dayLabel(day: CalendarDay<CalendarViewEntry>): string {
   return parts.join(", ");
 }
 
-type Range = { start: string; end: string };
-
-function ordered(a: string, b: string): Range {
-  return a <= b ? { start: a, end: b } : { start: b, end: a };
-}
-
 /**
  * The month grid, which doubles as a way to ask for time off: drag across days (or
  * click one, then another) and a short form appears under the month with
@@ -72,21 +67,15 @@ export function MonthGrid({
   leaveTypes: LeaveTypeOption[];
 }) {
   const days = weeks.flat();
-  const [anchor, setAnchor] = useState<string | null>(null);
-  const [end, setEnd] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
   const firstFocus = (days.find((d) => d.isToday) ?? days.find((d) => d.inMonth) ?? days[0])?.date ?? "";
-  const [focusDate, setFocusDate] = useState(firstFocus);
-  // After moving to another month the old date is gone; the tab stop falls back to the new month's.
-  const tabStop = days.some((d) => d.date === focusDate) ? focusDate : firstFocus;
-  const cells = useRef(new Map<string, HTMLButtonElement>());
-  // How the last press started: a touch only picks on its click, so scrolling past a day never picks it.
-  const pointerType = useRef("mouse");
-  // A press that stretched a single pick: if it turns into a drag, the drag starts afresh here.
-  const pressedAt = useRef<string | null>(null);
-  const range = anchor && end ? ordered(anchor, end) : null;
-  const rangeKey = range ? `${range.start}/${range.end}` : null;
   const canRequest = leaveTypes.length > 0;
+  const picker = useDayPicker(
+    days.map((d) => d.date),
+    firstFocus,
+    canRequest,
+  );
+  const { range } = picker;
+  const rangeKey = range ? `${range.start}/${range.end}` : null;
   const { state, dispatch, pending, onSubmit } = useRequestAction();
   const [sentId, setSentId] = useState<string | null>(null);
   // The range the last request was sent for, so a new pick never shows an old outcome.
@@ -95,57 +84,7 @@ export function MonthGrid({
   // A request that went through clears the pick; its outcome shows until the next pick.
   if (state.status === "success" && state.id !== sentId) {
     setSentId(state.id);
-    setAnchor(null);
-    setEnd(null);
-  }
-
-  useEffect(() => {
-    if (!dragging) return;
-    const stop = () => setDragging(false);
-    window.addEventListener("pointerup", stop);
-    window.addEventListener("pointercancel", stop);
-    return () => {
-      window.removeEventListener("pointerup", stop);
-      window.removeEventListener("pointercancel", stop);
-    };
-  }, [dragging]);
-
-  // With one day picked, picking another stretches to it, so a range needs neither a drag
-  // nor Shift (WCAG 2.5.7). A pick after a range starts again. Returns whether it stretched
-  // a single pick (rather than Shift extending, or starting afresh).
-  function pick(date: string, extend: boolean): boolean {
-    const single = anchor !== null && anchor === end && date !== anchor;
-    if ((extend || single) && anchor) {
-      setEnd(date);
-      return single && !extend;
-    }
-    setAnchor(date);
-    setEnd(date);
-    return false;
-  }
-
-  function moveFocus(date: string) {
-    if (!cells.current.has(date)) return;
-    setFocusDate(date);
-    cells.current.get(date)?.focus();
-  }
-
-  function onKeyDown(e: React.KeyboardEvent, date: string) {
-    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
-    if (step !== undefined) {
-      e.preventDefault();
-      const next = fromEpochDay(toEpochDay(date) + step);
-      if (!cells.current.has(next)) return;
-      moveFocus(next);
-      if (e.shiftKey && canRequest) {
-        if (!anchor) setAnchor(date);
-        setEnd(next);
-      }
-    } else if (e.key === "Escape" && range) {
-      e.preventDefault();
-      setAnchor(null);
-      setEnd(null);
-    }
+    picker.clear();
   }
 
   return (
@@ -164,109 +103,20 @@ export function MonthGrid({
           mode) instead of reading the page with them, so moving between days works. */}
       <table role="grid" className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-2xl border border-border">
         <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr>
-            {WEEKDAYS.map(([short, long]) => (
-              <th
-                key={short}
-                scope="col"
-                className="border-b border-border bg-surface px-2 py-2 text-left text-xs font-medium tracking-wide text-muted uppercase"
-              >
-                <abbr title={long} className="no-underline">
-                  {short}
-                </abbr>
-              </th>
-            ))}
-          </tr>
-        </thead>
+        <WeekdayHeader />
         <tbody>
           {weeks.map((week, w) => (
             <tr key={week[0]?.date ?? w}>
-              {week.map((day, d) => {
-                const selected = range !== null && day.date >= range.start && day.date <= range.end;
-                const style = dayStyle(day, selected);
-                const edges = `${d < 6 ? "border-r" : ""} ${w < weeks.length - 1 ? "border-b" : ""}`;
-                return (
-                  <td
-                    key={day.date}
-                    // On the cell, not the button: dragging across a day's leave chips still stretches the pick.
-                    onPointerEnter={() => {
-                      if (!dragging) return;
-                      // Dragging on from a press that stretched a single pick: the drag is a new range.
-                      if (pressedAt.current && pressedAt.current !== day.date) {
-                        setAnchor(pressedAt.current);
-                        pressedAt.current = null;
-                      }
-                      setEnd(day.date);
-                    }}
-                    className={cx("relative h-24 border-border p-0 align-top", edges, style.cell)}
-                  >
-                    {/* The day itself, filling the cell behind its content. Leave chips sit above it as
-                        links to their requests, so a click on one opens it rather than picking the day. */}
-                    <button
-                      type="button"
-                      ref={(el) => {
-                        if (el) cells.current.set(day.date, el);
-                        else cells.current.delete(day.date);
-                      }}
-                      tabIndex={day.date === tabStop ? 0 : -1}
-                      aria-label={dayLabel(day)}
-                      aria-pressed={canRequest ? selected : undefined}
-                      onPointerDown={(e) => {
-                        pointerType.current = e.pointerType;
-                        if (!canRequest || e.button !== 0 || e.pointerType === "touch") return;
-                        setFocusDate(day.date);
-                        pressedAt.current = pick(day.date, e.shiftKey) ? day.date : null;
-                        setDragging(true);
-                        // Let the pointer move over other cells without the browser capturing it here.
-                        (e.target as Element).releasePointerCapture?.(e.pointerId);
-                      }}
-                      onClick={(e) => {
-                        // Keyboard activation (Enter or Space) reports no pointer detail; a tap picks here too.
-                        if (canRequest && (e.detail === 0 || pointerType.current === "touch")) pick(day.date, e.shiftKey);
-                      }}
-                      onKeyDown={(e) => onKeyDown(e, day.date)}
-                      onFocus={() => setFocusDate(day.date)}
-                      className={cx(
-                        "absolute inset-0 select-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-ink",
-                        canRequest ? "cursor-pointer hover:bg-accent/5" : "cursor-default",
-                      )}
-                    />
-                    {/* Clicks on the number or holiday fall through to the day; the chips take their own. */}
-                    <div className="pointer-events-none relative flex min-h-24 flex-col gap-1 p-1.5">
-                      <span
-                        aria-hidden
-                        className={cx(
-                          "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs tabular-nums",
-                          day.isToday ? "bg-accent font-semibold text-accent-foreground" : style.number,
-                        )}
-                      >
-                        {Number(day.date.slice(8))}
-                      </span>
-                      {day.holiday && (
-                        <span aria-hidden className="truncate text-xs text-muted" title={day.holiday}>
-                          {day.holiday}
-                        </span>
-                      )}
-                      {day.entries.length > 0 && (
-                        // Arrow keys on a chip move between days too, so they keep working
-                        // in the grid wherever Tab has put focus.
-                        <ul className="space-y-1" onKeyDown={(e) => onKeyDown(e, day.date)}>
-                          {day.entries.map((entry) => (
-                            <li key={entry.id} className="pointer-events-auto">
-                              {entry.isMine ? (
-                                <LeaveChip entry={entry} href={`/requests/${entry.id}`} />
-                              ) : (
-                                <LeaveChip entry={entry} personName={entry.personName} href={`/team/${entry.userId}`} />
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </td>
-                );
-              })}
+              {week.map((day, d) => (
+                <DayCell
+                  key={day.date}
+                  day={day}
+                  selected={range !== null && day.date >= range.start && day.date <= range.end}
+                  edges={`${d < 6 ? "border-r" : ""} ${w < weeks.length - 1 ? "border-b" : ""}`}
+                  canRequest={canRequest}
+                  picker={picker}
+                />
+              ))}
             </tr>
           ))}
         </tbody>
@@ -284,13 +134,99 @@ export function MonthGrid({
           leaveTypes={leaveTypes}
           action={{ state: sentFor === rangeKey ? state : IDLE, dispatch, pending, onSubmit }}
           onSubmit={() => setSentFor(rangeKey)}
-          onClear={() => {
-            setAnchor(null);
-            setEnd(null);
-          }}
+          onClear={picker.clear}
         />
       )}
     </div>
+  );
+}
+
+function WeekdayHeader() {
+  return (
+    <thead>
+      <tr>
+        {WEEKDAYS.map(([short, long]) => (
+          <th
+            key={short}
+            scope="col"
+            className="border-b border-border bg-surface px-2 py-2 text-left text-xs font-medium tracking-wide text-muted uppercase"
+          >
+            <abbr title={long} className="no-underline">
+              {short}
+            </abbr>
+          </th>
+        ))}
+      </tr>
+    </thead>
+  );
+}
+
+/** One day of the grid: the day's button behind its number, holiday and leave chips. */
+function DayCell({
+  day,
+  selected,
+  edges,
+  canRequest,
+  picker,
+}: {
+  day: CalendarDay<CalendarViewEntry>;
+  selected: boolean;
+  edges: string;
+  canRequest: boolean;
+  picker: ReturnType<typeof useDayPicker>;
+}) {
+  const style = dayStyle(day, selected);
+  return (
+    <td
+      // On the cell, not the button: dragging across a day's leave chips still stretches the pick.
+      onPointerEnter={() => picker.onCellPointerEnter(day.date)}
+      className={cx("relative h-24 border-border p-0 align-top", edges, style.cell)}
+    >
+      {/* The day itself, filling the cell behind its content. Leave chips sit above it as
+          links to their requests, so a click on one opens it rather than picking the day. */}
+      <button
+        type="button"
+        {...picker.dayButton(day.date)}
+        aria-label={dayLabel(day)}
+        aria-pressed={canRequest ? selected : undefined}
+        className={cx(
+          "absolute inset-0 select-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-ink",
+          canRequest ? "cursor-pointer hover:bg-accent/5" : "cursor-default",
+        )}
+      />
+      {/* Clicks on the number or holiday fall through to the day; the chips take their own. */}
+      <div className="pointer-events-none relative flex min-h-24 flex-col gap-1 p-1.5">
+        <span
+          aria-hidden
+          className={cx(
+            "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs tabular-nums",
+            day.isToday ? "bg-accent font-semibold text-accent-foreground" : style.number,
+          )}
+        >
+          {Number(day.date.slice(8))}
+        </span>
+        {day.holiday && (
+          <span aria-hidden className="truncate text-xs text-muted" title={day.holiday}>
+            {day.holiday}
+          </span>
+        )}
+        {day.entries.length > 0 && (
+          // Arrow keys on a chip move between days too, so they keep working
+          // in the grid wherever Tab has put focus.
+          <ul className="space-y-1" onKeyDown={(e) => picker.onKeyDown(e, day.date)}>
+            {day.entries.map((entry) => (
+              <li key={entry.id} className="pointer-events-auto">
+                {entry.isMine ? (
+                  <LeaveChip entry={entry} href={`/requests/${entry.id}`} />
+                ) : (
+                  <LeaveChip entry={entry} personName={entry.personName} href={`/team/${entry.userId}`} />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </td>
   );
 }
 

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { Actor } from "@/domain/actor";
+import type { Actor } from "@/shared/kernel/actor";
 import { formatWait } from "@/lib/format";
-import { byUser } from "@/domain/change-source";
+import { byUser } from "@/shared/kernel/change-source";
 import {
   allocateYearToMonths,
   buildLeaveReport,
@@ -14,7 +14,7 @@ import {
   reportCsv,
   reportScopeFor,
   splitLeaveDaysByMonth,
-} from "@/domain/reports";
+} from "@/modules/reports/domain/leave-report";
 
 const MON_FRI = [1, 2, 3, 4, 5];
 const calendar = { workingDays: MON_FRI, holidays: ["2026-11-26"] };

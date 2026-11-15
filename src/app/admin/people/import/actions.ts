@@ -1,16 +1,14 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { type DomainError, isDomainError } from "@/domain/errors";
-import { importPeople, PEOPLE_IMPORT_HOURLY_LIMIT, previewPeopleImport } from "@/server/services/admin-people-import";
+import { isDomainError } from "@/shared/kernel/errors";
+import { importPeople, previewPeopleImport } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { adminStateAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
-import { type ImportState, previewRows } from "./import-state";
-
-/** Largest file accepted: far more than the row limit needs, well inside a server action's body limit. */
-const MAX_FILE_BYTES = 512 * 1024;
+import { importedState, MAX_FILE_BYTES, previewState, readUpload, refusalOf } from "./import-outcome";
+import type { ImportState } from "./import-state";
 
 const importSchema = z.object({
   intent: z.enum(["check", "import"]),
@@ -19,17 +17,6 @@ const importSchema = z.object({
   fileName: formFields.text(300).optional(),
   sendInvites: formFields.checkbox,
 });
-
-const RATE_LIMITED = `That's more than ${PEOPLE_IMPORT_HOURLY_LIMIT} people imported in an hour. Try again later.`;
-
-/** The words for a refused check or import. `invalid_input` carries its own, written for the file. */
-function refusalOf(err: DomainError): string | null {
-  if (err.code === "invalid_input") return err.message || "That file can't be imported.";
-  if (err.code === "rate_limited") return RATE_LIMITED;
-  if (err.code === "forbidden") return "Only admins can import people.";
-  if (err.code === "already_exists") return "Someone in the file was just added another way. Check the file again.";
-  return null;
-}
 
 /**
  * Import page. `check` reads the uploaded file and returns what importing it would do,
@@ -42,45 +29,18 @@ export async function peopleImportAction(_prev: ImportState, formData: FormData)
     formData,
     importSchema,
     async (ctx, actor, input): Promise<ImportState> => {
-      let csv = input.csv ?? "";
-      let fileName = input.fileName ?? "";
-      if (input.intent === "check") {
-        if (!input.file || input.file.size === 0) return { status: "error", message: "Choose a CSV file first.", fields: ["file"] };
-        if (input.file.size > MAX_FILE_BYTES) return { status: "error", message: "That file is too big for one import. Split it into smaller files.", fields: ["file"] };
-        csv = await input.file.text();
-        fileName = input.file.name.slice(0, 300);
-      }
-
-      const check = async (problem?: string): Promise<ImportState> => {
-        const plan = await previewPeopleImport(ctx, actor, csv);
-        return {
-          status: "preview",
-          id: randomUUID(),
-          csv,
-          fileName,
-          adds: plan.adds,
-          skips: plan.skips,
-          errors: plan.errors,
-          newDepartments: plan.newDepartments,
-          ignoredColumns: plan.ignoredColumns,
-          rows: previewRows(plan),
-          ...(problem ? { problem } : {}),
-        };
-      };
+      const upload = input.intent === "check" ? await readUpload(input.file) : { csv: input.csv ?? "", fileName: input.fileName ?? "" };
+      if ("status" in upload) return upload;
+      const { csv, fileName } = upload;
+      const check = async (problem?: string) => previewState(unwrap(await previewPeopleImport(ctx, actor, csv)), csv, fileName, problem);
 
       try {
         if (input.intent === "check") return await check();
-        const result = await importPeople(ctx, actor, { csv, sendInvites: input.sendInvites });
+        const result = unwrap(await importPeople(ctx, actor, { csv, sendInvites: input.sendInvites }));
         // The page keeps showing the outcome; this only drops cached copies of other
         // pages (People), so going back shows the new people.
         refresh();
-        if (result.added === 0) {
-          return { status: "imported", id: randomUUID(), message: "Nobody was added: everyone in the file already has an account." };
-        }
-        const people = `${result.added} ${result.added === 1 ? "person" : "people"}`;
-        const departments = result.departmentsCreated > 0 ? ` and ${result.departmentsCreated} ${result.departmentsCreated === 1 ? "department" : "departments"}` : "";
-        const invites = input.sendInvites ? " Each will get an email with a sign-in link." : " No invites were sent; they can sign in from the sign-in page.";
-        return { status: "imported", id: randomUUID(), message: `Added ${people}${departments}.${invites}` };
+        return importedState(result, input.sendInvites);
       } catch (err) {
         const message = isDomainError(err) ? refusalOf(err) : null;
         if (message === null) throw err;

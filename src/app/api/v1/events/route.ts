@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { listEventsForApi } from "@/server/services/api-v1";
+import { listEventsForApi } from "@/modules/integrations";
 import { parseQuery } from "@/app/api/v1/_lib/handler";
 import { eventsQuery } from "@/app/api/v1/_lib/query";
 import { apiGet } from "@/app/api/v1/_lib/api-get";

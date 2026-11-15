@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DomainError } from "@/domain/errors";
-import { defaultLeaveTypes, normalizeInstall } from "@/domain/install";
+import { DomainError } from "@/shared/kernel/errors";
+import { defaultLeaveTypes, normalizeInstall } from "@/shared/kernel/install";
 import { setupTokenMatches } from "@/lib/setup-token";
 
 test("the setup token must match exactly, and nothing matches when none is configured", () => {

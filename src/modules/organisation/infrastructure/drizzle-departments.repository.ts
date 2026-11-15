@@ -1,0 +1,159 @@
+import "server-only";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { departments, user } from "@/db/schema";
+import type { Executor, Transaction } from "@/db/types";
+import { returnedRow } from "@/db/rows";
+
+/** `maxOff`: the optional coverage limit, at most this many of its people off at once. */
+export type DepartmentRow = { id: string; name: string; managerId: string | null; maxOff: number | null };
+
+const fields = { id: departments.id, name: departments.name, managerId: departments.managerId, maxOff: departments.maxOff };
+const manager = alias(user, "manager");
+/** Active people among the joined `user` rows (deactivated and deleted people are never active). */
+const activeCount = sql<number>`count(${user.id}) filter (where ${user.isActive})`.mapWith(Number);
+
+/** The company's departments by name, ignoring case (every department list and picker uses this order). */
+export async function listDepartments(ex: Executor, companyId: string) {
+  return ex
+    .select(fields)
+    .from(departments)
+    .where(eq(departments.companyId, companyId))
+    .orderBy(asc(sql`lower(${departments.name})`), asc(departments.id));
+}
+
+/**
+ * The company's departments by name, each with its manager's name and email (for a label),
+ * if it has one, and two head counts: `members`, its active people (what the page shows),
+ * and `assigned`, everyone still pointing at it, deactivated included (what keeps it from
+ * being deleted). One query.
+ */
+export async function listDepartmentsWithCounts(ex: Executor, companyId: string) {
+  return ex
+    .select({ ...fields, managerName: manager.name, managerEmail: manager.email, members: activeCount, assigned: count(user.id) })
+    .from(departments)
+    .leftJoin(user, eq(user.departmentId, departments.id))
+    .leftJoin(manager, eq(manager.id, departments.managerId))
+    .where(eq(departments.companyId, companyId))
+    .groupBy(departments.id, manager.id)
+    .orderBy(asc(sql`lower(${departments.name})`), asc(departments.id));
+}
+
+/** Each of `departmentIds` (of the company) that has a manager, mapped to that manager's id. */
+export async function findDepartmentManagerIds(ex: Executor, companyId: string, departmentIds: readonly string[]) {
+  if (departmentIds.length === 0) return new Map<string, string>();
+  const rows = await ex
+    .select({ id: departments.id, managerId: departments.managerId })
+    .from(departments)
+    .where(and(eq(departments.companyId, companyId), inArray(departments.id, [...departmentIds])));
+  return new Map(rows.flatMap((r) => (r.managerId ? [[r.id, r.managerId] as const] : [])));
+}
+
+/** The ids of the departments `userId` manages, in id order. */
+export async function listManagedDepartmentIds(ex: Executor, companyId: string, userId: string): Promise<string[]> {
+  const rows = await ex
+    .select({ id: departments.id })
+    .from(departments)
+    .where(and(eq(departments.companyId, companyId), eq(departments.managerId, userId)))
+    .orderBy(asc(departments.id));
+  return rows.map((r) => r.id);
+}
+
+export async function findDepartment(ex: Executor, companyId: string, id: string): Promise<DepartmentRow | undefined> {
+  const [row] = await ex
+    .select(fields)
+    .from(departments)
+    .where(and(eq(departments.id, id), eq(departments.companyId, companyId)));
+  return row;
+}
+
+/**
+ * Holds a row lock on the department until commit, so a concurrent move of someone into
+ * it cannot slip in between "it is empty" and the delete.
+ */
+export async function lockDepartment(tx: Transaction, companyId: string, id: string): Promise<DepartmentRow | undefined> {
+  const [row] = await tx
+    .select(fields)
+    .from(departments)
+    .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
+    .for("update");
+  return row;
+}
+
+/** A department of the company with this name, ignoring case, other than `exceptId`. */
+export async function findDepartmentByName(ex: Executor, companyId: string, name: string, exceptId?: string) {
+  const [row] = await ex
+    .select(fields)
+    .from(departments)
+    .where(
+      and(
+        eq(departments.companyId, companyId),
+        sql`lower(${departments.name}) = lower(${name})`,
+        exceptId ? sql`${departments.id} <> ${exceptId}` : undefined,
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
+export async function insertDepartment(tx: Transaction, values: { companyId: string; name: string }): Promise<DepartmentRow> {
+  const rows = await tx.insert(departments).values(values).returning(fields);
+  return returnedRow(rows);
+}
+
+export async function renameDepartment(tx: Transaction, companyId: string, id: string, name: string): Promise<DepartmentRow> {
+  const rows = await tx
+    .update(departments)
+    .set({ name })
+    .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
+    .returning(fields);
+  return returnedRow(rows);
+}
+
+export async function setDepartmentManagerRow(tx: Transaction, companyId: string, id: string, managerId: string | null): Promise<DepartmentRow> {
+  const rows = await tx
+    .update(departments)
+    .set({ managerId })
+    .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
+    .returning(fields);
+  return returnedRow(rows);
+}
+
+/** Sets (or, with `null`, clears) the department's coverage limit. */
+export async function setDepartmentMaxOffRow(tx: Transaction, companyId: string, id: string, maxOff: number | null): Promise<DepartmentRow> {
+  const rows = await tx
+    .update(departments)
+    .set({ maxOff })
+    .where(and(eq(departments.id, id), eq(departments.companyId, companyId)))
+    .returning(fields);
+  return returnedRow(rows);
+}
+
+/** Each of `departmentIds` (of the company) that has a coverage limit, mapped to it. */
+export async function findDepartmentLimits(ex: Executor, companyId: string, departmentIds: readonly string[]) {
+  if (departmentIds.length === 0) return new Map<string, number>();
+  const rows = await ex
+    .select({ id: departments.id, maxOff: departments.maxOff })
+    .from(departments)
+    .where(and(eq(departments.companyId, companyId), inArray(departments.id, [...departmentIds])));
+  return new Map(rows.flatMap((r) => (r.maxOff !== null ? [[r.id, r.maxOff] as const] : [])));
+}
+
+/** Clears `userId` as manager of every department they manage; returns those departments after the change. */
+export async function clearDepartmentsManagedBy(tx: Transaction, companyId: string, userId: string): Promise<DepartmentRow[]> {
+  return tx
+    .update(departments)
+    .set({ managerId: null })
+    .where(and(eq(departments.companyId, companyId), eq(departments.managerId, userId)))
+    .returning(fields);
+}
+
+export async function deleteDepartment(tx: Transaction, companyId: string, id: string): Promise<void> {
+  await tx.delete(departments).where(and(eq(departments.id, id), eq(departments.companyId, companyId)));
+}
+
+/** How many people (active or not) are in a department. */
+export async function countDepartmentMembers(ex: Executor, departmentId: string): Promise<number> {
+  const [row] = await ex.select({ n: sql<number>`count(*)::int` }).from(user).where(eq(user.departmentId, departmentId));
+  return row?.n ?? 0;
+}

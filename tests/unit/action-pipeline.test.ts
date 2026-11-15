@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import { createActionPipeline } from "@/app/_lib/action-pipeline";
-import type { Actor } from "@/domain/actor";
-import { DomainError } from "@/domain/errors";
+import { ACTION_RATE_LIMIT, createActionPipeline } from "@/app/_lib/action-pipeline";
+import { createRateLimiter } from "@/lib/rate-limit";
+import type { Actor } from "@/shared/kernel/actor";
+import { DomainError } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
+import { err, ok, type ServiceResult } from "@/shared/lib/result";
 
 const actorOf = (role: Actor["role"]): Actor => ({
   id: "u1",
@@ -129,4 +131,79 @@ test("then-go redirects after a success without refreshing, and stays put on a r
   });
   assert.equal(state.status, "error");
   assert.deepEqual(refused.calls, ["session"]);
+});
+
+// ADR-0003: a use case may return a failed ServiceResult instead of throwing; the
+// pipeline must treat both the same, so use cases can move to results one by one.
+test("a returned failure gives exactly the state a thrown DomainError gives", async () => {
+  const details = { year: 2026, requested: 3, remaining: 1, yearsSpanned: 1 };
+  const thrown = harness();
+  const threw = await thrown.runFormAction("t", form({ name: "Ana" }), schema, async () => {
+    throw new DomainError("insufficient_balance", "short", details);
+  });
+  const returned = harness();
+  const gave = await returned.runFormAction("t", form({ name: "Ana" }), schema, async () => err("insufficient_balance", "short", details));
+  assert.deepEqual(gave, threw);
+  assert.deepEqual(returned.calls, thrown.calls);
+});
+
+test("a returned success is unwrapped, for form, state and redirect actions", async () => {
+  const h = harness();
+  const saved = await h.runFormAction("t", form({ name: "Ana" }), schema, async () => ok("Saved."));
+  assert.equal(saved.status === "success" && saved.message, "Saved.");
+  const state = await h.runStateAction("t", form({ name: "Ana" }), schema, async () => ok({ status: "shown" as const, value: 1 }));
+  assert.deepEqual(state, { status: "shown", value: 1 });
+  await assert.rejects(h.runActionThenGo("t", form({ name: "Ana" }), schema, async () => ok("/people")), /NEXT_REDIRECT/);
+  assert.ok(h.calls.includes("redirect /people"));
+});
+
+test("a returned failure from a state or redirect action is a calm error, with no redirect", async () => {
+  const viaState = harness();
+  const state = await viaState.runStateAction("t", form({ name: "Ana" }), schema, async (): Promise<ServiceResult<{ status: "shown" }>> => err("forbidden"));
+  assert.deepEqual(state, { status: "error", message: "You can't change that request." });
+  const viaGo = harness();
+  const go = await viaGo.runActionThenGo("t", form({ name: "Ana" }), schema, async () => err("forbidden"));
+  assert.deepEqual(go, { status: "error", message: "You can't change that request." });
+  assert.ok(!viaGo.calls.some((c) => c.startsWith("redirect")));
+});
+
+/** A pipeline with a per-person action limit, acting as whoever `who()` names. */
+function limited(limit: number, who: () => string = () => "u1") {
+  const calls: string[] = [];
+  const pipeline = createActionPipeline({
+    actor: async () => ({ ...actorOf("employee"), id: who() }),
+    context: () => ({}) as ServiceContext,
+    refresh: () => calls.push("refresh"),
+    redirect: () => {
+      throw new Error("NEXT_REDIRECT");
+    },
+    limiter: createRateLimiter({ limit, windowMs: 60_000, now: () => 0 }),
+  });
+  return { calls, ...pipeline };
+}
+
+test("a person over the action rate limit is refused calmly, before parsing or calling the service", async () => {
+  const h = limited(2);
+  const work = async () => {
+    h.calls.push("work");
+    return "Saved.";
+  };
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, work)).status, "success");
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, work)).status, "success");
+  const third = await h.runFormAction("t", form({ name: "" }), schema, work);
+  assert.deepEqual(third, { status: "error", message: "That's a lot of requests in a few minutes. Wait a little, then try again." });
+  assert.deepEqual(h.calls, ["work", "refresh", "work", "refresh"]);
+});
+
+test("the action rate limit counts each person on their own", async () => {
+  let who = "u1";
+  const h = limited(1, () => who);
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, async () => "ok")).status, "success");
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, async () => "ok")).status, "error");
+  who = "u2";
+  assert.equal((await h.runFormAction("t", form({ name: "Ana" }), schema, async () => "ok")).status, "success");
+});
+
+test("the app's action limit is generous: a busy minute of clicking stays well inside it", () => {
+  assert.ok(ACTION_RATE_LIMIT.limit / (ACTION_RATE_LIMIT.windowMs / 60_000) >= 60, "fewer than 60 actions a minute allowed");
 });

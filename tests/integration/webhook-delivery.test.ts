@@ -3,25 +3,26 @@ import { randomUUID } from "node:crypto";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { and, eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import type { EventEnvelope } from "@/domain/integrations";
-import { RETRY_DELAYS_MS } from "@/domain/integrations";
+import { createWebhookEndpoint as createWebhookEndpointResult, deleteWebhookEndpoint as deleteWebhookEndpointResult, deliverDueWebhooks, dispatchOutboxBatch, listWebhookEndpoints as listWebhookEndpointsResult, redeliverWebhook as redeliverWebhookResult, RETRY_DELAYS_MS, rotateWebhookSecret as rotateWebhookSecretResult, sendWebhookPing as sendWebhookPingResult, setWebhookEndpointEnabled as setWebhookEndpointEnabledResult } from "@/modules/integrations";
+import { type EventEnvelope } from "@/shared/kernel/event-envelope";
 import { verifyWebhookSignature } from "@/lib/integration-crypto";
 import { TransportError, type WebhookFetch } from "@/lib/safe-fetch";
-import { claimDueDeliveries, recordDeliveryOutcome } from "@/server/repositories/webhooks";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
-import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
-import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
-import {
-  createWebhookEndpoint,
-  deleteWebhookEndpoint,
-  listWebhookEndpoints,
-  redeliverWebhook,
-  rotateWebhookSecret,
-  sendWebhookPing,
-  setWebhookEndpointEnabled,
-} from "@/server/services/webhooks";
+import { claimDueDeliveries, recordDeliveryOutcome } from "@/modules/integrations/infrastructure/drizzle-webhooks.repository";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestContext, type TestDatabase } from "./harness";
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+const deleteWebhookEndpoint = (...args: Parameters<typeof deleteWebhookEndpointResult>) => deleteWebhookEndpointResult(...args).then(unwrap);
+const listWebhookEndpoints = (...args: Parameters<typeof listWebhookEndpointsResult>) => listWebhookEndpointsResult(...args).then(unwrap);
+const redeliverWebhook = (...args: Parameters<typeof redeliverWebhookResult>) => redeliverWebhookResult(...args).then(unwrap);
+const rotateWebhookSecret = (...args: Parameters<typeof rotateWebhookSecretResult>) => rotateWebhookSecretResult(...args).then(unwrap);
+const sendWebhookPing = (...args: Parameters<typeof sendWebhookPingResult>) => sendWebhookPingResult(...args).then(unwrap);
+const setWebhookEndpointEnabled = (...args: Parameters<typeof setWebhookEndpointEnabledResult>) => setWebhookEndpointEnabledResult(...args).then(unwrap);
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const T0 = new Date("2026-11-02T15:00:00Z");
 

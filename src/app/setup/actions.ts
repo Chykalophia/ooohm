@@ -2,11 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { serviceContext } from "@/server/runtime";
-import { runFirstInstall } from "@/server/services/install";
+import { runFirstInstall } from "@/server/identity/install";
 import type { FormState } from "@/components/forms/form-state";
 import { formFields } from "@/app/_lib/form-fields";
 

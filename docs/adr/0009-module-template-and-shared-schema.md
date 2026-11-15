@@ -1,6 +1,6 @@
 # ADR-0009: Module template, public API, and one Drizzle schema
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-14, with the plan in PR #102)
 - **Date:** 2026-11-15
 
 ## Context
@@ -18,6 +18,10 @@ from `src/db/schema.ts`, and several modules join the same tables.
   the module graph must stay acyclic.
 - `src/db/schema.ts` stays one file. Each module's `infrastructure/` lists the tables it owns in its README; writes to
   a table happen only in its owning module.
+- `ui/` holds presenters: plain functions that turn a DTO into what a page renders. React components specific to one
+  route stay beside that route in `src/app`, so a module's index loads outside Next (in tests) too.
+- `src/modules/README.md` is the template's working description; `reports` and `organisation` are the reference
+  modules.
 - Shared code used by three or more modules goes in `src/shared/` (kernel types and rules in `shared/kernel`,
   utilities in `shared/lib`, the UI kit in `shared/ui`).
 

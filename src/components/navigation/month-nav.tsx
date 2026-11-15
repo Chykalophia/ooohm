@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/domain/calendar";
+import { MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from "@/shared/kernel/calendar";
 import { formatMonth } from "@/lib/format";
 import { focusRing } from "@/components/ui/styles";
 

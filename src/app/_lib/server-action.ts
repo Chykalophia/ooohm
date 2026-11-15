@@ -2,8 +2,9 @@ import "server-only";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActor } from "@/lib/auth";
+import { createRateLimiter } from "@/lib/rate-limit";
 import { serviceContext } from "@/server/runtime";
-import { createActionPipeline } from "./action-pipeline";
+import { ACTION_RATE_LIMIT, createActionPipeline } from "./action-pipeline";
 
 export type { ActionInput, ActionOptions, ActionWork } from "./action-pipeline";
 
@@ -13,4 +14,5 @@ export const { runStateAction, runFormAction, runActionThenGo } = createActionPi
   context: serviceContext,
   refresh,
   redirect,
+  limiter: createRateLimiter(ACTION_RATE_LIMIT),
 });

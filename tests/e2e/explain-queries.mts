@@ -15,19 +15,37 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../../src/db/schema";
-import type { Actor } from "../../src/domain/actor";
-import { byUser } from "../../src/domain/change-source";
-import { eachDate, isoWeekday } from "../../src/domain/calendar-date";
-import { STRICT_TARGET_POLICY } from "../../src/domain/webhook-target";
+import type { Actor } from "../../src/shared/kernel/actor";
+import { byUser } from "../../src/shared/kernel/change-source";
+import { eachDate, isoWeekday } from "../../src/shared/kernel/calendar-date";
+import { STRICT_TARGET_POLICY } from "../../src/shared/kernel/webhook-target";
 import { unavailableSecretBox } from "../../src/lib/integration-crypto";
 import type { ServiceContext } from "../../src/server/context";
 import { createAdapterRegistry } from "../../src/server/integrations/adapter";
-import { getPersonDetail, listPeople } from "../../src/server/services/admin-people";
-import { listBalancesForApi, listEventsForApi, listLeaveRequestsForApi, listUsersForApi } from "../../src/server/services/api-v1";
-import { getApprovalNav, getApprovalTriage } from "../../src/server/services/approvals";
-import { getAuditLog } from "../../src/server/services/audit-log";
-import { getMonthCalendar, getTeamCalendar } from "../../src/server/services/calendar";
-import { getDashboard } from "../../src/server/services/leave-requests";
+import { uuidGenerator } from "../../src/shared/lib/id-generator";
+import { wireModules } from "../../src/server/wiring";
+import { getPersonDetail as getPersonDetailResult, listPeople as listPeopleResult } from "../../src/modules/people/index";
+import { listBalancesForApi as listBalancesForApiResult, listEventsForApi as listEventsForApiResult, listUsersForApi as listUsersForApiResult } from "../../src/modules/integrations";
+import { getApprovalNav, getApprovalTriage } from "../../src/modules/approvals";
+import { getAuditLog } from "../../src/modules/audit";
+import * as calendarModule from "../../src/modules/calendar";
+import { getDashboard as getDashboardResult, listLeaveRequestsForApi as listLeaveRequestsForApiResult } from "../../src/modules/leave";
+import { unwrap } from "../../src/shared/lib/result";
+
+const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
+const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);
+const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const listBalancesForApi = (...args: Parameters<typeof listBalancesForApiResult>) => listBalancesForApiResult(...args).then(unwrap);
+const listEventsForApi = (...args: Parameters<typeof listEventsForApiResult>) => listEventsForApiResult(...args).then(unwrap);
+const listUsersForApi = (...args: Parameters<typeof listUsersForApiResult>) => listUsersForApiResult(...args).then(unwrap);
+wireModules();
+
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const listLeaveRequestsForApi = (...args: Parameters<typeof listLeaveRequestsForApiResult>) => listLeaveRequestsForApiResult(...args).then(unwrap);
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set");
@@ -49,6 +67,7 @@ const ctx: ServiceContext = {
   defer: () => {},
   appUrl: "https://ooohm.test",
   now: () => new Date("2026-11-01T15:00:00Z"),
+  ids: uuidGenerator,
   issueSignInLink: async () => "",
   secrets: unavailableSecretBox("not used"),
   webhookTargets: STRICT_TARGET_POLICY,

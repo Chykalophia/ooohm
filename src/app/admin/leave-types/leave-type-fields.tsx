@@ -1,4 +1,4 @@
-import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH, MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
+import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH, MAX_ALLOWANCE_DAYS } from "@/shared/kernel/leave-type-settings";
 import { CheckboxField, TextField } from "@/components/ui/fields";
 import { ColorField } from "./color-field";
 

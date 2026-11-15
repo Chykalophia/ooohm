@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { personLabel } from "@/domain/person";
+import { personLabel } from "@/shared/kernel/person-label";
 import { DEFAULT_EMAIL_ACCENT, emailAccent } from "@/lib/email-layout";
-import { type LeaveEmail, type LeaveSummary, renderLeaveEmail } from "@/server/notifications/templates/leave";
+import { type LeaveEmail, type LeaveSummary, renderLeaveEmail } from "@/modules/notifications/application/templates/leave";
 
 const hostile = 'Eve <script>alert("x")</script>\r\nBcc: victim@example.com';
 

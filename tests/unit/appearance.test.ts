@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { DEFAULT_APPEARANCE, THEME_KEYS, followsDarkMode, normalizeAppearance, readAppearance } from "@/domain/appearance";
-import { isDomainError } from "@/domain/errors";
+import { DEFAULT_APPEARANCE, THEME_KEYS, followsDarkMode, normalizeAppearance, readAppearance } from "@/shared/kernel/appearance";
+import { isDomainError } from "@/shared/kernel/errors";
 import { DARKEST_LIGHT_GROUND, accentHover, accentTokens, htmlAppearance } from "@/lib/appearance";
 import { contrastRatio } from "@/lib/color";
 import type { ServiceContext } from "@/server/context";
-import { getAppearance } from "@/server/services/appearance";
+import { getAppearance } from "@/modules/organisation";
 
 const invalid = (fn: () => unknown) => assert.throws(fn, (err) => isDomainError(err, "invalid_input"));
 

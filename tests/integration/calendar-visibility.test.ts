@@ -3,15 +3,28 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import type { ColleagueVisibility } from "@/domain/calendar-visibility";
-import { isDomainError } from "@/domain/errors";
-import { getCompanySettings, updateCompanySettings } from "@/server/services/admin-company";
-import { getMonthCalendar, getTeamCalendar } from "@/server/services/calendar";
-import { issueCalendarFeed, renderCalendarFeed } from "@/server/services/calendar-feeds";
-import { getTeamMember } from "@/server/services/team-member";
+import type { Actor } from "@/shared/kernel/actor";
+import type { ColleagueVisibility } from "@/shared/kernel/calendar-visibility";
+import { isDomainError } from "@/shared/kernel/errors";
+import * as calendarModule from "@/modules/calendar";
+import { getTeamMember as getTeamMemberResult } from "@/modules/people";
 import { companyAudit, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as organisation from "@/modules/organisation";
+import * as companySettings from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
+
+const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);
+const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
+const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
+const renderCalendarFeed = (...args: Parameters<typeof calendarModule.renderCalendarFeed>) => calendarModule.renderCalendarFeed(...args).then(unwrap);
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const getCompanySettings = (...args: Parameters<typeof organisation.getCompanySettings>) => organisation.getCompanySettings(...args).then(unwrap);
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
 
 // The test clock is 2026-11-01 15:00 UTC: Nov 1 in Chicago, so "this month" is 2026-11.
 

@@ -1,8 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { API_KEY_NAME_MAX_LENGTH } from "@/domain/integrations";
-import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
+import { map } from "@/shared/lib/result";
+import { API_KEY_NAME_MAX_LENGTH, createApiKey, revokeApiKey } from "@/modules/integrations";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction, adminRevealAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -19,10 +19,8 @@ export async function createApiKeyAction(_prev: RevealState, formData: FormData)
     "api_key_create",
     formData,
     z.object({ name: formFields.text(API_KEY_NAME_MAX_LENGTH * 2) }),
-    async (ctx, actor, { name }) => {
-      const { key, apiKey } = await createApiKey(ctx, actor, { name });
-      return { value: key, message: `Created ${apiKey.name}. Here is the key.` };
-    },
+    async (ctx, actor, { name }) =>
+      map(await createApiKey(ctx, actor, { name }), ({ key, apiKey }) => ({ value: key, message: `Created ${apiKey.name}. Here is the key.` })),
     MESSAGES,
   );
 }
@@ -32,7 +30,7 @@ export async function revokeApiKeyAction(_prev: FormState, formData: FormData): 
     "api_key_revoke",
     formData,
     z.object({ id: formFields.id }),
-    async (ctx, actor, { id }) => ((await revokeApiKey(ctx, actor, id)) ? "Revoked. Requests with it now get 401." : "It was already revoked."),
+    async (ctx, actor, { id }) => map(await revokeApiKey(ctx, actor, id), (live) => (live ? "Revoked. Requests with it now get 401." : "It was already revoked.")),
     MESSAGES,
   );
 }

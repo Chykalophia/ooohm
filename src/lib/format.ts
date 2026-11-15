@@ -4,8 +4,8 @@
  * Dates are formatted in UTC from their `YYYY-MM-DD` parts, so the printed day is the
  * stored day whatever the server's or browser's time zone.
  */
-import type { Balance, RequestCost } from "@/domain/allowance-policy";
-import type { BalanceShortfallDetails } from "@/domain/errors";
+import type { Balance, RequestCost } from "@/modules/balances";
+import type { BalanceShortfallDetails } from "@/shared/kernel/errors";
 
 const dayFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
@@ -17,7 +17,7 @@ const monthDayFormat = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month
 const yearFormat = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", year: "numeric" });
 
 function toUtc(date: string): Date {
-  const [y, m, d] = date.split("-").map(Number);
+  const [y = NaN, m = NaN, d = NaN] = date.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
 
@@ -263,11 +263,13 @@ export type RecountCause =
 export function formatRecountCause(cause: RecountCause): string {
   if (cause.kind === "working_days") return "The company's working days changed";
   const { added, removed } = cause;
-  if (added.length === 1 && removed.length === 0) {
-    return `${formatLeaveDates(added[0].date, added[0].date)} is now a company holiday (${added[0].name})`;
+  const [firstAdded] = added;
+  const [firstRemoved] = removed;
+  if (firstAdded && added.length === 1 && removed.length === 0) {
+    return `${formatLeaveDates(firstAdded.date, firstAdded.date)} is now a company holiday (${firstAdded.name})`;
   }
-  if (removed.length === 1 && added.length === 0) {
-    return `${formatLeaveDates(removed[0].date, removed[0].date)} is no longer a company holiday`;
+  if (firstRemoved && removed.length === 1 && added.length === 0) {
+    return `${formatLeaveDates(firstRemoved.date, firstRemoved.date)} is no longer a company holiday`;
   }
   if (removed.length === 0) return `${added.map((h) => h.name).join(", ")} are now company holidays`;
   return "The company holidays during your time off changed";
@@ -279,9 +281,9 @@ export function formatRecountCause(cause: RecountCause): string {
  * named when there are several, and the plain message when there are none.
  */
 export function formatNoWorkingDays(holidays: readonly { date: string; name: string }[]): string {
-  if (holidays.length === 0) return "Those dates are all weekends or days off, so there's nothing to request.";
+  const [h] = holidays;
+  if (!h) return "Those dates are all weekends or days off, so there's nothing to request.";
   if (holidays.length === 1) {
-    const [h] = holidays;
     return `${formatLeaveDates(h.date, h.date)} is ${h.name}, a company holiday, so there's nothing to request.`;
   }
   return `Those dates are days off or company holidays (${holidays.map((h) => h.name).join(", ")}), so there's nothing to request.`;

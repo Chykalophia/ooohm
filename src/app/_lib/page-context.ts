@@ -1,15 +1,15 @@
 import "server-only";
 import { notFound } from "next/navigation";
-import type { Actor } from "@/domain/actor";
-import { canAdminister } from "@/domain/admin-permissions";
-import { isDomainError } from "@/domain/errors";
-import { canViewReports } from "@/domain/reports";
-import { type ColorMode, colorModeOrDefault } from "@/domain/color-mode";
+import type { Actor } from "@/shared/kernel/actor";
+import { canAdminister } from "@/shared/kernel/admin-permissions";
+import { isDomainError } from "@/shared/kernel/errors";
+import { canViewReports } from "@/modules/reports";
+import { type ColorMode, colorModeOrDefault } from "@/shared/kernel/color-mode";
 import { requireActor } from "@/lib/auth";
 import type { ServiceContext } from "@/server/context";
 import { serviceContext } from "@/server/runtime";
-import { getApprovalNav } from "@/server/services/approvals";
-import { getCompanyLogo } from "@/server/services/appearance";
+import { getApprovalNav } from "@/modules/approvals";
+import { getCompanyLogo } from "@/modules/organisation";
 import type { HeaderNav } from "@/components/layout/app-header";
 
 /** A signed-in member of a company, ready to render a page, with their colour mode. */

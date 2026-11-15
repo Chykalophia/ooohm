@@ -2,16 +2,30 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { createDepartment, listDepartmentsForAdmin, setDepartmentManager } from "@/server/services/admin-departments";
-import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
-import { deletePerson } from "@/server/services/admin-people-deletion";
-import { decideLeaveRequest } from "@/server/services/approvals";
-import { addLeaveFor } from "@/server/services/leave-on-behalf";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
-import { getTeamMember } from "@/server/services/team-member";
+import { deactivatePerson as deactivatePersonResult, deletePerson as deletePersonResult, getTeamMember as getTeamMemberResult, updatePerson as updatePersonResult } from "@/modules/people";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
+import { addLeaveFor as addLeaveForResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as organisation from "@/modules/organisation";
+import * as departmentManager from "@/modules/approvals";
+
+const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
+const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
+const deletePerson = (...args: Parameters<typeof deletePersonResult>) => deletePersonResult(...args).then(unwrap);
+const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);
+const listDepartmentsForAdmin = (...args: Parameters<typeof organisation.listDepartmentsForAdmin>) => organisation.listDepartmentsForAdmin(...args).then(unwrap);
+const setDepartmentManager = (...args: Parameters<typeof departmentManager.setDepartmentManager>) => departmentManager.setDepartmentManager(...args).then(unwrap);
+
+const addLeaveFor = (...args: Parameters<typeof addLeaveForResult>) => addLeaveForResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
 const NOW = new Date("2026-11-03T09:00:00Z");

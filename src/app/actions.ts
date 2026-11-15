@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 import { formatAddedFor, formatSubmitted } from "@/lib/format";
-import { addLeaveFor, removeLeaveFor } from "@/server/services/leave-on-behalf";
-import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-requests";
+import { addLeaveFor, cancelLeaveRequest, removeLeaveFor, submitLeaveRequest } from "@/modules/leave";
+import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { leaveRequestSchema, readDraftFields } from "./_lib/leave-input";
 import { formFields } from "./_lib/form-fields";
@@ -14,8 +14,8 @@ import { runFormAction } from "./_lib/server-action";
 export async function requestLeaveAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const fields = { ...readDraftFields(formData), note: formData.get("note") ?? undefined };
   return runFormAction("leave_request_submit", fields, leaveRequestSchema, async (ctx, actor, input) => {
-    const request = await submitLeaveRequest(ctx, actor, input);
-    return formatSubmitted({ ...request, approved: request.status === "approved", headsUp: request.headsUp });
+    const submitted = await submitLeaveRequest(ctx, actor, input);
+    return map(submitted, (request) => formatSubmitted({ ...request, approved: request.status === "approved", headsUp: request.headsUp }));
   });
 }
 
@@ -24,8 +24,7 @@ const cancelSchema = z.object({ requestId: formFields.id });
 /** Cancels one of the signed-in user's own requests. */
 export async function cancelLeaveAction(_prev: FormState, formData: FormData): Promise<FormState> {
   return runFormAction("leave_request_cancel", formData, cancelSchema, async (ctx, actor, { requestId }) => {
-    await cancelLeaveRequest(ctx, actor, requestId);
-    return "Cancelled.";
+    return map(await cancelLeaveRequest(ctx, actor, requestId), () => "Cancelled.");
   });
 }
 
@@ -39,8 +38,7 @@ export async function addLeaveForAction(_prev: FormState, formData: FormData): P
     fields,
     addForSchema,
     async (ctx, actor, { userId, ...input }) => {
-      const request = await addLeaveFor(ctx, actor, userId, input);
-      return formatAddedFor(request.personName, request);
+      return map(await addLeaveFor(ctx, actor, userId, input), (request) => formatAddedFor(request.personName, request));
     },
     { messages: addForMessages },
   );
@@ -52,7 +50,6 @@ const removeForSchema = z.object({ requestId: formFields.id, reason: z.string() 
 export async function removeLeaveForAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const fields = { requestId: formData.get("requestId") ?? "", reason: formData.get("reason") ?? "" };
   return runFormAction("leave_remove_for", fields, removeForSchema, async (ctx, actor, { requestId, reason }) => {
-    await removeLeaveFor(ctx, actor, requestId, reason);
-    return "Removed. They've been emailed, and the days are back in their balance.";
+    return map(await removeLeaveFor(ctx, actor, requestId, reason), () => "Removed. They've been emailed, and the days are back in their balance.");
   });
 }

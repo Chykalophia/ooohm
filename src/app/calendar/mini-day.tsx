@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { CalendarDay } from "@/domain/calendar";
+import type { CalendarDay } from "@/shared/kernel/calendar";
 import { normalizeHexColor, readableTextColor } from "@/lib/color";
 
 /** Monday first, as every month grid is. */

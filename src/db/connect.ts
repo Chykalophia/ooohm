@@ -1,3 +1,4 @@
+import "server-only";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { Logger } from "drizzle-orm";
@@ -133,7 +134,7 @@ export const MIGRATIONS_FOLDER = path.resolve(process.cwd(), "drizzle");
  */
 export async function migrateDatabase(
   config: DatabaseConfig,
-  options: { embedded?: DatabaseHandle; migrationsFolder?: string; purpose?: string } = {},
+  options: { embedded?: DatabaseHandle | undefined; migrationsFolder?: string | undefined; purpose?: string | undefined } = {},
 ): Promise<void> {
   const migrationsFolder = options.migrationsFolder ?? MIGRATIONS_FOLDER;
   if (config.kind === "postgres") {

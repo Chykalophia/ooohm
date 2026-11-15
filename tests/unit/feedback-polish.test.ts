@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildAgenda, yearHasHolidays } from "@/domain/calendar";
+import { buildAgenda, yearHasHolidays } from "@/shared/kernel/calendar";
 import { isSettledAway } from "@/components/leave/request-tone";
 import { fieldClass, selectClass } from "@/components/ui/styles";
 

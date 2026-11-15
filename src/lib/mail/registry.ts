@@ -1,3 +1,4 @@
+import "server-only";
 import type { MailTransportName, SendGridRegion } from "./names";
 import { createSendGridTransport } from "./sendgrid";
 import { createSmtpTransport } from "./smtp";
@@ -8,7 +9,7 @@ import type { MailTransport } from "./transport";
 export interface MailConfig {
   transport: MailTransportName;
   smtp: SmtpSettings;
-  sendgrid: { apiKey?: string; region: SendGridRegion };
+  sendgrid: { apiKey?: string | undefined; region: SendGridRegion };
 }
 
 /**

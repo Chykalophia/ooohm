@@ -29,7 +29,7 @@ src/
   server/
     context.ts              # ServiceContext type (ports: db, mailer, clock, ids, secrets, …)
     runtime.ts              # composition root: builds the context and the module services, per request
-    admin/                  # privileged database handle (migrations, worker, cron, import) — ADR-0006
+    admin/                  # the database owner's handle (migrations, seed, import) — ADR-0006
     identity/               # Better Auth config, requireActor, passkeys (cross-cutting authN)
     jobs/                   # runTick, scheduled jobs, retention, outbox dispatch
   shared/
@@ -84,10 +84,10 @@ without a second implementation).
 | `src/server/services/admin-holidays.ts` | `modules/holidays/application/*` |
 | `src/server/services/admin-people*.ts`, `account.ts` | `modules/people/application/*` |
 | `src/server/services/admin-company.ts`, `appearance.ts`, `admin-departments.ts`, `admin-levels.ts`, `admin-leave-types.ts` | `modules/organisation/application/*` |
-| `src/server/notifications/**`, `services/notify.ts`, `services/admin-emails.ts` | `modules/notifications/*`; `commitThenNotify` → `shared/lib/unit-of-work.ts` |
+| `src/server/notifications/**`, `services/notify.ts`, `services/admin-emails.ts` | `modules/notifications/*`; `inTransaction` (and `commitThen`, which `commitThenNotify` is built on) → `shared/lib/unit-of-work.ts`. `commitThenNotify` itself stays in notifications: it calls the sender, and the module's own use cases call `inTransaction`, so a shared copy would be a cycle |
 | `src/server/services/webhooks.ts`, `webhook-delivery.ts`, `api-keys.ts`, `api-v1.ts`, `integrations.ts`, `inbound-sync.ts`, `adapter-delivery.ts`, `src/server/integrations/**` | `modules/integrations/*` |
 | `src/server/services/reports.ts` | `modules/reports/application/queries/*` |
-| `src/server/services/audit-log.ts`, `admin-access.ts` | `modules/audit/*`; `assertCanAdminister`, `lockCompany`, `recordAdminChange` → `shared/kernel` (used by most modules) |
+| `src/server/services/audit-log.ts`, `admin-access.ts` | `modules/audit/*`; `assertCanAdminister` → `shared/kernel/admin-permissions.ts`; `assertActiveAdmin`, `recordAdminChange` → `shared/lib/admin-access.ts` (they do I/O, so not the kernel); `lockCompany` stays with the companies repository (organisation), as it returns the company row |
 | `src/server/services/background-tick.ts`, `scheduled-jobs.ts`, `retention.ts`, `outbox-dispatch.ts`, `health.ts`, `install.ts` | `src/server/jobs/*`, `src/server/identity/install.ts` |
 | `src/server/services/timeoff-import.ts`, `src/server/importers/**`, `src/domain/timeoff/**` | `modules/import/*` |
 | `src/server/repositories/<x>.ts` | the owning module's `infrastructure/`; `change-log.ts`, `keyset.ts`, `errors.ts` → `shared/lib/db/` |

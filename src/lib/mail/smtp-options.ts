@@ -1,3 +1,4 @@
+import "server-only";
 /** The SMTP settings from the environment that decide how the connection is secured. */
 export interface SmtpSettings {
   host: string;
@@ -6,8 +7,8 @@ export interface SmtpSettings {
   secure: boolean;
   /** On a plain connection (port 587), refuse to continue unless STARTTLS succeeds. */
   requireTls: boolean;
-  user?: string;
-  password?: string;
+  user?: string | undefined;
+  password?: string | undefined;
 }
 
 /**

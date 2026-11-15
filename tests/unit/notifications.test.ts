@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MailMessage, ServiceContext } from "@/server/context";
-import { NOTIFICATION_TYPES, type Notification } from "@/server/notifications/catalog";
-import { renderInviteEmail } from "@/server/notifications/templates/invite";
-import { type LeaveSummary, renderLeaveEmail } from "@/server/notifications/templates/leave";
-import { commitThenNotify } from "@/server/services/notify";
+import { NOTIFICATION_TYPES, type Notification } from "@/modules/notifications/application/catalog";
+import { renderInviteEmail } from "@/modules/notifications/application/templates/invite";
+import { type LeaveSummary, renderLeaveEmail } from "@/modules/notifications/application/templates/leave";
+import { commitThenNotify } from "@/modules/notifications";
 
 const leave = (over: Partial<LeaveSummary> = {}): LeaveSummary => ({
   requesterName: "Ana",

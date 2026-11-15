@@ -1,5 +1,5 @@
-import { personLabel } from "@/domain/person";
-import type { PeopleImportPlan } from "@/domain/people-import";
+import { personLabel } from "@/shared/kernel/person-label";
+import type { PeopleImportPlan } from "@/modules/people";
 import { ROLE_LABEL } from "@/lib/format";
 
 /** One row of the file as the preview lists it. */

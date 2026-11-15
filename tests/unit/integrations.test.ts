@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import {
   ADMIN_EVENT_TYPES,
   BALANCE_EVENT_TYPES,
@@ -10,20 +10,10 @@ import {
   LEAVE_EVENT_TYPES,
   LEAVE_REASSIGNED_EVENT_TYPE,
   LEAVE_RECOUNTED_EVENT_TYPE,
-} from "@/domain/events";
-import {
-  assertScope,
-  buildEnvelope,
-  MAX_DELIVERY_ATTEMPTS,
-  normalizeApiKeyName,
-  normalizeEventTypes,
-  normalizeWebhookDescription,
-  RETRY_DELAYS_MS,
-  retryDelayMs,
-  WEBHOOK_EVENT_GROUPS,
-  WEBHOOK_EVENT_TYPES,
-} from "@/domain/integrations";
-import { embeddedIpv4, isBlockedAddress, normalizeWebhookUrl, parseIpv6, STRICT_TARGET_POLICY, urlOrigin } from "@/domain/webhook-target";
+} from "@/shared/kernel/events";
+import { assertScope, MAX_DELIVERY_ATTEMPTS, normalizeApiKeyName, normalizeEventTypes, normalizeWebhookDescription, RETRY_DELAYS_MS, retryDelayMs, WEBHOOK_EVENT_GROUPS, WEBHOOK_EVENT_TYPES } from "@/modules/integrations";
+import { buildEnvelope } from "@/shared/kernel/event-envelope";
+import { embeddedIpv4, isBlockedAddress, normalizeWebhookUrl, parseIpv6, STRICT_TARGET_POLICY, urlOrigin } from "@/shared/kernel/webhook-target";
 import {
   apiKeyFromAuthorization,
   createSecretBox,
@@ -37,7 +27,8 @@ import {
 } from "@/lib/integration-crypto";
 import { hashToken } from "@/lib/token-hash";
 import { loadWorkerEnv } from "@/lib/worker-env";
-import { adapterRegistry, createAdapterRegistry, type Adapter } from "@/server/integrations/adapter";
+import { createAdapterRegistry, type Adapter } from "@/server/integrations/adapter";
+import { adapterRegistry } from "@/server/integrations/registry";
 
 const code = (fn: () => unknown) => {
   try {

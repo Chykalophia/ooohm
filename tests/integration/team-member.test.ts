@@ -3,11 +3,17 @@ import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { isDomainError } from "@/domain/errors";
-import { updateCompanySettings } from "@/server/services/admin-company";
-import { getTeamMember } from "@/server/services/team-member";
+import { isDomainError } from "@/shared/kernel/errors";
+import { getTeamMember as getTeamMemberResult } from "@/modules/people";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as companySettings from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
+
+const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
 
 // The test clock is 2026-11-01 15:00 UTC: Nov 1 in Chicago.
 

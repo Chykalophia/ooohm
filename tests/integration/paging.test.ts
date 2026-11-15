@@ -3,20 +3,25 @@ import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { and, asc, eq, like, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { encodePageKey, type PageCursor, type Paged } from "@/domain/paging";
-import { listPeople, PEOPLE_PAGE_SIZE } from "@/server/services/admin-people";
-import {
-  cancelLeaveRequest,
-  DASHBOARD_REQUESTS,
-  getDashboard,
-  getMyRequest,
-  listMyRequests,
-  REQUESTS_PAGE_SIZE,
-} from "@/server/services/leave-requests";
-import { createWebhookEndpoint, DELIVERIES_PAGE_SIZE, getWebhookEndpoint } from "@/server/services/webhooks";
+import { encodePageKey, type PageCursor, type Paged } from "@/shared/kernel/paging";
+import { listPeople as listPeopleResult, PEOPLE_PAGE_SIZE } from "@/modules/people";
+import { cancelLeaveRequest as cancelLeaveRequestResult, DASHBOARD_REQUESTS, getDashboard as getDashboardResult, getMyRequest as getMyRequestResult, listMyRequests as listMyRequestsResult, REQUESTS_PAGE_SIZE } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
+import { createWebhookEndpoint as createWebhookEndpointResult, DELIVERIES_PAGE_SIZE, getWebhookEndpoint as getWebhookEndpointResult } from "@/modules/integrations";
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+const getWebhookEndpoint = (...args: Parameters<typeof getWebhookEndpointResult>) => getWebhookEndpointResult(...args).then(unwrap);
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const getMyRequest = (...args: Parameters<typeof getMyRequestResult>) => getMyRequestResult(...args).then(unwrap);
+const listMyRequests = (...args: Parameters<typeof listMyRequestsResult>) => listMyRequestsResult(...args).then(unwrap);
 
 /**
  * Walks a list forwards to its end, then backwards to its start, and checks both walks

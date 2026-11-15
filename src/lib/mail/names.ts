@@ -1,3 +1,4 @@
+import "server-only";
 /** The transports `MAIL_TRANSPORT` can name (built in `registry.ts`). Kept apart so env validation loads no mailer. */
 export const MAIL_TRANSPORT_NAMES = ["smtp", "sendgrid"] as const;
 export type MailTransportName = (typeof MAIL_TRANSPORT_NAMES)[number];

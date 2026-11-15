@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Which database OOOhm talks to, decided from the environment in one place.
  *
@@ -7,6 +8,12 @@
  * - **Embedded** (`OOOHM_DB=embedded`, or `DATABASE_URL=pglite:<dir>`): PGlite, Postgres
  *   compiled to WebAssembly, storing its files in a directory. No database server, one
  *   process only.
+ *
+ * Two roles share a Postgres database (ADR-0006): the app, the cron route and the worker
+ * connect as the app role (`DATABASE_URL`, {@link resolveDatabaseConfig}); migrations, the
+ * seed and the TimeOff import connect as the owner (`DATABASE_ADMIN_URL`,
+ * {@link resolveAdminDatabaseConfig}, opened only by `src/server/admin/db.ts`). Embedded
+ * PGlite has one built-in user, so both resolve to its single handle.
  *
  * Pure: it reads the record it is given, so it can be tested and reused by scripts that
  * do not load the app's environment.
@@ -19,8 +26,10 @@ export interface PostgresConfig {
   /** What the app, the worker and the jobs connect with (pooled, when the host offers a pooler). */
   url: string;
   /**
-   * A direct connection for migrations: `DATABASE_URL_UNPOOLED` when set, else `url`. DDL
-   * and the migrator's session state need a real session, not a transaction pooler.
+   * The connection migrations run over. For the owner's config
+   * ({@link resolveAdminDatabaseConfig}) it is `DATABASE_ADMIN_URL`, the URL migrations use.
+   * The app's config carries `DATABASE_URL_UNPOOLED` here (else `url`), which nothing
+   * migrates with any more: the app role cannot run DDL.
    */
   migrationUrl: string;
   /**
@@ -77,7 +86,7 @@ export function usesTransactionPooler(url: string, pooler?: string): boolean {
   } catch {
     return false;
   }
-  if (parsed.hostname.split(".")[0].endsWith("-pooler")) return true;
+  if ((parsed.hostname.split(".")[0] ?? "").endsWith("-pooler")) return true;
   return parsed.port === "6543";
 }
 
@@ -120,4 +129,52 @@ export function resolveDatabaseConfig(env: Env): DatabaseConfig {
     max,
     idleTimeout: serverless ? SERVERLESS_IDLE_SECONDS : undefined,
   };
+}
+
+/** Where the hosting docs explain the two database roles; error messages point there. */
+export const DATABASE_ROLES_DOCS = "docs/deploy.md#database-roles";
+
+/** Why migrate, seed or the TimeOff import refuse to run on Postgres without the owner's URL. */
+export const ADMIN_URL_MISSING =
+  "DATABASE_ADMIN_URL is not set. Migrations, the seed and the TimeOff import connect as the database owner role, " +
+  "apart from the app's DATABASE_URL (the app role, which cannot change the schema). Set DATABASE_ADMIN_URL to the " +
+  "owner role's direct (unpooled) postgres:// connection string: on Vercel with Neon, the neondb_owner URL without " +
+  `"-pooler" in its host (the value DATABASE_URL_UNPOOLED holds when the Neon integration set it). See ${DATABASE_ROLES_DOCS}.`;
+
+function isEmbedded(env: Env): boolean {
+  const mode = value(env, "OOOHM_DB");
+  if (mode !== undefined && mode !== "embedded" && mode !== "postgres") {
+    throw new Error(`OOOHM_DB must be "embedded" or "postgres" (got "${mode}").`);
+  }
+  return mode === "embedded" || (mode === undefined && value(env, "DATABASE_URL")?.startsWith(PGLITE_SCHEME) === true);
+}
+
+/**
+ * The owner's database, for migrations, the seed and the TimeOff import: `DATABASE_ADMIN_URL`
+ * on Postgres (required; `DATABASE_URL_UNPOOLED` is not a fallback, so a deployment that has
+ * not split its roles fails here instead of migrating as whatever role it has), or the same
+ * single handle as the app in embedded mode. The owner's URL should be a direct connection:
+ * prepared statements follow its host (a Neon `-pooler` host or port 6543 turns them off),
+ * and `DATABASE_POOLER`, which describes `DATABASE_URL`, does not apply to it.
+ *
+ * @throws Error with {@link ADMIN_URL_MISSING} on Postgres without `DATABASE_ADMIN_URL`, or
+ *   a readable message for any other unusable setting.
+ */
+export function resolveAdminDatabaseConfig(env: Env): DatabaseConfig {
+  if (isEmbedded(env)) return resolveDatabaseConfig(env);
+  const adminUrl = value(env, "DATABASE_ADMIN_URL");
+  if (!adminUrl) throw new Error(ADMIN_URL_MISSING);
+  if (!/^postgres(ql)?:\/\//.test(adminUrl)) throw new Error("DATABASE_ADMIN_URL must start with postgres:// or postgresql://.");
+  return resolveDatabaseConfig({ ...env, OOOHM_DB: "postgres", DATABASE_URL: adminUrl, DATABASE_URL_UNPOOLED: undefined, DATABASE_POOLER: undefined });
+}
+
+/** The user name in a postgres:// URL, or `undefined` when it has none or does not parse. */
+export function databaseUser(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const user = decodeURIComponent(new URL(url).username);
+    return user || undefined;
+  } catch {
+    return undefined;
+  }
 }

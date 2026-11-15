@@ -17,13 +17,23 @@ import { eq } from "drizzle-orm";
 import { resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as schema from "../../src/db/schema";
-import { toActor } from "../../src/domain/actor";
+import { toActor } from "../../src/shared/kernel/actor";
 import { createSecretBox } from "../../src/lib/integration-crypto";
 import type { ServiceContext } from "../../src/server/context";
 import { createAdapterRegistry } from "../../src/server/integrations/adapter";
-import { createApiKey } from "../../src/server/services/api-keys";
-import { submitLeaveRequest } from "../../src/server/services/leave-requests";
-import { createWebhookEndpoint } from "../../src/server/services/webhooks";
+import { submitLeaveRequest as submitLeaveRequestResult } from "../../src/modules/leave";
+import { unwrap } from "../../src/shared/lib/result";
+import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult } from "../../src/modules/integrations";
+import { uuidGenerator } from "../../src/shared/lib/id-generator";
+import { wireModules } from "../../src/server/wiring";
+
+wireModules();
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 const [command, ...args] = process.argv.slice(2);
 const handle = await openDatabase(resolveDatabaseConfig(process.env), { purpose: "the e2e demo setup", max: 2 });
@@ -34,6 +44,7 @@ const ctx: ServiceContext = {
   defer: (task) => void task(),
   appUrl: "http://localhost",
   now: () => new Date(),
+  ids: uuidGenerator,
   issueSignInLink: async () => "",
   secrets: createSecretBox(process.env.WEBHOOK_ENCRYPTION_KEY!),
   webhookTargets: { allowInsecure: true, allowPrivate: true },

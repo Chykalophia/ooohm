@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { pagerLinks, readPageParams } from "@/app/_lib/paging";
-import { type PageCursor, type PageRequest, decodePageKey, encodePageKey, isCursorInstant, readPage, textPart } from "@/domain/paging";
+import { type PageCursor, type PageRequest, decodePageKey, encodePageKey, isCursorInstant, readPage, textPart } from "@/shared/kernel/paging";
 
 /** A list sorted by its one key, read the way a repository reads it, counting reads. */
 function list(keys: string[]) {

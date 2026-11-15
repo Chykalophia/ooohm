@@ -1,17 +1,33 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { messageForError } from "@/app/_lib/run-action";
-import { isDomainError } from "@/domain/errors";
+import { isDomainError } from "@/shared/kernel/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { updateCompanySettings } from "@/server/services/admin-company";
-import { addHoliday, addUsFederalHolidays, deleteHoliday } from "@/server/services/admin-holidays";
-import { decideLeaveRequest } from "@/server/services/approvals";
-import { getBalanceSummary } from "@/server/services/balances";
-import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-requests";
+import * as holidaysModule from "@/modules/holidays";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
+import { cancelLeaveRequest as cancelLeaveRequestResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, auditFor, decidable, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+import * as companySettings from "@/modules/leave";
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
+
+// The holiday use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const addHoliday = (...args: Parameters<typeof holidaysModule.addHoliday>) => holidaysModule.addHoliday(...args).then(unwrap);
+const addUsFederalHolidays = (...args: Parameters<typeof holidaysModule.addUsFederalHolidays>) => holidaysModule.addUsFederalHolidays(...args).then(unwrap);
+const deleteHoliday = (...args: Parameters<typeof holidaysModule.deleteHoliday>) => holidaysModule.deleteHoliday(...args).then(unwrap);
 
 // The test clock is 2026-11-01, so 2026 is the open year and 2025 is closed.
 // 2026-12-21 is a Monday; the fixture's only holiday is 2026-11-26 ("Thanksgiving").

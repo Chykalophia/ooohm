@@ -23,7 +23,7 @@ to 500 people, and one admin can import up to 500 an hour (separate from the 30-
 person is a `user.created` audit row and event, and each new department a `department.created`, attributed to the
 admin `via: "people_import"`. Invite emails go out after commit when the admin leaves **Email each person their
 invite now** ticked; otherwise people sign in from the sign-in page when they're ready. The rules live in
-`src/domain/people-import.ts`, the use case in `src/server/services/admin-people-import.ts`.
+`src/modules/people/domain/people-import.ts`, the use case in `src/modules/people/application/use-cases/import-people.ts`.
 
 ## Importing from TimeOff.Management
 
@@ -66,7 +66,8 @@ On the production server the commands run in the `migrate` container; see [deplo
 | `--accept-mismatch` | Commit even when a current-year balance differs from TimeOff's. |
 
 Exit codes: `0` for a dry run or a committed import, `1` when it was refused or rolled back, `2` for bad options.
-It needs only `DATABASE_URL`.
+It needs only the database settings, and connects as the database owner: `DATABASE_ADMIN_URL` on Postgres
+([deploy.md](deploy.md#database-roles)).
 
 **Requirements.** Node.js 22.13 or later, for the built-in `node:sqlite` module (no native add-on to install).
 The Docker image uses `node:22-alpine` (22.23 when this was written), so the `migrate` container has it. Node
@@ -139,7 +140,7 @@ carol@example.com   2025         3         3       0
 carol@example.com   2026        25        25       0
 ```
 
-**TimeOff's side** is computed from the SQLite data by a pure module (`src/domain/timeoff/balance.ts`, unit tested
+**TimeOff's side** is computed from the SQLite data by a pure module (`src/modules/import/domain/timeoff/balance.ts`, unit tested
 on hand-worked examples), following TimeOff's rules:
 
 - total = department allowance + pro-rating + adjustment + carried over;
@@ -152,7 +153,7 @@ on hand-worked examples), following TimeOff's rules:
 - remaining = total − used, or 0 for a year before the person started.
 
 **OOOhm's side** is computed after the import, inside the same transaction, by the same balance code the
-dashboard uses (`loadBalances` in `src/server/services/balances.ts`), and after running the year rollover's step
+dashboard uses (`loadBalances` from `@/modules/balances`), and after running the year rollover's step
 for last year, exactly as the nightly job will. The compared OOOhm figure is **total − approved days**: the balance
 OOOhm shows, plus the pending days (TimeOff's "new" leave, which TimeOff does not subtract and OOOhm does, showing
 them apart) and plus any days already carried into the next year (which OOOhm counts as spent in the year they

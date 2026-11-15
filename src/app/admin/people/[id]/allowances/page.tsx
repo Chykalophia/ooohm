@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { z } from "zod";
-import { ALLOWANCE_YEAR_MAX, ALLOWANCE_YEAR_MIN, MAX_ALLOWANCE_DAYS } from "@/domain/leave-type-settings";
-import { NOTE_MAX_LENGTH } from "@/domain/leave-request";
+import { ALLOWANCE_YEAR_MAX, ALLOWANCE_YEAR_MIN, MAX_ALLOWANCE_DAYS } from "@/shared/kernel/leave-type-settings";
+import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { formatDays } from "@/lib/format";
-import { getPersonDetail } from "@/server/services/admin-people";
+import { getPersonDetail } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { ActionForm } from "@/components/forms/action-form";
 import { Reveal } from "@/components/forms/reveal";
 import { BalanceFigures, LeaveTypeName } from "@/components/leave/balance-list";
@@ -14,7 +15,7 @@ import { BackLink } from "@/components/ui/section";
 import { outlineButton } from "@/components/ui/styles";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
 import { AdminShell } from "@/app/admin/admin-shell";
-import { allowanceAction } from "@/app/admin/people/actions";
+import { allowanceAction } from "./actions";
 
 export const metadata: Metadata = { title: "Allowances · Admin · OOOhm" };
 
@@ -29,7 +30,7 @@ export default async function AllowancesPage({
 }) {
   const { actor, ctx, nav } = await requireAdminPage();
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const { person, year, firstEditableYear, balances, leaveTypes } = await orNotFound(getPersonDetail(ctx, actor, id, yearSchema.parse(query.year)));
+  const { person, year, firstEditableYear, balances, leaveTypes } = await orNotFound(getPersonDetail(ctx, actor, id, yearSchema.parse(query.year)).then(unwrap));
   const name = person.name || person.email;
   const yearHref = (y: number) => `/admin/people/${person.id}/allowances?year=${y}`;
   const editable = year >= firstEditableYear;

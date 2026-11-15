@@ -5,7 +5,7 @@ import type { SyntheticEvent } from "react";
 import { ActionForm } from "@/components/forms/action-form";
 import { ErrorMessage } from "@/components/forms/form-status";
 import { TextAreaField, TextField } from "@/components/ui/fields";
-import { EMAIL_MESSAGE_MAX, EMAIL_SUBJECT_MAX, unknownVariables } from "@/domain/email-template";
+import { EMAIL_MESSAGE_MAX, EMAIL_SUBJECT_MAX, unknownVariables } from "@/shared/kernel/email-template";
 import { cx, focusRing, outlineButton } from "@/components/ui/styles";
 import { type PreviewState, previewEmailAction, saveEmailCopyAction } from "@/app/admin/emails/actions";
 

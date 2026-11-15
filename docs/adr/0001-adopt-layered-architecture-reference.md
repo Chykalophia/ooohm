@@ -1,6 +1,6 @@
 # ADR-0001: Adopt the SaaS Layered Architecture Reference as a modular monolith
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-14, with the plan in PR #102)
 - **Date:** 2026-11-15
 - **Deciders:** Peter (owner)
 

@@ -1,6 +1,5 @@
-import { API_GUIDE_URL } from "@/domain/integrations";
-import { LEAVE_STATUSES } from "@/domain/leave-request";
-import { API_DEFAULT_PAGE_SIZE, API_MAX_PAGE_SIZE } from "@/server/services/api-v1";
+import { API_DEFAULT_PAGE_SIZE, API_GUIDE_URL, API_MAX_PAGE_SIZE } from "@/modules/integrations";
+import { LEAVE_STATUSES } from "@/shared/kernel/leave-range";
 import { API_ERROR_CODES, REQUESTS_PER_KEY_PER_MINUTE } from "./handler";
 
 /**

@@ -4,7 +4,7 @@ import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card } from "@/components/ui/card";
 import { RevealForm } from "@/components/forms/reveal-form";
 
-import { createEndpointAction } from "@/app/admin/webhooks/actions";
+import { createEndpointAction } from "./actions";
 import { EndpointFields } from "@/app/admin/webhooks/endpoint-fields";
 
 export const metadata: Metadata = { title: "Add endpoint · Webhooks · Admin · OOOhm" };

@@ -104,13 +104,16 @@ cp .env.production.example .env.production
 chmod 600 .env.production
 openssl rand -base64 32    # BETTER_AUTH_SECRET
 openssl rand -hex 24       # POSTGRES_PASSWORD
+openssl rand -hex 24       # OOOHM_DB_OWNER_PASSWORD
+openssl rand -hex 24       # OOOHM_DB_APP_PASSWORD
 openssl rand -base64 32    # WEBHOOK_ENCRYPTION_KEY
 nano .env.production
 ```
 
 Set every value marked REQUIRED: `OOOHM_DOMAIN=ooohm.team`, `ACME_EMAIL`, `BETTER_AUTH_URL=https://ooohm.team`,
-`BETTER_AUTH_SECRET`, `POSTGRES_PASSWORD`, `SEED_ADMIN_EMAIL` (your own address: the first admin), the `SMTP_*`
-settings and `MAIL_FROM` (step 10). `DATABASE_URL` is built by the compose file from `POSTGRES_PASSWORD`.
+`BETTER_AUTH_SECRET`, `POSTGRES_PASSWORD`, `OOOHM_DB_OWNER_PASSWORD`, `OOOHM_DB_APP_PASSWORD` (three different
+values), `SEED_ADMIN_EMAIL` (your own address: the first admin), the `SMTP_*` settings and `MAIL_FROM` (step 10). The
+compose file builds the database URLs from the three passwords ([database roles](#database-roles)).
 
 Keep a copy of `.env.production` in your password manager. Losing `WEBHOOK_ENCRYPTION_KEY` makes webhook secrets
 unreadable; losing `BETTER_AUTH_SECRET` signs everyone out (nothing else).
@@ -118,6 +121,8 @@ unreadable; losing `BETTER_AUTH_SECRET` signs everyone out (nothing else).
 `POSTGRES_PASSWORD` is set into the database the first time it starts. Changing it in the file later does not
 change it in Postgres; to rotate it, run
 `ALTER USER ooohm PASSWORD '<new>'` (step 16 shows how to reach `psql`), then update the file and run step 7 again.
+The owner's and the app's passwords are different: `migrate` sets them on every start, so changing them in the file
+and running step 7 is enough.
 
 To save typing, define a helper in your shell profile (`~/.bashrc`):
 
@@ -167,7 +172,7 @@ Running the stack again (`ooohm up -d`) never re-creates or changes the admin: t
 | `caddy` | HTTPS (Let's Encrypt), HTTP→HTTPS redirect, security headers, zstd/gzip, 2 MB request body limit, access log | 80, 443 (TCP and UDP) |
 | `app` | The Next.js server, as an unprivileged user with no Linux capabilities | only to Caddy |
 | `worker` | Webhooks, the daily year rollover and retention; read-only filesystem, its own minimal environment | nothing |
-| `migrate` | Migrations, seed, rollover on every `up`; then exits | nothing |
+| `migrate` | The database roles, migrations, seed, rollover on every `up`; then exits | nothing |
 | `db` | Postgres 17, data in the `pgdata` volume | nothing (backend network only; Caddy cannot reach it) |
 
 Details that matter:
@@ -191,6 +196,98 @@ Details that matter:
   HTTP requests (308s): `docker logs` held no token. The app logs structured events with ids, never URLs, tokens
   or email addresses of sign-in requests.
 - **Logs rotate**: Docker keeps 5 files of 10 MB per container.
+
+### Database roles
+
+OOOhm connects to a Postgres database as two roles (ADR-0006):
+
+| Role | Connection | Used by | May |
+| --- | --- | --- | --- |
+| `ooohm_owner` | `DATABASE_ADMIN_URL` | `pnpm db:migrate`, `pnpm db:seed`, `pnpm import:timeoff` | Owns every table, sequence, type and function: change the schema |
+| `ooohm_app` | `DATABASE_URL` | The app, `/api/cron/tick`, the worker, `pnpm job:rollover` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` on every table, no DDL; on `audit_log` only `SELECT` and `INSERT` |
+
+A leaked app connection string cannot drop a table or rewrite the audit log. Deleting a person (Admin → People) still
+removes the audit rows about them and redacts their name elsewhere, through two functions the owner owns
+(`ooohm_erase_audit_about`, `ooohm_redact_audit_snapshots`) that do only that.
+
+`deploy/db-roles.sql` sets both roles up, idempotently: it creates them when missing, sets their passwords when
+given, hands every object an earlier install created to the owner, and grants the app role its rights, with default
+privileges so tables later migrations create get them too. `pnpm db:roles` runs it, connected with
+`DATABASE_SUPERUSER_URL` (a superuser) or, without it, `DATABASE_ADMIN_URL` (an owner that may create roles). Every
+`pnpm db:migrate` refreshes the app role's grants afterwards, so a table a migration adds or recreates gets the same
+rights and `audit_log` stays insert-only. It warns when the app role is missing or when `DATABASE_URL` and
+`DATABASE_ADMIN_URL` name the same role.
+
+On **Postgres, `DATABASE_ADMIN_URL` is required**: migrate, seed and the import stop with a message naming it.
+`DATABASE_URL_UNPOOLED` is not a fallback, so a deployment that has not split its roles fails instead of migrating
+as whatever role it has. Use a direct (unpooled) connection for it. Embedded PGlite is the one exception: it has a
+single built-in user, so it keeps one handle and says so.
+
+**Docker compose (this runbook).** Nothing to run by hand: the `migrate` service runs `pnpm db:roles` before
+migrating, as the `ooohm` superuser. Set two more passwords in `.env.production`, different from `POSTGRES_PASSWORD`
+and each other (`openssl rand -hex 24`): `OOOHM_DB_OWNER_PASSWORD` and `OOOHM_DB_APP_PASSWORD`. They are applied on
+every `up`, so changing them in the file and running `ooohm up -d` rotates them. To **upgrade an install that ran as
+one role**, add both, then run step 14: `migrate` creates the roles, hands every table to `ooohm_owner`, and the app
+and the worker come back as `ooohm_app`.
+
+**Neon (with Vercel).** Neon's owner role is `neondb_owner`; it stays the owner, and you add the app role.
+
+1. Create the app role **with SQL**, not on the console's Roles page: roles made there join `neon_superuser`, which
+   can write every table (and so could rewrite the audit log); `db-roles.sql` refuses such a role. From a checkout,
+   with the owner's direct URL (the connection string for `neondb_owner` without `-pooler` in the host, which is
+   what `DATABASE_URL_UNPOOLED` holds when the Neon integration set it):
+
+   ```bash
+   DATABASE_ADMIN_URL='postgresql://neondb_owner:<password>@ep-<id>.<region>.aws.neon.tech/neondb?sslmode=require' \
+   OOOHM_DB_OWNER_ROLE=neondb_owner OOOHM_DB_APP_PASSWORD="$(openssl rand -hex 24)" pnpm db:roles
+   ```
+
+   Keep the password you generated (echo it first, or set it from a saved value). Or, in the Neon console's
+   **SQL Editor** connected as `neondb_owner`, run as one script: `SET ooohm.owner_role = 'neondb_owner';`,
+   `SET ooohm.app_password = '<password>';`, then the contents of `deploy/db-roles.sql`.
+2. In Vercel, **Project → Settings → Environment Variables**, Production:
+   - `DATABASE_ADMIN_URL`: the owner's direct URL from step 1. Add it before deploying this version: without it the
+     production build stops at `scripts/migrate.mts` with `DATABASE_ADMIN_URL is not set`.
+   - `DATABASE_URL`: the app role on the **pooled** host, i.e. today's `DATABASE_URL` with the user and password
+     replaced: `postgresql://ooohm_app:<password>@ep-<id>-pooler.<region>.aws.neon.tech/neondb?sslmode=require`.
+     If the Neon integration manages `DATABASE_URL` and Vercel will not let you edit it, stop the integration from
+     setting it (or remove the integration's variables) and add your own.
+   - `DATABASE_URL_UNPOOLED` is no longer read by migrations. It is another copy of the owner's password in the
+     app's environment; remove it unless you use it for backups or by hand.
+3. Redeploy. The build log shows `Migrations applied; the app role's grants are up to date.` and no warning.
+   `select current_user` from the app (or Neon's **Monitoring → Active queries**) shows `ooohm_app`.
+
+On Vercel every variable is visible to the functions at run time as well as to the build, so the owner's URL is in
+the app's environment there; the split still keeps the app's own queries, and a leaked `DATABASE_URL`, away from the
+schema and the audit log.
+
+**Any other Postgres** (a VM, Railway, Render, Fly, Supabase): run `pnpm db:roles` once with
+`DATABASE_SUPERUSER_URL` set to a superuser (or `DATABASE_ADMIN_URL` set to an owner that may create roles and owns
+the database), plus `OOOHM_DB_OWNER_PASSWORD` and `OOOHM_DB_APP_PASSWORD`. Then set `DATABASE_ADMIN_URL` for the
+release step that migrates and `DATABASE_URL` for the app and the worker. `OOOHM_DB_OWNER_ROLE` and
+`OOOHM_DB_APP_ROLE` change the role names (defaults `ooohm_owner` and `ooohm_app`).
+
+### Schema drift
+
+The schema changes only through migrations (ADR-0011). Two checks keep it that way:
+
+- **Schema against migrations, on every PR.** `pnpm db:check-drift` runs `drizzle-kit generate` against a scratch
+  copy of `drizzle/` and fails, printing the SQL it would write, if `src/db/schema.ts` has a change no committed
+  migration makes. It never connects to a database. CI runs it.
+- **A live database against migrations, on a schedule (runbook, not yet automated).** This catches a hand edit to
+  production (a column added in the Neon console, an index dropped). Weekly, and after anyone touches production
+  by hand:
+  1. Apply `drizzle/` to an empty database: `createdb ooohm_drift && DATABASE_ADMIN_URL=postgres://…/ooohm_drift
+     DATABASE_URL=postgres://…/ooohm_drift pnpm db:migrate` (a local Postgres of the same major version as
+     production).
+  2. Dump both schemas the same way: `pg_dump --schema-only --no-owner --no-privileges --exclude-schema=drizzle`
+     against the fresh database and against production. For Neon, use a read-only role on the **direct** (not
+     `-pooler`) host; `pg_dump` must be the same major version as the server or newer.
+  3. `diff` the two dumps. Any line that differs is drift: undo the hand edit, or write the migration that makes
+     it and ship it the usual way. Never edit `drizzle/` to match production.
+
+  Keep the read-only role's password out of the app's environment. When this becomes a scheduled job, it runs
+  outside the PR checks with that role only.
 
 ## 10. Email: provider, SPF, DKIM, DMARC (30 min, then DNS propagation)
 
@@ -336,7 +433,9 @@ ooohm exec db psql -U ooohm -d postgres -c "alter database ooohm rename to ooohm
 ooohm up -d
 ```
 
-Drop `ooohm_before_restore` once you are sure. Practise this once before cutover (the restore was tested against
+`restore.sh` restores as `ooohm` without the dump's owners; the `up` runs `migrate`, which hands every restored
+table back to `ooohm_owner` and grants `ooohm_app` its rights ([database roles](#database-roles)). Drop
+`ooohm_before_restore` once you are sure. Practise this once before cutover (the restore was tested against
 a full import: every table's row count matched after a backup and restore).
 
 ## 14. Upgrades (10 min)

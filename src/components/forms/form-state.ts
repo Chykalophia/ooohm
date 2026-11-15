@@ -5,7 +5,7 @@
 export type FormState =
   | { status: "idle" }
   | { status: "success"; message: string; id: string }
-  | { status: "error"; message: string; /** Names of the fields to mark invalid. */ fields?: string[] };
+  | { status: "error"; message: string; /** Names of the fields to mark invalid. */ fields?: string[] | undefined };
 
 export const IDLE: FormState = { status: "idle" };
 

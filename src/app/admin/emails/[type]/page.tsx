@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getEmailForAdmin, previewEmail } from "@/server/services/admin-emails";
+import { getEmailForAdmin, previewEmail } from "@/modules/notifications";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
 import { BackLink } from "@/components/ui/section";
@@ -13,13 +14,13 @@ export const metadata: Metadata = { title: "Email · Admin · OOOhm" };
 export default async function EditEmailPage({ params }: { params: Promise<{ type: string }> }) {
   const { actor, ctx, nav } = await requireAdminPage();
   const { type } = await params;
-  const email = await orNotFound(getEmailForAdmin(ctx, actor, type));
+  const email = await orNotFound(getEmailForAdmin(ctx, actor, type).then(unwrap));
   // The fields start from what goes out now: the saved words, else OOOhm's own.
   const initial = {
     subject: email.saved?.subject ?? email.defaults.subject,
     message: email.saved?.message ?? email.defaults.message,
   };
-  const firstPreview = await previewEmail(ctx, actor, email.type, initial);
+  const firstPreview = unwrap(await previewEmail(ctx, actor, email.type, initial));
 
   return (
     <AdminShell nav={nav} section="emails" title={email.label} description={email.description}>

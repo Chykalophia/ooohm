@@ -19,9 +19,9 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { DEFAULT_THEME } from "@/domain/appearance";
-import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
-import { COLOR_MODES, DEFAULT_COLOR_MODE } from "@/domain/color-mode";
+import { DEFAULT_THEME } from "@/shared/kernel/appearance";
+import { DEFAULT_LEAVE_TYPE_COLOR } from "@/shared/kernel/leave-type-settings";
+import { COLOR_MODES, DEFAULT_COLOR_MODE } from "@/shared/kernel/color-mode";
 
 /** Raw bytes. Both drivers hand back a `Uint8Array` (postgres.js a `Buffer`, which is one). */
 const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
@@ -89,30 +89,30 @@ export const companies = pgTable("companies", {
   /** Managers see their direct reports' balances and request notes on the team member page. */
   managersSeeDetails: boolean("managers_see_details").notNull().default(true),
   /**
-   * `APPROVAL_MODES` in src/domain/approval-rule.ts: `required` (time off waits for an
+   * `APPROVAL_MODES` in src/shared/kernel/approval.ts: `required` (time off waits for an
    * approver) or `heads_up` (booked as it is sent; whoever would have approved it is told).
    */
   approvalMode: text("approval_mode").notNull().default("required"),
-  /** `COLLEAGUE_VISIBILITY` in src/domain/calendar-visibility.ts: what employees see of colleagues' time off. */
+  /** `COLLEAGUE_VISIBILITY` in src/shared/kernel/calendar-visibility.ts: what employees see of colleagues' time off. */
   colleagueVisibility: text("colleague_visibility").notNull().default("everyone"),
   /**
    * Off by default. When on, everyone but admins sees only the time off of their own
    * department, the departments they manage and their direct reports
-   * (`calendarScopeFor` in src/domain/calendar-visibility.ts).
+   * (`calendarScopeFor` in src/shared/kernel/calendar-visibility.ts).
    */
   departmentScoping: boolean("department_scoping").notNull().default(false),
-  /** Theme key from `THEMES` in src/domain/appearance.ts, chosen by an admin for everyone. */
+  /** Theme key from `THEMES` in src/shared/kernel/appearance.ts, chosen by an admin for everyone. */
   theme: text("theme").notNull().default(DEFAULT_THEME),
   /** `#rrggbb` that replaces the theme's accent, or null for the theme's own. */
   accentColor: text("accent_color"),
   /** `theme`, `square`, `soft` or `round`: overrides the theme's corner radius. */
   corners: text("corners").notNull().default("theme"),
-  /** `REQUEST_STYLES` in src/domain/appearance.ts: how Home asks for time off. */
+  /** `REQUEST_STYLES` in src/shared/kernel/appearance.ts: how Home asks for time off. */
   requestStyle: text("request_style").notNull().default("form"),
-  /** `LAYOUTS` in src/domain/appearance.ts: the layout trial the whole company sees. */
+  /** `LAYOUTS` in src/shared/kernel/appearance.ts: the layout trial the whole company sees. */
   layout: text("layout").notNull().default("standard"),
   /**
-   * The company's logo file (PNG or JPEG, see src/domain/company-logo.ts), or null for the
+   * The company's logo file (PNG or JPEG, see src/shared/kernel/company-logo.ts), or null for the
    * OOOhm mark. The four columns after it describe it and are set and cleared with it.
    */
   logo: bytea("logo"),
@@ -144,7 +144,7 @@ export const departments = pgTable(
     /**
      * Optional coverage limit: at most this many of the department's people off on one
      * working day. Only ever a warning, to the requester and the approver
-     * (`src/domain/coverage.ts`). `null` means no limit.
+     * (`src/modules/leave/domain/coverage.ts`). `null` means no limit.
      */
     maxOff: integer("max_off"),
     ...timestamps,
@@ -219,7 +219,7 @@ export const user = pgTable(
     isActive: boolean("is_active").notNull().default(true),
     /**
      * Set when an admin deleted the person. The row stays as a tombstone, so every
-     * foreign key to it holds; its name and email are replaced (see `@/domain/person-deletion`).
+     * foreign key to it holds; its name and email are replaced (see `src/modules/people/domain/person-deletion.ts`).
      */
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     /** How they were deleted: `scrubbed` (nothing about them kept) or `records_kept` (history kept under the tombstone). */
@@ -406,7 +406,7 @@ export const allowances = pgTable(
 /**
  * A yearly allowance of one leave type for a department, a level, or both, replacing
  * the type's default for the people it matches (the most specific rule wins; see
- * `@/domain/allowance-rules`). A person's own allowance row still wins over it.
+ * `@/shared/kernel/allowance-rules`). A person's own allowance row still wins over it.
  */
 export const allowanceRules = pgTable(
   "allowance_rules",
@@ -573,7 +573,7 @@ export const auditLog = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     /**
-     * Who or what made the change (`ChangeSource`, `@/domain/change-source`): `user` (the
+     * Who or what made the change (`ChangeSource`, `@/shared/kernel/change-source`): `user` (the
      * person in `actor_id`), `api_key` (the key's creator in `actor_id`, the key in
      * `api_key_id`) or `system` (the process in `actor_process`, nobody in `actor_id`).
      */

@@ -3,7 +3,7 @@ import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { createSafeFetch } from "@/lib/safe-fetch";
 import { backgroundContext } from "@/server/runtime";
-import { createTickScheduler, runTick, type TickSummary, tickDidWork } from "@/server/services/background-tick";
+import { createTickScheduler, runTick, type TickSummary, tickDidWork } from "@/server/jobs/background-tick";
 
 /**
  * The app's side of background work (see src/lib/background-mode.ts): one tick function

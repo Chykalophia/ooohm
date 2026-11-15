@@ -1,11 +1,12 @@
-import { toActor } from "@/domain/actor";
-import { canAdminister } from "@/domain/admin-permissions";
-import { isDomainError } from "@/domain/errors";
+import { toActor } from "@/shared/kernel/actor";
+import { canAdminister } from "@/shared/kernel/admin-permissions";
+import { isDomainError } from "@/shared/kernel/errors";
 import { currentUser } from "@/lib/auth";
 import { isCrossSiteRequest } from "@/lib/fetch-site";
 import { log } from "@/lib/log";
 import { serviceContext } from "@/server/runtime";
-import { exportPersonRecords } from "@/server/services/admin-people-deletion";
+import { exportPersonRecords } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 
 /** Personal data: never stored by a browser or a proxy. */
 const PRIVATE = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
@@ -36,7 +37,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   if (id.length === 0 || id.length > 100) return bare(404);
 
   try {
-    const { fileName, csv } = await exportPersonRecords(serviceContext(), actor, id);
+    const { fileName, csv } = unwrap(await exportPersonRecords(serviceContext(), actor, id));
     return new Response(csv, {
       headers: {
         ...PRIVATE,

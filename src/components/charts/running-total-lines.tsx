@@ -15,7 +15,7 @@ function niceCeil(n: number): number {
 const point = (values: readonly number[], max: number) => (i: number) => {
   // Point 0 is Jan 1 at zero; point i is the end of month i.
   const x = (i / 12) * W;
-  const y = H - ((i === 0 ? 0 : values[i - 1]) / max) * H;
+  const y = H - ((i === 0 ? 0 : (values[i - 1] ?? 0)) / max) * H;
   return `${x.toFixed(1)},${y.toFixed(1)}`;
 };
 
@@ -90,22 +90,22 @@ export function RunningTotalLines({
                 <div className="absolute inset-y-0 right-0 hidden w-px bg-border group-hover:block" />
                 <span
                   className="absolute right-0 hidden h-2.5 w-2.5 translate-x-1/2 translate-y-1/2 rounded-full border-2 border-surface bg-muted group-hover:block"
-                  style={{ bottom: `${(previous[i] / max) * 100}%` }}
+                  style={{ bottom: `${((previous[i] ?? 0) / max) * 100}%` }}
                 />
                 <span
                   className="absolute right-0 hidden h-3 w-3 translate-x-1/2 translate-y-1/2 rounded-full border-2 border-surface bg-accent group-hover:block"
-                  style={{ bottom: `${(days[i] / max) * 100}%` }}
+                  style={{ bottom: `${((days[i] ?? 0) / max) * 100}%` }}
                 />
                 <ChartTooltip align={i < 2 ? "start" : i > labels.length - 3 ? "end" : "center"}>
                   <p className="font-medium">By the end of {month}</p>
                   <p className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-accent" />
-                    {label}: {formatDays(days[i])}
+                    {label}: {formatDays(days[i] ?? 0)}
                     {i >= taken ? ", with bookings" : ""}
                   </p>
                   <p className="flex items-center gap-1.5 text-muted">
                     <span className="h-2 w-2 rounded-full bg-muted" />
-                    {compareLabel}: {formatDays(previous[i])}
+                    {compareLabel}: {formatDays(previous[i] ?? 0)}
                   </p>
                 </ChartTooltip>
               </div>

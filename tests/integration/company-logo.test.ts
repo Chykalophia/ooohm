@@ -3,14 +3,19 @@ import { createHash } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { removeCompanyLogo, updateCompanyLogo } from "@/server/services/admin-company";
-import { getCompanyLogo, getDeploymentLogo } from "@/server/services/appearance";
-import { emailAccentFor } from "@/server/notifications/accent";
+import { emailAccentFor } from "@/modules/notifications/application/accent";
 import { handleLogoFetch } from "@/app/logo/[file]/logo-fetch";
 import { jpegHeader, pngImage } from "../support/images";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { getCompanyLogo, getDeploymentLogo } from "@/modules/organisation";
+import * as organisation from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const removeCompanyLogo = (...args: Parameters<typeof organisation.removeCompanyLogo>) => organisation.removeCompanyLogo(...args).then(unwrap);
+const updateCompanyLogo = (...args: Parameters<typeof organisation.updateCompanyLogo>) => organisation.updateCompanyLogo(...args).then(unwrap);
 
 const sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 

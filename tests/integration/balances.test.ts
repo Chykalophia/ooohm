@@ -2,16 +2,32 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import type { Actor } from "@/domain/actor";
-import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
-import { getPersonDetail } from "@/server/services/admin-people";
-import { decideLeaveRequest } from "@/server/services/approvals";
-import { getBalanceSummary, previewLeaveRequest } from "@/server/services/balances";
-import { issueCalendarFeed, shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
-import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
+import type { Actor } from "@/shared/kernel/actor";
+import { type BalanceShortfallDetails, isDomainError } from "@/shared/kernel/errors";
+import { getPersonDetail as getPersonDetailResult } from "@/modules/people";
+import * as calendarModule from "@/modules/calendar";
+import { shouldSuggestCalendarFeed } from "@/modules/calendar";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
+import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+
+const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
+const previewLeaveRequest = (...args: Parameters<typeof balancesModule.previewLeaveRequest>) => balancesModule.previewLeaveRequest(...args).then(unwrap);
+
+const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
+const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 // Dates: 2026-11-02 is a Monday; 2026-11-26 (Thu) is the seeded holiday. The test clock
 // is 2026-11-01, so "this year" is 2026.

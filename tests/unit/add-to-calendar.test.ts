@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addToCalendarLinks } from "@/domain/calendar-feed";
+import { addToCalendarLinks } from "@/shared/kernel/calendar-feed";
 import { feedTokenHint } from "@/lib/feed-token";
 
 const FEED = "https://hr.example.com/api/ics/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdE.ics";

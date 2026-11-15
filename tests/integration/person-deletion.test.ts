@@ -4,40 +4,52 @@ import { after, before, describe, test } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import type { Database } from "@/db/types";
-import type { Actor } from "@/domain/actor";
-import { tombstoneEmail } from "@/domain/person-deletion";
+import type { Actor } from "@/shared/kernel/actor";
+import { tombstoneEmail } from "@/modules/people/domain/person-deletion";
 import type { WebhookFetch } from "@/lib/safe-fetch";
-import { updateCompanySettings } from "@/server/services/admin-company";
-import { createApiKey } from "@/server/services/api-keys";
-import { listBalancesForApi } from "@/server/services/api-v1";
-import { setAllowanceOverride } from "@/server/services/admin-allowances";
-import {
-  deactivatePerson,
-  getPersonFormOptions,
-  invitePerson,
-  listPeople,
-  reactivatePerson,
-  updatePerson,
-} from "@/server/services/admin-people";
-import {
-  cancelScheduledDeletion,
-  deletePerson,
-  exportPersonRecords,
-  getDeletionPreview,
-  runDueScrubs,
-} from "@/server/services/admin-people-deletion";
-import { decideLeaveRequest } from "@/server/services/approvals";
-import { getAuditLog } from "@/server/services/audit-log";
-import { issueCalendarFeed } from "@/server/services/calendar-feeds";
-import { getTeamCalendar } from "@/server/services/calendar";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
-import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
-import { DAILY_JOBS, runDueJobs } from "@/server/services/scheduled-jobs";
-import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
-import { createWebhookEndpoint } from "@/server/services/webhooks";
+import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deliverDueWebhooks, dispatchOutboxBatch, listBalancesForApi as listBalancesForApiResult } from "@/modules/integrations";
+import { cancelScheduledDeletion as cancelScheduledDeletionResult, deactivatePerson as deactivatePersonResult, deletePerson as deletePersonResult, exportPersonRecords as exportPersonRecordsResult, getDeletionPreview as getDeletionPreviewResult, getPersonFormOptions as getPersonFormOptionsResult, invitePerson as invitePersonResult, listPeople as listPeopleResult, reactivatePerson as reactivatePersonResult, runDueScrubs, updatePerson as updatePersonResult } from "@/modules/people";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
+import { getAuditLog as readAuditLog } from "@/modules/audit";
+import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
+import * as calendarModule from "@/modules/calendar";
+import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { DAILY_JOBS, runDueJobs } from "@/server/jobs/scheduled-jobs";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as companySettings from "@/modules/leave";
+
+const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
+const getPersonFormOptions = (...args: Parameters<typeof getPersonFormOptionsResult>) => getPersonFormOptionsResult(...args).then(unwrap);
+const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
+const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
+const reactivatePerson = (...args: Parameters<typeof reactivatePersonResult>) => reactivatePersonResult(...args).then(unwrap);
+const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
+const cancelScheduledDeletion = (...args: Parameters<typeof cancelScheduledDeletionResult>) => cancelScheduledDeletionResult(...args).then(unwrap);
+const deletePerson = (...args: Parameters<typeof deletePersonResult>) => deletePersonResult(...args).then(unwrap);
+const exportPersonRecords = (...args: Parameters<typeof exportPersonRecordsResult>) => exportPersonRecordsResult(...args).then(unwrap);
+const getDeletionPreview = (...args: Parameters<typeof getDeletionPreviewResult>) => getDeletionPreviewResult(...args).then(unwrap);
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
+const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+const listBalancesForApi = (...args: Parameters<typeof listBalancesForApiResult>) => listBalancesForApiResult(...args).then(unwrap);
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const setAllowanceOverride = (...args: Parameters<typeof balancesModule.setAllowanceOverride>) => balancesModule.setAllowanceOverride(...args).then(unwrap);
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
+
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
+/** Reads the audit log and unwraps its ServiceResult, so the calls and assertions below stay plain. */
+const getAuditLog = (...a: Parameters<typeof readAuditLog>) => readAuditLog(...a).then(unwrap);
 
 const NOW = new Date("2026-11-02T15:00:00Z");
 const DAY = 86_400_000;

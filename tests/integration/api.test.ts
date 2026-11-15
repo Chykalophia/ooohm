@@ -4,26 +4,33 @@ import path from "node:path";
 import { after, before, describe, test } from "node:test";
 import { and, count, eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import type { Actor } from "@/domain/actor";
-import type { ApiClient } from "@/domain/integrations";
+import type { Actor } from "@/shared/kernel/actor";
+import { type ApiClient, createApiKey as createApiKeyResult, listBalancesForApi as listBalancesForApiResult, listEventsForApi as listEventsForApiResult, listHolidaysForApi as listHolidaysForApiResult, listLeaveTypesForApi as listLeaveTypesForApiResult, listUsersForApi as listUsersForApiResult, revokeApiKey as revokeApiKeyResult } from "@/modules/integrations";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
-import {
-  listBalancesForApi,
-  listEventsForApi,
-  listHolidaysForApi,
-  listLeaveRequestsForApi,
-  listLeaveTypesForApi,
-  listUsersForApi,
-} from "@/server/services/api-v1";
-import { getBalanceSummary } from "@/server/services/balances";
-import { submitLeaveRequest } from "@/server/services/leave-requests";
+import { listLeaveRequestsForApi as listLeaveRequestsForApiResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
+import { unwrap } from "@/shared/lib/result";
+import * as balancesModule from "@/modules/balances";
 import { type ApiLimits, handleApiRequest, parseQuery, REQUESTS_PER_KEY_PER_MINUTE, UNAUTHORIZED_PER_CLIENT_PER_MINUTE } from "@/app/api/v1/_lib/handler";
 import { openApiDocument } from "@/app/api/v1/_lib/openapi";
 import { balancesQuery, eventsQuery, holidaysQuery, leaveRequestsQuery, usersQuery } from "@/app/api/v1/_lib/query";
 import type { ServiceContext } from "@/server/context";
 import { companyEvents, eventsFor, setAllowance, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
+const listBalancesForApi = (...args: Parameters<typeof listBalancesForApiResult>) => listBalancesForApiResult(...args).then(unwrap);
+const listEventsForApi = (...args: Parameters<typeof listEventsForApiResult>) => listEventsForApiResult(...args).then(unwrap);
+const listHolidaysForApi = (...args: Parameters<typeof listHolidaysForApiResult>) => listHolidaysForApiResult(...args).then(unwrap);
+const listLeaveTypesForApi = (...args: Parameters<typeof listLeaveTypesForApiResult>) => listLeaveTypesForApiResult(...args).then(unwrap);
+const listUsersForApi = (...args: Parameters<typeof listUsersForApiResult>) => listUsersForApiResult(...args).then(unwrap);
+const revokeApiKey = (...args: Parameters<typeof revokeApiKeyResult>) => revokeApiKeyResult(...args).then(unwrap);
+
+// The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);
+
+const listLeaveRequestsForApi = (...args: Parameters<typeof listLeaveRequestsForApiResult>) => listLeaveRequestsForApiResult(...args).then(unwrap);
+const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 
 /** What each route file does: the same one-line parse-and-call, without Next. */
 const ROUTES: Record<string, (ctx: ServiceContext, client: Parameters<typeof listUsersForApi>[1], q: URLSearchParams) => Promise<unknown>> = {

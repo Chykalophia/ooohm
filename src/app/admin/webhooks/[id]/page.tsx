@@ -1,28 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MAX_DELIVERY_ATTEMPTS } from "@/domain/integrations";
-import { formatCount, formatInstantDateTime } from "@/lib/format";
-import { getWebhookEndpoint } from "@/server/services/webhooks";
+import { endpointSummary, getWebhookEndpoint, presentDelivery } from "@/modules/integrations";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
 import { pagerLinks, readPageParams } from "@/app/_lib/paging";
 import { Pager } from "@/components/navigation/pager";
 import { Section } from "@/components/ui/section";
-import { Item, ItemList } from "@/components/ui/card";
 import { ActionForm } from "@/components/forms/action-form";
 import { InlineAction } from "@/components/forms/inline-action";
 import { Reveal } from "@/components/forms/reveal";
 import { RevealForm } from "@/components/forms/reveal-form";
 import { outlineButton, textLink } from "@/components/ui/styles";
-import {
-  deleteEndpointAction,
-  redeliverAction,
-  rotateSecretAction,
-  sendPingAction,
-  setEndpointEnabledAction,
-  updateEndpointAction,
-} from "@/app/admin/webhooks/actions";
-import { DeliveryStatusText } from "@/app/admin/webhooks/delivery-status";
+import { deleteEndpointAction, rotateSecretAction, sendPingAction, setEndpointEnabledAction, updateEndpointAction } from "./actions";
+import { DeliveryList } from "./delivery-list";
 import { EndpointFields } from "@/app/admin/webhooks/endpoint-fields";
 
 export const metadata: Metadata = { title: "Endpoint · Webhooks · Admin · OOOhm" };
@@ -39,9 +30,8 @@ export default async function WebhookEndpointPage({
   const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
   const { cursor, number } = readPageParams(await searchParams);
-  const { endpoint, deliveries, deliveryPages, timezone } = await orNotFound(getWebhookEndpoint(ctx, actor, id, cursor));
+  const { endpoint, deliveries, deliveryPages, timezone } = await orNotFound(getWebhookEndpoint(ctx, actor, id, cursor).then(unwrap));
   const pager = pagerLinks(`/admin/webhooks/${endpoint.id}`, deliveryPages, number, { fragment: DELIVERIES_ID });
-  const at = (d: Date) => formatInstantDateTime(d, timezone);
 
   return (
     <AdminShell
@@ -67,11 +57,7 @@ export default async function WebhookEndpointPage({
       </p>
 
       <Section title={endpoint.enabled ? "On" : "Off"} surface>
-        <p className="text-sm text-muted">
-          {endpoint.enabled
-            ? `Sends ${formatCount(endpoint.eventTypes.length, "kind of event", "kinds of events")}. Added ${at(endpoint.createdAt)}.`
-            : "Nothing new is queued for it, and queued deliveries wait until you turn it back on."}
-        </p>
+        <p className="text-sm text-muted">{endpointSummary(endpoint, timezone)}</p>
         <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
           <InlineAction
             key={endpoint.enabled ? "off" : "on"}
@@ -112,42 +98,11 @@ export default async function WebhookEndpointPage({
       </Section>
 
       <Section id={DELIVERIES_ID} title="Deliveries" className="scroll-mt-6 space-y-3">
-        {deliveries.length === 0 ? (
-          <p className="text-muted">{deliveryPages.previous ? "No older deliveries." : "Nothing sent yet. Send a test event to try it."}</p>
-        ) : (
-          <ItemList>
-            {deliveries.map((d) => {
-              const retrying = d.status === "pending" && d.attempts > 0 && d.lastError !== null;
-              const result =
-                d.lastStatusCode !== null
-                  ? `HTTP ${d.lastStatusCode}${d.lastLatencyMs !== null ? ` in ${d.lastLatencyMs} ms` : ""}`
-                  : d.lastError;
-              return (
-                <Item key={d.id} className="space-y-1.5 text-sm">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <code className="font-mono">{d.eventType}</code>
-                    <DeliveryStatusText status={d.status} retrying={retrying} />
-                  </div>
-                  <p className="text-muted">
-                    {at(d.createdAt)}
-                    {d.attempts > 0 && ` · ${formatCount(d.attempts, "attempt", "attempts")} of ${MAX_DELIVERY_ATTEMPTS}`}
-                    {result && ` · ${result}`}
-                    {d.status === "pending" && d.attempts > 0 && d.lastError !== null && ` · next try ${at(d.nextAttemptAt)}`}
-                  </p>
-                  {d.status !== "pending" && d.status !== "cancelled" && endpoint.enabled && (
-                    <InlineAction
-                      action={redeliverAction}
-                      fields={{ endpointId: endpoint.id, deliveryId: d.id }}
-                      label="Send again"
-                      ariaLabel={`Send ${d.eventType} again`}
-                      pendingLabel="Queuing…"
-                    />
-                  )}
-                </Item>
-              );
-            })}
-          </ItemList>
-        )}
+        <DeliveryList
+          endpointId={endpoint.id}
+          deliveries={deliveries.map((d) => presentDelivery(d, timezone, endpoint.enabled))}
+          empty={deliveryPages.previous ? "No older deliveries." : "Nothing sent yet. Send a test event to try it."}
+        />
         <Pager label="Delivery pages" links={pager} />
       </Section>
 

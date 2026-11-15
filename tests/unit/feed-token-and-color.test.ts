@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CALENDAR_FEED_EVENT_TYPES, calendarFeedAuditAction } from "@/domain/events";
+import { CALENDAR_FEED_EVENT_TYPES, calendarFeedAuditAction } from "@/shared/kernel/events";
 import { contrastRatio, normalizeHexColor, readableTextColor } from "@/lib/color";
 import {
   feedLogId,

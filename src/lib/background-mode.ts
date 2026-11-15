@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Who runs OOOhm's background work: fanning events out to webhooks and adapters,
  * delivering them with retries, and the daily jobs (year rollover, retention).

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { readReportQuery, searchParamsRecord } from "@/app/_lib/report-input";
+import { readReportQuery, searchParamsRecord } from "@/modules/reports";
 
 const DEPT = "0b6f1c1e-6f43-4d4b-9a51-0d6a3c1b2e7f";
 const read = (query: string) => readReportQuery(searchParamsRecord(new URLSearchParams(query)));

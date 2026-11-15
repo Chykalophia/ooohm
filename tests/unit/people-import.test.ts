@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { parseCsv, toCsv } from "@/domain/csv";
-import { isDomainError } from "@/domain/errors";
+import { parseCsv, toCsv } from "@/shared/kernel/csv";
+import { isDomainError } from "@/shared/kernel/errors";
 import {
   type ImportFacts,
   PEOPLE_IMPORT_COLUMNS,
@@ -11,7 +11,7 @@ import {
   peopleImportSampleCsv,
   planPeopleImport,
   readPeopleCsv,
-} from "@/domain/people-import";
+} from "@/modules/people/domain/people-import";
 
 const NO_FACTS: ImportFacts = { members: new Map(), takenEmails: new Set(), departments: new Map() };
 

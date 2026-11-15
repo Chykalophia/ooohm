@@ -1,0 +1,72 @@
+import "server-only";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
+import { DomainError } from "@/shared/kernel/errors";
+import { isUuid } from "@/shared/kernel/uuid";
+import { type ApiClient, assertScope, decodeCursor, iso, page, type Page } from "@/modules/integrations";
+import type { LeaveStatus } from "@/shared/kernel/leave-range";
+import { attempt, type ServiceResult } from "@/shared/lib/result";
+import type { LeaveDeps } from "../ports";
+
+export interface LeaveRequestQuery {
+  from?: CalendarDate | undefined;
+  to?: CalendarDate | undefined;
+  userId?: string | undefined;
+  status?: LeaveStatus | undefined;
+  cursor?: string | undefined;
+  limit: number;
+}
+
+/** A leave request as the REST API returns it: never a note, times as ISO strings. */
+export interface ApiLeaveRequestDTO {
+  id: string;
+  userId: string;
+  leaveTypeId: string;
+  startDate: CalendarDate;
+  endDate: CalendarDate;
+  dayPortion: "full" | "am" | "pm";
+  days: number;
+  status: LeaveStatus;
+  approverId: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Leave requests overlapping `[from, to]` (either bound optional), optionally one
+ * person's or one status, by start date then id. One query.
+ *
+ * Fails with `forbidden` (no `read` scope) or `invalid_input` for a bad cursor or `to` before `from`.
+ */
+export async function listLeaveRequestsForApi(deps: LeaveDeps, client: ApiClient, q: LeaveRequestQuery): Promise<ServiceResult<Page<ApiLeaveRequestDTO>>> {
+  return attempt(async () => {
+    assertScope(client, "read");
+    if (q.from && q.to && q.to < q.from) throw new DomainError("invalid_input", "`to` is before `from`.");
+    let after: { startDate: string; id: string } | undefined;
+    if (q.cursor) {
+      const c = decodeCursor(q.cursor, ["s", "i"]);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(c.s) || !isUuid(c.i)) throw new DomainError("invalid_input", "That cursor is not valid.");
+      after = { startDate: c.s, id: c.i };
+    }
+    const rows = await deps.read.requests.pageForApi({ companyId: client.companyId, ...q, after });
+    return page(
+      rows,
+      q.limit,
+      (r) => ({
+        id: r.id,
+        userId: r.userId,
+        leaveTypeId: r.leaveTypeId,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        dayPortion: r.dayPortion,
+        days: r.days,
+        status: r.status,
+        approverId: r.approverId,
+        decidedAt: iso(r.decidedAt),
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      }),
+      (r) => ({ s: r.startDate, i: r.id }),
+    );
+  });
+}

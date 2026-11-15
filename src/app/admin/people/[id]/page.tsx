@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DELETION_GRACE_DAYS } from "@/domain/person-deletion";
+import { DELETION_GRACE_DAYS, getDeletionPreview, getPersonDetail, getPersonFormOptions } from "@/modules/people";
+import { unwrap } from "@/shared/lib/result";
 import { formatInstantDate } from "@/lib/format";
-import { getPersonDetail, getPersonFormOptions } from "@/server/services/admin-people";
-import { getDeletionPreview } from "@/server/services/admin-people-deletion";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
 import { ActionForm } from "@/components/forms/action-form";
@@ -11,7 +10,8 @@ import { InlineAction } from "@/components/forms/inline-action";
 import { BackLink, Section } from "@/components/ui/section";
 import { outlineButton } from "@/components/ui/styles";
 import { ADD_LEAVE_FORM_ID } from "@/components/layout/anchors";
-import { cancelDeletionAction, deactivateAction, reactivateAction, resendInviteAction, updatePersonAction } from "@/app/admin/people/actions";
+import { cancelDeletionAction } from "@/app/admin/people/actions";
+import { deactivateAction, reactivateAction, resendInviteAction, updatePersonAction } from "./actions";
 import { BalanceList } from "@/components/leave/balance-list";
 import { Blocked, DeletePersonDialog } from "@/app/admin/people/delete-person-dialog";
 import { PersonFields } from "@/app/admin/people/person-fields";
@@ -22,13 +22,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
   const [detail, options] = await Promise.all([
-    orNotFound(getPersonDetail(ctx, actor, id)),
-    getPersonFormOptions(ctx, actor, id),
+    orNotFound(getPersonDetail(ctx, actor, id).then(unwrap)),
+    getPersonFormOptions(ctx, actor, id).then(unwrap),
   ]);
   const { person, year, balances, timezone } = detail;
   const isSelf = person.id === actor.id;
   // Deleting is the step after deactivating, so only a deactivated person's page offers it.
-  const deletion = person.isActive ? null : await getDeletionPreview(ctx, actor, person.id);
+  const deletion = person.isActive ? null : await getDeletionPreview(ctx, actor, person.id).then(unwrap);
   const scrubDate = person.scrubScheduledAt ? formatInstantDate(person.scrubScheduledAt, timezone) : null;
 
   return (

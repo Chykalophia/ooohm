@@ -3,7 +3,8 @@ import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { issueCalendarFeed, revokeCalendarFeed } from "@/server/services/calendar-feeds";
+import * as calendarModule from "@/modules/calendar";
+import { unwrap } from "@/shared/lib/result";
 import {
   FETCHES_PER_FEED_PER_MINUTE,
   type FeedLimits,
@@ -13,6 +14,10 @@ import {
 import { parseIcs } from "../support/ics-parser";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
+const revokeCalendarFeed = (...args: Parameters<typeof calendarModule.revokeCalendarFeed>) => calendarModule.revokeCalendarFeed(...args).then(unwrap);
 
 /** Fresh limits on an injected clock, as the route builds them. */
 function limitsAt(clock: { now: number }): FeedLimits {

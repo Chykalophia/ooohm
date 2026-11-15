@@ -3,10 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, describe, test } from "node:test";
-import { isDomainError } from "@/domain/errors";
-import { buildImportPlan, type ImportPlan, leaveSegments, leaveTypeCodeFor } from "@/domain/timeoff/mapping";
-import type { TimeOffSnapshot } from "@/domain/timeoff/source";
-import { parseTimeOffDate, parseTimeOffTimestamp, readTimeOffSqlite } from "@/server/importers/timeoff/sqlite-reader";
+import { isDomainError } from "@/shared/kernel/errors";
+import { buildImportPlan } from "@/modules/import/domain/timeoff/mapping";
+import { leaveSegments, leaveTypeCodeFor } from "@/modules/import/domain/timeoff/plan/rules";
+import type { ImportPlan } from "@/modules/import/domain/timeoff/plan/types";
+import type { TimeOffSnapshot } from "@/modules/import/domain/timeoff/source";
+import { parseTimeOffDate, parseTimeOffTimestamp, readTimeOffSqlite } from "@/modules/import/infrastructure/timeoff-sqlite-reader";
 import { buildTimeOffFixture, FIXTURE_EXPECTED_2026, FIXTURE_QUINN_2027, type FixtureData, fixtureLeave, T, U } from "../support/timeoff-fixture";
 
 let dir: string;

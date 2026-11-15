@@ -4,10 +4,14 @@
  * than drop anything silently; there is no app URL, and `defer` runs its task at once.
  */
 import type { Database } from "../src/db/types";
-import { STRICT_TARGET_POLICY, type TargetPolicy } from "../src/domain/webhook-target";
+import { STRICT_TARGET_POLICY, type TargetPolicy } from "../src/shared/kernel/webhook-target";
 import { type SecretBox, unavailableSecretBox } from "../src/lib/integration-crypto";
 import type { ServiceContext } from "../src/server/context";
 import { type AdapterRegistry, createAdapterRegistry } from "../src/server/integrations/adapter";
+import { uuidGenerator } from "../src/shared/lib/id-generator";
+import { wireModules } from "../src/server/wiring";
+
+wireModules();
 
 /**
  * @param name The process as it reads in an error, e.g. "rollover job" gives "The rollover
@@ -30,6 +34,7 @@ export function scriptContext(
     defer: (task) => void task(),
     appUrl: "",
     now: () => new Date(),
+    ids: uuidGenerator,
     issueSignInLink: refuse("sign anyone in"),
     secrets: options.secrets ?? unavailableSecretBox(`The ${name} holds no webhook encryption key.`),
     webhookTargets: options.webhookTargets ?? STRICT_TARGET_POLICY,

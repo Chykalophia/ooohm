@@ -9,23 +9,27 @@ TypeScript that can be tested without a browser, a server or a database.
 Dependencies point downward only. A layer never imports from one above it. `pnpm lint` enforces this table
 with per-directory `no-restricted-imports` rules in `eslint.config.mjs`; change both together. Those rules match
 import specifiers, so imports across directories use the `@/` alias and a parent-relative (`../`) import is a
-lint error everywhere under `src/`. `src/server/notifications/templates/**` (email templates) and `src/server/context.ts` (the
-`ServiceContext` type) sit just below services: no Next.js, database, schema, Drizzle, `env`, `auth`, services or
-repositories. The rest of `src/server/notifications` (the catalog of email types and the after-commit sender) sits
-beside services: it may read through repositories (the company accent) but never calls a service. `src/server/integrations/**` (the adapter seam, M6) and `src/server/importers/**` (source readers for
-one-time imports, M7: they read another system's files into domain records and never touch OOOhm's database)
-follow the same rules. `src/server/runtime.ts` is the composition root and imports no service or repository.
+lint error everywhere under `src/`. `src/modules/notifications/application/templates/**` (email templates) and `src/server/context.ts` (the
+`ServiceContext` type) sit just below services: no Next.js, database, schema, Drizzle, `env`, `auth`, services,
+repositories or modules. The rest of `src/modules/notifications` (the catalog of email types, the after-commit sender
+and the email editor's use cases) sits beside services: it may read through repositories (the company accent) but
+never calls a service. `src/shared/lib/db/**` (`recordChange`, `keysetPage`, driver errors) and the notifications and
+audit modules' `infrastructure/` follow the repository rules; `src/shared/lib/unit-of-work.ts`, `admin-access.ts` and
+the audit, import and integrations modules' `application/` follow the service rules, and the integrations module's
+`infrastructure/` the repository rules. `src/server/integrations/**` (the adapter seam, M6) and
+`src/modules/import/infrastructure/timeoff-*.ts` (the source reader for one-time imports, M7: it reads another
+system's files into domain records and never touches OOOhm's database) follow the same rules. `src/server/runtime.ts` is the composition root and imports no use case or repository.
 `scripts/*.mts` (migrate, seed, rollover, the outbox worker, the TimeOff import) are composition roots for
 processes outside Next: the rollover, the worker and the TimeOff import build their `ServiceContext` with
 `scriptContext` (`scripts/script-context.mts`).
 
 | Layer | Path | Owns | May import |
 | --- | --- | --- | --- |
-| Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | services, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
+| Presentation | `src/app/**` | Pages, layouts, route-specific components, server actions, route handlers | modules' `index.ts`, `@/server/runtime`, shared UI, domain types, constants and pure functions, `lib` |
 | Shared UI | `src/components/**` | Reusable components and class recipes that render what a page passes in | domain types and pure functions, `lib` (not `env`, `db`, `auth`); never `src/app` or `src/server` |
-| Application (services) | `src/server/services/**` | Use cases, transactions, data-dependent authorization, audit + outbox writes, post-commit email | repositories, domain, `@/server/context`, `@/server/notifications`, `lib` (not `env`, `db`, `auth`) |
-| Data access (repositories) | `src/server/repositories/**` | Drizzle queries only. Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
-| Domain | `src/domain/**` | Pure types, rules and policies. No I/O, no Next.js, no Drizzle, no env | nothing outside `src/domain` |
+| Shared data access | `src/shared/lib/db/**` | Repository helpers and the reads several modules share (members, company locks, leave type allowance settings, leave request reads). Every function takes an executor (`db` or `tx`) first | `@/db/schema`, `@/db/types`, domain types |
+| Shared kernel | `src/shared/kernel/**` | Pure types, rules and policies several layers share (client components and the schema import it). No I/O, no Next.js, no Drizzle, no env | nothing outside `src/shared/kernel` but `Result` (`domain-is-pure`) |
+| Modules | `src/modules/<m>/**` | A feature's use cases, queries, policies, DTOs, rules, repositories and presenters (`src/modules/README.md`) | other modules' `index.ts` only; inside, its own layers as `module-layers` allows |
 | Infrastructure | `src/lib/**`, `src/db/**` | Env, logging, mail transport, auth, formatting, schema, the connection pool | `domain` (pure functions and types, e.g. `toActor` for `requireActor`) |
 
 Rules of thumb:
@@ -54,10 +58,24 @@ sub-navigation): the header, the page's one `h1` with its description and main a
 
 **Server actions** are a zod schema (common field schemas are in `src/app/_lib/form-fields.ts`) and one
 service call, run through the pipeline in `src/app/_lib/action-pipeline.ts` (wired to Next.js in
-`server-action.ts`; its order of steps is unit-tested with fakes): session, company, role (for `who: "admin"`), parse, the service call through
+`server-action.ts`; its order of steps is unit-tested with fakes): session, company, the person's action rate limit
+(`ACTION_RATE_LIMIT`, 120 a minute per process, a calm `rate_limited` message past it), role (for `who: "admin"`), parse, the service call through
 `runActionWith`, then `refresh()` after a success. `runFormAction` returns a calm message (`FormState`),
 `runStateAction` returns an action's own state (a revealed secret, a new calendar link) and `runActionThenGo`
-navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these with `who: "admin"`.
+navigates away. The admin wrappers in `src/app/admin/admin-action.ts` are these with `who: "admin"`. Actions sit
+beside the route that uses them (`admin/people/new/actions.ts`, `admin/people/[id]/actions.ts`); a schema or wording
+several routes share is a small server-only file next to them (`admin/people/person-input.ts`).
+
+**Thin pages (F8, F12).** A page loads, calls a module's presenter and renders. Presenters are plain functions in a
+module's `ui/` (`presentAuditLog`, `presentApprovals`, `presentDelivery`, the calendar's links and captions),
+exported from its index and unit-tested (`tests/unit/page-presenters.test.ts`); markup a page would otherwise
+spell out goes in components beside the route (`admin/audit/audit-log-table.tsx`). Pages and actions import only
+module indexes, `src/app`, `src/components`, the shared kernel, `Result`, search params and the pure
+`src/lib` helpers (`pages-and-actions-through-modules` in `.dependency-cruiser.cjs`; the token pages and actions
+for the email approval link, setup and sign-in are the exceptions). ESLint's size limits are errors: 100 lines for
+an action or route file, 50 per function in logic layers, 150 per component; `src/components/ui/sortable-list.tsx`
+is the one file allowed past them, with its reason in `eslint.config.mjs`. The request forms read their live
+preview through one hook, `useLeavePreview` (`src/app/use-leave-preview.ts`), the app's only client-side fetch.
 
 **Shared components** live in `src/components`, by kind; route-specific ones sit beside their route
 (`src/app/admin/people/delete-person-dialog.tsx`):
@@ -95,13 +113,13 @@ colour mode is a display preference of the person's own, so changing it writes n
 name), "Your requests" (10, latest dates first), approvals (10, earliest first) and an endpoint's
 webhook deliveries (25). Short lists that stay small by nature (departments, leave types, a year's holidays, API
 keys, calendar links, webhook endpoints, which stop at 20) are not. Pages are keyset, both ways
-(`src/domain/paging.ts`): a page is the `size + 1` rows just after (or, for Previous, just before) the sort key of
+(`src/shared/kernel/paging.ts`): a page is the `size + 1` rows just after (or, for Previous, just before) the sort key of
 the row at its edge, so each page is one read however deep someone goes (Previous adds a one-row read), and no row
 is skipped or shown twice because rows were added or removed in between (a row added behind the page shows on the
 earlier pages). The audit log, deliveries and the inbox read their indexes in order; people and a person's requests
 sort a company's (or a person's) rows, which stays small. The key travels as an opaque token in `?after=` /
 `?before=`; each list checks every part (a uuid, a date, an instant, or text up to a length and without NUL) and
-reads anything else as page 1. Repositories build the query with `keysetPage` (`src/server/repositories/keyset.ts`), services read
+reads anything else as page 1. Repositories build the query with `keysetPage` (`src/shared/lib/db/keyset.ts`), services read
 with `readPage`, and pages render `Pager` (Previous, Page N, Next) from `pagerLinks` (`src/app/_lib/paging.ts`),
 which keeps the list's filters. The page number is a label the links count, not an offset. Previous reaching the
 start with less than a page left shows the real first page; any other Previous reads one row past the page to know
@@ -146,7 +164,7 @@ indistinguishable from one that does not exist (`not_found`).
 
 ### Errors
 
-Expected failures throw `DomainError` with a stable `code` (`src/domain/errors.ts`). Server actions run
+Expected failures throw `DomainError` with a stable `code` (`src/shared/kernel/errors.ts`). Server actions run
 service calls through `runActionWith` (`src/app/_lib/run-action.ts`), which maps each code to a calm message and logs
 anything else as `<event>_failed`, returning a generic retry message. Stack traces never reach the browser.
 
@@ -162,7 +180,7 @@ its codes and command but not the server's reply, which quotes the recipient's a
 
 ### Audit log and events outbox
 
-Every state change calls `recordChange(tx, { source, audit, event })` (`src/server/repositories/change-log.ts`) in
+Every state change calls `recordChange(tx, { source, audit, event })` (`src/shared/lib/db/change-log.ts`) in
 the same transaction as the change; `source` says who or what made it ([below](#attribution-who-or-what-made-a-change)).
 The audit row names the person the change is about in
 `subject_user_id` (a request's requester, an allowance's or feed's owner, a person an admin edited; `null` for
@@ -178,7 +196,7 @@ actions, written in bulk with `insertAuditEntries`) without a per-row event, and
 
 #### Attribution: who or what made a change
 
-Nothing is anonymous. Every change names a `ChangeSource` (`src/domain/change-source.ts`), one of:
+Nothing is anonymous. Every change names a `ChangeSource` (`src/shared/kernel/change-source.ts`), one of:
 
 | `kind` | Who or what | Example label in the audit log |
 | --- | --- | --- |
@@ -236,7 +254,7 @@ via? }` (`id` is the key's creator) or `{ type: "system", process }`. `recordCha
 so an event and its audit row can never disagree. The import's bulk `insertAuditEntries` takes one `source` for
 the whole batch and writes the same columns.
 
-Leave events (`src/domain/events.ts`) are a public contract for webhooks and adapters (M6):
+Leave events (`src/shared/kernel/events.ts`) are a public contract for webhooks and adapters (M6):
 
 | Event | When | `status` in payload |
 | --- | --- | --- |
@@ -271,7 +289,7 @@ Calendar feed events (M4):
 Payload (v1): `feedId, userId, kind, reason, actorId` (`reason` is `null` on `issued`). Neither the payload nor
 the audit row (`kind, createdAt, revokedAt`) ever holds the token or its hash.
 
-Admin events (M5), registered in `ADMIN_EVENT_TYPES` (`src/domain/events.ts`). For each, the audit `action` is
+Admin events (M5), registered in `ADMIN_EVENT_TYPES` (`src/shared/kernel/events.ts`). For each, the audit `action` is
 the event type, and `actorId` is the admin unless a row below says otherwise (a self-rename, an adapter sync or a
 scheduled scrub).
 
@@ -328,13 +346,13 @@ delivered in.
 ### Dates
 
 Leave dates are `YYYY-MM-DD` strings end to end (`date` columns in `mode: "string"`). Arithmetic runs on UTC
-epoch days in `src/domain/calendar-date.ts`, and display formatting (`src/lib/format.ts`) formats in UTC, so
+epoch days in `src/shared/kernel/calendar-date.ts`, and display formatting (`src/lib/format.ts`) formats in UTC, so
 a stored day never shifts with the server's or browser's time zone. "Today" is computed in the company's
 time zone (`todayInTimeZone`).
 
 ### Email
 
-Every email a change sends goes through one module, `src/server/notifications`:
+Every email a change sends goes through one module, `src/modules/notifications` (its files below are in `application/`):
 
 - `catalog.ts` lists each notification type (`leave.requested`, `leave.approved`, …, `invite`) as a
   `NotificationType`: how to build its email from its data, and what to log if that fails.
@@ -344,15 +362,15 @@ Every email a change sends goes through one module, `src/server/notifications`:
   each send.
 
 A service's `work` callback returns `{ result, notify }` to `commitThenNotify(ctx, companyId, work)`, which returns
-`result` once the change commits; each notification is `{ type, to, data }`. A service never renders or sends an email itself. To add an email, write its template, add a catalog
+`result` once the change commits (`commit-then-notify.ts`, on `commitThen` in `src/shared/lib/unit-of-work.ts`); each notification is `{ type, to, data }`. A service never renders or sends an email itself. To add an email, write its template, add a catalog
 entry, and return it from the service. The sign-in link someone asks for on the sign-in page is the one email outside
 the module: Better Auth sends it (`src/lib/auth.ts`, template in `src/lib/sign-in-email.ts`), outside any change.
 `tests/unit/email-output.test.ts` pins every email's output; update its snapshot only for a deliberate change.
 
-**Admin → Emails** (`/admin/emails`, `src/server/services/admin-emails.ts`) lets an admin replace one email's subject
+**Admin → Emails** (`/admin/emails`; `listEmailsForAdmin`, `getEmailForAdmin`, `previewEmail`, `saveEmailCopy` and `resetEmailCopy` in `src/modules/notifications`, each returning a `ServiceResult`, admins only by `canEditEmailCopy`) lets an admin replace one email's subject
 and message with the company's own words. Each catalog type carries its editable copy (`EditableCopy`): a default
 subject and message written with `{{variable}}` placeholders, the variables it offers (`{{requester}}`, `{{dates}}`,
-`{{days}}`, …), and sample data for the editor's live preview. Rules (`src/domain/email-template.ts`):
+`{{days}}`, …), and sample data for the editor's live preview. Rules (`src/shared/kernel/email-template.ts`):
 
 - Only the subject and the message change. The request's details (the note, who else is off, a decline reason), the
   buttons, the links, the approve note and the layout stay as OOOhm sends them, so no wording can break an approve
@@ -385,7 +403,7 @@ address, and never fail the user's action.
 
 ### Submitting
 
-`submitLeaveRequest` (`src/server/services/leave-requests.ts`):
+`submitLeaveRequest` (`src/modules/leave/application/use-cases/submit-leave-request.ts`):
 
 1. Validates the range (`assertValidRange`): real dates, end on or after start, at most 366 calendar days,
    half days (`am`/`pm`) on a single date only. Normalizes the note (trimmed, max 500 characters).
@@ -395,7 +413,7 @@ address, and never fail the user's action.
    people who approve each other submitting at once would deadlock. Under the same lock, a person who has
    created 10 requests (any status) in the last 10 minutes is refused with `rate_limited`, which also caps
    the review and cancellation email one person can cause.
-3. Runs `assessLeaveRequest` (`src/server/services/balances.ts`), the same function the live preview runs:
+3. Runs `assessLeaveRequest` (`src/modules/balances/application/queries/assess-leave-request.ts`), the same function the live preview runs:
    1. Requires an active, non-archived leave type of the actor's company, and resolves the company's
       allowance policy.
    2. Counts days server-side, split by calendar year: working days (company `working_days`, ISO weekdays)
@@ -424,7 +442,7 @@ requests sent from then on; pending ones stay with their approver. It is audited
 moves with the company if one deployment ever hosts several.
 
 **Added for someone.** An admin (for anyone in the company) or a person's direct manager can add time off for
-them from their Team page (`addLeaveFor`, `src/server/services/leave-on-behalf.ts`; Admin → People links
+them from their Team page (`addLeaveFor`, `src/modules/leave/application/use-cases/add-leave-for.ts`; Admin → People links
 there). It runs the same checks as the person's own submit, under the person's member lock, and is stored as
 theirs with the one adding it as approver, approved on the spot: `leave.requested` then `leave.approved`, both
 with that admin or manager as actor, so the audit log names them. Nobody adds for themself. The person gets an
@@ -433,7 +451,7 @@ balance (`managers_see_details` off) gets the cost but never what is left, in th
 
 ### Approval rule
 
-`ApprovalRule` (`src/domain/approval-rule.ts`) is pluggable; v1 ships `ManagerApprovalRule` (and
+`ApprovalRule` (`src/modules/approvals/domain/`) is pluggable; v1 ships `ManagerApprovalRule` (`approver-for.ts`, and
 `HeadsUpApprovalRule` for companies that turned approval off, above):
 
 1. `can_self_approve` → approved on submit.
@@ -452,7 +470,7 @@ pending ──► approved ──► cancelled
    └──────► cancelled
 ```
 
-Nothing else is legal (`src/domain/request-status.ts`). The requester may cancel a pending or approved
+Nothing else is legal (`src/modules/leave/domain/leave-status.ts`). The requester may cancel a pending or approved
 request, except **approved leave of a closed year**: one whose end date is before January 1 of the current year in
 the company's time zone (`isClosedYearLeave`). Nobody may cancel that, the requester or an admin; the service
 refuses with `past_year_closed` and the dashboard shows no Cancel button (`getDashboard` returns `cancellable` per
@@ -475,9 +493,9 @@ optional reason (max 500 characters) stored in `decision_note`. Every status cha
 `conflict`.
 
 **A stored assignment grants the right to decide only while it still matches the approval rule** (`canDecide`,
-`src/domain/leave-permissions.ts`). When the right rests on the assignment (a non-admin approver, or an admin
+`src/modules/leave/domain/leave-permissions.ts`). When the right rests on the assignment (a non-admin approver, or an admin
 deciding their own request routed to themself), `decideLeaveRequest` reads the requester, their manager, their
-department's manager and the active admins (`loadApprovalContext`, `src/server/services/approval-routing.ts`) in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
+department's manager and the active admins (`ApprovalContextReader`, served by `loadApprovalContexts` in `src/modules/approvals/infrastructure/drizzle-approval-context.reader.ts`) in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
 `forbidden` and the request is left to the admins, who see every pending request. Its compare-and-set then also
 requires `approver_id` to still be the actor, so it loses (`conflict`) to a concurrent re-route. This closes the
 window a submit leaves open: submit reads the manager and the admins without locking them (a shared lock on the
@@ -507,7 +525,7 @@ credential) otherwise. Adding a provider is one file implementing `MailTransport
 | Cancelled | Requester, plus the approver unless the approver is the person cancelling; while approval is turned off, cancelling time off the person approved themself also tells their manager now (else the fallback admin) |
 | Recounted by a calendar change | Requester only, saying which holiday or the working days changed; not when only the year split moved |
 
-"Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`, sentences from `src/domain/overlap.ts`)
+"Who else is off then" (`alsoOffFor`, `src/modules/leave/application/queries/also-off.ts`, sentences from `src/modules/leave/domain/overlap.ts`)
 is one line about other active people in the requester's department (everyone, when they have none) whose approved
 or pending leave costs a working day within the request's dates: "Nobody else in Design is off then.", "Aisha Khan
 is off then too." or "Also off then: A, B (not approved yet), C and 2 more." Each person is counted once. It shows
@@ -515,7 +533,7 @@ the same names and dates the team calendar shows every member, never a note or a
 it under each request (three queries for the whole page, four when a requester has a department) and the review
 email carries it. It is information only and never blocks a request.
 
-Coverage limits (`src/domain/coverage.ts`): a department may set the most of its people off at once
+Coverage limits (`src/modules/leave/domain/coverage.ts`): a department may set the most of its people off at once
 (`departments.max_off`, Admin → Departments, audited as `department.limit_changed`). Past it, the request form's
 live preview (`draftCoverage`), the Approvals page and the review and heads-up emails add one warning: "This would
 put 3 people in Design off on Tue, Mar 3. The limit is 2." It counts the requester plus everyone else in the
@@ -527,7 +545,7 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 
 ### Screens
 
-- `/setup` (`runFirstInstall`, `src/server/services/install.ts`): the first install of an empty OOOhm, from the
+- `/setup` (`runFirstInstall`, `src/server/identity/install.ts`): the first install of an empty OOOhm, from the
   browser. Open only while `SETUP_TOKEN` is set and nothing is installed (no `installation` row, company or person);
   otherwise a 404. With the token it creates the company, the default leave types (PTO first) and the first admin
   (`can_self_approve`), audited as that admin `via: "first_install"`, writes the `installation` marker, and sends them
@@ -582,8 +600,10 @@ Inactive recipients are skipped. Links use `BETTER_AUTH_URL` as the app's base U
 
 ### Policy engine
 
-`AllowancePolicy` (`src/domain/allowance-policy.ts`) is pure and pluggable. `companies.allowance_policy` names
-the policy and `resolveAllowancePolicy(key)` looks it up; an unknown key throws `policy_unavailable` rather
+The balances module (`src/modules/balances`, Tier 3; README there) owns the `allowances` and `allowance_rules`
+tables, the policy and the rollover. `AllowancePolicy` (`domain/allowance-policy.ts`) is a pure, pluggable
+Strategy. `companies.allowance_policy` names the policy and `resolveAllowancePolicy(key)` looks it up in the
+policy registry (`domain/policy-registry.ts`; the keys are in `src/shared/kernel/allowance-policy-keys.ts`); an unknown key throws `policy_unavailable` rather
 than falling back, because a fallback would quietly compute wrong balances. A policy answers three questions:
 which periods a request draws from and what it costs in each (`periodsFor`), what a balance is (`balance`),
 and what carries into the next period (`carryover`). Periods are identified by a year number.
@@ -614,7 +634,7 @@ also returns each person and type's latest row before the earliest year asked fo
 
 ### Year split, fixed at submit
 
-`splitLeaveDaysByYear` (`src/domain/leave-days.ts`) counts a request's working days per calendar year: Thu
+`splitLeaveDaysByYear` (`src/shared/kernel/leave-days.ts`) counts a request's working days per calendar year: Thu
 Dec 31 to Mon Jan 4 (Jan 1 a holiday) is 1 day in the first year and 1 in the next. Submit stores the split in
 `leave_request_days (request_id, year, days)` in the same transaction as the request; the rows always add up
 to `leave_requests.days`, which stays the total. Balances only ever read these rows. A holiday or working-days
@@ -625,7 +645,7 @@ balances sum only `pending` and `approved` requests.
 ### Recount after a calendar change
 
 Adding or deleting a company holiday (one, or the US federal set) and changing the working days run
-`recountLeave` (`src/server/services/leave-recount.ts`) in the same transaction, under `lockCompany`:
+`recountLeave` (`src/modules/leave/application/use-cases/recount-leave.ts`) in the same transaction, under `lockCompany`:
 
 1. It locks (`FOR UPDATE`) the company's pending and approved requests that include a changed date (every open
    one, for working days), skipping dates before Jan 1 of the current year in the company's time zone. Requests
@@ -707,7 +727,8 @@ line in place of balances; everything else still renders.
 
 ### Year rollover
 
-`runYearRollover(ctx, fromYear?)` (`src/server/services/rollover.ts`) closes a year. For every company, active
+`runYearRollover(ctx, fromYear?)` (`src/modules/balances/application/use-cases/roll-over-year.ts`, one unit of
+work per member in `member-rollover.ts`) closes a year. For every company, active
 member and active leave type that counts against allowance with `carryover_enabled`, next year's
 `carried_over_days` becomes `clamp(remaining(fromYear) + carried out, 0, carryover_max_days)`, i.e. what was
 left before any earlier carry (no upper bound when the max is null). A missing next-year row is created from
@@ -789,15 +810,15 @@ CRON_TZ=America/Chicago
   ahead (only leave that costs a working day), split into "Coming up" and "In the last 60 days". The person,
   admins, and their direct manager while **Admin → Company → Managers can see their team's balances and notes**
   is on (`companies.managers_see_details`, on by default) also see each request's days, note and approver's
-  reason, and this year's balances (`canSeeLeaveDetails`, in `domain/leave-permissions.ts`). For anyone else
+  reason, and this year's balances (`canSeeLeaveDetails`, in `modules/leave/domain/leave-permissions.ts`). For anyone else
   the service drops those fields before returning, so they never reach the page. Inactive, deleted and
   other companies' people are a 404.
 - `/calendar/subscriptions`: the two feeds (below), linked from both pages.
 
 **Whose time off a person sees.** One rule, in `domain/calendar-visibility.ts`: `calendarScopeFor(viewer,
 company)` returns a `CalendarScope` (`everyone`, `departments`, `team` or `self`), loaded by `scopeOf` /
-`loadCalendarScope` (`services/calendar-scope.ts`), and every reader filters by it: Who's out, the calendar's
-filters, `/team/[id]` (a 404 outside it) and the team calendar link (its owner's scope, read on every fetch). The SQL form is `scopeCondition` in `repositories/calendar.ts`, which `listTeamEntries` takes;
+`loadCalendarScope` (`@/modules/calendar`, the only caller; `tests/architecture/calendar-boundary.test.ts`), and every reader filters by it: Who's out, the calendar's
+filters, `/team/[id]` (a 404 outside it) and the team calendar link (its owner's scope, read on every fetch). The SQL form is `scopeCondition` in `src/modules/calendar/infrastructure/drizzle-calendar.repository.ts`, which `listTeamEntries` takes;
 `canSeeOnCalendar` is the same rule for one person. Admins and managers see everyone. Employees see what
 **Admin → Company → People can see the time off of** allows (`companies.colleague_visibility`): everyone (the
 default), their team (themself, their manager, the others who report to that manager, and their own direct
@@ -848,17 +869,17 @@ at most 366 days, which submit checks and the `leave_requests_span_max` constrai
 so the bound hides nothing and the scan reads at most a year before the range instead of the company's whole
 history. `calendar.test.ts` seeds 50 people with seven requests each and pins the count at 4, empty or full, and
 exercises a request of exactly 366 days ending on the range's first day. Grouping, ordering and the grid are pure
-functions in `src/domain/calendar.ts`.
+functions in `src/shared/kernel/calendar.ts`.
 
 ### Privacy rule
 
 A member may see who is out, when, and the leave type's name and colour, for the people their calendar scope
 allows (`calendarScopeFor`, above: everyone, unless an admin narrows it for employees). Nobody sees another person's request
 note, decision note or balance on any calendar screen or feed. This is enforced by shape, not by filtering: every
-calendar view and both feeds are built from `CalendarEntry` (`src/domain/calendar.ts`), and the repository's
-calendar queries (`src/server/repositories/calendar.ts`) select only its fields. Notes are left out of the personal
+calendar view and both feeds are built from `CalendarEntry` (`src/shared/kernel/calendar.ts`), and the repository's
+calendar queries (`src/modules/calendar/infrastructure/drizzle-calendar.repository.ts`) select only its fields. Notes are left out of the personal
 feed too, since a feed URL can travel further than the app. A person with a blank name is labelled by the part
-of their email before the `@` (`teamLabel`, `src/domain/person.ts`), never the full address, on the team view
+of their email before the `@` (`teamLabel`, `src/shared/kernel/person-label.ts`), never the full address, on the team view
 and in the team feed. Emails, which go only to the requester and their approver, still fall back to the full
 address (`personLabel`).
 
@@ -876,7 +897,7 @@ last_used_at, revoked_at)`, migration `0005` (`token_hint`: `0021`).
   unnoticed. The page shows when the feed was created and last fetched, and its last 4 characters
   (`token_hint`, `CHECK`ed; null for links made before `0021`), so people can tell which link a calendar holds.
   The other 39 characters (234 random bits) stay secret.
-- With the new link, the page offers one-tap subscribe links (`addToCalendarLinks`, `src/domain/calendar-feed.ts`):
+- With the new link, the page offers one-tap subscribe links (`addToCalendarLinks`, `src/shared/kernel/calendar-feed.ts`):
   Google (`calendar.google.com/calendar/r?cid=webcal://…`), Apple (`webcal://…`) and Outlook on the web
   (`outlook.office.com/calendar/0/addfromweb?url=…`). Each hands the link to that calendar service, as
   subscribing does anyway.
@@ -922,7 +943,7 @@ last_used_at, revoked_at)`, migration `0005` (`token_hint`: `0021`).
 
 ### ICS format
 
-`src/domain/ics.ts` is a pure RFC 5545 writer, unit tested in `tests/unit/ics.test.ts` against a strict parser
+`src/shared/kernel/ics.ts` is a pure RFC 5545 writer, unit tested in `tests/unit/ics.test.ts` against a strict parser
 (`tests/support/ics-parser.ts`) that integration tests use on real feeds too.
 
 - `VCALENDAR` with `VERSION:2.0`, `PRODID`, `CALSCALE:GREGORIAN`, `METHOD:PUBLISH`, `X-WR-CALNAME` and `NAME`
@@ -946,8 +967,8 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
 
 ## Reports
 
-`/reports` (`getLeaveReport`, `src/server/services/reports.ts`; the rules are pure functions in
-`src/domain/reports.ts`) shows how much time off was taken in a year, for admins and managers only
+`/reports` (`getLeaveReport`, the `src/modules/reports` module; the rules are pure functions in
+`src/modules/reports/domain/leave-report.ts`) shows how much time off was taken in a year, for admins and managers only
 (`canViewReports`): anyone else gets the 404 page, and the header shows the **Reports** link only to them.
 
 - **Scope** (`reportScopeFor`): an admin sees the whole company; a manager sees the people who report to them
@@ -981,12 +1002,13 @@ several hours, up to about a day), whatever `REFRESH-INTERVAL` says.
 
 ## Admin (M5)
 
-v1 runs one company per deployment. Every admin use case lives in `src/server/services/admin-*.ts` (people,
-departments, leave types, allowances, holidays, company) and `audit-log.ts`, and every one of them:
+v1 runs one company per deployment. Every admin use case lives in a module (`organisation` for the company,
+appearance, departments, levels and leave types, `people`, `balances` for allowances, `holidays`, `notifications`
+for Admin → Emails, `audit` for the audit log), and every one of them:
 
-- starts with `assertCanAdminister(actor)` (`src/domain/admin-permissions.ts`): admins only, refused with
-  `forbidden` whatever the page did;
-- for writes, re-reads the actor inside the transaction (`assertActiveAdmin`, `src/server/services/admin-access.ts`),
+- starts with `assertCanAdminister(actor)` (`src/shared/kernel/admin-permissions.ts`) or the module's policy built on
+  `canAdminister`: admins only, refused with `forbidden` whatever the page did;
+- for writes, re-reads the actor inside the transaction (`assertActiveAdmin`, `src/shared/lib/admin-access.ts`),
   so an admin demoted or deactivated a moment ago is already refused;
 - scopes every query by `actor.companyId`; an id from another company reads as `not_found`;
 - writes `audit_log` and an `events_outbox` row in the same transaction (`recordAdminChange`), and records
@@ -1002,12 +1024,46 @@ needed. Behind a proxy that rewrites `Host`, set `serverActions.allowedOrigins` 
 
 ### Locks
 
-Rules that span several people take the **company lock** (`lockCompany`, `FOR NO KEY UPDATE` on the
-`companies` row) first: role and active changes (so two admins cannot demote each other past the last-admin
+Rules that span several people take the **company lock** (`lockCompany` in `src/shared/lib/db/company-lock.ts`,
+`FOR NO KEY UPDATE` on the `companies` row; `lockCompanyForChange` from `@/modules/organisation` takes the same lock and
+reads the company) first: role and active changes (so two admins cannot demote each other past the last-admin
 guard), manager changes (so two edits cannot close a reporting loop between them), invites (so the invite limit
 counts exactly), leave type creation, archiving and reordering (sort order), and company settings. It is always
 the first lock taken, so it cannot deadlock with the member locks taken after it. Allowance overrides take the
 person's **member lock** (`lockMember`), as the M3 rule requires of every writer of balance inputs.
+
+### Organisation
+
+`src/modules/approvals` (README there, Tier 3) owns deciding requests, the Approvals page, approve from the email and
+re-routing pending requests. Leave owns the `leave_requests` table, so a decision or a reassignment writes through
+leave's public API (`lockLeaveRequest`, `updateStatusIfCurrent`, `reassignIfCurrent`, `recordLeaveChange`,
+`recordReassignment`); approvals owns its reads (the inbox, Settled, the review behind a link, the pending lists an
+admin change re-routes). Leave asks who decides through its own `ApprovalRouter` port, which approvals implements;
+`wireModules()` (`src/server/wiring.ts`) hands it over in every composition root (`runtime.ts`,
+`scripts/script-context.mts`, the integration harness), so approvals → leave is the only direction.
+
+`src/modules/calendar` (README there) owns the calendar views, the feed links and the calendar reads (holiday dates,
+the company's calendar settings, leave entries) that leave, balances, reports, approvals and integrations use, so it
+imports no module but organisation (`tests/architecture/calendar-boundary.test.ts`). `src/modules/holidays` owns
+the holiday edits; it imports leave for the recount, and reads holidays back through the calendar.
+
+`src/modules/organisation` (README there) owns the company row, departments, levels and the leave type catalog.
+Nearly every module reads it, so it imports no other module (`tests/architecture/organisation-boundary.test.ts`).
+Two admin changes reach further: new working days recount leave already sent, and a new department manager
+re-routes waiting requests. Organisation exports the change as a step on the caller's transaction
+(`saveCompanySettings`, `changeDepartmentManager`), and `updateCompanySettings` in leave and `setDepartmentManager`
+in approvals run it with the recount or the re-route and send the emails after commit. Other modules read
+organisation through queries that return DTOs (`findCompany`, `listDepartments`, `findLeaveType`, …). Its leave
+type DTOs name the type; the allowance settings balances compute from are read by the balance code
+(`src/shared/lib/db/leave-type-allowances.ts`), and a person's default always comes from
+`loadAllowanceDefaults`.
+
+`src/modules/people` (README there) owns Admin → People, a person's deletion and scheduled scrub, the people
+import, the teammate page and the account page. It sits near the top of the module graph (it imports approvals,
+balances, calendar, leave, integrations, organisation, audit and notifications), so the member reads every module
+needs (`findMember`, `lockMember`, `listActiveAdmins`, …) live in `src/shared/lib/db/members.ts`, not in people.
+The background tick, the daily jobs and retention are in `src/server/jobs/`; the first install is in
+`src/server/identity/install.ts`.
 
 ### People
 
@@ -1032,7 +1088,7 @@ person's **member lock** (`lockMember`), as the M3 rule requires of every writer
 - **Invite limit**: 30 invites and resends per admin per hour, counted from the audit log under the company
   lock (`rate_limited` beyond that), so it holds across restarts.
 - **Edit** (`updatePerson`): name, department, manager, role, self-approval. The email is the sign-in identity
-  and is not editable. Manager rules (`assertValidManager`, `src/domain/people.ts`): none is fine (an admin
+  and is not editable. Manager rules (`assertValidManager`, `src/modules/people/domain/people.ts`): none is fine (an admin
   approves); otherwise an active member of the company, not the person, and not someone who reports to them,
   directly or through others (the walk follows inactive people too, since reactivating one would close the
   loop). A current manager who has since been deactivated stays pickable and is kept when the form is saved
@@ -1054,7 +1110,7 @@ person's **member lock** (`lockMember`), as the M3 rule requires of every writer
 - **Deactivate** (`deactivatePerson`), in one transaction: `is_active = false`; every session deleted (and the
   session hook already refuses new ones); every live calendar link revoked (`calendar_feed.revoked`, reason
   `deactivated`); their own requests untouched. **Pending requests they were assigned to approve are
-  reassigned** (`reassignApprover`, `src/domain/approval-rule.ts`): the same rule as at submit minus
+  reassigned** (`rerouteApprovals` from `@/modules/approvals`, with `approverFor` in `src/modules/approvals/domain/approver-for.ts`): the same rule as at submit minus
   self-approval, so the requester's active manager, else the longest-standing other active admin, else the
   requester if they are an admin, else nobody (`approver_id` null; admins see every pending request anyway).
   Each move is a compare-and-set on `pending` and the old approver, writes `leave.reassigned`, and emails the
@@ -1121,11 +1177,13 @@ with the same `summarizeBalances` the dashboard uses.
 ### Holidays
 
 List by year (2000 to 2100), add (one per date), rename, delete, and add the eleven US federal holidays for a
-year on their observed dates (`usFederalHolidays`, `src/domain/holidays.ts`: Saturday → Friday, Sunday → Monday,
+year on their observed dates (`usFederalHolidays`, `src/modules/holidays/domain/us-federal-holidays.ts`: Saturday → Friday, Sunday → Monday,
 so a Saturday New Year's Day belongs to Dec 31 of the year before), skipping dates that already have one. Adding
 or deleting holidays recounts the requests on those dates in open years
 ([Recount after a calendar change](#recount-after-a-calendar-change)); the confirmation says how many were
-recounted, how many now take no days, and who is now over a balance. Renaming changes no count.
+recounted, how many now take no days, and who is now over a balance. Renaming changes no count. The use cases are
+the holidays module's (`src/modules/holidays`, README there), each returning a `ServiceResult`, admins only by
+`canManageHolidays`; they call `recountLeave` from `@/modules/leave` in the same transaction.
 
 ### Company
 
@@ -1141,7 +1199,7 @@ also holds the deletion grace option ([The grace option](#the-grace-option)); `c
 
 `/admin/appearance` (`updateCompanyAppearance`): the theme everyone in the company sees, an optional accent colour
 and a corner style, all chosen by an admin (never per person; light or dark is per person, above). Themes are a fixed list (`THEMES` in
-`src/domain/appearance.ts`); each keeps one accent colour. The root layout reads the look on every request
+`src/shared/kernel/appearance.ts`); each keeps one accent colour. The root layout reads the look on every request
 (`getAppearance`, which falls back to the default on any error so a page never fails on it) and sets `data-ui`,
 `data-corners` and, for a custom accent, the accent tokens on `<html>`. `globals.css` keys each theme's tokens
 (colours, fonts, radii, shadows) on those attributes; fonts are self-hosted from `@fontsource-variable` packages,
@@ -1162,7 +1220,7 @@ whole company and switch back.
 `company.updated` carries `theme`, `accentColor`, `corners`, `requestStyle`, `layout` and `logo`.
 
 The same page sets the company's logo (`updateCompanyLogo`, `removeCompanyLogo`). The file is judged by its bytes,
-never its name or claimed type (`readLogoImage`, `src/domain/company-logo.ts`): PNG or JPEG only, up to 512 KB and 4096
+never its name or claimed type (`readLogoImage`, `src/shared/kernel/company-logo.ts`): PNG or JPEG only, up to 512 KB and 4096
 pixels a side. SVG is refused because it can carry script and Outlook draws neither SVG nor WebP. The bytes live on the
 company row (`companies.logo`, with its SHA-256, type and size beside it; a check keeps the five set or cleared together),
 so no file store is needed on any host. `GET /logo/<sha256>.<png|jpg>` serves it publicly, like the favicon, because the
@@ -1189,7 +1247,7 @@ their API keys.
 - **Five queries a page**, whatever it holds: company (time zone), people, departments and leave types in
   parallel (for the pickers and for naming ids inside before/after snapshots), then the page, whose actor and
   subject names, and API key name and prefix, come from joins. Adapter names come from the registry.
-- Summaries are pure (`describeAuditChange`, `src/domain/audit.ts`): changed fields only, ids named ("Manager:
+- Summaries are pure (`describeAuditChange`, `src/modules/audit/domain/audit.ts`): changed fields only, ids named ("Manager:
   Ana → Ben"), an unknown id described rather than shown.
 
 ### Screens
@@ -1203,8 +1261,8 @@ without React's automatic reset) and show the reason with `role="alert"` in `err
 
 ## People lifecycle and privacy (M8)
 
-A person moves through at most three states, each a deliberate admin action (`src/server/services/admin-people.ts`,
-`src/server/services/admin-people-deletion.ts`; rules in `src/domain/person-deletion.ts`):
+A person moves through at most three states, each a deliberate admin action (the people module's use cases,
+`src/modules/people/application/use-cases/`; rules in `src/modules/people/domain/person-deletion.ts`):
 
 | State | How | Signs in | Shows in People | Reversible |
 | --- | --- | --- | --- | --- |
@@ -1311,7 +1369,7 @@ for every year they have an allowance row or booked days (computed by the dashbo
 entries about them as the viewer words them (`listAuditEntriesAbout`: the names load once, then a thousand rows per
 query, at most the newest 10,000). Admins of the person's company only (anyone else, another company's id or a
 tombstone: a bare 404), `Cache-Control: no-store`, a file name by short id (never the name), cells that look like a
-formula prefixed with `'` (`src/domain/csv.ts`). Each download is audited as `user.records_exported` (an audit row
+formula prefixed with `'` (`src/shared/kernel/csv.ts`). Each download is audited as `user.records_exported` (an audit row
 and no event: nothing changed). Being a GET that writes and hands out personal data, it refuses a request another
 site started (`Sec-Fetch-Site` other than `same-origin` or `none`; `isCrossSiteRequest`) with a 404, so a link
 elsewhere cannot make a signed-in admin's browser download it. A full scrub deletes the export's audit row with the
@@ -1369,7 +1427,7 @@ service tx ─► events_outbox ──(worker: dispatch)──► webhook_delive
 Every state change already writes an `events_outbox` row in its transaction (`recordChange`). The **outbox
 worker** (`scripts/worker.mts`, `pnpm worker`, the compose `worker` service) turns those rows into deliveries:
 
-1. **Dispatch** (`dispatchOutboxBatch`, `src/server/services/outbox-dispatch.ts`). In one transaction: claim up
+1. **Dispatch** (`dispatchOutboxBatch`, `src/modules/integrations/application/jobs/dispatch-outbox.ts`). In one transaction: claim up
    to 100 undispatched rows, oldest first, with `FOR UPDATE SKIP LOCKED`; create a `webhook_deliveries` row for
    every enabled, live endpoint of the event's company that subscribes to its type and **existed when the event
    was written** (an endpoint never receives history); create an `adapter_deliveries` row for every registered
@@ -1377,7 +1435,7 @@ worker** (`scripts/worker.mts`, `pnpm worker`, the compose `worker` service) tur
    `adapter_handles_failed`, so a faulty adapter cannot stall dispatch); set `delivered_at` (read it as "dispatched"). The delivery's `body` is
    the envelope as JSON, fixed now so every retry sends the same bytes. Unique `(endpoint, event)` and
    `(adapter, event)` indexes make a repeat harmless.
-2. **Deliver** (`deliverDueWebhooks`, `src/server/services/webhook-delivery.ts`). Claim up to 20 due deliveries
+2. **Deliver** (`deliverDueWebhooks`, `src/modules/integrations/application/jobs/deliver-webhooks.ts`). Claim up to 20 due deliveries
    (`status = 'pending' and next_attempt_at <= now`, enabled live endpoint) in one `UPDATE ... WHERE id IN
    (SELECT ... FOR UPDATE SKIP LOCKED)` that also **leases** them: `attempts + 1`, `next_attempt_at = now + 2
    min`. Then, 8 at a time and outside any transaction: open the endpoint's secret, sign, POST with a 10-second
@@ -1388,7 +1446,7 @@ worker** (`scripts/worker.mts`, `pnpm worker`, the compose `worker` service) tur
    another and are **claimed one at a time**, just before each call, so the 2-minute lease always covers the one
    call it guards: a slow adapter never leaves queued claims whose leases run out and get re-claimed by another
    worker while the first is still working through its batch.
-3. **Retry schedule** (`retryDelayMs`, `src/domain/integrations.ts`, shared): after attempt 1 to 7 fails, wait
+3. **Retry schedule** (`retryDelayMs`, `src/modules/integrations/domain/integrations.ts`, shared): after attempt 1 to 7 fails, wait
    1 min, 5 min, 30 min, 2 h, 6 h, 12 h, 24 h, each ±10% jitter; the 8th failure marks it `failed`. Success is a
    2xx. Anything else is a failure: other statuses (3xx included: redirects are never followed), timeouts,
    refused or blocked addresses, an unreadable secret (`secret_unreadable`, e.g. after the key changed).
@@ -1430,7 +1488,7 @@ codes, never a URL, secret, signature or body (`webhook-delivery.test.ts` checks
 
 ### Scheduled jobs
 
-`runDueJobs` (`src/server/services/scheduled-jobs.ts`) runs the daily jobs: `year_rollover` (the M3
+`runDueJobs` (`src/server/jobs/scheduled-jobs.ts`) runs the daily jobs: `year_rollover` (the M3
 `runYearRollover`), `integration_retention` and `scheduled_scrub` (`runDueScrubs`, full-scrub deletes whose grace
 period has ended; see [People lifecycle](#people-lifecycle-and-privacy-m8)). A worker claims a job with an atomic compare-and-set on its
 `scheduled_jobs` row (`UPDATE ... SET next_run_at = now + 1 h WHERE name = $1 AND next_run_at <= now`): of
@@ -1446,12 +1504,13 @@ batches of 1,000. Pending deliveries and undispatched events are never pruned. T
 
 ### Webhooks
 
-Admin use cases are in `src/server/services/webhooks.ts`, screens under `/admin/webhooks`. They follow the admin
+Admin use cases are in `src/modules/integrations/application/use-cases/` (one file each, returning a `ServiceResult`), screens under
+`/admin/webhooks`. They follow the admin
 rules ([Admin](#admin-m5)): `assertCanAdminister`, `assertActiveAdmin` in the transaction, company scoping (an id
 from another company, or a deleted endpoint, is `not_found`), and `audit_log` + outbox in the same transaction.
 
 - **Create** takes the company lock and allows at most 20 live endpoints per company (`limit_reached`), since
-  every event fans out to each. The URL is checked (`normalizeWebhookUrl`, `src/domain/webhook-target.ts`):
+  every event fans out to each. The URL is checked (`normalizeWebhookUrl`, `src/shared/kernel/webhook-target.ts`):
   absolute, at most 2,048 characters, no credentials or fragment, `https:` unless `WEBHOOK_ALLOW_INSECURE`
   (`insecure_url`), and, unless `WEBHOOK_ALLOW_PRIVATE`, not an IP literal in a blocked range nor an obviously
   local name such as `localhost`, `*.local`, `*.internal` or a single label (`blocked_address`). Event types must
@@ -1493,11 +1552,11 @@ to 64 KB, and only a 200-character excerpt is stored.
 
 Route handlers under `src/app/api/v1/*/route.ts` are one line each: `apiGet` (`_lib/api-get.ts`) builds the
 context, then `handleApiRequest` (`_lib/handler.ts`, injectable and tested without Next) authenticates, rate
-limits and maps errors; the route parses the query with zod (`_lib/query.ts`) and calls one service in
-`src/server/services/api-v1.ts`, whose queries are in `src/server/repositories/api-reads.ts` and the existing
-repositories.
+limits and maps errors; the route parses the query with zod (`_lib/query.ts`) and calls one query of `@/modules/integrations`
+(`src/modules/integrations/application/queries/list-*-for-api.ts`; the leave list is `listLeaveRequestsForApi` in `@/modules/leave`),
+whose own queries are in `src/modules/integrations/infrastructure/drizzle-api-reads.repository.ts` and the existing repositories.
 
-- **Keys** (`src/server/services/api-keys.ts`, screen `/admin/api-keys`): `ooohm_` + 32 random bytes, shown once,
+- **Keys** (`createApiKey`, `revokeApiKey`, `authenticateApiKey` in `src/modules/integrations`, screen `/admin/api-keys`): `ooohm_` + 32 random bytes, shown once,
   stored as SHA-256 hex under a unique index (a plain hash suffices for 256 random bits) with an 8-character
   `prefix` for admins to tell keys apart. At most 50 live keys per company. `scopes text[]` is `CHECK`ed to
   `read`/`write`; v1 grants `read` and every endpoint requires it (`assertScope`), so `write` endpoints can come
@@ -1564,7 +1623,7 @@ Adapters never touch the database (lint enforces it: `src/server/integrations/**
 schema, Drizzle, `env`, `auth`, services or repositories). Outbound, the worker delivers envelopes to them
 exactly as to webhooks (`adapter_deliveries`, same claim, lease and retry schedule; a delivery whose adapter is
 no longer registered fails its attempts with `adapter_not_registered` and resumes if it comes back). Inbound,
-`applyInboundSync` (`src/server/services/inbound-sync.ts`) writes what they return:
+`applyInboundSync` (`src/modules/integrations/application/inbound-sync.ts`) writes what they return:
 
 - **People**, matched by lowercased email, in one transaction under the company lock: a person of this company is
   renamed if the name differs (`user.updated`); an unknown email creates an employee with no department or
@@ -1600,16 +1659,17 @@ SQLite file ──(readTimeOffSqlite, node:sqlite, read-only)──► TimeOffSn
                      report ◄──(reconcile: loadBalances)◄── one transaction ◄──(importTimeOff)────────────┘
 ```
 
-- **Reader** (`src/server/importers/timeoff/sqlite-reader.ts`): opens the file with Node's built-in `node:sqlite`
-  (Node 22.13+, no native dependency) read-only and returns plain records (`src/domain/timeoff/source.ts`). Table
+- **Reader** (`src/modules/import/infrastructure/timeoff-sqlite-reader.ts`): opens the file with Node's built-in `node:sqlite`
+  (Node 22.13+, no native dependency) read-only and returns plain records (`src/modules/import/domain/timeoff/source.ts`). Table
   and column names are matched against the spellings TimeOff's Sequelize models have used; a missing required one
   stops the import with what the file does have.
-- **Plan** (`src/domain/timeoff/mapping.ts`, pure): people (email dedupe, roles, managers from department bosses,
+- **Plan** (`src/modules/import/domain/timeoff/mapping.ts`, pure, one step per entity in `plan/`): people (email dedupe, roles, managers from department bosses,
   loop breaking), departments, leave types (the allowance pool decision), holidays, allowance rows, requests (half
   days split into single-day requests, days counted with OOOhm's `splitLeaveDaysByYear`), and TimeOff's own
-  balance for every person and year (`src/domain/timeoff/balance.ts`). Refusals are `DomainError("import_refused")`.
-- **Service** (`src/server/services/timeoff-import.ts`): one `db.transaction` for everything, with bulk writes from
-  `src/server/repositories/imports.ts`. It runs the year rollover's step for last year
+  balance for every person and year (`src/modules/import/domain/timeoff/balance.ts`). Refusals are `DomainError("import_refused")`.
+- **Use case** (`src/modules/import/application/import-timeoff.ts`, its steps in `application/steps/`): one
+  `db.transaction` for everything, with bulk writes from
+  `src/modules/import/infrastructure/drizzle-import.repository.ts`. It runs the year rollover's step for last year
   (`recarryMemberLeaveType`, with a `record` hook that audits each change as `import.allowance` instead of the
   rollover's `balance.adjusted` event) for every imported active person, so the reconciliation sees what the
   nightly job will leave, then compares through `loadBalances` (the dashboard's balance code). Pending requests
@@ -1631,7 +1691,7 @@ SQLite file ──(readTimeOffSqlite, node:sqlite, read-only)──► TimeOffSn
 - **CLI-only**: `importTimeOff` takes no `Actor` (there is no session); it resolves `actorEmail` (`--actor`) to an
   active admin of the target company inside the transaction, after people are imported, and refuses otherwise.
   That names who made the change; it is not a sign-in, since whoever runs the CLI already holds the database
-  credentials. The lint rules forbid `src/app` from importing it or `src/server/importers/*`.
+  credentials. The lint rules forbid `src/app` from importing `@/modules/import`.
 
 ## Hosting: database and background modes
 
@@ -1644,11 +1704,23 @@ instance runs on Vercel with Neon ([deploy-vercel.md](deploy-vercel.md)). This i
 names; the app (`src/db/index.ts`), every script, the worker and the test harness go through these two, so pooler,
 pool-size and embedded handling cannot differ between them.
 
+Postgres is used as two roles (ADR-0006, [deploy.md](deploy.md#database-roles)). The app, the cron route, the worker
+and the rollover job connect as the app role with `DATABASE_URL` (`resolveDatabaseConfig`): rows only, no DDL, and
+`audit_log` only `SELECT` and `INSERT`. Migrations, the seed and the TimeOff import connect as the owner with
+`DATABASE_ADMIN_URL` (`resolveAdminDatabaseConfig`, required on Postgres, with no fallback to
+`DATABASE_URL_UNPOOLED`), opened only by `src/server/admin/db.ts` (`openAdminDatabase`, `migrateAsOwner`), which
+dependency-cruiser keeps out of reach of the rest of `src` (rule `admin-db-only-from-scripts`). `deploy/db-roles.sql`
+creates the roles and their grants (`pnpm db:roles`); `migrateAsOwner` runs it again in grants-only mode after every
+migration. Deleting a person erases and redacts audit rows through two `SECURITY DEFINER` functions owned by the
+owner (`drizzle/0030_audit_erasure_functions.sql`), the app's only way to touch an existing audit row. Embedded
+PGlite has one built-in user: both configs resolve to its single handle.
+
 - **Postgres** (`DATABASE_URL=postgres://...`, any Postgres 15+). postgres.js honours `sslmode` and the other URL
   parameters. A transaction pooler (Neon's `-pooler` host, Supabase's port 6543, or `DATABASE_POOLER=transaction`)
   gets `prepare: false`, since each transaction may land on another server connection. On a serverless host (`VERCEL`
   or `DATABASE_SERVERLESS=true`) the pool is 3 connections with a 20-second idle timeout (`DATABASE_POOL_MAX`
-  overrides). Migrations connect to `DATABASE_URL_UNPOOLED` when set: DDL and the migrator want a real session.
+  overrides). Migrations connect to `DATABASE_ADMIN_URL`, which should be a direct connection: DDL and the migrator
+  want a real session.
 - **Embedded** (`OOOHM_DB=embedded`, or `DATABASE_URL=pglite:<dir>`): PGlite (Postgres 18 compiled to WebAssembly)
   with drizzle's `pglite` driver, data in `OOOHM_DATA_DIR` (default `./data/pglite`). PGlite and that driver are
   imported at run time only in this mode, with `webpackIgnore`, so they are neither bundled nor traced into the
@@ -1660,7 +1732,7 @@ pool-size and embedded handling cannot differ between them.
 The `Database` type is the driver-neutral `PgDatabase`. The query builder behaves the same on both drivers; what a raw
 `execute()` returns does not (postgres.js: an array of rows; PGlite: `{ rows }`), so the three statements the builder
 cannot express (the `UPDATE ... FROM ... SKIP LOCKED` delivery claims, the retention deletes) go through
-`executeRows` (`src/db/rows.ts`). Driver errors differ too: `violatedConstraint` (`src/server/repositories/errors.ts`)
+`executeRows` (`src/db/rows.ts`). Driver errors differ too: `violatedConstraint` (`src/shared/lib/db/errors.ts`)
 reads postgres.js's `constraint_name` and PGlite's `constraint` behind drizzle's wrapper.
 
 What embedded mode needed checking, and how each behaves on PGlite (`pnpm test:integration:embedded` runs every
@@ -1676,7 +1748,7 @@ integration test on it):
 
 ### Background modes
 
-Background work is one function, `runTick` (`src/server/services/background-tick.ts`): a bounded pass that
+Background work is one function, `runTick` (`src/server/jobs/background-tick.ts`): a bounded pass that
 dispatches outbox events, delivers due webhook deliveries, then due adapter deliveries, then runs a due daily job
 (and delivers what that job wrote), each step repeating while it finds work and the budget lasts (`OOOHM_TICK_BUDGET_MS`,
 15 s). When the budget runs out no new work starts; webhook attempts in flight finish (10 s at most) and an adapter
@@ -1688,7 +1760,7 @@ Who calls it is `OOOHM_BACKGROUND` (`src/lib/background-mode.ts`):
 
 - `worker` (the default; compose sets it): `scripts/worker.mts` runs each step in its own loop.
 - `inline` (the default on Vercel and in embedded mode): **after a transaction that wrote outbox events commits**,
-  the services' after-commit seam (`inTransaction` and `commitThenNotify` in `src/server/services/notify.ts`, which every
+  the services' after-commit seam (`inTransaction` in `src/shared/lib/unit-of-work.ts` and `commitThenNotify` in `@/modules/notifications`, which every
   service the app calls goes through to record a change) calls `ctx.defer(ctx.wake)`. `recordChange` marks the transaction that wrote an event,
   so a refused or rolled-back change, or a read, wakes nothing. In the app `defer` is `after()`, so the tick runs after
   the response and Vercel keeps the function alive for it (`waitUntil`); it never blocks or fails the request, and an
@@ -1714,7 +1786,8 @@ instance counts separately, so they are approximate. The submit limit is counted
 
 `pnpm db:migrate` everywhere; compose runs it in `migrate`, embedded mode also on start. On Vercel the `vercel-build`
 script runs `scripts/migrate.mts --if-production && scripts/seed.mts --if-production && next build`: migrations run
-only when `VERCEL_ENV` is `production`, over `DATABASE_URL_UNPOOLED`, and a failure fails the build, so new code never
+only when `VERCEL_ENV` is `production`, over `DATABASE_ADMIN_URL` (a production build without it fails, naming the
+variable and deploy.md), and a failure fails the build, so new code never
 goes live on an old schema. The seed then runs only on a production build with `SEED_ADMIN_EMAIL` set and no company
 yet, so it creates the first admin once and later builds skip it (`SEED_ON_DEPLOY=force` overrides for one deploy). Preview builds never migrate or seed; keeping previews off the production database is a deployment setting
 ([deploy-vercel.md](deploy-vercel.md#2-keep-previews-away-from-the-production-database)).
@@ -1739,6 +1812,9 @@ backup retention is what bounds how long a deleted person's data survives ([host
 | `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time; the hosting pieces: database and background-mode configuration, pooler detection, trimmed env values, the embedded directory lock, the cron route's authorization and the tick scheduler; the past-year cancel rule; deleting people: tombstone names and emails, the guards, the confirmation, payload redaction and CSV escaping) | nothing |
 | `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import`; past-year leave refused for the requester and an admin, in the company's time zone, including an imported 2025 request; the background tick: inline after a change (and not after a refused one), a due retry, three ticks at once, the budget, daily jobs; deleting people (`person-deletion.test.ts`): both modes (exactly which rows go and stay, the counts in the one audit row, the one `user.deleted` event), every guard, the grace option (scheduled, undo, the daily job, attribution), re-inviting a released address, a kept-records delete withdrawing their pending request, outbox, delivery, import and settings-label redaction including a pending delivery that must not leak and one in flight when the delete commits, a namesake untouched (free text included), the CSV export, and a no-trace scan of every text, varchar, json(b) and text[] column of every table (read from `information_schema`, so new tables are covered) for the name parts and email after a full scrub | `TEST_DATABASE_URL` |
 | `pnpm test:integration:embedded` | The same suites on embedded PGlite (`TEST_DATABASE_URL=pglite:memory`: an in-memory database per file, migrated as embedded mode migrates). Two tests that need two connections at once are skipped (`needsServer`) | nothing |
+| `pnpm test:components` | Component tests in `tests/components/` (React Testing Library on jsdom): the request form's preview and half-day rules, the decision form and approval card (decide, collapse, where focus goes), the date picker, cancel with undo, the delete-person dialog and the email editor | nothing |
+| `pnpm db:check-drift` | `drizzle-kit generate` against a scratch copy of `drizzle/`: fails, printing the SQL, when `src/db/schema.ts` has a change no committed migration makes (ADR-0011; also run by `tests/architecture/schema-drift.test.ts`) | nothing |
+| `pnpm test:e2e` | Playwright journeys in `tests/e2e/*.spec.ts` on the built app under `pnpm start:embedded` (see below) | `pnpm build`, Playwright with Chromium |
 
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
 IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,
@@ -1756,16 +1832,50 @@ Both run with Node's test runner through `tsx --conditions=react-server`. The `r
 `import "server-only"` resolve to its empty module, the same way Next.js resolves it on the server, so tests
 can import server modules (for example the logger) unchanged. `tsx` also resolves the `@/` path alias.
 
+Component tests (`pnpm test:components`, ADR-0007) run on the same runner, without `react-server`: client
+components get React's browser build, as in the app. `tests/components/setup.ts` is preloaded with `--import`. It
+creates a jsdom window (`global-jsdom`), puts jsdom's `FormData`, `Event` and `CustomEvent` in place of Node's,
+stands in for `next/navigation` (a router that counts `refresh()` calls, in `router`) and `server-only`, and cleans
+up after each test. A component that imports its server actions gets them replaced first: call
+`stubModule("@/app/.../actions", { ... })` at the top of the file (it uses `mock.module`, behind
+`--experimental-test-module-mocks`), then load the component with `await import(...)` in a `before` hook, since a
+static import would load the real actions first. Stub `fetch` on `globalThis` for client fetches. For countdowns
+and delays, `mock.timers.enable({ apis: ["setTimeout"] })` drives both `setTimeout` and `window.setTimeout`; drive
+the component with `fireEvent` inside `act` there, because Testing Library's async helpers and `user-event` wait on
+real timers. Elsewhere use `userEvent.setup()`. Query by role, label and text, and assert what a person sees and
+where focus is.
+
 Integration tests: point `TEST_DATABASE_URL` at a Postgres 17 server where the user may create databases.
 Each test file creates `ooohm_test_<random>`, runs the Drizzle migrations from `drizzle/`, and drops it at
 the end, so files run in parallel without sharing state. Without the variable the suites are skipped with a
-message. A throwaway server:
+message. `db-roles.test.ts` also creates and drops its own owner and app roles (named after a random suffix), so the
+user must be a superuser for it; it is skipped on PGlite. A throwaway server:
 
 ```bash
 docker run -d --rm --name ooohm-test -e POSTGRES_PASSWORD=pw -p 127.0.0.1:55502:5432 postgres:17-alpine
 TEST_DATABASE_URL=postgres://postgres:pw@127.0.0.1:55502/postgres pnpm test:integration
 docker stop ooohm-test
 ```
+
+**Tenant isolation** (`tests/integration/tenancy.test.ts`, ADR-0004). Two companies share one database. Every
+function a module's index, `src/server/jobs`, `src/server/identity` or the shared reads in `src/shared/lib/db`
+(`members.ts`, `admin-standing.ts`, `leave-requests.ts`, `leave-type-allowances.ts`, `company-creation.ts`) export, and every `/api/v1` route, is called by the
+first company's admin, people, API key or company id with the second company's ids. After each call the second
+company's rows in every table (by `company_id`, or through its people and requests) are exactly as seeded, nothing
+of it (an id, an email, a name) is in what came back or in any email or sign-in link sent, and none of the first
+company's rows points at it. `tests/support/tenancy-coverage.ts` lists which exports have a case and gives the
+reason for every other one (pure, a system job over every company, scoped by its caller); a new export or route
+that is in neither list fails `tests/architecture/tenancy-coverage.test.ts`, and a listed case that is not run fails
+the suite. When you add an export, add its case (or its reason) there.
+
+**End-to-end journeys** (`pnpm test:e2e`, after `pnpm build`). `tests/e2e/support/app.ts` runs
+`pnpm start:embedded` on a fresh embedded data directory and a free port, with the app's ordinary production
+settings, and sends its mail to a small SMTP server in the test process (`tests/e2e/support/mail-sink.ts`). Each
+person signs in the way people do: the sign-in page, the emailed magic link, opened in Chromium. There is no
+test-only sign-in. The journeys (`journeys.spec.ts`): a stranger gets no sign-in email; an admin invites a manager
+and an employee; the employee requests a day; the manager approves it from Approvals and the employee's balance
+counts it as used; the employee cancels it and gets it back. Playwright is loaded from the machine
+(`require("playwright")`; CI installs it globally and sets `NODE_PATH`), not from the lockfile, and records no trace.
 
 The harness gives tests driver-neutral helpers: `t.query` (raw SQL as a tagged template), `t.withLogger` (a second
 handle that counts queries) and `t.migrate`. `t.client` (postgres.js itself) is only for the tests skipped on PGlite.

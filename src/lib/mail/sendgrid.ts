@@ -1,3 +1,4 @@
+import "server-only";
 import type { SendGridRegion } from "./names";
 import { MailSendError, type MailTransport, type OutgoingMail, parseMailbox } from "./transport";
 

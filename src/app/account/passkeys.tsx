@@ -35,7 +35,7 @@ export function Passkeys({ passkeys }: { passkeys: readonly PasskeyRow[] }) {
     setError(null);
     setNotice(null);
     startBusy(async () => {
-      const { error: failed } = await authClient.passkey.addPasskey({ name: name.trim() || undefined });
+      const { error: failed } = await authClient.passkey.addPasskey(name.trim() ? { name: name.trim() } : {});
       if (failed) {
         // Closing the browser's prompt is a choice, not an error to alarm anyone with.
         if ("code" in failed && CANCELLED.has(failed.code)) setNotice("No passkey was added.");

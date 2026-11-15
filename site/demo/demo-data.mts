@@ -12,8 +12,8 @@ import { resolveDatabaseConfig } from "../../src/db/config";
 import { openDatabase } from "../../src/db/connect";
 import * as s from "../../src/db/schema";
 import { nonEmptyEnv } from "../../src/lib/integration-env";
-import { usFederalHolidays } from "../../src/domain/holidays";
-import { splitLeaveDaysByYear } from "../../src/domain/leave-days";
+import { usFederalHolidays } from "../../src/modules/holidays/domain/us-federal-holidays";
+import { splitLeaveDaysByYear } from "../../src/shared/kernel/leave-days";
 import { isLocalDatabase } from "./local-db.mjs";
 
 if (!isLocalDatabase(process.env.DATABASE_URL)) throw new Error("demo-data only runs against a local database.");

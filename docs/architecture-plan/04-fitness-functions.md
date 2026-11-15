@@ -4,6 +4,12 @@ Every rule in the reference becomes an automated check. Each starts with a **bas
 fails CI only on new ones (reference §28, the Packwerk approach). The baseline shrinks phase by phase until it is
 empty at A8.
 
+**Status after A8:** every baseline is empty and gone. There is no `.dependency-cruiser-known-violations.json` and
+no `pnpm arch:baseline`; `pnpm arch` runs without `--ignore-known`, so any violation fails it
+(`tests/architecture/baselines.test.ts`). The server-only check (F5) has no allow-list. F17 is part of
+`pnpm typecheck` (`tsconfig.src.json`, `tests/architecture/strict-typescript.test.ts`); tests and scripts stay on
+the base config.
+
 ## 4.1 The checks
 
 | # | Check | Tool | Added | Strict (empty baseline) by |
@@ -32,9 +38,9 @@ empty at A8.
 `.github/workflows/ci.yml`, required on `main`:
 
 1. `pnpm install --frozen-lockfile`
-2. `pnpm typecheck`
+2. `pnpm typecheck` (from A8 also `tsc -p tsconfig.src.json`, F17)
 3. `pnpm lint` (includes the size warnings; errors from A7)
-4. `pnpm arch` (dependency-cruiser with `--ignore-known`) (cycles are enforced here through the baseline); from A1 also `pnpm madge`, which has no baseline and runs once the cycles are gone
+4. `pnpm arch` (dependency-cruiser; with `--ignore-known` until A8 emptied the baseline, without it since) (cycles are enforced here); from A1 also `pnpm madge`, which has no baseline and runs once the cycles are gone
 5. `pnpm test` (unit + `tests/architecture`)
 6. `pnpm test:integration:embedded` (PGlite)
 7. `pnpm test:integration` against a `postgres:16` service container

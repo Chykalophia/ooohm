@@ -1,4 +1,4 @@
-import type { AddToCalendarLinks } from "@/domain/calendar-feed";
+import type { AddToCalendarLinks } from "@/shared/kernel/calendar-feed";
 
 /**
  * Result of the feed card's server action. `issued` carries the new link, the only

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isoWeekday } from "@/domain/calendar-date";
-import { isSupportedTimeZone, normalizeCompanySettings, normalizeWorkingDays } from "@/domain/company-settings";
-import { type DomainErrorCode, isDomainError } from "@/domain/errors";
-import { usFederalHolidays } from "@/domain/holidays";
+import { isoWeekday } from "@/shared/kernel/calendar-date";
+import { isSupportedTimeZone, normalizeCompanySettings, normalizeWorkingDays } from "@/shared/kernel/company-settings";
+import { type DomainErrorCode, isDomainError } from "@/shared/kernel/errors";
+import { usFederalHolidays } from "@/modules/holidays/domain/us-federal-holidays";
 import {
   ALLOWANCE_YEAR_MAX,
   assertAllowanceYear,
@@ -13,7 +13,7 @@ import {
   normalizeLeaveTypeCode,
   normalizeLeaveTypeColor,
   normalizeLeaveTypeSettings,
-} from "@/domain/leave-type-settings";
+} from "@/shared/kernel/leave-type-settings";
 
 function throwsCode(fn: () => unknown, code: DomainErrorCode) {
   assert.throws(fn, (err) => isDomainError(err, code));

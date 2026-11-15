@@ -1,8 +1,9 @@
 "use server";
 
 import { z } from "zod";
-import { addToCalendarLinks, FEED_KINDS, FEED_SHORT_NAMES } from "@/domain/calendar-feed";
-import { issueCalendarFeed, revokeCalendarFeed } from "@/server/services/calendar-feeds";
+import { addToCalendarLinks, FEED_KINDS, FEED_SHORT_NAMES } from "@/shared/kernel/calendar-feed";
+import { issueCalendarFeed, revokeCalendarFeed } from "@/modules/calendar";
+import { map, type ServiceResult } from "@/shared/lib/result";
 import { runStateAction } from "@/app/_lib/server-action";
 import type { FeedState } from "./feed-state";
 
@@ -24,13 +25,11 @@ export async function feedAction(_prev: FeedState, formData: FormData): Promise<
     `calendar_feed_${intent}`,
     formData,
     feedSchema,
-    async (ctx, actor, { kind, intent }): Promise<FeedState> => {
+    async (ctx, actor, { kind, intent }): Promise<ServiceResult<FeedState>> => {
       if (intent === "issue") {
-        const { url } = await issueCalendarFeed(ctx, actor, kind);
-        return { status: "issued", url, links: addToCalendarLinks(url, FEED_SHORT_NAMES[kind]) };
+        return map(await issueCalendarFeed(ctx, actor, kind), ({ url }): FeedState => ({ status: "issued", url, links: addToCalendarLinks(url, FEED_SHORT_NAMES[kind]) }));
       }
-      await revokeCalendarFeed(ctx, actor, kind);
-      return { status: "off" };
+      return map(await revokeCalendarFeed(ctx, actor, kind), (): FeedState => ({ status: "off" }));
     },
     { messages: FEED_MESSAGES },
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import type { CalendarDate } from "@/domain/calendar-date";
+import type { CalendarDate } from "@/shared/kernel/calendar-date";
 import { FieldShell } from "@/components/ui/fields";
 import { cx, fieldClass } from "@/components/ui/styles";
 import { DatePicker } from "./date-picker";
@@ -23,11 +23,11 @@ export function DateField({
   /** The visible label ("From"). */
   label: string;
   /** What the date is ("First day"): names the calendar and its typed field. */
-  pickerLabel?: string;
+  pickerLabel?: string | undefined;
   name: string;
   value: CalendarDate | "";
   /** Days before it show but can't be picked. */
-  min?: CalendarDate;
+  min?: CalendarDate | undefined;
   onChange: (value: CalendarDate) => void;
   /** Classes for the wrapper, e.g. to size the field in a grid. */
   className?: string;

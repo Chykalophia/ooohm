@@ -2,12 +2,16 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { findJob } from "@/server/repositories/scheduled-jobs";
-import { pruneIntegrationData } from "@/server/services/retention";
-import { DAILY_JOBS, JOB_INTERVAL_MS, JOB_RETRY_MS, runDueJobs } from "@/server/services/scheduled-jobs";
-import { createWebhookEndpoint } from "@/server/services/webhooks";
+import { findJob } from "@/shared/lib/db/scheduled-jobs";
+import { pruneIntegrationData } from "@/server/jobs/retention";
+import { DAILY_JOBS, JOB_INTERVAL_MS, JOB_RETRY_MS, runDueJobs } from "@/server/jobs/scheduled-jobs";
+import { createWebhookEndpoint as createWebhookEndpointResult } from "@/modules/integrations";
+import { unwrap } from "@/shared/lib/result";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
 
 const T0 = new Date("2026-11-02T03:00:00Z");
 const DAY = 86_400_000;

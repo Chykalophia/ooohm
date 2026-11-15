@@ -2,7 +2,7 @@
  * Colour helpers for leave type colours, which admins choose freely. Pure; safe on the
  * client.
  */
-import { DEFAULT_LEAVE_TYPE_COLOR } from "@/domain/leave-type-settings";
+import { DEFAULT_LEAVE_TYPE_COLOR } from "@/shared/kernel/leave-type-settings";
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
@@ -10,7 +10,9 @@ const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 export function normalizeHexColor(color: string): string {
   const m = HEX.exec(color.trim());
   if (!m) return DEFAULT_LEAVE_TYPE_COLOR;
-  const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  // Group 1 is not optional, so it is there whenever the pattern matched.
+  const digits = m[1] ?? "";
+  const hex = digits.length === 3 ? [...digits].map((c) => c + c).join("") : digits;
   return `#${hex.toLowerCase()}`;
 }
 
@@ -22,14 +24,15 @@ function channel(value: number): number {
 /** WCAG relative luminance of a hex colour (0 = black, 1 = white). */
 export function relativeLuminance(color: string): number {
   const hex = normalizeHexColor(color).slice(1);
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const [r = 0, g = 0, b = 0] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 }
 
 /** WCAG contrast ratio between two colours, from 1 to 21. */
 export function contrastRatio(a: string, b: string): number {
-  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
 /**

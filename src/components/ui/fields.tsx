@@ -11,12 +11,12 @@ import { cx, field, type FieldSize, fieldClass, nativeCheck, selectClass } from 
 
 type FieldProps = {
   label: React.ReactNode;
-  hint?: React.ReactNode;
-  optional?: boolean;
+  hint?: React.ReactNode | undefined;
+  optional?: boolean | undefined;
   /** Classes for the wrapper, e.g. to size the field in a grid. */
-  className?: string;
+  className?: string | undefined;
   /** `sm` for a compact toolbar field: smaller text, a small muted label. */
-  size?: FieldSize;
+  size?: FieldSize | undefined;
 };
 
 function Hint({ id, children }: { id: string; children?: React.ReactNode }) {
@@ -40,7 +40,7 @@ export function FieldShell({
   size = "md",
   describedBy: own,
   control,
-}: FieldProps & { describedBy?: string; control: (ids: { id: string; describedBy: string | undefined }) => React.ReactNode }) {
+}: FieldProps & { describedBy?: string | undefined; control: (ids: { id: string; describedBy: string | undefined }) => React.ReactNode }) {
   const id = useId();
   return (
     <div className={cx(size === "sm" ? "space-y-1" : "space-y-1.5", className)}>

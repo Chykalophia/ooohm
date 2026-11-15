@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { formatExpiring } from "@/lib/format";
 import { hasPasskey } from "@/server/services/account";
-import { shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
+import { shouldSuggestCalendarFeed } from "@/modules/calendar";
 import { getDashboard } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { AppPage } from "@/components/layout/app-page";

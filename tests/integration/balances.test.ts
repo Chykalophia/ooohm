@@ -6,13 +6,17 @@ import type { Actor } from "@/domain/actor";
 import { type BalanceShortfallDetails, isDomainError } from "@/domain/errors";
 import { getPersonDetail } from "@/server/services/admin-people";
 import { decideLeaveRequest } from "@/server/services/approvals";
-import { issueCalendarFeed, shouldSuggestCalendarFeed } from "@/server/services/calendar-feeds";
+import * as calendarModule from "@/modules/calendar";
+import { shouldSuggestCalendarFeed } from "@/modules/calendar";
 import { cancelLeaveRequest as cancelLeaveRequestResult, getDashboard as getDashboardResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
 
 // The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const getBalanceSummary = (...args: Parameters<typeof balancesModule.getBalanceSummary>) => balancesModule.getBalanceSummary(...args).then(unwrap);

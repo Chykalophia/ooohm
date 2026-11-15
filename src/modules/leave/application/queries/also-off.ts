@@ -6,9 +6,8 @@ import { describeOverlap, overlapsFor } from "../../domain/overlap";
 import { formatShortDay } from "@/lib/format";
 import { teamLabel } from "@/domain/person";
 import { canSeeOnCalendar } from "@/domain/calendar-visibility";
-import { findCompanySettings, listHolidays, listTeamEntries } from "@/server/repositories/calendar";
+import { findCompanySettings, listHolidays, listTeamEntries, loadCalendarScope } from "@/modules/calendar";
 import { findDepartmentLimits } from "@/modules/organisation";
-import { loadCalendarScope } from "@/server/services/calendar-scope";
 
 /** A request an approver is about to decide, with the requester's department (if any). */
 export interface AlsoOffRequest {

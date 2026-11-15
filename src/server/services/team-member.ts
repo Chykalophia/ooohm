@@ -12,11 +12,10 @@ import { teamLabel } from "@/domain/person";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { listHolidayDates, listHolidays, listPersonLeave } from "@/server/repositories/calendar";
+import { listHolidayDates, listHolidays, listPersonLeave, scopeOf } from "@/modules/calendar";
 import { findCompany, findDepartment } from "@/modules/organisation";
 import { listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { findPerson } from "@/server/repositories/users";
-import { scopeOf } from "./calendar-scope";
 
 /** How far back "Recently" looks, and how far ahead "Coming up" does, in days. */
 const RECENT_DAYS = 60;

@@ -75,7 +75,8 @@ import {
   listAllLeaveTypes,
   lockCompanyForChange as lockCompany,
 } from "@/modules/organisation";
-import { insertHolidays, listHolidayRows } from "@/server/repositories/holidays";
+import { insertHolidays } from "@/modules/holidays";
+import { listHolidayRows } from "@/modules/calendar";
 import {
   countCompanyLeaveRequests,
   countRequestsByLeaveType,

@@ -1,9 +1,10 @@
 "use server";
 
 import { z } from "zod";
-import { HOLIDAY_NAME_MAX_LENGTH, HOLIDAY_RANGE_MAX_DAYS } from "@/domain/holidays";
+import { HOLIDAY_NAME_MAX_LENGTH } from "@/domain/holidays";
 import { formatCount, formatDateSpan, formatRecountOutcome } from "@/lib/format";
-import { addHoliday, addHolidayRange, addUsFederalHolidays, deleteHolidays, renameHolidays } from "@/server/services/admin-holidays";
+import { addHoliday, addHolidayRange, addUsFederalHolidays, deleteHolidays, HOLIDAY_RANGE_MAX_DAYS, renameHolidays } from "@/modules/holidays";
+import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -36,15 +37,15 @@ export async function addHolidayAction(_prev: FormState, formData: FormData): Pr
     z.object({ date: formFields.text(10), endDate: formFields.text(10).optional(), name: nameField }),
     async (ctx, actor, { date, endDate, name }) => {
       if (!endDate || endDate === date) {
-        const { holiday, recount } = await addHoliday(ctx, actor, { date, name });
-        return withRecount(`Added ${holiday.name}.`, recount);
+        return map(await addHoliday(ctx, actor, { date, name }), ({ holiday, recount }) => withRecount(`Added ${holiday.name}.`, recount));
       }
-      const { added, skipped, recount } = await addHolidayRange(ctx, actor, { startDate: date, endDate, name });
-      const kept = skipped.length > 0 ? ` ${formatCount(skipped.length, "day", "days")} already had a holiday and kept it.` : "";
-      return withRecount(
-        `Added ${added[0].name}, ${formatDateSpan(date, endDate)} (${formatCount(added.length, "day", "days")}).${kept}`,
-        recount,
-      );
+      return map(await addHolidayRange(ctx, actor, { startDate: date, endDate, name }), ({ added, skipped, recount }) => {
+        const kept = skipped.length > 0 ? ` ${formatCount(skipped.length, "day", "days")} already had a holiday and kept it.` : "";
+        return withRecount(
+          `Added ${added[0].name}, ${formatDateSpan(date, endDate)} (${formatCount(added.length, "day", "days")}).${kept}`,
+          recount,
+        );
+      });
     },
     MESSAGES,
   );
@@ -56,9 +57,10 @@ export async function addFederalHolidaysAction(_prev: FormState, formData: FormD
     formData,
     z.object({ year: z.coerce.number().int() }),
     async (ctx, actor, { year }) => {
-      const { added, recount } = await addUsFederalHolidays(ctx, actor, year);
-      if (added.length === 0) return "They're all here already.";
-      return withRecount(`Added ${added.length} ${added.length === 1 ? "holiday" : "holidays"}.`, recount);
+      return map(await addUsFederalHolidays(ctx, actor, year), ({ added, recount }) => {
+        if (added.length === 0) return "They're all here already.";
+        return withRecount(`Added ${added.length} ${added.length === 1 ? "holiday" : "holidays"}.`, recount);
+      });
     },
     MESSAGES,
   );
@@ -70,8 +72,7 @@ export async function renameHolidayAction(_prev: FormState, formData: FormData):
     formData,
     z.object({ ids: idsField, name: nameField }),
     async (ctx, actor, { ids, name }) => {
-      await renameHolidays(ctx, actor, ids, name);
-      return "Renamed.";
+      return map(await renameHolidays(ctx, actor, ids, name), () => "Renamed.");
     },
     MESSAGES,
   );
@@ -83,7 +84,7 @@ export async function deleteHolidayAction(_prev: FormState, formData: FormData):
     formData,
     z.object({ ids: idsField }),
     async (ctx, actor, { ids }) => {
-      return withRecount("Deleted.", await deleteHolidays(ctx, actor, ids));
+      return map(await deleteHolidays(ctx, actor, ids), (recount) => withRecount("Deleted.", recount));
     },
     MESSAGES,
   );

@@ -62,7 +62,7 @@ import {
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { cancelScheduledScrubIn } from "./admin-people-deletion";
 import { type BalanceSummary, followDefaults, loadAllowanceDefaults, summarizeBalances } from "@/modules/balances";
-import { revokeFeedsOnDeactivation } from "./calendar-feeds";
+import { revokeFeedsOnDeactivation } from "@/modules/calendar";
 import { commitThenNotify, type Notification } from "@/modules/notifications";
 
 /** Most invites (new or resent) one admin may send per {@link INVITE_WINDOW_MINUTES}. */

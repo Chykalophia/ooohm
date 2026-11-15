@@ -27,9 +27,13 @@ import { getPersonDetail, listPeople } from "../../src/server/services/admin-peo
 import { listBalancesForApi, listEventsForApi, listUsersForApi } from "../../src/server/services/api-v1";
 import { getApprovalNav, getApprovalTriage } from "../../src/server/services/approvals";
 import { getAuditLog } from "../../src/modules/audit";
-import { getMonthCalendar, getTeamCalendar } from "../../src/server/services/calendar";
+import * as calendarModule from "../../src/modules/calendar";
 import { getDashboard as getDashboardResult, listLeaveRequestsForApi as listLeaveRequestsForApiResult } from "../../src/modules/leave";
 import { unwrap } from "../../src/shared/lib/result";
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);
+const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
 
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);
 const listLeaveRequestsForApi = (...args: Parameters<typeof listLeaveRequestsForApiResult>) => listLeaveRequestsForApiResult(...args).then(unwrap);

@@ -4,13 +4,13 @@ import { yearHasHolidays } from "@/domain/calendar";
 import type { CalendarFilter } from "@/domain/calendar-visibility";
 import { isHolidayYear } from "@/domain/holidays";
 import { formatMonth } from "@/lib/format";
-import { getMonthCalendar, getYearCalendar } from "@/server/services/calendar";
+import { calendarFilterParamSchema, getMonthCalendar, getYearCalendar, monthParamSchema } from "@/modules/calendar";
+import { unwrap } from "@/shared/lib/result";
 import { AppPage } from "@/components/layout/app-page";
 import { NoCompany } from "@/components/layout/no-company";
 import { MonthNav, YearNav } from "@/components/navigation/month-nav";
 import { PillNav } from "@/components/navigation/pill-nav";
 import { cx, focusRing, quietLink, textLink } from "@/components/ui/styles";
-import { calendarFilterParamSchema, monthParamSchema } from "@/app/_lib/calendar-input";
 import { readParam, yearParamSchema } from "@/shared/lib/search-params";
 import { requireMemberPage } from "@/app/_lib/page-context";
 import { MonthGrid } from "./month-grid";
@@ -73,7 +73,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
 
   if (params.view === "year") {
     const year = readParam(yearParamSchema, params.year);
-    const { nav, months } = await getYearCalendar(page.ctx, page.actor, year ? Number(year) : undefined);
+    const { nav, months } = unwrap(await getYearCalendar(page.ctx, page.actor, year ? Number(year) : undefined));
     const thisMonth = nav.year === nav.current ? nav.today.slice(0, 7) : `${nav.year}-01`;
     return (
       <AppPage
@@ -93,11 +93,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   }
 
   const month = readParam(monthParamSchema, params.month);
-  const { nav, weeks, agenda, leaveTypes, filter, filters, filterLabels } = await getMonthCalendar(
-    page.ctx,
-    page.actor,
-    month,
-    readParam(calendarFilterParamSchema, params.show),
+  const { nav, weeks, agenda, leaveTypes, filter, filters, filterLabels } = unwrap(
+    await getMonthCalendar(page.ctx, page.actor, month, readParam(calendarFilterParamSchema, params.show)),
   );
   const whose =
     filter === "me" ? "Your time off" : filter === "team" ? "Your team's time off" : filterLabels.everyone === "Everyone" ? "Everyone's time off" : `${filterLabels.everyone}'s time off`;

@@ -6,14 +6,19 @@ import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import type { ColleagueVisibility } from "@/domain/calendar-visibility";
 import { isDomainError } from "@/domain/errors";
-import { getMonthCalendar, getTeamCalendar } from "@/server/services/calendar";
-import { issueCalendarFeed, renderCalendarFeed } from "@/server/services/calendar-feeds";
+import * as calendarModule from "@/modules/calendar";
 import { getTeamMember } from "@/server/services/team-member";
 import { companyAudit, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as organisation from "@/modules/organisation";
 import * as companySettings from "@/server/services/company-settings";
 import { unwrap } from "@/shared/lib/result";
+
+// The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
+const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);
+const getTeamCalendar = (...args: Parameters<typeof calendarModule.getTeamCalendar>) => calendarModule.getTeamCalendar(...args).then(unwrap);
+const issueCalendarFeed = (...args: Parameters<typeof calendarModule.issueCalendarFeed>) => calendarModule.issueCalendarFeed(...args).then(unwrap);
+const renderCalendarFeed = (...args: Parameters<typeof calendarModule.renderCalendarFeed>) => calendarModule.renderCalendarFeed(...args).then(unwrap);
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const getCompanySettings = (...args: Parameters<typeof organisation.getCompanySettings>) => organisation.getCompanySettings(...args).then(unwrap);

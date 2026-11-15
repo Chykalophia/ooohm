@@ -1,20 +1,11 @@
 import "server-only";
-import { and, asc, between, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { holidays } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 
 export type HolidayRow = { id: string; date: string; name: string };
 
 const fields = { id: holidays.id, date: holidays.date, name: holidays.name };
-
-/** The company's holidays from `from` to `to` inclusive, by date, with their ids. */
-export async function listHolidayRows(ex: Executor, companyId: string, from: string, to: string): Promise<HolidayRow[]> {
-  return ex
-    .select(fields)
-    .from(holidays)
-    .where(and(eq(holidays.companyId, companyId), between(holidays.date, from, to)))
-    .orderBy(asc(holidays.date));
-}
 
 /** The company's holidays among `ids`, by date; ids of other companies are left out. */
 export async function findHolidays(ex: Executor, companyId: string, ids: readonly string[]): Promise<HolidayRow[]> {

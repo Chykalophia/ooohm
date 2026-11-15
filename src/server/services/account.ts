@@ -12,7 +12,7 @@ import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { normalizePersonName } from "@/domain/people";
 import type { ColorMode } from "@/domain/color-mode";
 import type { ServiceContext } from "@/server/context";
-import { findCompanySettings } from "@/server/repositories/calendar";
+import { findCompanySettings } from "@/modules/calendar";
 import { findDepartment } from "@/modules/organisation";
 import { hasPasskeyOf, listPasskeysOf } from "@/server/repositories/passkeys";
 import { findPerson, lockMember, updateColorMode, updatePerson } from "@/server/repositories/users";

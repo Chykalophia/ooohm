@@ -25,7 +25,7 @@ import {
   listRecentDecisions,
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
-import { findCompanySettings } from "@/server/repositories/calendar";
+import { findCompanySettings } from "@/modules/calendar";
 import { findLeaveType } from "@/modules/organisation";
 import { currentApprover } from "./approval-routing";
 import { commitThenNotify } from "@/modules/notifications";

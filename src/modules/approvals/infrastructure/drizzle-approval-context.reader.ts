@@ -1,18 +1,13 @@
 import "server-only";
 /**
  * Who decides a request, read from the database: the inputs the approval rule needs.
- * Re-routing pending requests when an admin change moves the right to decide them is
- * in `approval-reroute.ts`.
+ * This is the one routing loader (AGENTS.md); everything that routes reads through it.
  */
 import type { Executor } from "@/db/types";
-import { type ApprovalContext, type ApprovalRequester, ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
 import { findDepartmentManagerIds } from "@/modules/organisation";
-import { findMember, findMembers, listActiveAdmins } from "@/server/repositories/users";
-
-/** A requester as the approval rule needs them: who they are, and who might decide for them. */
-export interface ApprovalRequesterRow extends ApprovalRequester {
-  departmentId: string | null;
-}
+import { findMembers, listActiveAdmins } from "@/server/repositories/users";
+import type { ApprovalContextReader, RoutingRequester } from "../application/ports";
+import type { ApprovalContext } from "../domain/approval-context";
 
 /**
  * What the approval rule needs to route each of `requesters`, read in `ex` (inside the
@@ -27,7 +22,7 @@ export interface ApprovalRequesterRow extends ApprovalRequester {
 export async function loadApprovalContexts(
   ex: Executor,
   companyId: string,
-  requesters: readonly ApprovalRequesterRow[],
+  requesters: readonly RoutingRequester[],
 ): Promise<Map<string, ApprovalContext>> {
   const departmentIds = [...new Set(requesters.flatMap((r) => (r.departmentId ? [r.departmentId] : [])))];
   const [admins, departmentManagers] = await Promise.all([
@@ -53,17 +48,14 @@ export async function loadApprovalContexts(
 }
 
 /** {@link loadApprovalContexts} for one requester. */
-export async function loadApprovalContext(ex: Executor, companyId: string, requester: ApprovalRequesterRow): Promise<ApprovalContext> {
+export async function loadApprovalContext(ex: Executor, companyId: string, requester: RoutingRequester): Promise<ApprovalContext> {
   return (await loadApprovalContexts(ex, companyId, [requester])).get(requester.id)!;
 }
 
-/**
- * Who the approval rule (minus self-approval) picks for `requesterId`'s pending
- * requests now, read inside `ex`: five reads at most. Also who is told when someone
- * cancels heads-up time off.
- */
-export async function currentApprover(ex: Executor, companyId: string, requesterId: string): Promise<string | null> {
-  const requester = await findMember(ex, companyId, requesterId);
-  if (!requester) return null;
-  return reassignApprover(new ManagerApprovalRule(), await loadApprovalContext(ex, companyId, requester));
+/** The {@link ApprovalContextReader} on Drizzle, bound to `ex`. */
+export function drizzleApprovalContextReader(ex: Executor): ApprovalContextReader {
+  return {
+    requesters: (companyId, ids) => findMembers(ex, companyId, ids),
+    contextsFor: (companyId, requesters) => loadApprovalContexts(ex, companyId, requesters),
+  };
 }

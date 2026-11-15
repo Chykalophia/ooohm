@@ -9,6 +9,9 @@ import { sendMail } from "@/lib/mail";
 import { uuidGenerator } from "@/shared/lib/id-generator";
 import type { ServiceContext } from "./context";
 import { adapterRegistry } from "./integrations/registry";
+import { wireModules } from "./wiring";
+
+wireModules();
 
 const secrets = createSecretBox(env.WEBHOOK_ENCRYPTION_KEY);
 const webhookTargets = { allowInsecure: env.WEBHOOK_ALLOW_INSECURE, allowPrivate: env.WEBHOOK_ALLOW_PRIVATE };

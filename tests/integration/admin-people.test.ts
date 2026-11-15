@@ -18,7 +18,7 @@ import {
   updatePerson,
 } from "@/server/services/admin-people";
 import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deleteWebhookEndpoint as deleteWebhookEndpointResult, revokeApiKey as revokeApiKeyResult } from "@/modules/integrations";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
@@ -31,6 +31,7 @@ const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createA
 const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
 const deleteWebhookEndpoint = (...args: Parameters<typeof deleteWebhookEndpointResult>) => deleteWebhookEndpointResult(...args).then(unwrap);
 const revokeApiKey = (...args: Parameters<typeof revokeApiKeyResult>) => revokeApiKeyResult(...args).then(unwrap);
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);
 

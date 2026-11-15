@@ -8,7 +8,7 @@ import { type ColorMode, colorModeOrDefault } from "@/domain/color-mode";
 import { requireActor } from "@/lib/auth";
 import type { ServiceContext } from "@/server/context";
 import { serviceContext } from "@/server/runtime";
-import { getApprovalNav } from "@/server/services/approvals";
+import { getApprovalNav } from "@/modules/approvals";
 import { getCompanyLogo } from "@/modules/organisation";
 import type { HeaderNav } from "@/components/layout/app-header";
 

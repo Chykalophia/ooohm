@@ -25,6 +25,9 @@ import { submitLeaveRequest as submitLeaveRequestResult } from "../../src/module
 import { unwrap } from "../../src/shared/lib/result";
 import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult } from "../../src/modules/integrations";
 import { uuidGenerator } from "../../src/shared/lib/id-generator";
+import { wireModules } from "../../src/server/wiring";
+
+wireModules();
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);

@@ -23,7 +23,7 @@ import {
   getDeletionPreview,
   runDueScrubs,
 } from "@/server/services/admin-people-deletion";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { getAuditLog as readAuditLog } from "@/modules/audit";
 import { unwrap } from "@/shared/lib/result";
 import * as balancesModule from "@/modules/balances";
@@ -40,7 +40,7 @@ import * as companySettings from "@/server/services/company-settings";
 const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
 const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
 const listBalancesForApi = (...args: Parameters<typeof listBalancesForApiResult>) => listBalancesForApiResult(...args).then(unwrap);
-
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 // The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const setAllowanceOverride = (...args: Parameters<typeof balancesModule.setAllowanceOverride>) => balancesModule.setAllowanceOverride(...args).then(unwrap);
 

@@ -9,6 +9,9 @@ import { type SecretBox, unavailableSecretBox } from "../src/lib/integration-cry
 import type { ServiceContext } from "../src/server/context";
 import { type AdapterRegistry, createAdapterRegistry } from "../src/server/integrations/adapter";
 import { uuidGenerator } from "../src/shared/lib/id-generator";
+import { wireModules } from "../src/server/wiring";
+
+wireModules();
 
 /**
  * @param name The process as it reads in an error, e.g. "rollover job" gives "The rollover

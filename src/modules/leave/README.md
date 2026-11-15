@@ -7,9 +7,9 @@ ports, and the use-case tests run on in-memory fakes.
 ## Owns
 
 The `leave_requests` table and the writes to `leave_request_days` (a request's cost per calendar year), through
-`infrastructure/drizzle-leave-request.repository.ts` and `drizzle-leave-request-days.ts`. Approvals still write a
-request's status and approver (`updateStatusIfCurrent`, `lockLeaveRequest`, `reassignIfCurrent` in
-`src/server/repositories/leave-requests.ts`) until that module moves; balances reads `leave_request_days`.
+`infrastructure/drizzle-leave-request.repository.ts` and `drizzle-leave-request-days.ts`. Approvals change a
+request's status and approver through this module's API (`lockLeaveRequest`, `updateStatusIfCurrent`,
+`reassignIfCurrent`); balances reads `leave_request_days`.
 
 ## Public API (`index.ts`)
 
@@ -30,7 +30,8 @@ Use cases, each `(ctx, actor, …)` → `ServiceResult`:
 Queries: `getDashboard`, `listMyRequests`, `getMyRequest`, `previewLeaveFor`, `listLeaveRequestsForApi` (each a
 `ServiceResult`), and `alsoOffFor`, `alsoOffText`, `draftCoverage` (plain values on the caller's executor).
 
-For approvals, on its transaction: `recordLeaveChange`, `recordReassignment`, `activeContacts`, `summarize`, and the
+For approvals, on its transaction: `recordLeaveChange`, `recordReassignment`, `activeContacts`, `summarize`,
+`lockLeaveRequest`, `updateStatusIfCurrent`, `reassignIfCurrent`, `toLeaveRequestDTO`, `provideApprovalRouting`, and the
 rules `assertTransition`, `canDecide`, `decidesByAssignment`, `normalizeNote`. Policies: `canCancel`,
 `canAddLeaveFor`, `canCorrectLeaveFor`, `canSeeLeaveDetails`, `canCancelOn`, `canRemoveOn`. DTO types and the
 `LeaveRequest` type; never a row.
@@ -49,8 +50,12 @@ Every change writes an audit row and a `leave.*` outbox event in its transaction
   (balances), `ApprovalRouter` (approval routing), `ChangeLog`, `AlsoOffReader`, `Clock`, and `LeaveDeps` with its
   `unitOfWork`.
 - `application/use-cases/`: one file per use case. `application/queries/`: one file per read.
-- `infrastructure/`: the Drizzle repository and directory, and the adapters onto `@/modules/balances`, the
-  approval-routing service and `recordChange`.
+- `infrastructure/`: the Drizzle repository and directory, and the adapters onto `@/modules/balances` and
+  `recordChange`.
+- Approval routing (`ApprovalRouter`: `route` and `currentApprover`) is leave's port, implemented by
+  `@/modules/approvals`. Leave never imports approvals: `provideApprovalRouting` takes the implementation, and
+  `wireModules()` in `src/server/wiring.ts` calls it from every composition root. Reads that never route need no
+  wiring.
 - `composition.ts`: binds the ports to a transaction (`leaveStore`, `leaveDeps`, `leaveModule`); the index exports
   its ctx-taking functions.
 

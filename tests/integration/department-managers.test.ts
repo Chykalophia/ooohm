@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
 import { deletePerson } from "@/server/services/admin-people-deletion";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { addLeaveFor as addLeaveForResult, submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
 import { getTeamMember } from "@/server/services/team-member";
@@ -13,6 +13,8 @@ import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures"
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as organisation from "@/modules/organisation";
 import * as departmentManager from "@/server/services/department-manager";
+
+const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);

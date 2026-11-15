@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
-import { decideLeaveRequest } from "@/server/services/approvals";
+import { decideLeaveRequest } from "@/modules/approvals";
+import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { formFields } from "@/app/_lib/form-fields";
 import { runFormAction } from "@/app/_lib/server-action";
@@ -21,8 +22,8 @@ export async function decideLeaveAction(_prev: FormState, formData: FormData): P
     formData,
     decideSchema,
     async (ctx, actor, input) => {
-      const request = await decideLeaveRequest(ctx, actor, input);
-      return request.status === "approved" ? DECIDED_MESSAGE.approve : DECIDED_MESSAGE.reject;
+      const decided = await decideLeaveRequest(ctx, actor, input);
+      return map(decided, (request) => (request.status === "approved" ? DECIDED_MESSAGE.approve : DECIDED_MESSAGE.reject));
     },
     // No refresh here: the decided card shows its outcome for a moment first, then
     // refreshes the page itself (ApprovalItem), so it never vanishes mid-click.

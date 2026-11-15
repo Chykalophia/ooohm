@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
 import { canAdminister, assertCanAdminister } from "@/shared/kernel/admin-permissions";
-import { ManagerApprovalRule, reassignApprover } from "@/domain/approval-rule";
+import { ManagerApprovalRule, reassignApprover } from "@/modules/approvals/domain/approver-for";
 import { isDomainError, type DomainErrorCode } from "@/domain/errors";
 import {
   assertKeepsAnActiveAdmin,

@@ -1,0 +1,1040 @@
+[
+  {
+    "id": "00000000-0000-4000-8000-000000000000",
+    "type": "leave.requested",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "requestId": "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "startDate": "2026-12-21",
+      "endDate": "2026-12-23",
+      "dayPortion": "full",
+      "days": 3,
+      "status": "pending",
+      "actorId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "actor": {
+        "type": "user",
+        "id": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43"
+      }
+    }
+  },
+  {
+    "id": "6e703ccd-f3ad-4960-b62c-f80dfa6b2b68",
+    "type": "leave.approved",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "requestId": "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "startDate": "2026-12-21",
+      "endDate": "2026-12-23",
+      "dayPortion": "full",
+      "days": 3,
+      "status": "approved",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "type": "leave.rejected",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "requestId": "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "startDate": "2026-12-21",
+      "endDate": "2026-12-23",
+      "dayPortion": "full",
+      "days": 3,
+      "status": "rejected",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000003",
+    "type": "leave.cancelled",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "requestId": "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "startDate": "2026-12-21",
+      "endDate": "2026-12-23",
+      "dayPortion": "full",
+      "days": 3,
+      "status": "cancelled",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000004",
+    "type": "leave.reassigned",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "requestId": "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "startDate": "2026-12-21",
+      "endDate": "2026-12-23",
+      "dayPortion": "full",
+      "days": 3,
+      "status": "pending",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      },
+      "previousApproverId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "approverId": null
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000005",
+    "type": "leave.recounted",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "requestId": "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "startDate": "2026-12-21",
+      "endDate": "2026-12-23",
+      "dayPortion": "full",
+      "days": 2,
+      "status": "approved",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+        "via": "holiday_change"
+      },
+      "previousDays": 3
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000006",
+    "type": "balance.adjusted",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "allowanceId": "2b3c4d5e-6f70-4a8b-9c0d-1e2f3a4b5c6d",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "year": 2027,
+      "days": 20,
+      "carriedOverDays": 2.5,
+      "adjustmentDays": 0,
+      "reason": "carryover",
+      "actorId": null,
+      "actor": {
+        "type": "system",
+        "process": "year_rollover"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000007",
+    "type": "user.created",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "email": "ana@example.com",
+      "name": "Ana Lima",
+      "role": "employee",
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "levelId": null,
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "canSelfApprove": false,
+      "isActive": false,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+        "via": "adapter_sync:gusto"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000008",
+    "type": "user.updated",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "email": "ana@example.com",
+      "name": "Ana Lima",
+      "role": "employee",
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "levelId": null,
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "canSelfApprove": false,
+      "isActive": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000009",
+    "type": "user.reactivated",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "email": "ana@example.com",
+      "name": "Ana Lima",
+      "role": "employee",
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "levelId": null,
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "canSelfApprove": false,
+      "isActive": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000010",
+    "type": "user.invite_resent",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "email": "ana@example.com",
+      "name": "Ana Lima",
+      "role": "employee",
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "levelId": null,
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "canSelfApprove": false,
+      "isActive": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000011",
+    "type": "user.deactivated",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "email": "ana@example.com",
+      "name": "Ana Lima",
+      "role": "employee",
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "levelId": null,
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "canSelfApprove": false,
+      "isActive": false,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000012",
+    "type": "user.deletion_scheduled",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "scheduledFor": "2026-11-22T09:00:00.000Z",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000013",
+    "type": "user.deletion_cancelled",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "scheduledFor": "2026-11-22T09:00:00.000Z",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000014",
+    "type": "user.deleted",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "mode": "scrubbed",
+      "deletedAt": "2026-11-22T09:00:04.512Z",
+      "actorId": null,
+      "actor": {
+        "type": "system",
+        "process": "scheduled_scrub",
+        "requestedBy": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000015",
+    "type": "department.created",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "name": "Support",
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "maxOff": 2,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000016",
+    "type": "department.renamed",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "name": "Support",
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "maxOff": 2,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000017",
+    "type": "department.deleted",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "name": "Support",
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "maxOff": 2,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000018",
+    "type": "department.manager_changed",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "name": "Support",
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "maxOff": 2,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000019",
+    "type": "department.limit_changed",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "name": "Support",
+      "managerId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "maxOff": 2,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000020",
+    "type": "level.created",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "levelId": "7e6d5c4b-3a29-4180-9f6e-5d4c3b2a1908",
+      "name": "Senior",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000021",
+    "type": "level.renamed",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "levelId": "7e6d5c4b-3a29-4180-9f6e-5d4c3b2a1908",
+      "name": "Senior",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000022",
+    "type": "level.deleted",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "levelId": "7e6d5c4b-3a29-4180-9f6e-5d4c3b2a1908",
+      "name": "Senior",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000023",
+    "type": "allowance_rule.set",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "ruleId": "6f5e4d3c-2b1a-4098-8f7e-6d5c4b3a2918",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "levelId": "7e6d5c4b-3a29-4180-9f6e-5d4c3b2a1908",
+      "days": 25,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000024",
+    "type": "allowance_rule.removed",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "ruleId": "6f5e4d3c-2b1a-4098-8f7e-6d5c4b3a2918",
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "departmentId": "5c4b3a29-1807-4f6e-8d5c-4b3a29180716",
+      "levelId": "7e6d5c4b-3a29-4180-9f6e-5d4c3b2a1908",
+      "days": 25,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000025",
+    "type": "leave_type.created",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "code": "vacation",
+      "name": "Vacation",
+      "color": "#0d9488",
+      "isPaid": true,
+      "countsAgainstAllowance": true,
+      "defaultAllowanceDays": 20,
+      "carryoverEnabled": false,
+      "carryoverMaxDays": null,
+      "sortOrder": 0,
+      "archived": false,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000026",
+    "type": "leave_type.updated",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "code": "vacation",
+      "name": "Vacation",
+      "color": "#0d9488",
+      "isPaid": true,
+      "countsAgainstAllowance": true,
+      "defaultAllowanceDays": 20,
+      "carryoverEnabled": false,
+      "carryoverMaxDays": null,
+      "sortOrder": 0,
+      "archived": false,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000027",
+    "type": "leave_type.unarchived",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "code": "vacation",
+      "name": "Vacation",
+      "color": "#0d9488",
+      "isPaid": true,
+      "countsAgainstAllowance": true,
+      "defaultAllowanceDays": 20,
+      "carryoverEnabled": false,
+      "carryoverMaxDays": null,
+      "sortOrder": 0,
+      "archived": false,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000028",
+    "type": "leave_type.reordered",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "code": "vacation",
+      "name": "Vacation",
+      "color": "#0d9488",
+      "isPaid": true,
+      "countsAgainstAllowance": true,
+      "defaultAllowanceDays": 20,
+      "carryoverEnabled": false,
+      "carryoverMaxDays": null,
+      "sortOrder": 0,
+      "archived": false,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000029",
+    "type": "leave_type.archived",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "leaveTypeId": "8a1d2c3b-4e5f-4a6b-9c7d-0e1f2a3b4c5d",
+      "code": "vacation",
+      "name": "Vacation",
+      "color": "#0d9488",
+      "isPaid": true,
+      "countsAgainstAllowance": true,
+      "defaultAllowanceDays": 20,
+      "carryoverEnabled": false,
+      "carryoverMaxDays": null,
+      "sortOrder": 0,
+      "archived": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000030",
+    "type": "holiday.created",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "holidayId": "4d3c2b1a-0f9e-4d8c-b7a6-958473625140",
+      "date": "2026-12-25",
+      "name": "Christmas Day",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000031",
+    "type": "holiday.renamed",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "holidayId": "4d3c2b1a-0f9e-4d8c-b7a6-958473625140",
+      "date": "2026-12-25",
+      "name": "Christmas Day",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000032",
+    "type": "holiday.deleted",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "holidayId": "4d3c2b1a-0f9e-4d8c-b7a6-958473625140",
+      "date": "2026-12-25",
+      "name": "Christmas Day",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000033",
+    "type": "company.updated",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "companyId": "e24b2035-464a-41c7-839d-095328689365",
+      "name": "Acme",
+      "timezone": "Europe/Lisbon",
+      "workingDays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "allowancePolicy": "annual_calendar_year",
+      "deletionGrace": true,
+      "managersSeeDetails": false,
+      "approvalMode": "required",
+      "colleagueVisibility": "everyone",
+      "departmentScoping": false,
+      "theme": "classic",
+      "accentColor": null,
+      "corners": "theme",
+      "requestStyle": "form",
+      "layout": "standard",
+      "logo": {
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "contentType": "image/png",
+        "width": 240,
+        "height": 80
+      },
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000034",
+    "type": "email_template.updated",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "notificationType": "leave.approved",
+      "subject": "Your {{leaveType}} is booked",
+      "message": null,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000035",
+    "type": "email_template.reset",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "notificationType": "leave.approved",
+      "subject": null,
+      "message": null,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000036",
+    "type": "calendar_feed.issued",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "feedId": "0f1e2d3c-4b5a-4697-8877-665544332211",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "kind": "personal",
+      "reason": null,
+      "actorId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "actor": {
+        "type": "user",
+        "id": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000037",
+    "type": "calendar_feed.revoked",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "feedId": "0f1e2d3c-4b5a-4697-8877-665544332211",
+      "userId": "3f6c1a9e-7b2d-4e58-a0c1-9d8e7f6a5b43",
+      "kind": "team",
+      "reason": "deactivated",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000038",
+    "type": "webhook_endpoint.created",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "urlOrigin": "https://hooks.example.com",
+      "description": "Payroll",
+      "eventTypes": [
+        "leave.approved",
+        "leave.cancelled"
+      ],
+      "enabled": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000039",
+    "type": "webhook_endpoint.enabled",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "urlOrigin": "https://hooks.example.com",
+      "description": "Payroll",
+      "eventTypes": [
+        "leave.approved",
+        "leave.cancelled"
+      ],
+      "enabled": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000040",
+    "type": "webhook_endpoint.secret_rotated",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "urlOrigin": "https://hooks.example.com",
+      "description": "Payroll",
+      "eventTypes": [
+        "leave.approved",
+        "leave.cancelled"
+      ],
+      "enabled": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000041",
+    "type": "webhook_endpoint.pinged",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "urlOrigin": "https://hooks.example.com",
+      "description": "Payroll",
+      "eventTypes": [
+        "leave.approved",
+        "leave.cancelled"
+      ],
+      "enabled": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000042",
+    "type": "webhook_endpoint.disabled",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "urlOrigin": "https://hooks.example.com",
+      "description": "Payroll",
+      "eventTypes": [
+        "leave.approved",
+        "leave.cancelled"
+      ],
+      "enabled": false,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000043",
+    "type": "webhook_endpoint.deleted",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "urlOrigin": "https://hooks.example.com",
+      "description": "Payroll",
+      "eventTypes": [
+        "leave.approved",
+        "leave.cancelled"
+      ],
+      "enabled": false,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000044",
+    "type": "webhook_endpoint.updated",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "urlOrigin": "https://hooks.example.com",
+      "description": "Payroll",
+      "eventTypes": [
+        "leave.approved",
+        "leave.cancelled"
+      ],
+      "enabled": true,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      },
+      "urlChanged": true
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000045",
+    "type": "webhook_delivery.redelivered",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "deliveryId": "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9",
+      "eventId": "6e703ccd-f3ad-4960-b62c-f80dfa6b2b68",
+      "eventType": "leave.approved",
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000046",
+    "type": "api_key.created",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "apiKeyId": "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
+      "name": "Payroll export",
+      "prefix": "ooohm_Ab3dE",
+      "scopes": [
+        "read"
+      ],
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000047",
+    "type": "api_key.revoked",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "apiKeyId": "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
+      "name": "Payroll export",
+      "prefix": "ooohm_Ab3dE",
+      "scopes": [
+        "read"
+      ],
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000048",
+    "type": "import.completed",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "importRunId": "8b9c0d1e-2f3a-4b4c-9d5e-6f7a8b9c0d1e",
+      "source": "timeoff",
+      "sourceSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "counts": {
+        "people": 12,
+        "departments": 3,
+        "leaveTypes": 4,
+        "holidays": 9,
+        "allowances": 48,
+        "leaveRequests": 310
+      },
+      "mismatches": 0,
+      "actorId": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+      "actor": {
+        "type": "user",
+        "id": "0b8f3c2e-5a61-4d0e-9f3b-2c7d1e4a6b90",
+        "via": "timeoff_import"
+      }
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000049",
+    "type": "ping",
+    "version": 1,
+    "createdAt": "2026-11-02T15:04:05.123Z",
+    "companyId": "e24b2035-464a-41c7-839d-095328689365",
+    "data": {
+      "endpointId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "message": "This is a test event from OOOhm."
+    }
+  }
+]

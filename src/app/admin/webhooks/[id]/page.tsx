@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MAX_DELIVERY_ATTEMPTS } from "@/domain/integrations";
+import { getWebhookEndpoint, MAX_DELIVERY_ATTEMPTS } from "@/modules/integrations";
 import { formatCount, formatInstantDateTime } from "@/lib/format";
-import { getWebhookEndpoint } from "@/server/services/webhooks";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
 import { pagerLinks, readPageParams } from "@/app/_lib/paging";
@@ -39,7 +39,7 @@ export default async function WebhookEndpointPage({
   const { actor, ctx, nav } = await requireAdminPage();
   const { id } = await params;
   const { cursor, number } = readPageParams(await searchParams);
-  const { endpoint, deliveries, deliveryPages, timezone } = await orNotFound(getWebhookEndpoint(ctx, actor, id, cursor));
+  const { endpoint, deliveries, deliveryPages, timezone } = await orNotFound(getWebhookEndpoint(ctx, actor, id, cursor).then(unwrap));
   const pager = pagerLinks(`/admin/webhooks/${endpoint.id}`, deliveryPages, number, { fragment: DELIVERIES_ID });
   const at = (d: Date) => formatInstantDateTime(d, timezone);
 

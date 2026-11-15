@@ -17,8 +17,7 @@ import { basename } from "node:path";
 import { parseArgs } from "node:util";
 import { isDomainError } from "../src/domain/errors";
 import { adminDatabaseConfig, openAdminDatabase } from "../src/server/admin/db";
-import { readTimeOffSqlite } from "../src/server/importers/timeoff/sqlite-reader";
-import { importTimeOff, type TimeOffImportReport } from "../src/server/services/timeoff-import";
+import { importTimeOff, readTimeOffFile, type TimeOffImportReport } from "../src/modules/import";
 import { scriptContext } from "./script-context.mts";
 
 const USAGE = `Usage: pnpm import:timeoff -- --file <timeoff.sqlite> (--company <id> | --create-company <name>) --actor <email> [options]
@@ -152,7 +151,7 @@ function print(report: TimeOffImportReport): void {
 
 let exitCode = 0;
 try {
-  const snapshot = readTimeOffSqlite(options.file);
+  const snapshot = readTimeOffFile(options.file);
   const report = await importTimeOff(ctx, {
     snapshot,
     source,

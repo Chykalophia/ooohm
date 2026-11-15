@@ -25,13 +25,17 @@ import { createAdapterRegistry } from "../../src/server/integrations/adapter";
 import { uuidGenerator } from "../../src/shared/lib/id-generator";
 import { wireModules } from "../../src/server/wiring";
 import { getPersonDetail, listPeople } from "../../src/server/services/admin-people";
-import { listBalancesForApi, listEventsForApi, listUsersForApi } from "../../src/server/services/api-v1";
+import { listBalancesForApi as listBalancesForApiResult, listEventsForApi as listEventsForApiResult, listUsersForApi as listUsersForApiResult } from "../../src/modules/integrations";
 import { getApprovalNav, getApprovalTriage } from "../../src/modules/approvals";
 import { getAuditLog } from "../../src/modules/audit";
 import { getMonthCalendar, getTeamCalendar } from "../../src/server/services/calendar";
 import { getDashboard as getDashboardResult, listLeaveRequestsForApi as listLeaveRequestsForApiResult } from "../../src/modules/leave";
 import { unwrap } from "../../src/shared/lib/result";
 
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const listBalancesForApi = (...args: Parameters<typeof listBalancesForApiResult>) => listBalancesForApiResult(...args).then(unwrap);
+const listEventsForApi = (...args: Parameters<typeof listEventsForApiResult>) => listEventsForApiResult(...args).then(unwrap);
+const listUsersForApi = (...args: Parameters<typeof listUsersForApiResult>) => listUsersForApiResult(...args).then(unwrap);
 wireModules();
 
 const getDashboard = (...args: Parameters<typeof getDashboardResult>) => getDashboardResult(...args).then(unwrap);

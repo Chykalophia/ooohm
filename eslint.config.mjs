@@ -24,7 +24,7 @@ const layers = [
       relative,
       { group: ["@/server/repositories/*"], message: "Pages and actions call services, not repositories." },
       {
-        group: ["@/server/importers/*", "@/server/importers/**", "@/server/services/timeoff-import"],
+        group: ["@/modules/import", "@/modules/import/*", "@/modules/import/**"],
         message: "The TimeOff import is CLI-only: it has no actor or authorization.",
       },
     ],
@@ -58,7 +58,9 @@ const layers = [
       "src/shared/lib/unit-of-work.ts",
       "src/shared/lib/admin-access.ts",
       "src/modules/audit/application/**/*.ts",
+      "src/modules/import/application/**/*.ts",
       "src/modules/organisation/application/**/*.ts",
+      "src/modules/integrations/application/**/*.ts",
     ],
     paths: [
       ...next,
@@ -77,6 +79,7 @@ const layers = [
       "src/modules/notifications/infrastructure/**/*.ts",
       "src/modules/audit/infrastructure/**/*.ts",
       "src/modules/organisation/infrastructure/**/*.ts",
+      "src/modules/integrations/infrastructure/**/*.ts",
     ],
     paths: [...next, pool, { name: "@/lib/env", message: "Repositories take everything they need as arguments." }],
     patterns: [
@@ -151,7 +154,7 @@ const layers = [
   {
     // Source readers for one-time imports turn another system's files into plain domain
     // records. They read files only: never OOOhm's database, configuration or session.
-    files: ["src/server/importers/**/*.ts"],
+    files: ["src/modules/import/infrastructure/**/*.ts"],
     paths: [
       ...next,
       pool,

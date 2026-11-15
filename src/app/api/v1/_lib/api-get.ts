@@ -1,6 +1,6 @@
 import "server-only";
 import type { NextRequest } from "next/server";
-import type { ApiClient } from "@/domain/integrations";
+import { type ApiClient } from "@/modules/integrations";
 import { clientAddress } from "@/lib/client-address";
 import { env } from "@/lib/env";
 import { createRateLimiter } from "@/lib/rate-limit";

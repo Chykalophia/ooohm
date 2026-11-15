@@ -140,7 +140,7 @@ carol@example.com   2025         3         3       0
 carol@example.com   2026        25        25       0
 ```
 
-**TimeOff's side** is computed from the SQLite data by a pure module (`src/domain/timeoff/balance.ts`, unit tested
+**TimeOff's side** is computed from the SQLite data by a pure module (`src/modules/import/domain/timeoff/balance.ts`, unit tested
 on hand-worked examples), following TimeOff's rules:
 
 - total = department allowance + pro-rating + adjustment + carried over;

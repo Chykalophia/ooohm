@@ -17,16 +17,20 @@ import {
   resendInvite,
   updatePerson,
 } from "@/server/services/admin-people";
-import { createApiKey, revokeApiKey } from "@/server/services/api-keys";
+import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult, deleteWebhookEndpoint as deleteWebhookEndpointResult, revokeApiKey as revokeApiKeyResult } from "@/modules/integrations";
 import { decideLeaveRequest as decideLeaveRequestResult } from "@/modules/approvals";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
-import { createWebhookEndpoint, deleteWebhookEndpoint } from "@/server/services/webhooks";
 import { rejectsWith } from "./assertions";
 import { captureStderr, companyAudit, companyEvents, decidable, type PersonSpec, seedCompany, setAllowance, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 
+// The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
+const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
+const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
+const deleteWebhookEndpoint = (...args: Parameters<typeof deleteWebhookEndpointResult>) => deleteWebhookEndpointResult(...args).then(unwrap);
+const revokeApiKey = (...args: Parameters<typeof revokeApiKeyResult>) => revokeApiKeyResult(...args).then(unwrap);
 const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
 const submitLeaveRequest = (...args: Parameters<typeof submitLeaveRequestResult>) => submitLeaveRequestResult(...args).then(unwrap);

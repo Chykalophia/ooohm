@@ -1,12 +1,11 @@
 import { z } from "zod";
 import { isDomainError } from "@/domain/errors";
-import type { ApiClient } from "@/domain/integrations";
+import { type ApiClient, authenticateApiKey } from "@/modules/integrations";
 import { apiKeyFromAuthorization } from "@/lib/integration-crypto";
 import { log } from "@/lib/log";
 import type { RateLimiter } from "@/lib/rate-limit";
 import type { ServiceContext } from "@/server/context";
 import { type ServiceResult, valueOf } from "@/shared/lib/result";
-import { authenticateApiKey } from "@/server/services/api-keys";
 
 /**
  * The shared body of every `/api/v1` route handler, with its dependencies injected so

@@ -73,3 +73,12 @@ returns what the screen needs (a DTO, not a row).
 `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:integration` (Postgres) and
 `pnpm test:integration:embedded` (PGlite). Phase A0 adds `pnpm arch` and a GitHub Actions workflow that runs all of
 them on every PR.
+
+Fitness checks that guard what no single test sees:
+
+- `tests/integration/tenancy.test.ts` runs every exported use case, query and API route as one company's actor
+  against two seeded companies, and fails if the other company's rows change or its data shows up.
+  `tests/architecture/tenancy-coverage.test.ts` fails when an export has neither a case nor an exemption with a reason.
+- `pnpm db:check-drift` fails when `src/db/schema.ts` and the committed migrations in `drizzle/` disagree.
+- `pnpm test:e2e` (after `pnpm build`) drives the built app on `pnpm start:embedded` in Chromium: invite-only
+  sign-in through the emailed link, inviting people, and a request from submission to approval and cancellation.

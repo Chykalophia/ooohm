@@ -42,6 +42,7 @@ pnpm dev            # local dev (needs Postgres + .env)
 pnpm typecheck      # tsc --noEmit
 pnpm lint
 pnpm db:generate    # after editing src/db/schema.ts — commit the generated SQL in drizzle/
+pnpm db:check-drift # fails if src/db/schema.ts has a change no committed migration makes (ADR-0011; CI runs it)
 pnpm db:roles       # idempotent: creates/repairs the owner and app roles (deploy/db-roles.sql)
 pnpm db:migrate     # as the owner (DATABASE_ADMIN_URL), then refreshes the app role's grants
 pnpm db:seed        # idempotent; uses SEED_ADMIN_EMAIL; as the owner
@@ -55,6 +56,7 @@ pnpm madge          # import cycles (none allowed)
 pnpm test:integration  # service tests; set TEST_DATABASE_URL (see docs/architecture.md#testing)
 pnpm test:integration:embedded  # the same on embedded PGlite (no server); keep both green
 pnpm start:embedded # after pnpm build: migrate, seed and serve on embedded PGlite (docs/hosting.md)
+pnpm test:e2e       # after pnpm build: Playwright journeys on pnpm start:embedded (Chromium; docs/architecture.md#testing)
 docker compose up   # full stack: db, migrate+seed, app, mailpit (http://localhost:8025)
 ```
 
@@ -89,7 +91,7 @@ Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
 - `site/`: the marketing landing page, a static site deployed apart from the app (no build step). `site/demo/` records its videos from the real app with demo data. See `site/README.md`.
 - `docs/guide/`: the product guide, screen by screen, with every setting and email; `site/docs/` is built from it (`node site/demo/build-docs.mjs`) and its screenshots come from `site/demo/docs-screens.mjs`. Update the page (and its shot) with any change to a screen, a setting or an email. See `site/README.md`.
 - `docs/api.md`: the public integration reference (auth, endpoints, events and payloads, webhooks, signatures). Update it with any event or API change.
-- `tests/unit/**` (`pnpm test`) and `tests/integration/**` (`pnpm test:integration`, needs `TEST_DATABASE_URL`; fresh database per file). Both run under `--conditions=react-server` so `server-only` modules load. `tests/components/**` (`pnpm test:components`) runs client components on jsdom without that condition; `tests/components/setup.ts` stubs `next/navigation` and, per file, the server actions a component imports.
+- `tests/unit/**` (`pnpm test`) and `tests/integration/**` (`pnpm test:integration`, needs `TEST_DATABASE_URL`; fresh database per file). Both run under `--conditions=react-server` so `server-only` modules load. `tests/components/**` (`pnpm test:components`) runs client components on jsdom without that condition; `tests/components/setup.ts` stubs `next/navigation` and, per file, the server actions a component imports. Every new exported function of a module index, service, job or identity file, and every new `/api/v1` route, needs a cross-company case in `tests/integration/tenancy.test.ts` or an exemption with its reason in `tests/support/tenancy-coverage.ts` (an architecture test fails otherwise).
 
 ## License
 

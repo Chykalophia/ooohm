@@ -12,7 +12,7 @@ import { formatInstantDateTime } from "@/lib/format";
 import type { ServiceContext } from "@/server/context";
 import { findCompany, listAllLeaveTypes, listDepartments } from "@/modules/organisation";
 import { listLevels } from "@/modules/organisation";
-import { listPeopleNames } from "@/server/repositories/users";
+import { listPeopleNames } from "@/shared/lib/db/members";
 import type { AuditRowNames } from "./dto";
 import { AUDIT_PAGE_SIZE, AUDIT_PAGE_SIZES, AUDIT_SEARCH_MAX_LENGTH, type AuditPageSize } from "./schemas";
 

@@ -31,7 +31,7 @@ import { recordChange } from "@/shared/lib/db/change-log";
 import { findCompany, findLeaveTypeByCode } from "@/modules/organisation";
 import { lockCompany } from "@/shared/lib/db/company-lock";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
-import { findPersonByEmail, insertPerson, lockMember, type PersonRow, updatePerson } from "@/server/repositories/users";
+import { findPersonByEmail, insertPerson, lockMember, type PersonRow, updatePerson } from "@/shared/lib/db/members";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { writeAllowance } from "@/modules/balances";
 import { inTransaction } from "@/shared/lib/unit-of-work";

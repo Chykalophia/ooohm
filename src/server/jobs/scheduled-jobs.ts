@@ -11,8 +11,8 @@ import "server-only";
  */
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { claimJob, finishJob } from "@/server/repositories/scheduled-jobs";
-import { runDueScrubs } from "./admin-people-deletion";
+import { claimJob, finishJob } from "@/shared/lib/db/scheduled-jobs";
+import { runDueScrubs } from "@/modules/people";
 import { pruneIntegrationData } from "./retention";
 import { runYearRollover } from "@/modules/balances";
 import { unwrap } from "@/shared/lib/result";

@@ -1,7 +1,7 @@
 import "server-only";
 import type { Executor } from "@/db/types";
 import { findDepartment } from "@/modules/organisation";
-import { findPerson } from "@/server/repositories/users";
+import { findPerson } from "@/shared/lib/db/members";
 import { alsoOffFor } from "./also-off";
 
 /**

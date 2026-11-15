@@ -8,11 +8,10 @@ import { setupTokenMatches } from "@/lib/setup-token";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { insertCompany, lockCompaniesTable } from "@/server/repositories/imports";
-import { isInstalled, markInstalled } from "@/server/repositories/installation";
+import { isInstalled, markInstalled } from "@/server/identity/installation.repository";
 import { addLeaveType, recordLeaveTypeChange } from "@/modules/organisation";
-import { insertPerson } from "@/server/repositories/users";
-import { recordAdminChange } from "@/shared/lib/admin-access";
-import { personPayload, personSnapshot } from "./admin-people";
+import { insertPerson } from "@/shared/lib/db/members";
+import { recordPersonCreated } from "@/modules/people";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 
 /**
@@ -72,15 +71,7 @@ export async function runFirstInstall(
       canSelfApprove: true,
     });
     const actor: Actor = { ...toActor({ ...admin, companyId: company.id })!, source: byUser(admin.id, CHANGE_PROCESSES.firstInstall) };
-    await recordAdminChange(tx, actor, {
-      type: ADMIN_EVENT_TYPES.userCreated,
-      entityType: "user",
-      entityId: admin.id,
-      subjectUserId: admin.id,
-      before: null,
-      after: personSnapshot(admin),
-      payload: personPayload(admin),
-    });
+    await recordPersonCreated(tx, actor, admin);
     for (const type of defaultLeaveTypes()) {
       const row = await addLeaveType(tx, { companyId: company.id, ...type });
       await recordLeaveTypeChange(tx, actor, ADMIN_EVENT_TYPES.leaveTypeCreated, null, row);

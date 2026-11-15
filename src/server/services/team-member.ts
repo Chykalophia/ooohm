@@ -15,7 +15,7 @@ import type { ServiceContext } from "@/server/context";
 import { listHolidayDates, listHolidays, listPersonLeave } from "@/server/repositories/calendar";
 import { findCompany, findDepartment } from "@/modules/organisation";
 import { listActiveLeaveTypesWithAllowance, listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
-import { findPerson } from "@/server/repositories/users";
+import { findPerson } from "@/shared/lib/db/members";
 import { scopeOf } from "./calendar-scope";
 
 /** How far back "Recently" looks, and how far ahead "Coming up" does, in days. */

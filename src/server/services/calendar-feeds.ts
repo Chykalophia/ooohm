@@ -29,7 +29,7 @@ import {
 } from "@/server/repositories/calendar-feeds";
 import { recordChange } from "@/shared/lib/db/change-log";
 import { hasApprovedRequest } from "@/server/repositories/leave-requests";
-import { lockMember } from "@/server/repositories/users";
+import { lockMember } from "@/shared/lib/db/members";
 import { toTeamEntry } from "./calendar";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { scopeOf } from "./calendar-scope";

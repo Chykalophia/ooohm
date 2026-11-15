@@ -4,7 +4,7 @@ import { findCompanySettings, listHolidayDates } from "@/server/repositories/cal
 import { findCompany, findDepartment, findLeaveType, findLeaveTypeForAdmin } from "@/modules/organisation";
 import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { shareLockCompany } from "@/shared/lib/db/company-lock";
-import { findContacts, findPerson, lockMember, lockPerson } from "@/server/repositories/users";
+import { findContacts, findPerson, lockMember, lockPerson } from "@/shared/lib/db/members";
 import type { LeaveDirectory } from "../application/ports";
 
 /** What leave reads of the company, people, departments and leave types, on Drizzle, bound to `ex`. */

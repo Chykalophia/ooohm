@@ -5,7 +5,7 @@ import "server-only";
  */
 import type { Executor } from "@/db/types";
 import { findDepartmentManagerIds } from "@/modules/organisation";
-import { findMembers, listActiveAdmins } from "@/server/repositories/users";
+import { findMembers, listActiveAdmins } from "@/shared/lib/db/members";
 import type { ApprovalContextReader, RoutingRequester } from "../application/ports";
 import type { ApprovalContext } from "../domain/approval-context";
 

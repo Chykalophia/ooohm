@@ -116,7 +116,7 @@ export function assertDeletable(facts: DeletionFacts): void {
 }
 
 /** The blockers a `deletion_blocked` error carries; `null` for any other error. */
-export function deletionBlockersOf(err: DomainError): DeletionBlockers | null {
+export function deletionBlockersOf(err: Pick<DomainError, "code" | "details">): DeletionBlockers | null {
   return err.code === "deletion_blocked" && err.details && "stillActive" in err.details ? err.details : null;
 }
 

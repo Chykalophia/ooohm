@@ -1,7 +1,7 @@
 import "server-only";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
-import { ping } from "@/server/repositories/health";
+import { ping } from "@/shared/lib/db/health";
 
 /** True when the database answers a trivial query. Never throws; a failure is logged. */
 export async function isDatabaseReachable(ctx: Pick<ServiceContext, "db">): Promise<boolean> {

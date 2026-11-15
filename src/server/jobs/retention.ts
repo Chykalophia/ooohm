@@ -4,7 +4,7 @@ import "server-only";
  * machinery is.
  */
 import type { ServiceContext } from "@/server/context";
-import { pruneDispatchedEvents, pruneFinishedAdapterDeliveries, pruneFinishedWebhookDeliveries } from "@/server/repositories/retention";
+import { pruneDispatchedEvents, pruneFinishedAdapterDeliveries, pruneFinishedWebhookDeliveries } from "@/shared/lib/db/retention";
 
 /** Days kept of finished deliveries and of dispatched outbox events (which `/api/v1/events` replays). */
 export const RETENTION_DAYS = 90;

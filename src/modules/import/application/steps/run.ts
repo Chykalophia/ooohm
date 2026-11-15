@@ -6,7 +6,7 @@ import { type CompanyDTO as CompanyRow, type LeaveTypeSettingsDTO as LeaveTypeRo
 import type { Transaction } from "@/db/types";
 import type { CalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
-import { normalizeEmail } from "@/domain/people";
+import { normalizeEmail } from "@/shared/kernel/names";
 import type { ServiceContext } from "@/server/context";
 import type { ExistingAccount } from "@/server/repositories/imports";
 import type { AuditEntry } from "@/shared/lib/db/change-log";

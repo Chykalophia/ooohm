@@ -30,7 +30,7 @@ import * as balancesModule from "@/modules/balances";
 import { issueCalendarFeed } from "@/server/services/calendar-feeds";
 import { getTeamCalendar } from "@/server/services/calendar";
 import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave";
-import { DAILY_JOBS, runDueJobs } from "@/server/services/scheduled-jobs";
+import { DAILY_JOBS, runDueJobs } from "@/server/jobs/scheduled-jobs";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";

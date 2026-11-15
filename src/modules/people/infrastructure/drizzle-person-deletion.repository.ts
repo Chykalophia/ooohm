@@ -2,10 +2,10 @@ import "server-only";
 /**
  * Queries behind deleting a person: the facts the rules and the confirmation need, the
  * deletes and the tombstone write, the lookups of stored text that mentions them, and
- * the scheduled-scrub bookkeeping. No rules here: the deletion service decides what runs.
+ * the scheduled-scrub bookkeeping. No rules here: the deletion use cases decide what runs.
  *
  * Mentions are found by substring (`strpos` on the lowercased text, so `%` and `_` in an
- * address match only themselves) and then redacted precisely by the service. The mention
+ * address match only themselves) and then redacted precisely by the use case. The mention
  * scans (outbox, deliveries, adapter errors, import runs, audit snapshots, leave notes,
  * the labels of company settings) read every row of the company's table: they run once
  * per delete, a rare admin action over a small team's history, so they do without
@@ -36,7 +36,8 @@ import {
 } from "@/db/schema";
 import { executeRows } from "@/db/rows";
 import type { Executor, Transaction } from "@/db/types";
-import type { DeletionCounts, DeletionMode } from "@/domain/person-deletion";
+import type { SettingLabel } from "@/modules/people/application/deletion/mention-store";
+import type { DeletionCounts, DeletionMode } from "@/modules/people/domain/person-deletion";
 
 /** True when `column`'s text contains any of `needles` (already lowercased). */
 function mentions(column: SQL, needles: readonly string[]): SQL {
@@ -384,13 +385,6 @@ export async function listNotesMentioning(ex: Executor, companyId: string, needl
 
 export async function setNotes(tx: Transaction, id: string, values: { note: string | null; decisionNote: string | null }): Promise<void> {
   await tx.update(leaveRequests).set(values).where(eq(leaveRequests.id, id));
-}
-
-/** A label an admin typed on a company setting: an API key's or catalog entry's name, a webhook's description. */
-export interface SettingLabel {
-  kind: "api_key" | "webhook_endpoint" | "department" | "leave_type" | "holiday";
-  id: string;
-  text: string;
 }
 
 /**

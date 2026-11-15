@@ -2,7 +2,7 @@ import "server-only";
 import type { Actor } from "@/domain/actor";
 import { personLabel } from "@/shared/kernel/person-label";
 import type { ServiceContext } from "@/server/context";
-import { listPeopleNames } from "@/server/repositories/users";
+import { listPeopleNames } from "@/shared/lib/db/members";
 import { err, ok, type ServiceResult } from "@/shared/lib/result";
 import type { DepartmentManagerChoiceDTO } from "@/modules/organisation/application/dto";
 import { canManageDepartments } from "@/modules/organisation/application/policies";

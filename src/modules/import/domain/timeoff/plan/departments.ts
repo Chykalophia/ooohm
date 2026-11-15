@@ -1,7 +1,7 @@
 /**
  * Planning step: departments, one per name (ignoring case).
  */
-import { normalizeDepartmentName } from "@/domain/people";
+import { normalizeDepartmentName } from "@/shared/kernel/names";
 import type { TimeOffDepartment, TimeOffSnapshot } from "../source";
 import type { PlannedDepartment, Warn } from "./types";
 

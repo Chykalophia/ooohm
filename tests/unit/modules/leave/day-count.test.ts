@@ -3,6 +3,8 @@ import { test } from "node:test";
 import { isDomainError } from "@/domain/errors";
 import { countLeaveDays, nextWorkingDay, splitLeaveDaysByYear, type WorkCalendar } from "@/shared/kernel/leave-days";
 import type { LeaveRange } from "@/shared/kernel/leave-range";
+import { addDayCounts, countDays, countDaysByYear, dayCount } from "@/modules/leave/domain/day-count";
+import { unwrap } from "@/shared/lib/result";
 
 const monToFri: WorkCalendar = { workingDays: [1, 2, 3, 4, 5], holidays: [] };
 const full = (startDate: string, endDate: string): LeaveRange => ({ startDate, endDate, dayPortion: "full" });
@@ -117,4 +119,36 @@ test("a half day is one year's 0.5, and the split always sums to the total", () 
     assert.equal(split.reduce((sum, s) => sum + s.days, 0), countLeaveDays(full(start, end), calendar), `${start}..${end}`);
     assert.ok(split.every((s) => s.days > 0));
   }
+});
+
+// DayCount: the value the aggregate carries.
+
+test("a day count is non-negative with one decimal place", () => {
+  assert.ok(dayCount(0).ok);
+  assert.ok(dayCount(0.5).ok);
+  assert.ok(dayCount(12.5).ok);
+  for (const bad of [-0.5, 0.25, 1.05, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const r = dayCount(bad);
+    assert.ok(!r.ok && r.error.code === "invalid_input", String(bad));
+  }
+  assert.equal(addDayCounts(...[0.1, 0.2, 0.5].map((d) => unwrap(dayCount(d)))), 0.8);
+});
+
+test("countDays: half a day on one date, refused over several", () => {
+  assert.equal(unwrap(countDays({ startDate: "2026-11-02", endDate: "2026-11-02", dayPortion: "am" }, monToFri)), 0.5);
+  const multi = countDays({ startDate: "2026-11-02", endDate: "2026-11-03", dayPortion: "pm" }, monToFri);
+  assert.ok(!multi.ok && multi.error.code === "half_day_multi_day");
+});
+
+test("countDays: weekends and company holidays never count, and nothing to count is zero_days", () => {
+  const thanksgiving: WorkCalendar = { workingDays: [1, 2, 3, 4, 5], holidays: ["2026-11-26"] };
+  assert.equal(unwrap(countDays(full("2026-11-23", "2026-11-29"), thanksgiving)), 4);
+  const weekend = countDays(full("2026-11-07", "2026-11-08"), monToFri);
+  assert.ok(!weekend.ok && weekend.error.code === "zero_days");
+  const holiday = countDaysByYear(full("2026-11-26", "2026-11-26"), thanksgiving);
+  assert.ok(!holiday.ok && holiday.error.code === "zero_days");
+  assert.deepEqual(unwrap(countDaysByYear(full("2026-12-31", "2027-01-04"), monToFri)), [
+    { year: 2026, days: 1 },
+    { year: 2027, days: 2 },
+  ]);
 });

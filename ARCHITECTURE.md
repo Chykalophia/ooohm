@@ -33,7 +33,7 @@ for processes outside Next) is the only place that wires concrete implementation
 | `src/server/integrations/**`, `importers/**` | Ports / infrastructure | Adapter seam; one-time import readers |
 | `src/domain/**` | Domain | Pure rules and types; no I/O |
 | `src/lib/**`, `src/db/**` | Infrastructure + cross-cutting | Env, auth, logging, mail, crypto; schema and connection |
-| `src/modules/<m>/**` | All four, inside the module | `reports` and `organisation` (levels) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
+| `src/modules/<m>/**` | All four, inside the module | `reports`, `organisation` (levels) and `leave` (Tier 3: aggregate, ports, in-memory fakes and a repository contract) so far; template and import rules in [src/modules/README.md](src/modules/README.md) |
 
 ## Where code is going
 

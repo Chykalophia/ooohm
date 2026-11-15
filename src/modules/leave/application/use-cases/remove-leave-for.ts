@@ -6,7 +6,7 @@ import { isUuid } from "@/domain/ids";
 import { personLabel } from "@/domain/person";
 import { todayInTimeZone } from "@/lib/dates";
 import type { Notification } from "@/server/notifications/catalog";
-import { attempt, err, type ServiceResult, unwrap } from "@/shared/lib/result";
+import { attempt, type ServiceResult, unwrap } from "@/shared/lib/result";
 import { type LeaveRequest, removeLeave } from "../../domain/leave-request";
 import { canCorrectLeaveFor } from "../../domain/leave-permissions";
 import { normalizeNote } from "../../domain/note";

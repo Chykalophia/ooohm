@@ -1,4 +1,3 @@
-import type { PageRequest } from "@/domain/paging";
 import type { ApiLeaveRequest, ApiLeaveRequestPage, Clock, LeaveRequestRepository, OwnRequest } from "@/modules/leave/application/ports";
 import type { LeaveRequest } from "@/modules/leave/domain/leave-request";
 import type { YearDays } from "@/shared/kernel/leave-days";
@@ -11,6 +10,14 @@ export interface Catalog {
 }
 
 const isActive = (r: LeaveRequest) => (ACTIVE_STATUSES as readonly string[]).includes(r.status);
+/** The request without what the API never shows. */
+const toApi = (r: LeaveRequest): ApiLeaveRequest => {
+  const copy: { -readonly [K in keyof LeaveRequest]?: LeaveRequest[K] } = { ...r };
+  delete copy.note;
+  delete copy.decisionNote;
+  delete copy.companyId;
+  return copy as ApiLeaveRequest;
+};
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
@@ -59,7 +66,7 @@ export class InMemoryLeaveRequestRepository implements LeaveRequestRepository {
   }
 
   async saveYearDays(requestId: string, split: readonly YearDays[]) {
-    if (split.length > 0) this.yearDays.set(requestId, split.map((y) => ({ ...y })));
+    if (split.length > 0) this.yearDays.set(requestId, split.map(({ year, days }) => ({ year, days })));
   }
 
   async updateStatusIfCurrent(
@@ -97,7 +104,7 @@ export class InMemoryLeaveRequestRepository implements LeaveRequestRepository {
     return next;
   }
 
-  async listOwn(companyId: string, userId: string, limit: number, _page?: PageRequest): Promise<OwnRequest[]> {
+  async listOwn(companyId: string, userId: string, limit: number): Promise<OwnRequest[]> {
     return [...this.rows.values()]
       .filter((r) => r.companyId === companyId && r.userId === userId)
       .sort((a, b) => b.startDate.localeCompare(a.startDate) || b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id))
@@ -141,7 +148,7 @@ export class InMemoryLeaveRequestRepository implements LeaveRequestRepository {
       )
       .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.id.localeCompare(b.id))
       .slice(0, q.limit + 1)
-      .map(({ note: _note, decisionNote: _decisionNote, companyId: _companyId, ...rest }) => rest);
+      .map(toApi);
   }
 
   private own(r: LeaveRequest): OwnRequest {

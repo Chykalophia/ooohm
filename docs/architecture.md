@@ -386,7 +386,7 @@ address, and never fail the user's action.
 
 ### Submitting
 
-`submitLeaveRequest` (`src/server/services/leave-requests.ts`):
+`submitLeaveRequest` (`src/modules/leave/application/use-cases/submit-leave-request.ts`):
 
 1. Validates the range (`assertValidRange`): real dates, end on or after start, at most 366 calendar days,
    half days (`am`/`pm`) on a single date only. Normalizes the note (trimmed, max 500 characters).
@@ -425,7 +425,7 @@ requests sent from then on; pending ones stay with their approver. It is audited
 moves with the company if one deployment ever hosts several.
 
 **Added for someone.** An admin (for anyone in the company) or a person's direct manager can add time off for
-them from their Team page (`addLeaveFor`, `src/server/services/leave-on-behalf.ts`; Admin → People links
+them from their Team page (`addLeaveFor`, `src/modules/leave/application/use-cases/add-leave-for.ts`; Admin → People links
 there). It runs the same checks as the person's own submit, under the person's member lock, and is stored as
 theirs with the one adding it as approver, approved on the spot: `leave.requested` then `leave.approved`, both
 with that admin or manager as actor, so the audit log names them. Nobody adds for themself. The person gets an
@@ -453,7 +453,7 @@ pending ──► approved ──► cancelled
    └──────► cancelled
 ```
 
-Nothing else is legal (`src/domain/request-status.ts`). The requester may cancel a pending or approved
+Nothing else is legal (`src/modules/leave/domain/leave-status.ts`). The requester may cancel a pending or approved
 request, except **approved leave of a closed year**: one whose end date is before January 1 of the current year in
 the company's time zone (`isClosedYearLeave`). Nobody may cancel that, the requester or an admin; the service
 refuses with `past_year_closed` and the dashboard shows no Cancel button (`getDashboard` returns `cancellable` per
@@ -476,7 +476,7 @@ optional reason (max 500 characters) stored in `decision_note`. Every status cha
 `conflict`.
 
 **A stored assignment grants the right to decide only while it still matches the approval rule** (`canDecide`,
-`src/domain/leave-permissions.ts`). When the right rests on the assignment (a non-admin approver, or an admin
+`src/modules/leave/domain/leave-permissions.ts`). When the right rests on the assignment (a non-admin approver, or an admin
 deciding their own request routed to themself), `decideLeaveRequest` reads the requester, their manager, their
 department's manager and the active admins (`loadApprovalContext`, `src/server/services/approval-routing.ts`) in the same transaction and asks `reassignApprover` who should decide now; anyone else gets
 `forbidden` and the request is left to the admins, who see every pending request. Its compare-and-set then also
@@ -508,7 +508,7 @@ credential) otherwise. Adding a provider is one file implementing `MailTransport
 | Cancelled | Requester, plus the approver unless the approver is the person cancelling; while approval is turned off, cancelling time off the person approved themself also tells their manager now (else the fallback admin) |
 | Recounted by a calendar change | Requester only, saying which holiday or the working days changed; not when only the year split moved |
 
-"Who else is off then" (`alsoOffFor`, `src/server/services/also-off.ts`, sentences from `src/domain/overlap.ts`)
+"Who else is off then" (`alsoOffFor`, `src/modules/leave/application/queries/also-off.ts`, sentences from `src/modules/leave/domain/overlap.ts`)
 is one line about other active people in the requester's department (everyone, when they have none) whose approved
 or pending leave costs a working day within the request's dates: "Nobody else in Design is off then.", "Aisha Khan
 is off then too." or "Also off then: A, B (not approved yet), C and 2 more." Each person is counted once. It shows
@@ -516,7 +516,7 @@ the same names and dates the team calendar shows every member, never a note or a
 it under each request (three queries for the whole page, four when a requester has a department) and the review
 email carries it. It is information only and never blocks a request.
 
-Coverage limits (`src/domain/coverage.ts`): a department may set the most of its people off at once
+Coverage limits (`src/modules/leave/domain/coverage.ts`): a department may set the most of its people off at once
 (`departments.max_off`, Admin → Departments, audited as `department.limit_changed`). Past it, the request form's
 live preview (`draftCoverage`), the Approvals page and the review and heads-up emails add one warning: "This would
 put 3 people in Design off on Tue, Mar 3. The limit is 2." It counts the requester plus everyone else in the
@@ -615,7 +615,7 @@ also returns each person and type's latest row before the earliest year asked fo
 
 ### Year split, fixed at submit
 
-`splitLeaveDaysByYear` (`src/domain/leave-days.ts`) counts a request's working days per calendar year: Thu
+`splitLeaveDaysByYear` (`src/shared/kernel/leave-days.ts`) counts a request's working days per calendar year: Thu
 Dec 31 to Mon Jan 4 (Jan 1 a holiday) is 1 day in the first year and 1 in the next. Submit stores the split in
 `leave_request_days (request_id, year, days)` in the same transaction as the request; the rows always add up
 to `leave_requests.days`, which stays the total. Balances only ever read these rows. A holiday or working-days
@@ -626,7 +626,7 @@ balances sum only `pending` and `approved` requests.
 ### Recount after a calendar change
 
 Adding or deleting a company holiday (one, or the US federal set) and changing the working days run
-`recountLeave` (`src/server/services/leave-recount.ts`) in the same transaction, under `lockCompany`:
+`recountLeave` (`src/modules/leave/application/use-cases/recount-leave.ts`) in the same transaction, under `lockCompany`:
 
 1. It locks (`FOR UPDATE`) the company's pending and approved requests that include a changed date (every open
    one, for working days), skipping dates before Jan 1 of the current year in the company's time zone. Requests
@@ -790,7 +790,7 @@ CRON_TZ=America/Chicago
   ahead (only leave that costs a working day), split into "Coming up" and "In the last 60 days". The person,
   admins, and their direct manager while **Admin → Company → Managers can see their team's balances and notes**
   is on (`companies.managers_see_details`, on by default) also see each request's days, note and approver's
-  reason, and this year's balances (`canSeeLeaveDetails`, in `domain/leave-permissions.ts`). For anyone else
+  reason, and this year's balances (`canSeeLeaveDetails`, in `modules/leave/domain/leave-permissions.ts`). For anyone else
   the service drops those fields before returning, so they never reach the page. Inactive, deleted and
   other companies' people are a 404.
 - `/calendar/subscriptions`: the two feeds (below), linked from both pages.

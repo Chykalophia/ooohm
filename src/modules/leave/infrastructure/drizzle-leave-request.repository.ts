@@ -65,8 +65,10 @@ export function drizzleLeaveRequestRepository(ex: Executor): LeaveRequestReposit
 
 /** Stores a new request with the id it was given; its timestamps come from the database clock. */
 async function insertLeaveRequest(ex: Executor, request: LeaveRequest): Promise<LeaveRequest> {
-  const { createdAt: _createdAt, updatedAt: _updatedAt, decidedAt: _decidedAt, ...values } = request;
-  const [row] = await ex.insert(leaveRequests).values(values).returning();
+  const [row] = await ex
+    .insert(leaveRequests)
+    .values({ ...request, createdAt: undefined, updatedAt: undefined, decidedAt: undefined })
+    .returning();
   return toLeaveRequest(row);
 }
 

@@ -5,6 +5,7 @@ import { isDomainError } from "@/shared/kernel/errors";
 import { installStatus, isSetupOpen, runFirstInstall } from "@/server/identity/install";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 const TOKEN = "a".repeat(40);
 const input = (over: Partial<Parameters<typeof runFirstInstall>[1]> = {}) => ({
@@ -65,9 +66,9 @@ describe("first install", { skip }, () => {
       );
       assert.deepEqual(
         people.map((p) => [p.email, p.name, p.role, p.canSelfApprove, p.isActive, p.companyId]),
-        [["peter@example.org", "Peter", "admin", true, true, companies[0].id]],
+        [["peter@example.org", "Peter", "admin", true, true, first(companies).id]],
       );
-      assert.equal(people[0].emailVerified, false, "signing in proves the email; setup doesn't");
+      assert.equal(first(people).emailVerified, false, "signing in proves the email; setup doesn't");
       assert.deepEqual(
         types.sort((a, b) => a.sortOrder - b.sortOrder).map((ty) => ty.code),
         ["PTO", "EMERGENCY", "SICK", "BONUS"],
@@ -78,11 +79,11 @@ describe("first install", { skip }, () => {
         ["setup"],
       );
       assert.deepEqual(audit.map((a) => [a.action, a.actorId, a.actorVia]).sort(), [
-        ["leave_type.created", people[0].id, "first_install"],
-        ["leave_type.created", people[0].id, "first_install"],
-        ["leave_type.created", people[0].id, "first_install"],
-        ["leave_type.created", people[0].id, "first_install"],
-        ["user.created", people[0].id, "first_install"],
+        ["leave_type.created", first(people).id, "first_install"],
+        ["leave_type.created", first(people).id, "first_install"],
+        ["leave_type.created", first(people).id, "first_install"],
+        ["leave_type.created", first(people).id, "first_install"],
+        ["user.created", first(people).id, "first_install"],
       ]);
 
       // Closed: the page reads it so, and a second run changes nothing, whatever the token.

@@ -8,6 +8,7 @@ import * as balancesModule from "@/modules/balances";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
 
@@ -52,8 +53,8 @@ describe("admin: allowance overrides", { skip }, () => {
       audit.map((a) => [a.action, a.actorId, a.entityId, a.subjectUserId]),
       [["allowance.edited", co.people.boss.id, row.id, co.people.ana.id]],
     );
-    assert.deepEqual(audit[0].before, { userId: co.people.ana.id, leaveTypeId: vac, year: 2026, days: 15, carriedOverDays: 3, adjustmentDays: 0 });
-    assert.deepEqual(audit[0].after, {
+    assert.deepEqual(first(audit).before, { userId: co.people.ana.id, leaveTypeId: vac, year: 2026, days: 15, carriedOverDays: 3, adjustmentDays: 0 });
+    assert.deepEqual(first(audit).after, {
       userId: co.people.ana.id,
       leaveTypeId: vac,
       year: 2026,

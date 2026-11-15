@@ -11,6 +11,7 @@ import { entry, type ImportRun } from "@/modules/import/application/steps/run";
 import { timeOffYearBalance } from "@/modules/import/domain/timeoff/balance";
 import type { ImportPlan, PlannedLeaveType, PlannedPerson, PlannedRequest } from "@/modules/import/domain/timeoff/plan/types";
 import type { ExistingAccount } from "@/modules/import/infrastructure/drizzle-import.repository";
+import { at, first, take } from "../../../support/present";
 
 /** The records each import write step maps from the plan, before anything is written. */
 
@@ -98,14 +99,14 @@ describe("import step: matching people", () => {
       },
     ]);
     const withManager = matchPeople([person(1, { managerKey: 2 }), person(2, { role: "employee" })], existing, COMPANY, ids());
-    assert.deepEqual(personAfterImport(withManager, withManager.people[1], departments), {
+    assert.deepEqual(personAfterImport(withManager, at(withManager.people, 1), departments), {
       name: "Person 2",
       role: "admin",
       departmentId: "dept-10",
       managerId: null,
       canSelfApprove: true,
     });
-    assert.equal(personAfterImport(withManager, withManager.people[0], departments).managerId, "acc-2");
+    assert.equal(personAfterImport(withManager, first(withManager.people), departments).managerId, "acc-2");
   });
 });
 
@@ -152,10 +153,10 @@ describe("import step: allowances and requests", () => {
 
   test("a decided request keeps TimeOff's decider; a pending one goes to OOOhm's approver, and its audit row names TimeOff's", () => {
     const c = { companyId: COMPANY, idOf, typeIdOf: new Map([["HOLIDAY", "type-pool"]]), pendingApprover: new Map([["user-1", "admin-1"]]), newId: ids() };
-    const [decided, pending, undated] = requestRows(
+    const [decided, pending, undated] = take(requestRows(
       [request(), request({ status: "pending", decidedAt: null, part: 2, parts: 3 }), request({ createdAt: null, decidedAt: null })],
       c,
-    );
+    ), 3);
     assert.deepEqual(
       [decided.request.id, decided.request.approverId, decided.request.decidedAt?.toISOString(), decided.request.createdAt?.toISOString()],
       ["new-1", "user-2", "2026-02-02T00:00:00.000Z", "2026-02-01T00:00:00.000Z"],

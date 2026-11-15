@@ -15,6 +15,7 @@ import { rejectsWith } from "./assertions";
 import { auditFor, decidable, eventsFor, seedCompany } from "./fixtures";
 import type { PageCursor } from "@/shared/kernel/paging";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { at, first } from "../support/present";
 
 const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 const cancelLeaveRequest = (...args: Parameters<typeof cancelLeaveRequestResult>) => cancelLeaveRequestResult(...args).then(unwrap);
@@ -80,9 +81,9 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
       rAudit.map((x) => x.action),
       ["leave_request.requested", "leave_request.rejected"],
     );
-    assert.equal(aAudit[1].actorId, approved.co.people.manager.id);
+    assert.equal(at(aAudit, 1).actorId, approved.co.people.manager.id);
     assert.deepEqual(
-      [(aAudit[1].before as { status: string }).status, (aAudit[1].after as { status: string }).status],
+      [(at(aAudit, 1).before as { status: string }).status, (at(aAudit, 1).after as { status: string }).status],
       ["pending", "approved"],
     );
 
@@ -96,7 +97,7 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
       rEvents.map((e) => e.type),
       ["leave.requested", "leave.rejected"],
     );
-    assert.deepEqual(aEvents[1].payload, {
+    assert.deepEqual(at(aEvents, 1).payload, {
       requestId: a.id,
       userId: approved.co.people.ana.id,
       leaveTypeId: approved.co.pto,
@@ -119,15 +120,15 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
       rejected.ctx.sent.map((m) => [m.to, m.subject]),
       [[rejected.co.people.ana.email, "Your time off request was declined"]],
     );
-    assert.match(rejected.ctx.sent[0].text, /Reason: “Launch week”/);
-    assert.match(approved.ctx.sent[0].text, /Note from approver: “Have fun”/);
+    assert.match(first(rejected.ctx.sent).text, /Reason: “Launch week”/);
+    assert.match(first(approved.ctx.sent).text, /Note from approver: “Have fun”/);
 
     // Both outcomes reach the requester's dashboard too.
     const [aDash, rDash] = await Promise.all([
       getDashboard(approved.ctx, approved.co.people.ana),
       getDashboard(rejected.ctx, rejected.co.people.ana),
     ]);
-    assert.deepEqual([aDash.requests[0].decisionNote, rDash.requests[0].decisionNote], ["Have fun", "Launch week"]);
+    assert.deepEqual([first(aDash.requests).decisionNote, first(rDash.requests).decisionNote], ["Have fun", "Launch week"]);
   });
 
   test("an admin may decide any request in the company; others may not; nobody decides their own", async () => {
@@ -149,7 +150,7 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
 
     const decided = await decideLeaveRequest(ctx, co.people.boss, { requestId: req.id, decision: "reject" });
     assert.equal(decided.status, "rejected");
-    assert.equal((await auditFor(t.db, req.id))[1].actorId, co.people.boss.id);
+    assert.equal(at(await auditFor(t.db, req.id), 1).actorId, co.people.boss.id);
   });
 
   test("a company's only admin can approve the request routed to themself", async () => {
@@ -289,8 +290,8 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
 
     const { items: inbox, total } = await decidable(ctx, co.people.manager);
     assert.equal(total, 1);
-    assert.equal(inbox[0].requesterName, "Bo");
-    assert.equal(inbox[0].leaveTypeName, "PTO");
+    assert.equal(first(inbox).requesterName, "Bo");
+    assert.equal(first(inbox).leaveTypeName, "PTO");
 
     // An admin can tell which requests are routed to someone else.
     const { items: adminInbox } = await decidable(ctx, co.people.boss);
@@ -309,25 +310,25 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
     await submitLeaveRequest(ctx, co.people.bo, { leaveTypeId: co.pto, startDate: "2026-11-17", dayPortion: "full" });
 
     const tab = (size: number, page?: PageCursor) => getApprovalTriage(ctx, co.people.manager, { size, page });
-    const first = await tab(2);
-    assert.deepEqual([first.items.length, first.needsYouTotal, first.previous], [2, 3, null]);
+    const firstPage = await tab(2);
+    assert.deepEqual([firstPage.items.length, firstPage.needsYouTotal, firstPage.previous], [2, 3, null]);
     assert.deepEqual(
-      first.items.map((r) => r.startDate),
+      firstPage.items.map((r) => r.startDate),
       ["2026-11-09", "2026-11-16"],
       "earliest dates first",
     );
-    const second = await tab(2, first.next!);
+    const second = await tab(2, firstPage.next!);
     assert.deepEqual([second.items.map((r) => r.startDate), second.next, second.needsYouTotal], [["2026-11-17"], null, 3]);
-    assert.deepEqual((await tab(2, second.previous!)).items, first.items);
+    assert.deepEqual((await tab(2, second.previous!)).items, firstPage.items);
 
     // Deciding one on page 1 brings the next one up into its place.
-    await decideLeaveRequest(ctx, co.people.manager, { requestId: first.items[0].id, decision: "approve" });
+    await decideLeaveRequest(ctx, co.people.manager, { requestId: first(firstPage.items).id, decision: "approve" });
     const after = await tab(2);
     assert.deepEqual([after.items.map((r) => r.startDate), after.next, after.needsYouTotal], [["2026-11-16", "2026-11-17"], null, 2]);
 
     const whole = await tab(3);
     assert.deepEqual([whole.items.length, whole.needsYouTotal, whole.next], [2, 2, null]);
-    assert.equal((await getApprovalNav(ctx, co.people.manager)).pending, first.needsYouTotal - 1);
+    assert.equal((await getApprovalNav(ctx, co.people.manager)).pending, firstPage.needsYouTotal - 1);
   });
 
   test("the Approvals link shows for managers and admins, and for anyone with something assigned", async () => {
@@ -435,8 +436,8 @@ describe("approvals: decide, inbox and navigation", { skip }, () => {
       cy: { managerKey: "boss" },
     });
     const ctx = createTestContext(t.db, { now: new Date("2026-11-03T09:00:00Z") });
-    const [design] = await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Design" }).returning();
-    const [sales] = await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Sales" }).returning();
+    const design = first(await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Design" }).returning());
+    const sales = first(await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Sales" }).returning());
     await t.db.update(schema.user).set({ departmentId: design.id }).where(eq(schema.user.id, co.people.ana.id));
     await t.db.update(schema.user).set({ departmentId: design.id }).where(eq(schema.user.id, co.people.bo.id));
     await t.db.update(schema.user).set({ departmentId: sales.id }).where(eq(schema.user.id, co.people.cy.id));

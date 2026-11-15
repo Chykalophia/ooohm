@@ -4,6 +4,7 @@ import { betterAuth } from "better-auth";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { magicLink } from "better-auth/plugins";
 import { createLinkCapture, inviteLinkRequest } from "@/lib/link-capture";
+import { first } from "../support/present";
 
 const URL_A = "https://ooohm.test/api/auth/magic-link/verify?token=a";
 
@@ -69,7 +70,7 @@ describe("link capture", () => {
       capture.intercept({ linkCapture: key }, URL_A);
     });
     assert.notEqual(keys[0], keys[1]);
-    assert.ok(keys[0].length >= 43, "256 random bits, base64url");
+    assert.ok(first(keys).length >= 43, "256 random bits, base64url");
   });
 });
 

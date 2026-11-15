@@ -11,6 +11,7 @@ import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
@@ -78,7 +79,7 @@ describe("adapter seam", { skip }, () => {
     const clock = { now: T0 };
     const deps = { now: () => clock.now, random: () => 0.5 };
     assert.deepEqual(await deliverDueAdapterEvents(ctx, deps), { attempted: 1, delivered: 0, retried: 1, failed: 0 });
-    let [row] = await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.adapterId, "fakehr"));
+    let row = first(await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.adapterId, "fakehr")));
     assert.equal(row.status, "pending");
     assert.equal(row.lastError, "Error");
     assert.equal(row.nextAttemptAt.getTime() - T0.getTime(), RETRY_DELAYS_MS[0]);
@@ -87,11 +88,11 @@ describe("adapter seam", { skip }, () => {
     fake.state.down = false;
     clock.now = row.nextAttemptAt;
     assert.deepEqual(await deliverDueAdapterEvents(ctx, deps), { attempted: 1, delivered: 1, retried: 0, failed: 0 });
-    [row] = await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.id, row.id));
+    row = first(await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.id, row.id)));
     assert.equal(row.status, "delivered");
     assert.equal(row.attempts, 2);
     assert.equal(fake.received.length, 1);
-    const [envelope] = fake.received;
+    const envelope = first(fake.received);
     assert.equal(envelope.type, "leave.requested");
     assert.equal(envelope.version, 1);
     assert.equal(envelope.companyId, co.companyId);
@@ -110,7 +111,7 @@ describe("adapter seam", { skip }, () => {
       await deliverDueAdapterEvents(ctx, { now: () => clock.now });
       clock.now = new Date(clock.now.getTime() + 2 * 86_400_000);
     }
-    const [row] = await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.companyId, co.companyId));
+    const row = first(await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.companyId, co.companyId)));
     assert.equal(row.status, "failed");
     assert.equal(row.attempts, 8);
 
@@ -118,7 +119,7 @@ describe("adapter seam", { skip }, () => {
     await t.db.update(schema.adapterDeliveries).set({ status: "pending", attempts: 0, nextAttemptAt: T0 }).where(eq(schema.adapterDeliveries.id, row.id));
     const without = createTestContext(t.db, { now: T0, adapters: createAdapterRegistry() });
     assert.equal((await deliverDueAdapterEvents(without, { now: () => T0 })).retried, 1);
-    const [after] = await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.id, row.id));
+    const after = first(await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.id, row.id)));
     assert.equal(after.lastError, "adapter_not_registered");
   });
 
@@ -234,7 +235,7 @@ describe("adapter seam", { skip }, () => {
     const run = await deliverDueAdapterEvents(ctx, { now, random: () => 0.5, signal: stop.signal, timeoutMs: 60_000 });
     assert.deepEqual(run, { attempted: 0, delivered: 0, retried: 0, failed: 0 });
     assert.equal(calls, 0, "the adapter is never called after the stop");
-    const [row] = await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.adapterId, "deafhr"));
+    const row = first(await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.adapterId, "deafhr")));
     assert.deepEqual([row.status, row.attempts, row.lastError], ["pending", 0, null]);
     assert.equal(row.nextAttemptAt.getTime(), T0.getTime(), "due again at once");
   });
@@ -254,7 +255,7 @@ describe("adapter seam", { skip }, () => {
     await dispatchOutboxBatch(ctx);
     const run = await deliverDueAdapterEvents(ctx, { now: () => T0, random: () => 0.5, signal: stop.signal });
     assert.deepEqual(run, { attempted: 1, delivered: 0, retried: 1, failed: 0 });
-    const [row] = await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.adapterId, "failhr"));
+    const row = first(await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.adapterId, "failhr")));
     assert.deepEqual([row.status, row.attempts, row.lastError], ["pending", 1, "Error"]);
   });
 
@@ -288,7 +289,7 @@ describe("adapter seam", { skip }, () => {
     assert.equal(result.webhookDeliveries, 1, "the webhook still gets its delivery");
     assert.equal(result.adapterDeliveries, 1, "only the company that connected the adapter");
     assert.equal((await t.db.select().from(schema.eventsOutbox).where(sql`${schema.eventsOutbox.deliveredAt} is null`)).length, 0, "every event dispatched");
-    const [row] = await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.adapterId, "onlyfirst"));
+    const row = first(await t.db.select().from(schema.adapterDeliveries).where(eq(schema.adapterDeliveries.adapterId, "onlyfirst")));
     assert.equal(row.companyId, co.companyId);
     assert.ok(seen.includes(other.companyId), "asked about the other company too");
     assert.equal((await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.endpointId, endpoint.id))).length, 1);
@@ -319,15 +320,15 @@ describe("adapter seam", { skip }, () => {
         { email: "not-an-email", reason: "invalid" },
       ],
     });
-    const [created] = await t.db.select().from(schema.user).where(eq(schema.user.email, "new.person@example.com"));
+    const created = first(await t.db.select().from(schema.user).where(eq(schema.user.email, "new.person@example.com")));
     assert.equal(created.companyId, co.companyId);
     assert.equal(created.isActive, false, "waits for an admin to activate them");
     assert.equal(created.role, "employee");
     assert.equal((await t.db.select().from(schema.session).where(eq(schema.session.userId, created.id))).length, 0, "no session");
     assert.equal(ctx.sent.length + ctx.signInLinks.length, 0, "no email, no sign-in link");
-    const [renamed] = await t.db.select().from(schema.user).where(eq(schema.user.id, co.people.ana.id));
+    const renamed = first(await t.db.select().from(schema.user).where(eq(schema.user.id, co.people.ana.id)));
     assert.equal(renamed.name, "Ana Renamed");
-    const [untouched] = await t.db.select().from(schema.user).where(eq(schema.user.id, other.people.ana.id));
+    const untouched = first(await t.db.select().from(schema.user).where(eq(schema.user.id, other.people.ana.id)));
     assert.notEqual(untouched.name, "Not Yours");
 
     const audits = await companyAudit(t.db, co.companyId, "user.");
@@ -343,13 +344,13 @@ describe("adapter seam", { skip }, () => {
     );
     const events = await companyEvents(t.db, co.companyId, "user.");
     assert.deepEqual(events.map((e) => e.type), ["user.created", "user.updated"]);
-    assert.equal((events[0].payload as { isActive: boolean; actorId: string | null }).isActive, false);
-    assert.equal((events[0].payload as { actorId: string | null }).actorId, null);
-    assert.deepEqual((events[0].payload as { actor: unknown }).actor, { type: "system", process: "adapter_sync:fakehr" });
+    assert.equal((first(events).payload as { isActive: boolean; actorId: string | null }).isActive, false);
+    assert.equal((first(events).payload as { actorId: string | null }).actorId, null);
+    assert.deepEqual((first(events).payload as { actor: unknown }).actor, { type: "system", process: "adapter_sync:fakehr" });
 
     const active = await applyInboundSync(ctx, { companyId: co.companyId, adapterId: "fakehr", trigger: { kind: "schedule" }, activateNewUsers: true, users: [{ email: "second@example.com", name: "Second" }] });
     assert.equal(active.users.created, 1);
-    const [second] = await t.db.select().from(schema.user).where(eq(schema.user.email, "second@example.com"));
+    const second = first(await t.db.select().from(schema.user).where(eq(schema.user.email, "second@example.com")));
     assert.equal(second.isActive, true, "the flag lets them ask for a sign-in link themselves");
   });
 
@@ -387,12 +388,12 @@ describe("adapter seam", { skip }, () => {
     );
     const audits = await companyAudit(t.db, co.companyId, "allowance.synced");
     assert.equal(audits.length, 2);
-    assert.equal(audits[0].actorId, co.people.boss.id);
-    assert.deepEqual([audits[0].actorKind, audits[0].actorVia, audits[0].actorProcess], ["user", "adapter_sync:fakehr", null], "the admin, through the sync");
-    assert.equal((audits[0].after as { reason: string }).reason, "Synced from adapter:fakehr");
+    assert.equal(first(audits).actorId, co.people.boss.id);
+    assert.deepEqual([first(audits).actorKind, first(audits).actorVia, first(audits).actorProcess], ["user", "adapter_sync:fakehr", null], "the admin, through the sync");
+    assert.equal((first(audits).after as { reason: string }).reason, "Synced from adapter:fakehr");
     const events = (await companyEvents(t.db, co.companyId, "balance.adjusted")).map((e) => e.payload as { reason: string; days: number; actor: unknown });
     assert.deepEqual(events.map((e) => [e.reason, e.days]), [["sync", 20], ["sync", 18]]);
-    assert.deepEqual(events[0].actor, { type: "user", id: co.people.boss.id, via: "adapter_sync:fakehr" });
+    assert.deepEqual(first(events).actor, { type: "user", id: co.people.boss.id, via: "adapter_sync:fakehr" });
   });
 
   test("inbound: the same sync names the admin through it when they press Sync now, and the system when scheduled", async () => {
@@ -452,7 +453,7 @@ describe("adapter seam", { skip }, () => {
     const result = await syncAdapterNow(ctx, co.people.boss, "fakehr");
     assert.equal(result.users.created, 1);
     assert.equal(result.balances.changed, 1);
-    const [person] = await companyAudit(t.db, co.companyId, "user.created");
+    const person = first(await companyAudit(t.db, co.companyId, "user.created"));
     assert.equal(person.actorId, co.people.boss.id);
     assert.deepEqual([person.actorKind, person.actorVia], ["user", "adapter_sync:fakehr"]);
   });
@@ -495,7 +496,7 @@ describe("adapter seam", { skip }, () => {
     await rejectsWith(syncAdapterNow(ctx, co.people.boss, "payhr"), "forbidden");
 
     assert.equal((await t.db.select().from(schema.user).where(eq(schema.user.email, "late@example.com"))).length, 0, "nobody created");
-    const [ana] = await t.db.select().from(schema.user).where(eq(schema.user.id, co.people.ana.id));
+    const ana = first(await t.db.select().from(schema.user).where(eq(schema.user.id, co.people.ana.id)));
     assert.equal(ana.name, co.people.ana.name, "nobody renamed");
     assert.deepEqual((await allowancesOf(t.db, co.people.ana.id)).map((a) => a.days), [10], "no allowance changed");
     assert.equal((await companyAudit(t.db, co.companyId, "")).length, auditBefore, "no audit row");

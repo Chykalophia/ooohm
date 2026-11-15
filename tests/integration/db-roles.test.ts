@@ -12,6 +12,7 @@ import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave"
 import { unwrap } from "@/shared/lib/result";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
 const deletePerson = (...args: Parameters<typeof deletePersonResult>) => deletePersonResult(...args).then(unwrap);
@@ -71,20 +72,20 @@ async function assertAppRoleLimits(app: postgres.Sql): Promise<void> {
   await assert.rejects(app`truncate audit_log`, PERMISSION_DENIED);
 
   // Ordinary DML on app tables.
-  const [company] = await app`insert into companies (name) values ('Role Co') returning id`;
+  const company = first(await app`insert into companies (name) values ('Role Co') returning id`);
   await app`update companies set name = 'Role Co 2' where id = ${company.id}`;
-  const [{ name }] = await app`select name from companies where id = ${company.id}`;
+  const { name } = first(await app`select name from companies where id = ${company.id}`);
   assert.equal(name, "Role Co 2");
 
   // The audit log only grows.
-  const [row] = await app`
+  const row = first(await app`
     insert into audit_log (company_id, actor_kind, actor_process, action, entity_type, entity_id, after)
     values (${company.id}, 'system', 'db-roles test', 'test.inserted', 'company', ${company.id}, '{"n": 1}')
-    returning id`;
+    returning id`);
   assert.ok(row.id);
   await assert.rejects(app`update audit_log set action = 'test.rewritten' where id = ${row.id}`, PERMISSION_DENIED);
   await assert.rejects(app`delete from audit_log where id = ${row.id}`, PERMISSION_DENIED);
-  const [kept] = await app`select action from audit_log where id = ${row.id}`;
+  const kept = first(await app`select action from audit_log where id = ${row.id}`);
   assert.equal(kept.action, "test.inserted");
 
   // Deleting the company still cascades to its audit rows: referential actions run as the table's owner.
@@ -147,10 +148,10 @@ describe("database roles: a fresh install (roles first, then migrations as the o
     const { boss, zebulon } = co.people;
     await submitLeaveRequest(ctx, zebulon, { leaveTypeId: co.pto, startDate: "2026-11-23", endDate: "2026-11-24", dayPortion: "full" });
     // A row about someone else that mentions them: it stays, with their address redacted.
-    const [other] = await appDb
+    const other = first(await appDb
       .insert(schema.auditLog)
       .values({ companyId: co.companyId, actorKind: "system", actorProcess: "db-roles test", action: "test.note", entityType: "company", entityId: co.companyId, after: { note: `${zebulon.email} covers Friday` } })
-      .returning();
+      .returning());
     const about = and(eq(schema.auditLog.companyId, co.companyId), eq(schema.auditLog.subjectUserId, zebulon.id));
     assert.ok((await appDb.select().from(schema.auditLog).where(about)).length >= 1, "their request is on record");
 
@@ -180,7 +181,7 @@ describe("database roles: an existing install (migrated as one role, then split)
     await applyDatabaseRoles(t.client, setup);
     // Idempotent: the compose `migrate` service runs it on every start.
     await applyDatabaseRoles(t.client, setup);
-    const [{ name }] = await t.query<{ name: string }>`select current_database() as name`;
+    const { name } = first(await t.query<{ name: string }>`select current_database() as name`);
     owner = connect(urlFor(name, roles.owner, roles.ownerPassword));
     app = connect(urlFor(name, roles.app, roles.appPassword));
   });
@@ -222,7 +223,7 @@ describe("database roles: an existing install (migrated as one role, then split)
     await owner`alter table audit_log rename to audit_log_old`;
     await owner`alter table audit_log_rebuilt rename to audit_log`;
     await applyDatabaseRoles(owner, { appRole: roles.app, grantsOnly: true });
-    const [{ id }] = await app`insert into audit_log (actor_kind, actor_process, action, entity_type, entity_id) values ('system', 't', 'a', 'e', 'x') returning id`;
+    const { id } = first(await app`insert into audit_log (actor_kind, actor_process, action, entity_type, entity_id) values ('system', 't', 'a', 'e', 'x') returning id`);
     await assert.rejects(app`update audit_log set action = 'b' where id = ${id}`, PERMISSION_DENIED);
     await assert.rejects(app`delete from audit_log where id = ${id}`, PERMISSION_DENIED);
   });

@@ -9,6 +9,7 @@ import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
+import { first } from "../support/present";
 
 const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
 
@@ -110,7 +111,7 @@ describe("team member page", { skip }, () => {
     assert.deepEqual(before.upcoming[0]?.details, { days: 2, note: NOTE, decisionNote: REASON });
     assert.ok(before.balances && before.balances.items.length > 0, "and the balances");
 
-    const [company] = await t.db.select().from(schema.companies).where(eq(schema.companies.id, co.companyId));
+    const company = first(await t.db.select().from(schema.companies).where(eq(schema.companies.id, co.companyId)));
     await updateCompanySettings(ctx, co.people.boss, { ...company, managersSeeDetails: false });
 
     const after = await getTeamMember(ctx, co.people.mo, co.people.ana.id);

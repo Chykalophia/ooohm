@@ -68,8 +68,8 @@ returns what the screen needs (a DTO, not a row).
 
 ## Checks
 
-`pnpm typecheck` (the base config, then `src` under `tsconfig.src.json` with `noUncheckedIndexedAccess`,
-`exactOptionalPropertyTypes`, `noImplicitOverride` and `noFallthroughCasesInSwitch`), `pnpm lint`, `pnpm arch`,
+`pnpm typecheck` (one pass over the whole repository, tests and scripts included, with `noUncheckedIndexedAccess`,
+`exactOptionalPropertyTypes`, `noImplicitOverride` and `noFallthroughCasesInSwitch` in `tsconfig.json`), `pnpm lint`, `pnpm arch`,
 `pnpm madge`, `pnpm test`, `pnpm test:integration` (Postgres) and `pnpm test:integration:embedded` (PGlite), all run
 by the GitHub Actions workflow on every PR. No check has a baseline: `pnpm arch` reports every violation, and every
 server file imports `server-only`.

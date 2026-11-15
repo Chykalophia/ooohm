@@ -240,7 +240,7 @@ export class FakeApprovalRouter implements ApprovalRouter {
 /** Who else is off: always the line it is given. */
 export class FakeAlsoOff implements AlsoOffReader {
   line: AlsoOff = { others: 0, line: "Nobody else is off then.", coverage: null };
-  readonly asked: { readerId?: string }[] = [];
+  readonly asked: { readerId?: string | undefined }[] = [];
   async lines(_companyId: string, requests: readonly { id: string }[], readerId?: string) {
     this.asked.push({ readerId });
     return new Map(requests.map((r) => [r.id, this.line]));

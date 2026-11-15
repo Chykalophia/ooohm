@@ -9,6 +9,7 @@ import { createWebhookEndpoint as createWebhookEndpointResult } from "@/modules/
 import { unwrap } from "@/shared/lib/result";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first, take } from "../support/present";
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createWebhookEndpoint = (...args: Parameters<typeof createWebhookEndpointResult>) => createWebhookEndpointResult(...args).then(unwrap);
@@ -92,14 +93,14 @@ describe("worker jobs and retention", { skip }, () => {
     const now = new Date("2027-03-01T00:00:00Z");
     const old = new Date(now.getTime() - 91 * DAY);
     const recent = new Date(now.getTime() - 89 * DAY);
-    const [oldDispatched, oldUndispatched, recentDispatched] = await t.db
+    const [oldDispatched, oldUndispatched, recentDispatched] = take(await t.db
       .insert(schema.eventsOutbox)
       .values([
         { companyId: co.companyId, type: "leave.requested", payload: {}, createdAt: old, deliveredAt: old },
         { companyId: co.companyId, type: "leave.requested", payload: {}, createdAt: old },
         { companyId: co.companyId, type: "leave.requested", payload: {}, createdAt: recent, deliveredAt: recent },
       ])
-      .returning();
+      .returning(), 3);
     const delivery = (eventId: string, status: "delivered" | "failed" | "pending", at: Date) => ({
       companyId: co.companyId,
       endpointId: endpoint.id,
@@ -119,7 +120,7 @@ describe("worker jobs and retention", { skip }, () => {
       .insert(schema.eventsOutbox)
       .values({ companyId: co.companyId, type: "leave.requested", payload: {}, createdAt: old, deliveredAt: old })
       .returning();
-    await t.db.insert(schema.adapterDeliveries).values({ companyId: co.companyId, adapterId: "someday", eventId: blocking[0].id, nextAttemptAt: old });
+    await t.db.insert(schema.adapterDeliveries).values({ companyId: co.companyId, adapterId: "someday", eventId: first(blocking).id, nextAttemptAt: old });
 
     const pruned = await pruneIntegrationData(ctx, { now });
     assert.deepEqual(pruned, { webhookDeliveries: 1, adapterDeliveries: 0, events: 1 });
@@ -128,7 +129,7 @@ describe("worker jobs and retention", { skip }, () => {
     assert.ok(!ids.has(oldDispatched.id));
     assert.ok(ids.has(oldUndispatched.id), "never dispatched: kept");
     assert.ok(ids.has(recentDispatched.id), "younger than 90 days: kept");
-    assert.ok(ids.has(blocking[0].id), "an adapter still owes it: kept");
+    assert.ok(ids.has(first(blocking).id), "an adapter still owes it: kept");
     const deliveries = await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.endpointId, endpoint.id));
     assert.deepEqual(deliveries.map((d) => d.status).sort(), ["failed", "pending"]);
   });

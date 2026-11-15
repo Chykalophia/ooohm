@@ -10,6 +10,7 @@ import { getTeamMember as getTeamMemberResult } from "@/modules/people";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, auditFor, companyAudit, eventsFor, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
 
@@ -73,8 +74,8 @@ describe("leave requests: added for someone by a manager or admin", { skip }, ()
 
     await ctx.settle();
     assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[ana.email, "Time off was added for you"]]);
-    assert.match(ctx.sent[0].text, /^Mo added your \S+, Mon, Nov 23 to Fri, Nov 27, 2026: 4 days\. It's approved/);
-    assert.match(ctx.sent[0].text, /Note: “Called in sick”/);
+    assert.match(first(ctx.sent).text, /^Mo added your \S+, Mon, Nov 23 to Fri, Nov 27, 2026: 4 days\. It's approved/);
+    assert.match(first(ctx.sent).text, /Note: “Called in sick”/);
 
     // It is hers: she can cancel it like any request of her own.
     const cancelled = await cancelLeaveRequest(ctx, ana, req.id);
@@ -131,7 +132,7 @@ describe("leave requests: added for someone by a manager or admin", { skip }, ()
     const vac = await addLeaveType(t.db, co.companyId, { code: "VAC", defaultAllowanceDays: 2 });
 
     const preview = await previewLeaveFor(ctx, mo, ana.id, { leaveTypeId: vac, startDate: "2026-11-02", endDate: "", dayPortion: "full" });
-    assert.equal(preview.cost.years[0].remainingAfter, null);
+    assert.equal(first(preview.cost.years).remainingAfter, null);
 
     const tooMany = { leaveTypeId: vac, startDate: "2026-11-02", endDate: "2026-11-04", dayPortion: "full" as const };
     await assert.rejects(addLeaveFor(ctx, mo, ana.id, tooMany), (err) => {
@@ -173,7 +174,7 @@ describe("leave requests: added for someone by a manager or admin", { skip }, ()
       const req = await pastLeaveOf(co);
       assert.equal((await getDashboard(ctx, co.people.ana)).requests.find((r) => r.id === req.id)?.cancellable, false);
       await rejectsWith(cancelLeaveRequest(ctx, co.people.ana, req.id), "leave_taken");
-      assert.equal((await requestsOf(t.db, co.people.ana.id))[0].status, "approved");
+      assert.equal(first(await requestsOf(t.db, co.people.ana.id)).status, "approved");
     });
 
     test("their manager removes it with a reason: cancelled, audited and announced as theirs, the person emailed", async () => {
@@ -195,8 +196,8 @@ describe("leave requests: added for someone by a manager or admin", { skip }, ()
 
       await ctx.settle();
       assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[ana.email, "Time off was removed for you"]]);
-      assert.match(ctx.sent[0].text, /^Mo removed your \S+, Mon, Oct 5 to Tue, Oct 6, 2026/);
-      assert.match(ctx.sent[0].text, /Reason: “She worked those days after all”/);
+      assert.match(first(ctx.sent).text, /^Mo removed your \S+, Mon, Oct 5 to Tue, Oct 6, 2026/);
+      assert.match(first(ctx.sent).text, /Reason: “She worked those days after all”/);
     });
 
     test("only an admin or their manager may, with a reason, and only approved leave of the open year", async () => {
@@ -209,7 +210,7 @@ describe("leave requests: added for someone by a manager or admin", { skip }, ()
       await rejectsWith(removeLeaveFor(ctx, bo, req.id, "not mine"), "forbidden");
       await rejectsWith(removeLeaveFor(ctx, mo, req.id, "   "), "invalid_input");
       await rejectsWith(removeLeaveFor(ctx, mo, "not-a-uuid", "x"), "not_found");
-      assert.equal((await requestsOf(t.db, ana.id))[0].status, "approved", "nothing written");
+      assert.equal(first(await requestsOf(t.db, ana.id)).status, "approved", "nothing written");
 
       assert.equal((await removeLeaveFor(ctx, boss, req.id, "Entered twice")).status, "cancelled");
       await rejectsWith(removeLeaveFor(ctx, boss, req.id, "again"), "invalid_transition");

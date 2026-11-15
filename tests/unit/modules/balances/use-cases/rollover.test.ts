@@ -4,6 +4,7 @@ import { runYearRollover } from "@/modules/balances/application/use-cases/roll-o
 import type { AdminLeaveType } from "@/modules/balances/application/ports";
 import { unwrap } from "@/shared/lib/result";
 import { ANA, BO, balancesKit, type BalancesKit, leaveType, person, VACATION } from "../fakes/ports";
+import { first } from "../../../../support/present";
 
 /** Ana had 20 days of vacation in 2026 and took 15; the clock is in January 2027. */
 function closingYear(type: Partial<AdminLeaveType> = {}): BalancesKit {
@@ -37,7 +38,7 @@ test("carryover is off by default: the new year gets its default and nothing car
   assert.deepEqual([result.carried, result.created], [0, 1]);
   assert.deepEqual([next(kit)?.days, next(kit)?.carriedOverDays], [20, 0]);
   assert.deepEqual(kit.audit.entries.map((e) => e.action), ["allowance.created"]);
-  assert.deepEqual(kit.audit.entries[0].source, { kind: "system", process: "year_rollover" });
+  assert.deepEqual(first(kit.audit.entries).source, { kind: "system", process: "year_rollover" });
 });
 
 test("the carry is capped by carryoverMaxDays", async () => {
@@ -45,7 +46,7 @@ test("the carry is capped by carryoverMaxDays", async () => {
   unwrap(await runYearRollover(kit.deps));
   assert.equal(next(kit)?.carriedOverDays, 3);
   assert.deepEqual(kit.outbox.types(), ["balance.adjusted"]);
-  assert.equal((kit.outbox.events[0].payload as { reason: string }).reason, "carryover");
+  assert.equal((first(kit.outbox.events).payload as { reason: string }).reason, "carryover");
 });
 
 test("an existing next-year row takes the carry, and someone who joined after the closing year carries nothing", async () => {

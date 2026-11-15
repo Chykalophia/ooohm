@@ -11,6 +11,7 @@ import * as calendarModule from "@/modules/calendar";
 import { unwrap } from "@/shared/lib/result";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { at, first, take } from "../support/present";
 
 // The calendar queries and use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const getMonthCalendar = (...args: Parameters<typeof calendarModule.getMonthCalendar>) => calendarModule.getMonthCalendar(...args).then(unwrap);
@@ -89,13 +90,13 @@ describe("calendar views", { skip }, () => {
   test("month view: my approved and pending leave, half days, holidays; never rejected, cancelled or anyone else's", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss" } });
     const { ana, boss } = co.people;
-    const [approved, pending, half] = await book(t.db, co.companyId, ana.id, co.pto, [
+    const [approved, pending, half] = take(await book(t.db, co.companyId, ana.id, co.pto, [
       { startDate: "2026-11-23", endDate: "2026-11-27" },
       { startDate: "2026-11-10", status: "pending" },
       { startDate: "2026-11-12", dayPortion: "am" },
       { startDate: "2026-11-16", status: "rejected" },
       { startDate: "2026-11-17", status: "cancelled" },
-    ]);
+    ]), 3);
     await book(t.db, co.companyId, boss.id, co.pto, [{ startDate: "2026-11-18" }]);
 
     const counter = countingDb(t);
@@ -142,11 +143,11 @@ describe("calendar views", { skip }, () => {
   test("year view: twelve months of my leave in three queries; a bad year falls back to this one", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss" } });
     const { ana, boss } = co.people;
-    const [jan, nov] = await book(t.db, co.companyId, ana.id, co.pto, [
+    const [jan, nov] = take(await book(t.db, co.companyId, ana.id, co.pto, [
       { startDate: "2026-01-05", endDate: "2026-01-06" },
       { startDate: "2026-11-10", status: "pending" },
       { startDate: "2026-12-14", status: "cancelled" },
-    ]);
+    ]), 2);
     await book(t.db, co.companyId, boss.id, co.pto, [{ startDate: "2026-03-02" }]);
 
     const counter = countingDb(t);
@@ -160,7 +161,7 @@ describe("calendar views", { skip }, () => {
       ["2026-01", jan.id],
       ["2026-11", nov.id],
     ]);
-    const novDays = result.months[10].weeks.flat();
+    const novDays = at(result.months, 10).weeks.flat();
     assert.equal(novDays.find((d) => d.date === "2026-11-26")?.holiday, "Thanksgiving");
 
     for (const year of [undefined, 1899, 3000, 2026.5]) {
@@ -170,13 +171,13 @@ describe("calendar views", { skip }, () => {
 
   test("who's out with 50 people: a fixed four queries, the right people and leave, and nobody's notes", async () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" } });
-    const [eng, sales] = await t.db
+    const [eng, sales] = take(await t.db
       .insert(schema.departments)
       .values([
         { companyId: co.companyId, name: "Engineering" },
         { companyId: co.companyId, name: "Sales" },
       ])
-      .returning();
+      .returning(), 2);
     const viewer: Actor = co.people.boss;
     const counter = countingDb(t);
     const view = (db: Database, departmentId?: string) => getTeamCalendar(createTestContext(db), viewer, { month: "2026-11", departmentId });
@@ -209,16 +210,16 @@ describe("calendar views", { skip }, () => {
       // Nov 7, 8, 14, 15 and 21 are weekends: a single day there costs nothing, so it is not "out".
       const onWeekend = ["07", "08", "14", "15", "21"].includes(day);
       expected.set(p.id, [
-        { id: rows[2].id, status: "approved" },
-        ...(onWeekend ? [] : [{ id: rows[0].id, status: "approved" as const }]),
-        { id: rows[1].id, status: "pending" },
+        { id: at(rows, 2).id, status: "approved" },
+        ...(onWeekend ? [] : [{ id: first(rows).id, status: "approved" as const }]),
+        { id: at(rows, 1).id, status: "pending" },
       ]);
     }
     // Neither a deactivated member nor another company shows.
-    const [inactive] = await t.db
+    const inactive = first(await t.db
       .insert(schema.user)
       .values({ id: randomUUID(), name: "Gone", email: `gone-${randomUUID().slice(0, 8)}@example.com`, companyId: co.companyId, isActive: false })
-      .returning();
+      .returning());
     await book(t.db, co.companyId, inactive.id, co.pto, [{ startDate: "2026-11-03" }]);
     const other = await seedCompany(t.db, { stranger: {} });
     await book(t.db, other.companyId, other.people.stranger.id, other.pto, [{ startDate: "2026-11-03" }]);
@@ -241,9 +242,9 @@ describe("calendar views", { skip }, () => {
       );
       assert.equal(person.departmentName, people.find((p) => p.id === person.userId)!.departmentId === eng.id ? "Engineering" : "Sales");
     }
-    const first = result.people[0].entries.find((e) => e.status === "pending")!;
+    const firstPending = first(result.people).entries.find((e) => e.status === "pending")!;
     assert.deepEqual(
-      { dayPortion: first.dayPortion, code: first.leaveTypeCode, name: first.leaveTypeName },
+      { dayPortion: firstPending.dayPortion, code: firstPending.leaveTypeCode, name: firstPending.leaveTypeName },
       { dayPortion: "pm", code: "PTO", name: "PTO" },
     );
 
@@ -262,7 +263,7 @@ describe("calendar views", { skip }, () => {
     );
 
     // Another company's department, or garbage, falls back to everyone.
-    const [foreign] = await t.db.insert(schema.departments).values({ companyId: other.companyId, name: "Elsewhere" }).returning();
+    const foreign = first(await t.db.insert(schema.departments).values({ companyId: other.companyId, name: "Elsewhere" }).returning());
     for (const departmentId of [foreign.id, "not-a-uuid"]) {
       const res = await view(t.db, departmentId);
       assert.equal(res.department, null);
@@ -286,10 +287,10 @@ describe("calendar views", { skip }, () => {
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: {}, ben: {} });
     const ctx = createTestContext(t.db);
     // Thu Oct 29 to Sun Nov 1: November holds only the Sunday.
-    const [thuToSun] = await book(t.db, co.companyId, co.people.ana.id, co.pto, [{ startDate: "2026-10-29", endDate: "2026-11-01" }]);
+    const thuToSun = first(await book(t.db, co.companyId, co.people.ana.id, co.pto, [{ startDate: "2026-10-29", endDate: "2026-11-01" }]));
     // Thanksgiving alone costs nothing; with the Friday after, it costs a day.
     await book(t.db, co.companyId, co.people.ben.id, co.pto, [{ startDate: "2026-11-26" }]);
-    const [withFriday] = await book(t.db, co.companyId, co.people.boss.id, co.pto, [{ startDate: "2026-11-26", endDate: "2026-11-27" }]);
+    const withFriday = first(await book(t.db, co.companyId, co.people.boss.id, co.pto, [{ startDate: "2026-11-26", endDate: "2026-11-27" }]));
 
     const nov = await getTeamCalendar(ctx, co.people.boss, { month: "2026-11" });
     assert.deepEqual(
@@ -313,14 +314,14 @@ describe("calendar views", { skip }, () => {
     // Each starts exactly at the scan's lower bound (366 days before the range's first
     // day) and ends on that first day, so both edges of the bound are exercised.
     // December's team range starts Tue 2026-12-01; November's grid starts Mon 2026-10-26.
-    const [toDecember, toGrid] = await book(t.db, co.companyId, co.people.ana.id, co.pto, [
+    const [toDecember, toGrid] = take(await book(t.db, co.companyId, co.people.ana.id, co.pto, [
       { startDate: "2025-12-01", endDate: "2026-12-01" },
       { startDate: "2025-10-26", endDate: "2026-10-26" },
-    ]);
+    ]), 2);
     const dec = await getTeamCalendar(ctx, co.people.boss, { month: "2026-12" });
     assert.deepEqual(dec.people.map((p) => p.entries.map((e) => e.id)), [[toDecember.id]]);
     const mine = await getMonthCalendar(ctx, co.people.ana, "2026-11");
-    const firstGridDay = mine.weeks[0][0];
+    const firstGridDay = first(first(mine.weeks));
     assert.equal(firstGridDay.date, "2026-10-26");
     assert.ok(firstGridDay.entries.some((e) => e.id === toGrid.id));
 

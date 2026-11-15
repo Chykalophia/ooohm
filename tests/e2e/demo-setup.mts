@@ -26,6 +26,7 @@ import { unwrap } from "../../src/shared/lib/result";
 import { createApiKey as createApiKeyResult, createWebhookEndpoint as createWebhookEndpointResult } from "../../src/modules/integrations";
 import { uuidGenerator } from "../../src/shared/lib/id-generator";
 import { wireModules } from "../../src/server/wiring";
+import { at, first } from "../support/present";
 
 wireModules();
 
@@ -52,22 +53,22 @@ const ctx: ServiceContext = {
 };
 
 try {
-  const [admin] = await db.select().from(schema.user).where(eq(schema.user.email, process.env.SEED_ADMIN_EMAIL!.toLowerCase()));
+  const admin = first(await db.select().from(schema.user).where(eq(schema.user.email, process.env.SEED_ADMIN_EMAIL!.toLowerCase())));
   const actor = toActor(admin)!;
   if (command === "key") {
     const { key } = await createApiKey(ctx, actor, { name: "End-to-end demo" });
     console.log(key);
   } else if (command === "endpoint") {
     const { endpoint, secret } = await createWebhookEndpoint(ctx, actor, {
-      url: args[0],
+      url: at(args, 0),
       description: "End-to-end demo receiver",
       eventTypes: ["leave.requested", "leave.approved", "leave.cancelled"],
     });
-    writeFileSync(args[1], secret);
+    writeFileSync(at(args, 1), secret);
     console.log(endpoint.id);
   } else if (command === "leave") {
-    const [type] = await db.select().from(schema.leaveTypes).where(eq(schema.leaveTypes.companyId, actor.companyId)).orderBy(schema.leaveTypes.sortOrder);
-    const request = await submitLeaveRequest(ctx, actor, { leaveTypeId: type.id, startDate: args[0], endDate: args[0], dayPortion: "full" });
+    const type = first(await db.select().from(schema.leaveTypes).where(eq(schema.leaveTypes.companyId, actor.companyId)).orderBy(schema.leaveTypes.sortOrder));
+    const request = await submitLeaveRequest(ctx, actor, { leaveTypeId: type.id, startDate: at(args, 0), endDate: at(args, 0), dayPortion: "full" });
     console.log(request.id);
   } else {
     throw new Error(`Unknown command "${command}"`);

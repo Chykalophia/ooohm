@@ -8,6 +8,7 @@ import { asc, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { violatedConstraint } from "@/shared/lib/db/errors";
 import { createTestDatabase, MIGRATIONS_FOLDER, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 interface Journal {
   entries: { idx: number; tag: string }[];
@@ -43,10 +44,10 @@ describe("migration 0004: per-year request days", { skip }, () => {
   test("backfills every existing request, splitting ones over New Year, and the rows always add up to its days", async () => {
     // Raw SQL for tables a later migration adds columns to: the query builder would name
     // every column of today's schema, which this older database does not have yet.
-    const [company] = await t.query<{ id: string }>`insert into companies (name) values ('Backfill Co') returning id`;
+    const company = first(await t.query<{ id: string }>`insert into companies (name) values ('Backfill Co') returning id`);
     const userId = randomUUID();
     await t.query`insert into "user" (id, name, email, company_id) values (${userId}, 'Ana', ${`ana-${userId.slice(0, 8)}@example.com`}, ${company.id})`;
-    const [type] = await t.db.insert(schema.leaveTypes).values({ companyId: company.id, code: "PTO", name: "PTO" }).returning();
+    const type = first(await t.db.insert(schema.leaveTypes).values({ companyId: company.id, code: "PTO", name: "PTO" }).returning());
     await t.db.insert(schema.holidays).values([
       { companyId: company.id, date: "2027-01-01", name: "New Year" },
       // Added after the second request was submitted: the stored total (3) wins.
@@ -54,10 +55,10 @@ describe("migration 0004: per-year request days", { skip }, () => {
     ]);
 
     const insert = async (startDate: string, endDate: string, days: number, dayPortion: "full" | "am" = "full", status: "approved" | "cancelled" = "approved") => {
-      const [row] = await t.db
+      const row = first(await t.db
         .insert(schema.leaveRequests)
         .values({ companyId: company.id, userId, leaveTypeId: type.id, startDate, endDate, days, dayPortion, status })
-        .returning();
+        .returning());
       return row.id;
     };
     const inYear = await insert("2026-11-02", "2026-11-06", 5);
@@ -73,7 +74,7 @@ describe("migration 0004: per-year request days", { skip }, () => {
     await t.migrate();
 
     const rows = await t.db.select().from(schema.leaveRequestDays).orderBy(asc(schema.leaveRequestDays.year));
-    const of = (id: string) => rows.filter((r) => r.requestId === id).map((r) => [r.year, r.days]);
+    const of = (id: string) => rows.filter((r) => r.requestId === id).map((r): [number, number] => [r.year, r.days]);
     assert.deepEqual(of(inYear), [[2026, 5]]);
     assert.deepEqual(of(half), [[2026, 0.5]]);
     assert.deepEqual(of(overNewYear), [[2025, 1], [2026, 3]]);
@@ -102,25 +103,25 @@ describe("migration 0007: audit rows name their person", { skip }, () => {
   test("backfills subject_user_id from the leave request, allowance or feed each row audits", async () => {
     // Raw SQL: the app's schema already has the column this migration adds.
     const sql = t.query;
-    const [{ id: companyId }] = await sql`insert into companies (name) values ('Backfill Co') returning id`;
+    const { id: companyId } = first(await sql`insert into companies (name) values ('Backfill Co') returning id`);
     const ana = randomUUID();
     const ben = randomUUID();
     for (const id of [ana, ben]) {
       await sql`insert into "user" (id, name, email, company_id) values (${id}, 'x', ${`${id}@example.com`}, ${companyId})`;
     }
-    const [{ id: typeId }] = await sql`insert into leave_types (company_id, code, name) values (${companyId}, 'PTO', 'PTO') returning id`;
-    const [{ id: requestId }] = await sql`
+    const { id: typeId } = first(await sql`insert into leave_types (company_id, code, name) values (${companyId}, 'PTO', 'PTO') returning id`);
+    const { id: requestId } = first(await sql`
       insert into leave_requests (company_id, user_id, leave_type_id, start_date, end_date, days)
-      values (${companyId}, ${ana}, ${typeId}, '2026-11-02', '2026-11-02', 1) returning id`;
-    const [{ id: allowanceId }] = await sql`
-      insert into allowances (user_id, leave_type_id, year, days) values (${ben}, ${typeId}, 2026, 10) returning id`;
-    const [{ id: feedId }] = await sql`
+      values (${companyId}, ${ana}, ${typeId}, '2026-11-02', '2026-11-02', 1) returning id`);
+    const { id: allowanceId } = first(await sql`
+      insert into allowances (user_id, leave_type_id, year, days) values (${ben}, ${typeId}, 2026, 10) returning id`);
+    const { id: feedId } = first(await sql`
       insert into calendar_feed_tokens (company_id, user_id, kind, token_hash)
-      values (${companyId}, ${ben}, 'team', ${"a".repeat(64)}) returning id`;
+      values (${companyId}, ${ben}, 'team', ${"a".repeat(64)}) returning id`);
     const audit = async (entityType: string, entityId: string) => {
-      const [{ id }] = await sql`
+      const { id } = first(await sql`
         insert into audit_log (company_id, actor_id, action, entity_type, entity_id)
-        values (${companyId}, ${ana}, 'x', ${entityType}, ${entityId}) returning id`;
+        values (${companyId}, ${ana}, 'x', ${entityType}, ${entityId}) returning id`);
       return id as string;
     };
     const rows = {
@@ -157,13 +158,13 @@ describe("migration 0010: every audit row says who or what made it", { skip }, (
   test("backfills a person's rows as theirs, the rollover's and a sync's by process, and the rest as unknown", async () => {
     // Raw SQL: the app's schema already has the columns this migration adds.
     const sql = t.query;
-    const [{ id: companyId }] = await sql`insert into companies (name) values ('Backfill Co') returning id`;
+    const { id: companyId } = first(await sql`insert into companies (name) values ('Backfill Co') returning id`);
     const boss = randomUUID();
     await sql`insert into "user" (id, name, email, company_id, role) values (${boss}, 'Boss', ${`${boss}@example.com`}, ${companyId}, 'admin')`;
     const audit = async (actorId: string | null, action: string, after: object) => {
-      const [{ id }] = await sql`
+      const { id } = first(await sql`
         insert into audit_log (company_id, actor_id, action, entity_type, entity_id, after)
-        values (${companyId}, ${actorId}, ${action}, 'x', ${randomUUID()}, ${JSON.stringify(after)}::jsonb) returning id`;
+        values (${companyId}, ${actorId}, ${action}, 'x', ${randomUUID()}, ${JSON.stringify(after)}::jsonb) returning id`);
       return id as string;
     };
     const rows = {

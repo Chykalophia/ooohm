@@ -9,6 +9,7 @@ import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as organisation from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
+import { first } from "../support/present";
 
 // These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
 const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);
@@ -54,7 +55,7 @@ describe("coverage limits", { skip }, () => {
 
     assert.equal((await setDepartmentLimit(ctx, boss, design.id, 2)).maxOff, 2);
     await setDepartmentLimit(ctx, boss, design.id, 2);
-    assert.equal((await listDepartmentsForAdmin(ctx, boss))[0].maxOff, 2);
+    assert.equal(first(await listDepartmentsForAdmin(ctx, boss)).maxOff, 2);
     assert.equal((await setDepartmentLimit(ctx, boss, design.id, null)).maxOff, null);
 
     for (const bad of [0, -1, 1.5, 1000]) await rejectsWith(setDepartmentLimit(ctx, boss, design.id, bad), "invalid_input");

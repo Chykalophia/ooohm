@@ -8,6 +8,7 @@ import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { auditFor, eventsFor, requestsOf, seedCompany, subjectOf } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { at, first } from "../support/present";
 
 const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 
@@ -49,12 +50,12 @@ describe("leave requests: submit and cancel", { skip }, () => {
 
     const audit = await auditFor(t.db, req.id);
     assert.deepEqual(audit.map((a) => [a.action, a.actorId]), [["leave_request.requested", ana.id]]);
-    assert.equal(audit[0].before, null);
-    assert.equal((audit[0].after as { status: string }).status, "pending");
+    assert.equal(first(audit).before, null);
+    assert.equal((first(audit).after as { status: string }).status, "pending");
 
     const events = await eventsFor(t.db, co.companyId, req.id);
     assert.deepEqual(events.map((e) => e.type), ["leave.requested"]);
-    assert.deepEqual(events[0].payload, {
+    assert.deepEqual(first(events).payload, {
       requestId: req.id,
       userId: ana.id,
       leaveTypeId: co.pto,
@@ -71,8 +72,8 @@ describe("leave requests: submit and cancel", { skip }, () => {
     assert.equal(ctx.sent.length, 0);
     await ctx.settle();
     assert.deepEqual(ctx.sent.map((m) => [m.to, m.subject]), [[manager.email, "Ana asked for Nov 23 to Nov 27"]]);
-    assert.match(ctx.sent[0].text, /^Ana asked for \S+, Mon, Nov 23 to Fri, Nov 27, 2026: 4 days\./);
-    assert.match(ctx.sent[0].text, /https:\/\/ooohm\.test\/approvals/);
+    assert.match(first(ctx.sent).text, /^Ana asked for \S+, Mon, Nov 23 to Fri, Nov 27, 2026: 4 days\./);
+    assert.match(first(ctx.sent).text, /https:\/\/ooohm\.test\/approvals/);
   });
 
   test("self-approval approves at once and writes both transitions; without it the same request waits", async () => {
@@ -239,7 +240,7 @@ describe("leave requests: submit and cancel", { skip }, () => {
     assert.deepEqual((await auditFor(t.db, req.id)).map((a) => a.action), ["leave_request.requested", "leave_request.cancelled"]);
     const events = await eventsFor(t.db, co.companyId, req.id);
     assert.deepEqual(events.map((e) => e.type), ["leave.requested", "leave.cancelled"]);
-    assert.equal((events[1].payload as { actorId: string }).actorId, co.people.ana.id);
+    assert.equal((at(events, 1).payload as { actorId: string }).actorId, co.people.ana.id);
 
     await ctx.settle();
     assert.deepEqual(ctx.sent.map((m) => [m.to, subjectOf(m)]).sort(), [
@@ -260,11 +261,11 @@ describe("leave requests: submit and cancel", { skip }, () => {
 
     const intros = ctx.sent
       .filter((m) => m.to === manager.email)
-      .map((m) => m.text.split("\n")[0])
+      .map((m) => first(m.text.split("\n")))
       .sort();
     assert.equal(intros.length, 2);
-    assert.ok(intros[0].startsWith(`${ana.email} asked for `), intros[0]);
-    assert.ok(intros[1].startsWith(`${ana.email} cancelled their `) && intros[1].endsWith("Nothing else is needed from you."), intros[1]);
+    assert.ok(first(intros).startsWith(`${ana.email} asked for `), intros[0]);
+    assert.ok(at(intros, 1).startsWith(`${ana.email} cancelled their `) && at(intros, 1).endsWith("Nothing else is needed from you."), intros[1]);
   });
 
   test("a self-approved request can be cancelled after approval, and only the requester is emailed", async () => {
@@ -317,7 +318,7 @@ describe("leave requests: submit and cancel", { skip }, () => {
     assert.deepEqual([cancellable.get(taken.id), cancellable.get(undecided.id), cancellable.get(thisYear.id)], [false, true, true]);
 
     await rejectsWith(cancelLeaveRequest(now, ana, taken.id), "past_year_closed");
-    const [row] = await requestsOf(t.db, ana.id).then((rs) => rs.filter((r) => r.id === taken.id));
+    const row = first(await requestsOf(t.db, ana.id).then((rs) => rs.filter((r) => r.id === taken.id)));
     assert.equal(row.status, "approved");
     assert.deepEqual((await auditFor(t.db, taken.id)).map((a) => a.action), ["leave_request.requested", "leave_request.approved"]);
     await now.settle();
@@ -414,8 +415,8 @@ describe("leave requests: submit and cancel", { skip }, () => {
     // Weekdays from Mon 4 Jan 2027: 4-8, 11-15.
     const weekdays = [4, 5, 6, 7, 8, 11, 12, 13, 14, 15];
     assert.equal(weekdays.length, SUBMIT_LIMIT);
-    const first = await ask("ana", weekdays[0]);
-    await cancelLeaveRequest(ctx, co.people.ana, first.id);
+    const firstRequest = await ask("ana", first(weekdays));
+    await cancelLeaveRequest(ctx, co.people.ana, firstRequest.id);
     for (const day of weekdays.slice(1)) await ask("ana", day);
 
     await rejectsWith(ask("ana", 18), "rate_limited");

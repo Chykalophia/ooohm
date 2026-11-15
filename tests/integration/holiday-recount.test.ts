@@ -13,6 +13,7 @@ import { rejectsWith } from "./assertions";
 import { addLeaveType, auditFor, decidable, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/modules/leave";
+import { first } from "../support/present";
 
 const decideLeaveRequest = (...args: Parameters<typeof decideLeaveRequestResult>) => decideLeaveRequestResult(...args).then(unwrap);
 // The balances use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
@@ -82,7 +83,7 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     const balance = (await getBalanceSummary(ctx, bob)).items.find((i) => i.leaveTypeId === vac)?.balance;
     assert.ok(balance?.tracked && balance.used === 2, "the balance counts the new total");
 
-    const [recountAudit] = (await auditFor(t.db, week.id)).filter((a) => a.action === "leave_request.recounted");
+    const recountAudit = first((await auditFor(t.db, week.id)).filter((a) => a.action === "leave_request.recounted"));
     assert.equal(recountAudit.actorKind, "user");
     assert.equal(recountAudit.actorId, boss.id);
     assert.equal(recountAudit.actorVia, "holiday_change");
@@ -100,9 +101,9 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     await ctx.settle();
     const toAna = ctx.sent.filter((m) => m.to === ana.email);
     assert.equal(toAna.length, 1);
-    assert.equal(toAna[0].subject, "Your time off was recounted");
+    assert.equal(first(toAna).subject, "Your time off was recounted");
     assert.match(
-      toAna[0].text,
+      first(toAna).text,
       /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\), so your VAC for .+, 2026 now takes 4 days instead of 5 days\./,
     );
     assert.equal(ctx.sent.filter((m) => m.to === bob.email).length, 1);
@@ -133,8 +134,8 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
 
     await ctx.settle();
     assert.equal(ctx.sent.length, 1);
-    assert.equal(ctx.sent[0].subject, "Your time off was recounted");
-    assert.match(ctx.sent[0].text, /no longer takes any days, and nothing comes off your balance\./);
+    assert.equal(first(ctx.sent).subject, "Your time off was recounted");
+    assert.match(first(ctx.sent).text, /no longer takes any days, and nothing comes off your balance\./);
 
     // A mistaken holiday is undone by deleting it: the half day counts again.
     assert.deepEqual(await deleteHoliday(ctx, boss, holiday.id), { recounted: 1, nowFree: 0, overdrawn: [] });
@@ -179,7 +180,7 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
       [await requestDaysOf(t.db, monday.id), await requestDaysOf(t.db, week.id)],
       [[{ year: 2026, days: 1 }], [{ year: 2026, days: 5 }]],
     );
-    const [recounted] = (await auditFor(t.db, week.id)).filter((a) => a.action === "leave_request.recounted");
+    const recounted = first((await auditFor(t.db, week.id)).filter((a) => a.action === "leave_request.recounted"));
     assert.equal(recounted.actorVia, "working_days_change");
   });
 
@@ -211,7 +212,7 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     assert.deepEqual(recount, { recounted: 1, nowFree: 0, overdrawn: [] }, "adding a holiday never raises a cost or overdraws");
     assert.deepEqual(await requestDaysOf(t.db, week.id), [{ year: 2026, days: 2 }], "exactly one day off");
     await ctx.settle();
-    assert.match(ctx.sent[0].text, /now takes 2 days instead of 3 days\./);
+    assert.match(first(ctx.sent).text, /now takes 2 days instead of 3 days\./);
   });
 
   test("each changed request gets its own email, and a move between years alone sends none", async () => {
@@ -283,8 +284,8 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     );
     await ctx.settle();
     assert.equal(ctx.sent.length, 1, "the person hears it, as the admin does");
-    assert.match(ctx.sent[0].text, /still takes 4 days, but some of it now counts in a different year\./);
-    assert.match(ctx.sent[0].text, /This leaves you 1 day over your .+ balance for 2027\./);
+    assert.match(first(ctx.sent).text, /still takes 4 days, but some of it now counts in a different year\./);
+    assert.match(first(ctx.sent).text, /This leaves you 1 day over your .+ balance for 2027\./);
   });
 
   test("deleting a holiday counts the day again, keeps an overdrawn request, and says who is over", async () => {
@@ -318,10 +319,10 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     await ctx.settle();
     assert.equal(ctx.sent.length, 1);
     assert.match(
-      ctx.sent[0].text,
+      first(ctx.sent).text,
       /Thu, Dec 24, 2026 is no longer a company holiday, so your VAC for .+, 2026 now takes 4 days instead of 3 days\./,
     );
-    assert.match(ctx.sent[0].text, /Balance: This leaves you 1 day over your VAC balance for 2026\./);
+    assert.match(first(ctx.sent).text, /Balance: This leaves you 1 day over your VAC balance for 2026\./);
   });
 
   test("closed years keep their counts: only the open year of a request over New Year moves", async () => {
@@ -386,7 +387,7 @@ describe("recounting submitted leave when holidays change", { skip }, () => {
     assert.deepEqual(await requestDaysOf(t.db, theirs.id), [{ year: 2026, days: 9 }], "another company's leave is untouched");
     await ctx.settle();
     assert.equal(ctx.sent.length, 1);
-    assert.match(ctx.sent[0].text, /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\)/);
+    assert.match(first(ctx.sent).text, /Fri, Dec 25, 2026 is now a company holiday \(Christmas Day\)/);
   });
 
   test("a request on a holiday is refused with the holiday's name", async () => {

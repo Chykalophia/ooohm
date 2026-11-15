@@ -1816,6 +1816,13 @@ backup retention is what bounds how long a deleted person's data survives ([host
 | `pnpm db:check-drift` | `drizzle-kit generate` against a scratch copy of `drizzle/`: fails, printing the SQL, when `src/db/schema.ts` has a change no committed migration makes (ADR-0011; also run by `tests/architecture/schema-drift.test.ts`) | nothing |
 | `pnpm test:e2e` | Playwright journeys in `tests/e2e/*.spec.ts` on the built app under `pnpm start:embedded` (see below) | `pnpm build`, Playwright with Chromium |
 
+Tests, scripts and `site/demo` compile with the same strict flags as `src` (`noUncheckedIndexedAccess`,
+`exactOptionalPropertyTypes`, `noImplicitOverride`, `noFallthroughCasesInSwitch`; `pnpm typecheck`). In tests, a
+row or entry the test relies on is narrowed with the helpers in `tests/support/present.ts` rather than `!`:
+`first(rows)`, `at(rows, i)`, `take(rows, n)` for `const [a, b] = ...`, and `present(value)`, each failing with a
+clear message when the value is missing. `seedCompany` is typed by its people's keys, so `co.people.ana` needs
+no narrowing.
+
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
 IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,
 API key format) and runs the webhook transport against a local HTTP server (loopback refused by literal and by

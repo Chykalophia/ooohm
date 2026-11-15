@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { personLabel } from "@/shared/kernel/person-label";
 import { DEFAULT_EMAIL_ACCENT, emailAccent } from "@/lib/email-layout";
 import { type LeaveEmail, type LeaveSummary, renderLeaveEmail } from "@/modules/notifications/application/templates/leave";
+import { at } from "../support/present";
 
 const hostile = 'Eve <script>alert("x")</script>\r\nBcc: victim@example.com';
 
@@ -135,7 +136,7 @@ test("emails take the company's accent: on the main button, and readable on pale
   assert.match(out.html, /background:#2546d0;color:#ffffff[^"]*">Approve<\/a>/);
   assert.doesNotMatch(out.html, /#115e59/, "no classic teal left over");
 
-  const custom = renderLeaveEmail(kinds[1], emailAccent({ theme: "classic", accentColor: "#C026D3" }));
+  const custom = renderLeaveEmail(at(kinds, 1), emailAccent({ theme: "classic", accentColor: "#C026D3" }));
   assert.match(custom.html, /background:#c026d3/);
 
   // Marigold's yellow keeps its fill with dark text on it, and a darker ink for the wordmark.
@@ -146,7 +147,7 @@ test("emails take the company's accent: on the main button, and readable on pale
 
   assert.deepEqual(emailAccent(null), DEFAULT_EMAIL_ACCENT);
   assert.deepEqual(emailAccent({ theme: "from-a-newer-version", accentColor: null }), DEFAULT_EMAIL_ACCENT);
-  assert.match(renderLeaveEmail(kinds[1]).html, /background:#115e59/, "classic teal by default");
+  assert.match(renderLeaveEmail(at(kinds, 1)).html, /background:#115e59/, "classic teal by default");
 });
 
 test("a request email with an approve link leads with Approve, then Open in OOOhm", () => {

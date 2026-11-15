@@ -13,6 +13,7 @@ import { createTestContext, createTestDatabase, skip, type TestDatabase } from "
 import * as organisation from "@/modules/organisation";
 import * as companySettings from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
+import { first } from "../support/present";
 
 const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
 
@@ -55,7 +56,7 @@ describe("who can see whose time off on calendars", { skip }, () => {
       zed: { role: "manager" },
       cy: { managerKey: "zed" },
     });
-    const keys = Object.keys(co.people);
+    const keys = Object.keys(co.people) as (keyof typeof co.people)[];
     // Seven weekdays: Mon Nov 2 to Fri Nov 6, then Mon 9 and Tue 10.
     const days = ["02", "03", "04", "05", "06", "09", "10"];
     await t.db.insert(schema.leaveRequests).values(
@@ -83,7 +84,7 @@ describe("who can see whose time off on calendars", { skip }, () => {
 
   test("by default everyone sees everyone, as before", async () => {
     const { co } = await seeded();
-    for (const key of ["ana", "kid", "mo", "boss"]) {
+    for (const key of ["ana", "kid", "mo", "boss"] as const) {
       assert.deepEqual(await whoIsOut(t.db, co.people[key]), ["Ana", "Bo", "Boss", "Cy", "Kid", "Mo", "Zed"], key);
     }
   });
@@ -93,7 +94,7 @@ describe("who can see whose time off on calendars", { skip }, () => {
     assert.equal((await getCompanySettings(ctx, co.people.boss)).company.colleagueVisibility, "everyone");
     await setVisibility("team");
     assert.equal((await getCompanySettings(ctx, co.people.boss)).company.colleagueVisibility, "team");
-    const [row] = await companyAudit(t.db, co.companyId, "company.");
+    const row = first(await companyAudit(t.db, co.companyId, "company."));
     assert.deepEqual(
       [(row.before as { colleagueVisibility: string }).colleagueVisibility, (row.after as { colleagueVisibility: string }).colleagueVisibility],
       ["everyone", "team"],
@@ -179,8 +180,8 @@ describe("who can see whose time off on calendars", { skip }, () => {
   test("a teammate's page is only reachable for people the viewer may see", async () => {
     const { co, ctx, setVisibility } = await seeded();
     await setVisibility("team");
-    for (const key of ["ana", "bo", "mo", "kid"]) assert.ok(await getTeamMember(ctx, co.people.ana, co.people[key].id), key);
-    for (const key of ["cy", "zed", "boss"]) {
+    for (const key of ["ana", "bo", "mo", "kid"] as const) assert.ok(await getTeamMember(ctx, co.people.ana, co.people[key].id), key);
+    for (const key of ["cy", "zed", "boss"] as const) {
       await assert.rejects(getTeamMember(ctx, co.people.ana, co.people[key].id), (e) => isDomainError(e, "not_found"), key);
     }
     assert.ok(await getTeamMember(ctx, co.people.mo, co.people.cy.id), "managers still open anyone");

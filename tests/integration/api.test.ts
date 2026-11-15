@@ -16,6 +16,7 @@ import { balancesQuery, eventsQuery, holidaysQuery, leaveRequestsQuery, usersQue
 import type { ServiceContext } from "@/server/context";
 import { companyEvents, eventsFor, setAllowance, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+import { at, first, present } from "../support/present";
 
 // The integrations use cases return a ServiceResult; these tests read the value or the thrown DomainError.
 const createApiKey = (...args: Parameters<typeof createApiKeyResult>) => createApiKeyResult(...args).then(unwrap);
@@ -59,7 +60,7 @@ describe("REST API v1", { skip }, () => {
   function api(ctx: ServiceContext, limits = freshLimits()) {
     return async (route: string, key: string | null, query: Record<string, string> = {}, client = "198.51.100.1") => {
       const headers = new Headers(key === null ? {} : { Authorization: key.startsWith("Bearer") || key.startsWith("Basic") ? key : `Bearer ${key}` });
-      const res = await handleApiRequest({ ctx, headers, client, limits, route }, (c) => ROUTES[route](ctx, c, new URLSearchParams(query)));
+      const res = await handleApiRequest({ ctx, headers, client, limits, route }, (c) => present(ROUTES[route], route)(ctx, c, new URLSearchParams(query)));
       return { status: res.status, headers: res.headers, body: (await res.json()) as Record<string, unknown> & { data?: Record<string, unknown>[]; nextCursor?: string | null } };
     };
   }
@@ -143,8 +144,8 @@ describe("REST API v1", { skip }, () => {
     assert.equal(seen.length, 4);
     assert.deepEqual([...seen].sort(), seen, "ordered by id");
 
-    const first = (await call("/api/v1/users", key)).body.data![0];
-    assert.deepEqual(Object.keys(first).sort(), ["createdAt", "department", "email", "id", "isActive", "managerId", "name", "role"]);
+    const firstUser = first((await call("/api/v1/users", key)).body.data!);
+    assert.deepEqual(Object.keys(firstUser).sort(), ["createdAt", "department", "email", "id", "isActive", "managerId", "name", "role"]);
 
     const bad = await call("/api/v1/users", key, { limit: "500" });
     assert.equal(bad.status, 400);
@@ -165,7 +166,7 @@ describe("REST API v1", { skip }, () => {
     assert.deepEqual((await call("/api/v1/balances", mine.key, { userId: theirs.co.people.ana.id })).body.data, []);
     const types = (await call("/api/v1/leave-types", mine.key)).body.data!.map((x) => x.id);
     assert.deepEqual([...types].sort(), [mine.co.pto, mine.co.archived].sort());
-    const [theirEvent] = await eventsFor(t.db, theirs.co.companyId, req.id);
+    const theirEvent = first(await eventsFor(t.db, theirs.co.companyId, req.id));
     const replay = await call("/api/v1/events", mine.key, { after: theirEvent.id });
     assert.equal(replay.status, 400, "another company's event is not a valid cursor");
     const all = (await call("/api/v1/events", mine.key, { limit: "200" })).body.data!;
@@ -214,8 +215,8 @@ describe("REST API v1", { skip }, () => {
     const res = await call("/api/v1/balances", key, { year: "2026", userId: co.people.ana.id });
     assert.equal(res.body.year, 2026);
     const dashboard = await getBalanceSummary(ctx, co.people.ana, 2026);
-    const [apiPto] = res.body.data!.filter((b) => b.leaveTypeId === co.pto);
-    const [dashPto] = dashboard.items.filter((i) => i.leaveTypeId === co.pto);
+    const apiPto = first(res.body.data!.filter((b) => b.leaveTypeId === co.pto));
+    const dashPto = first(dashboard.items.filter((i) => i.leaveTypeId === co.pto));
     assert.deepEqual({ ...apiPto, userId: undefined, leaveTypeId: undefined, year: undefined }, { userId: undefined, leaveTypeId: undefined, year: undefined, ...dashPto.balance });
     assert.equal(apiPto.pending, 2);
     assert.equal(apiPto.remaining, 14);
@@ -245,7 +246,7 @@ describe("REST API v1", { skip }, () => {
   async function eventsSettled(companyId: string): Promise<void> {
     const deadline = Date.now() + SETTLE_TIMEOUT_MS;
     for (;;) {
-      const [{ hidden }] = await t.db
+      const { hidden } = first(await t.db
         .select({ hidden: count() })
         .from(schema.eventsOutbox)
         .where(
@@ -253,7 +254,7 @@ describe("REST API v1", { skip }, () => {
             eq(schema.eventsOutbox.companyId, companyId),
             sql`${schema.eventsOutbox.txId} >= pg_snapshot_xmin(pg_current_snapshot())::text::bigint`,
           ),
-        );
+        ));
       if (hidden === 0) return;
       if (Date.now() > deadline) assert.fail(`${hidden} events still hidden behind an open transaction after ${SETTLE_TIMEOUT_MS} ms`);
       await new Promise((r) => setTimeout(r, 25));
@@ -274,10 +275,10 @@ describe("REST API v1", { skip }, () => {
     assert.deepEqual(all.data.map((e) => e.type), ["api_key.created", "leave.requested", "leave.requested", "leave.requested"]);
     assert.ok(all.data.every((e) => e.version === 1));
 
-    const first = (await call("/api/v1/events", key, { limit: "2" })).body as unknown as { data: { id: string }[]; hasMore: boolean };
-    assert.equal(first.hasMore, true);
-    const rest = (await call("/api/v1/events", key, { after: first.data[1].id })).body as unknown as { data: { id: string }[] };
-    assert.deepEqual([...first.data, ...rest.data].map((e) => e.id), all.data.map((e) => e.id));
+    const firstPage = (await call("/api/v1/events", key, { limit: "2" })).body as unknown as { data: { id: string }[]; hasMore: boolean };
+    assert.equal(firstPage.hasMore, true);
+    const rest = (await call("/api/v1/events", key, { after: at(firstPage.data, 1).id })).body as unknown as { data: { id: string }[] };
+    assert.deepEqual([...firstPage.data, ...rest.data].map((e) => e.id), all.data.map((e) => e.id));
     assert.equal((await call("/api/v1/events", key, { after: "00000000-0000-4000-8000-000000000000" })).status, 400);
   });
 
@@ -288,7 +289,7 @@ describe("REST API v1", { skip }, () => {
     await eventsSettled(co.companyId);
     const before = await read({ limit: "200" });
     assert.deepEqual(before.data.map((e) => e.type), ["api_key.created"]);
-    const cursor = before.data[0].id;
+    const cursor = first(before.data).id;
 
     const writer = await t.client.reserve();
     let request: { id: string };
@@ -307,8 +308,8 @@ describe("REST API v1", { skip }, () => {
     await eventsSettled(co.companyId);
     const after = await read({ after: cursor });
     assert.equal(after.data.length, 2);
-    assert.equal(after.data[0].data.slow, true, "the slow row is not lost behind the cursor: it comes first");
-    assert.equal(after.data[1].data.requestId, request.id);
+    assert.equal(first(after.data).data.slow, true, "the slow row is not lost behind the cursor: it comes first");
+    assert.equal(at(after.data, 1).data.requestId, request.id);
   });
 
   test("each page costs a fixed number of queries, whatever it holds", async () => {
@@ -337,7 +338,7 @@ describe("REST API v1", { skip }, () => {
     assert.equal(await cost("/api/v1/balances", { userId: co.people.ana.id }), 7);
     assert.equal(await cost("/api/v1/holidays"), 3);
     assert.equal(await cost("/api/v1/events", { limit: "1" }), 2);
-    const [{ id: after }] = await companyEvents(t.db, co.companyId, "leave.requested");
+    const { id: after } = first(await companyEvents(t.db, co.companyId, "leave.requested"));
     assert.equal(await cost("/api/v1/events", { after, limit: "200" }), 3);
   });
 
@@ -350,7 +351,7 @@ describe("REST API v1", { skip }, () => {
         if (entry.isDirectory()) walk(full);
         else if (entry.name === "route.ts") {
           const source = readFileSync(full, "utf8");
-          const methods = [...source.matchAll(/export (?:async )?function (GET|POST|PUT|PATCH|DELETE)\b/g)].map((m) => m[1].toLowerCase());
+          const methods = [...source.matchAll(/export (?:async )?function (GET|POST|PUT|PATCH|DELETE)\b/g)].map((m) => at(m, 1).toLowerCase());
           files.push({ route: "/api/v1/" + path.relative(root, dir).split(path.sep).join("/"), methods });
         }
       }
@@ -376,7 +377,7 @@ describe("REST API v1", { skip }, () => {
     };
     await call(null, async () => []);
     await call(key, async () => parseQuery(usersQuery, new URLSearchParams({ limit: "0" })));
-    await call(writeOnly, (client) => ROUTES["/api/v1/users"](ctx, client, new URLSearchParams()));
+    await call(writeOnly, (client) => present(ROUTES["/api/v1/users"])(ctx, client, new URLSearchParams()));
     await call(key, () => Promise.reject(new Error("boom")));
     const spent = freshLimits();
     for (let i = 0; i < UNAUTHORIZED_PER_CLIENT_PER_MINUTE; i++) spent.unauthorized.take("198.51.100.7");

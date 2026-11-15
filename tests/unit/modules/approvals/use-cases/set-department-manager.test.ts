@@ -4,6 +4,7 @@ import type { DepartmentManagerChange } from "@/modules/organisation";
 import { type SetDepartmentManagerDeps, setDepartmentManager } from "@/modules/approvals/application/use-cases/set-department-manager";
 import { unwrap } from "@/shared/lib/result";
 import { type ApprovalKit, approvalKit } from "../fakes/ports";
+import { first } from "../../../../support/present";
 
 const ANA = "00000000-0000-4000-8000-0000000000b1";
 const MO = "00000000-0000-4000-8000-0000000000b2";
@@ -64,7 +65,7 @@ test("a new department manager takes the department's pending requests, with a r
   const r = unwrap(await setDepartmentManager(deps, kit.as(A1), DEPT, MO));
   assert.deepEqual(r, { id: DEPT, name: "Support", managerId: MO, maxOff: null, requestsReassigned: 1 });
   assert.deepEqual(kit.changes.kinds(), ["reassigned"]);
-  assert.equal(kit.changes.written[0].after.approverId, MO);
+  assert.equal(first(kit.changes.written).after.approverId, MO);
   assert.deepEqual(kit.sent.map((n) => [n.type, n.to]), [["leave.requested", "mo@example.test"]]);
 });
 

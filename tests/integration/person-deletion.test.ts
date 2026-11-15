@@ -20,6 +20,7 @@ import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
 import * as companySettings from "@/modules/leave";
+import { first } from "../support/present";
 
 const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
 const getPersonFormOptions = (...args: Parameters<typeof getPersonFormOptionsResult>) => getPersonFormOptionsResult(...args).then(unwrap);
@@ -61,8 +62,7 @@ const FORMER_NAME = "Zebediah Marchetti";
 const NAME_PARTS = ["zebulon", "quixtrade", "zebediah", "marchetti"];
 
 async function userRow(db: Database, id: string) {
-  const [row] = await db.select().from(schema.user).where(eq(schema.user.id, id));
-  return row;
+  return first(await db.select().from(schema.user).where(eq(schema.user.id, id)), "user row");
 }
 
 /**
@@ -86,9 +86,9 @@ async function findTraces(t: TestDatabase, needles: readonly string[]): Promise<
   assert.ok(columns.length > 40, `the scan sees the schema (${columns.length} columns)`);
   for (const { table, column } of columns) {
     for (const needle of needles) {
-      const [row] = await t.query<{
+      const row = first(await t.query<{
         n: number;
-      }>`select count(*)::int as n from ${sql.identifier(table)} where strpos(lower(${sql.identifier(column)}::text), ${needle.toLowerCase()}) > 0`;
+      }>`select count(*)::int as n from ${sql.identifier(table)} where strpos(lower(${sql.identifier(column)}::text), ${needle.toLowerCase()}) > 0`);
       if (Number(row.n) > 0) hits.push(`${table}.${column} contains "${needle}" (${row.n})`);
     }
   }
@@ -301,7 +301,7 @@ describe("admin: deleting people", { skip }, () => {
       lastResponseExcerpt: `GET /contacts/${zebEmail} returned 404`,
       nextAttemptAt: NOW,
     });
-    const [anyEvent] = await companyEvents(t.db, co.companyId);
+    const anyEvent = first(await companyEvents(t.db, co.companyId));
     await t.db.insert(schema.adapterDeliveries).values({
       companyId: co.companyId,
       adapterId: "test-adapter",
@@ -379,7 +379,7 @@ describe("admin: deleting people", { skip }, () => {
     );
 
     // What belongs to others stays: Mia's request, decided by the tombstone, with her note redacted.
-    const [miaAfter] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, miaLeave.id));
+    const miaAfter = first(await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, miaLeave.id)));
     assert.deepEqual([miaAfter.status, miaAfter.approverId, miaAfter.decisionNote], ["approved", zeb.id, "Covered"]);
     assert.equal(miaAfter.note, `Swapping with ${outcome.tombstoneName} (${tombstoneEmail(zeb.id)})`);
     const decidedByZeb = (await companyAudit(t.db, co.companyId)).filter((a) => a.actorId === zeb.id);
@@ -391,13 +391,18 @@ describe("admin: deleting people", { skip }, () => {
     // Exactly one audit row about them now: the delete, by the admin, counts only.
     const aboutZeb = (await companyAudit(t.db, co.companyId)).filter((a) => a.subjectUserId === zeb.id);
     assert.equal(aboutZeb.length, 1);
-    const [deleted] = aboutZeb;
+    const deleted = first(aboutZeb);
     assert.deepEqual(
       [deleted.action, deleted.actorKind, deleted.actorId, deleted.entityId, deleted.before],
       ["user.deleted", "user", boss.id, zeb.id, null],
     );
     assert.deepEqual(Object.keys(deleted.after as object), ["mode", "counts"]);
-    const counts = (deleted.after as { mode: string; counts: Record<string, number> }).counts;
+    const counts = (
+      deleted.after as {
+        mode: string;
+        counts: Record<string, number> & Record<"eventsRedacted" | "deliveriesRedacted" | "auditEntriesRedacted", number>;
+      }
+    ).counts;
     assert.equal((deleted.after as { mode: string }).mode, "scrubbed");
     assert.deepEqual(
       [
@@ -429,7 +434,7 @@ describe("admin: deleting people", { skip }, () => {
     assert.equal(eventsAfter.length, eventsBefore.length + 1);
     const userDeleted = eventsAfter.filter((e) => e.type === "user.deleted");
     assert.equal(userDeleted.length, 1);
-    assert.deepEqual(userDeleted[0].payload, {
+    assert.deepEqual(first(userDeleted).payload, {
       userId: zeb.id,
       mode: "scrubbed",
       deletedAt: NOW.toISOString(),
@@ -457,9 +462,9 @@ describe("admin: deleting people", { skip }, () => {
       `OK, ${outcome.tombstoneName} agreed`,
       "a name split by two spaces or a line break is found and replaced",
     );
-    const [key] = await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.companyId, co.companyId));
+    const key = first(await t.db.select().from(schema.apiKeys).where(eq(schema.apiKeys.companyId, co.companyId)));
     assert.equal(key.name, `${outcome.tombstoneName} - Zapier`);
-    const [ep] = await t.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, endpoint.id));
+    const ep = first(await t.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, endpoint.id)));
     assert.deepEqual([ep.description, ep.enabled], [`Payroll sync, ask ${outcome.tombstoneName} (${tombstoneEmail(zeb.id)})`, true]);
 
     // The pending delivery goes out redacted, with the new `user.deleted`; the stopped one never goes.
@@ -531,7 +536,7 @@ describe("admin: deleting people", { skip }, () => {
       [row.name, row.email, row.deletionMode, row.isActive],
       [`${ZEB_NAME} (deleted)`, tombstoneEmail(zeb.id), "records_kept", false],
     );
-    const [ownAfter] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, own.id));
+    const ownAfter = first(await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, own.id)));
     assert.deepEqual(
       [ownAfter.status, ownAfter.note, ownAfter.decisionNote],
       ["approved", "Dentist, private", "Enjoy"],
@@ -546,7 +551,7 @@ describe("admin: deleting people", { skip }, () => {
     assert.equal(auditAfter.length, auditBefore.length + 1, "nothing deleted from the audit log; one row added");
     const deleted = auditAfter.filter((a) => a.action === "user.deleted");
     assert.equal(deleted.length, 1);
-    assert.equal((deleted[0].after as { mode: string }).mode, "records_kept");
+    assert.equal((first(deleted).after as { mode: string }).mode, "records_kept");
     const eventsAfter = await companyEvents(t.db, co.companyId);
     assert.equal(eventsAfter.length, eventsBefore.length + 1);
     assert.deepEqual((eventsAfter.find((e) => e.type === "user.deleted")!.payload as { mode: string }).mode, "records_kept");
@@ -718,12 +723,12 @@ describe("admin: deleting people", { skip }, () => {
     row = await userRow(t.db, zeb.id);
     assert.deepEqual([row.deletionMode, row.deletedAt?.getTime(), row.scrubScheduledAt], ["scrubbed", due.getTime(), null]);
 
-    const [deleted] = await companyAudit(t.db, co.companyId, "user.deleted");
+    const deleted = first(await companyAudit(t.db, co.companyId, "user.deleted"));
     assert.deepEqual(
       [deleted.actorKind, deleted.actorId, deleted.actorProcess, deleted.actorRequestedBy, deleted.subjectUserId],
       ["system", null, "scheduled_scrub", boss.id, zeb.id],
     );
-    const [event] = await companyEvents(t.db, co.companyId, "user.deleted");
+    const event = first(await companyEvents(t.db, co.companyId, "user.deleted"));
     assert.deepEqual(event.payload, {
       userId: zeb.id,
       mode: "scrubbed",
@@ -732,7 +737,7 @@ describe("admin: deleting people", { skip }, () => {
       actor: { type: "system", process: "scheduled_scrub", requestedBy: boss.id },
     });
     const log = await getAuditLog(dueCtx, boss, { action: "user.deleted" });
-    assert.equal(log.entries[0].actorLabel, "System: scheduled deletion, requested by Boss");
+    assert.equal(first(log.entries).actorLabel, "System: scheduled deletion, requested by Boss");
     assert.equal(
       (await companyAudit(t.db, co.companyId)).filter((a) => a.subjectUserId === zeb.id).length,
       1,
@@ -906,7 +911,7 @@ describe("admin: deleting people", { skip }, () => {
       before,
       "the namesake's records, free text included, are untouched",
     );
-    const [noteAfter] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, note.id));
+    const noteAfter = first(await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, note.id)));
     assert.equal(noteAfter.note, "Sam Lee: dentist");
 
     const created = (await companyAudit(t.db, co.companyId, "user.created")).filter((a) => a.subjectUserId === stays.id);
@@ -941,7 +946,7 @@ describe("admin: deleting people", { skip }, () => {
     const auditBefore = (await companyAudit(t.db, co.companyId)).length;
     const eventsBefore = (await companyEvents(t.db, co.companyId)).length;
     await deletePerson(ctx, boss, kim.id, { mode: "records_kept", confirmName: "Kim" });
-    const [after] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, req.id));
+    const after = first(await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, req.id)));
     assert.equal(after.status, "cancelled");
     assert.equal((await decidable(ctx, mgr)).total, 0);
     await rejectsWith(decideLeaveRequest(ctx, boss, { requestId: req.id, decision: "approve" }), "invalid_transition");
@@ -979,16 +984,16 @@ describe("admin: deleting people", { skip }, () => {
     await ctx.settle();
 
     // The scrub commits while the POST of the claimed body is in flight.
-    const first: string[] = [];
+    const inFlightBodies: string[] = [];
     const inFlight: WebhookFetch = async (_url, init) => {
-      first.push(init.body);
-      if (first.length === 1) await deletePerson(ctx, boss, qo.id, { mode: "scrubbed", confirmName: "Quill Ostrander" });
+      inFlightBodies.push(init.body);
+      if (inFlightBodies.length === 1) await deletePerson(ctx, boss, qo.id, { mode: "scrubbed", confirmName: "Quill Ostrander" });
       return new Response("ok", { status: 200 });
     };
     await deliverDueWebhooks(ctx, { fetch: inFlight });
-    assert.equal(first.length, 1);
-    assert.ok(first[0].includes(email), "the attempt in flight had read the old body (a documented limit)");
-    const [row] = await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.companyId, co.companyId));
+    assert.equal(inFlightBodies.length, 1);
+    assert.ok(first(inFlightBodies).includes(email), "the attempt in flight had read the old body (a documented limit)");
+    const row = first(await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.companyId, co.companyId)));
     assert.deepEqual([row.status, row.deliveredAt], ["pending", null], "its outcome is dropped, not recorded as delivered");
     assert.ok(!row.body.includes(email) && !row.body.includes("Quill"));
 
@@ -997,8 +1002,8 @@ describe("admin: deleting people", { skip }, () => {
     const again = recorder();
     await deliverDueWebhooks(later, { fetch: again.fetch });
     assert.equal(again.bodies.length, 1);
-    assert.ok(!again.bodies[0].includes(email) && !again.bodies[0].includes("Quill"), again.bodies[0]);
-    const [done] = await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.id, row.id));
+    assert.ok(!first(again.bodies).includes(email) && !first(again.bodies).includes("Quill"), again.bodies[0]);
+    const done = first(await t.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.id, row.id)));
     assert.deepEqual([done.status, done.body], ["delivered", again.bodies[0]]);
   });
 
@@ -1008,7 +1013,7 @@ describe("admin: deleting people", { skip }, () => {
     const { fileName, csv } = await exportPersonRecords(ctx, boss, zeb.id);
     assert.equal(fileName, `ooohm-records-${zeb.id.replaceAll("-", "").slice(0, 6)}.csv`);
     const lines = csv.split("\r\n");
-    assert.ok(lines[0].startsWith("record,id,date,leave_type"));
+    assert.ok(first(lines).startsWith("record,id,date,leave_type"));
     assert.equal(lines.filter((l) => l.startsWith("leave_request,")).length, 2);
     const balances = lines.filter((l) => l.startsWith("balance,"));
     assert.ok(balances.some((l) => l.includes(",2026,20,")) && balances.some((l) => l.includes(",2027,22,")), balances.join("\n"));

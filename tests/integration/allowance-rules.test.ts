@@ -10,6 +10,7 @@ import { submitLeaveRequest as submitLeaveRequestResult } from "@/modules/leave"
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 const deactivatePerson = (...args: Parameters<typeof deactivatePersonResult>) => deactivatePersonResult(...args).then(unwrap);
 const updatePerson = (...args: Parameters<typeof updatePersonResult>) => updatePersonResult(...args).then(unwrap);
@@ -141,11 +142,11 @@ describe("allowance rules by department and level", { skip }, () => {
     const { co, ctx, vac, dev } = await seed();
     const { boss, ana } = co.people;
 
-    const first = await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: dev.id, levelId: null, days: 20 });
+    const firstRule = await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: dev.id, levelId: null, days: 20 });
     const again = await setAllowanceRule(ctx, boss, { leaveTypeId: vac, departmentId: dev.id, levelId: null, days: 22.5 });
-    assert.equal(again.id, first.id);
+    assert.equal(again.id, firstRule.id);
     assert.equal(await allowanceOf(ctx, ana, vac), 22.5);
-    await removeAllowanceRule(ctx, boss, first.id);
+    await removeAllowanceRule(ctx, boss, firstRule.id);
     assert.equal(await allowanceOf(ctx, ana, vac), 15);
 
     assert.deepEqual(
@@ -156,9 +157,9 @@ describe("allowance rules by department and level", { skip }, () => {
         ["allowance_rule.removed", { leaveTypeId: vac, departmentId: dev.id, levelId: null, days: 22.5 }, null],
       ],
     );
-    const [event] = await companyEvents(t.db, co.companyId, "allowance_rule.set");
+    const event = first(await companyEvents(t.db, co.companyId, "allowance_rule.set"));
     assert.deepEqual(event.payload, {
-      ruleId: first.id,
+      ruleId: firstRule.id,
       leaveTypeId: vac,
       departmentId: dev.id,
       levelId: null,
@@ -190,7 +191,7 @@ describe("allowance rules by department and level", { skip }, () => {
     const moves = await companyAudit(t.db, co.companyId, "allowance.rule_applied");
     assert.equal(moves.length, 2);
     assert.ok(moves.every((m) => m.subjectUserId === ana.id && m.actorId === boss.id));
-    const [balance] = await companyEvents(t.db, co.companyId, "balance.adjusted");
+    const balance = first(await companyEvents(t.db, co.companyId, "balance.adjusted"));
     assert.equal((balance.payload as { reason: string }).reason, "allowance_rule");
 
     await removeAllowanceRule(ctx, boss, result.id);

@@ -39,7 +39,7 @@ on Vercel, or on one machine (docs/hosting.md): never assume a host.
 
 ```bash
 pnpm dev            # local dev (needs Postgres + .env)
-pnpm typecheck      # tsc --noEmit, then src under tsconfig.src.json (noUncheckedIndexedAccess, exactOptionalPropertyTypes, noImplicitOverride, noFallthroughCasesInSwitch)
+pnpm typecheck      # tsc --noEmit over the whole repo: strict plus noUncheckedIndexedAccess, exactOptionalPropertyTypes, noImplicitOverride, noFallthroughCasesInSwitch (tsconfig.json); in tests, narrow rows with first/at/take/present (tests/support/present.ts)
 pnpm lint
 pnpm db:generate    # after editing src/db/schema.ts — commit the generated SQL in drizzle/
 pnpm db:check-drift # fails if src/db/schema.ts has a change no committed migration makes (ADR-0011; CI runs it)

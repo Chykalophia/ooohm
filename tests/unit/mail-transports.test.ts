@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { createMailTransport, type MailConfig } from "@/lib/mail/registry";
 import { createSendGridTransport, SENDGRID_ENDPOINTS } from "@/lib/mail/sendgrid";
 import { MailSendError, parseMailbox } from "@/lib/mail/transport";
+import { first } from "../support/present";
 
 const KEY = "SG.secret-key-never-in-errors";
 const MAIL = {
@@ -28,7 +29,7 @@ test("SendGrid: one authenticated POST with both bodies, and tracking off so sig
   await createSendGridTransport({ apiKey: KEY, fetch: f.impl }).send(MAIL);
 
   assert.equal(f.calls.length, 1, "exactly one request per message");
-  const [{ url, init }] = f.calls;
+  const { url, init } = first(f.calls);
   assert.equal(url, SENDGRID_ENDPOINTS.global);
   assert.equal(init.method, "POST");
   assert.equal((init.headers as Record<string, string>).Authorization, `Bearer ${KEY}`);
@@ -49,9 +50,9 @@ test("SendGrid: one authenticated POST with both bodies, and tracking off so sig
 
 test("SendGrid: an EU account sends through the EU host; a text-only message has one body", async () => {
   const f = fakeFetch(202);
-  await createSendGridTransport({ apiKey: KEY, region: "eu", fetch: f.impl }).send({ ...MAIL, html: undefined });
-  assert.equal(f.calls[0].url, SENDGRID_ENDPOINTS.eu);
-  assert.equal(JSON.parse(String(f.calls[0].init.body)).content.length, 1);
+  await createSendGridTransport({ apiKey: KEY, region: "eu", fetch: f.impl }).send({ from: MAIL.from, to: MAIL.to, subject: MAIL.subject, text: MAIL.text });
+  assert.equal(first(f.calls).url, SENDGRID_ENDPOINTS.eu);
+  assert.equal(JSON.parse(String(first(f.calls).init.body)).content.length, 1);
 });
 
 test("SendGrid: a refusal or a network failure throws, naming the status but never the key", async () => {

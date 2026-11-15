@@ -1,112 +1,13 @@
 "use server";
 
 import { z } from "zod";
-import { ROLES } from "@/domain/actor";
-import { NOTE_MAX_LENGTH } from "@/shared/kernel/leave-range";
 import { EMAIL_MAX_LENGTH, PERSON_NAME_MAX_LENGTH } from "@/shared/kernel/names";
-import { setAllowanceOverride } from "@/modules/balances";
 import { map } from "@/shared/lib/result";
-import {
-  cancelScheduledDeletion,
-  deactivatePerson,
-  DELETION_MODES,
-  type DeletionBlockers,
-  type DeletionMode,
-  deletePerson,
-  deletionBlockersOf,
-  invitePerson,
-  reactivatePerson,
-  resendInvite,
-  updatePerson,
-} from "@/modules/people";
+import { cancelScheduledDeletion, DELETION_MODES, type DeletionBlockers, type DeletionMode, deletePerson, deletionBlockersOf } from "@/modules/people";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction, adminActionThenGo } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
-import { deactivationMessage } from "@/app/admin/people/deactivation-message";
-
-const personFields = {
-  name: formFields.text(PERSON_NAME_MAX_LENGTH * 2),
-  role: z.enum(ROLES),
-  departmentId: formFields.optionalId,
-  // Only on the form when the company has levels: absent leaves the person's level as it is.
-  levelId: z
-    .string()
-    .max(100)
-    .optional()
-    .transform((v) => (v === undefined ? undefined : v || null)),
-  managerId: formFields.optionalId,
-  canSelfApprove: formFields.checkbox,
-};
-
-const inviteSchema = z.object({ email: formFields.text(EMAIL_MAX_LENGTH + 20), ...personFields });
-const editSchema = z.object({ userId: formFields.id, ...personFields });
-const personSchema = z.object({ userId: formFields.id });
-
-const INVITE_MESSAGES = {
-  already_exists: "That email can't be invited. If they're already here, find them in People.",
-  invalid_input: "Check the email and name, then try again.",
-  rate_limited: "That's a lot of invites for one hour. Try again later.",
-};
-
-const PERSON_MESSAGES = {
-  not_found: "That person isn't in your company.",
-  forbidden: "Only admins can do that.",
-};
-
-/** Invite page: creates the person and emails them a sign-in link. */
-export async function inviteAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return adminAction(
-    "person_invite",
-    formData,
-    inviteSchema,
-    async (ctx, actor, input) => map(await invitePerson(ctx, actor, input), (person) => `Invited. ${person.email} will get an email with a sign-in link.`),
-    INVITE_MESSAGES,
-  );
-}
-
-/** Person page: saves name, department, manager, role and self-approval. */
-export async function updatePersonAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return adminAction(
-    "person_update",
-    formData,
-    editSchema,
-    async (ctx, actor, { userId, ...input }) =>
-      map(await updatePerson(ctx, actor, userId, input), ({ requestsReassigned: n }) =>
-        n === 0 ? "Saved." : `Saved. ${n} pending ${n === 1 ? "request" : "requests"} moved to another approver.`,
-      ),
-    PERSON_MESSAGES,
-  );
-}
-
-export async function resendInviteAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return adminAction(
-    "person_resend_invite",
-    formData,
-    personSchema,
-    async (ctx, actor, { userId }) => map(await resendInvite(ctx, actor, userId), (person) => `Sent. ${person.email} will get a new sign-in link.`),
-    { ...PERSON_MESSAGES, forbidden: "Reactivate them before sending a link.", rate_limited: INVITE_MESSAGES.rate_limited },
-  );
-}
-
-export async function deactivateAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return adminAction(
-    "person_deactivate",
-    formData,
-    personSchema,
-    async (ctx, actor, { userId }) => map(await deactivatePerson(ctx, actor, userId), deactivationMessage),
-    PERSON_MESSAGES,
-  );
-}
-
-export async function reactivateAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return adminAction(
-    "person_reactivate",
-    formData,
-    personSchema,
-    async (ctx, actor, { userId }) => map(await reactivatePerson(ctx, actor, userId), () => "Reactivated. They can sign in again."),
-    PERSON_MESSAGES,
-  );
-}
+import { PERSON_MESSAGES, personSchema } from "@/app/admin/people/person-input";
 
 const deleteSchema = z.object({
   userId: formFields.id,
@@ -151,32 +52,5 @@ export async function cancelDeletionAction(_prev: FormState, formData: FormData)
     async (ctx, actor, { userId }) =>
       map(await cancelScheduledDeletion(ctx, actor, userId), (cancelled) => (cancelled ? "Undone. They stay, deactivated." : "Nothing was scheduled.")),
     PERSON_MESSAGES,
-  );
-}
-
-const allowanceSchema = z.object({
-  userId: formFields.id,
-  leaveTypeId: formFields.id,
-  year: z.coerce.number().int(),
-  days: formFields.number,
-  adjustmentDays: formFields.number,
-  reason: formFields.text(NOTE_MAX_LENGTH * 2),
-});
-
-/** Allowances page: sets one person's allowance for one leave type and year. */
-export async function allowanceAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return adminAction(
-    "allowance_override",
-    formData,
-    allowanceSchema,
-    async (ctx, actor, input) => {
-      return map(await setAllowanceOverride(ctx, actor, input), ({ changed }) =>
-        changed ? "Saved." : "Those are already the amounts, so nothing changed and nothing was recorded.",
-      );
-    },
-    {
-      ...PERSON_MESSAGES,
-      invalid_input: "Days go from 0 to 366 in steps of 0.1, and a reason is required. Years before last year can't be changed.",
-    },
   );
 }

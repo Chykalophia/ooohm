@@ -3,44 +3,12 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { map } from "@/shared/lib/result";
-import { createWebhookEndpoint, deleteWebhookEndpoint, redeliverWebhook, rotateWebhookSecret, sendWebhookPing, setWebhookEndpointEnabled, updateWebhookEndpoint, WEBHOOK_DESCRIPTION_MAX_LENGTH } from "@/modules/integrations";
-import { WEBHOOK_URL_MAX_LENGTH } from "@/domain/webhook-target";
+import { deleteWebhookEndpoint, redeliverWebhook, rotateWebhookSecret, sendWebhookPing, setWebhookEndpointEnabled, updateWebhookEndpoint } from "@/modules/integrations";
 import type { FormState } from "@/components/forms/form-state";
+import type { RevealState } from "@/components/forms/reveal-state";
 import { adminAction, adminRevealAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
-import type { RevealState } from "@/components/forms/reveal-state";
-
-const MESSAGES = {
-  not_found: "That endpoint doesn't exist any more.",
-  invalid_input: "Check the URL and description, and pick at least one event.",
-  limit_reached: "That's as many endpoints as a company can have. Delete one you no longer use first.",
-};
-
-const endpointSchema = z.object({
-  url: formFields.text(WEBHOOK_URL_MAX_LENGTH + 100),
-  description: formFields.text(WEBHOOK_DESCRIPTION_MAX_LENGTH * 2).optional().default(""),
-  eventTypes: z.array(z.string().max(100)).max(100),
-});
-
-/** The form's fields, with the event type checkboxes as a list. */
-function endpointFields(formData: FormData) {
-  return { ...Object.fromEntries(formData), eventTypes: formData.getAll("eventTypes") };
-}
-
-export async function createEndpointAction(_prev: RevealState, formData: FormData): Promise<RevealState> {
-  return adminRevealAction(
-    "webhook_endpoint_create",
-    endpointFields(formData),
-    endpointSchema,
-    async (ctx, actor, input) =>
-      map(await createWebhookEndpoint(ctx, actor, input), ({ endpoint, secret }) => ({
-        value: secret,
-        message: "Endpoint added. Here is its signing secret.",
-        href: `/admin/webhooks/${endpoint.id}`,
-      })),
-    MESSAGES,
-  );
-}
+import { ENDPOINT_MESSAGES as MESSAGES, endpointFields, endpointSchema } from "@/app/admin/webhooks/endpoint-input";
 
 export async function updateEndpointAction(_prev: FormState, formData: FormData): Promise<FormState> {
   return adminAction(

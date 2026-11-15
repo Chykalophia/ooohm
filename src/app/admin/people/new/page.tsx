@@ -8,7 +8,7 @@ import { BackLink } from "@/components/ui/section";
 import { Card } from "@/components/ui/card";
 import { TextField } from "@/components/ui/fields";
 import { ActionForm } from "@/components/forms/action-form";
-import { inviteAction } from "@/app/admin/people/actions";
+import { inviteAction } from "./actions";
 import { PersonFields } from "@/app/admin/people/person-fields";
 
 export const metadata: Metadata = { title: "Invite someone · Admin · OOOhm" };

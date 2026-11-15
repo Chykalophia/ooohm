@@ -15,7 +15,7 @@ import { BackLink } from "@/components/ui/section";
 import { outlineButton } from "@/components/ui/styles";
 import { orNotFound, requireAdminPage } from "@/app/_lib/page-context";
 import { AdminShell } from "@/app/admin/admin-shell";
-import { allowanceAction } from "@/app/admin/people/actions";
+import { allowanceAction } from "./actions";
 
 export const metadata: Metadata = { title: "Allowances · Admin · OOOhm" };
 

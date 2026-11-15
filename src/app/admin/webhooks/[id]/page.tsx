@@ -21,7 +21,7 @@ import {
   sendPingAction,
   setEndpointEnabledAction,
   updateEndpointAction,
-} from "@/app/admin/webhooks/actions";
+} from "./actions";
 import { DeliveryStatusText } from "@/app/admin/webhooks/delivery-status";
 import { EndpointFields } from "@/app/admin/webhooks/endpoint-fields";
 

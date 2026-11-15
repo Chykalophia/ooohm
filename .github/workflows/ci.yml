@@ -85,8 +85,8 @@ jobs:
       BETTER_AUTH_SECRET: ci-sentinel-better-auth-secret-0123456789abcdef
       WEBHOOK_ENCRYPTION_KEY: Y2ktc2VudGluZWwtd2ViaG9vay1rZXktMDEyMzQ1Njc=
       CRON_SECRET: ci-sentinel-cron-secret-0123456789
-      SEED_ADMIN_EMAIL: admin@example.com
-      DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+      SEED_ADMIN_EMAIL: ci-sentinel-seed-admin@example.invalid
+      DATABASE_URL: postgres://ci:ci-sentinel-db-password@localhost:5432/ci
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -99,7 +99,7 @@ jobs:
       - name: No server secret reaches the client bundle (F16)
         run: |
           status=0
-          for value in "$BETTER_AUTH_SECRET" "$WEBHOOK_ENCRYPTION_KEY" "$CRON_SECRET"; do
+          for value in "$BETTER_AUTH_SECRET" "$WEBHOOK_ENCRYPTION_KEY" "$CRON_SECRET" "$DATABASE_URL" "$SEED_ADMIN_EMAIL"; do
             if grep -rlF "$value" .next/static; then echo "::error::a server secret is in the client bundle"; status=1; fi
           done
           exit $status

@@ -22,6 +22,22 @@ const PIPELINE_FILES = new Set(["src/app/_lib/server-action.ts", "src/app/admin/
 
 type ExportedFunction = { name: string; body: string };
 
+/**
+ * Exports the scan cannot see into: `export { x } from`, `export { x }`, `export *`
+ * and `export default`. An action file defines its actions in place, so any of these
+ * is reported rather than trusted.
+ */
+function opaqueExports(path: string, source: string): string[] {
+  const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+  return file.statements.flatMap((statement) => {
+    if (ts.isExportDeclaration(statement) && !statement.isTypeOnly) return [`${path}: ${statement.getText(file).split("\n")[0]}`];
+    if (ts.isExportAssignment(statement)) return [`${path}: export default`];
+    const isDefault =
+      ts.canHaveModifiers(statement) && (ts.getModifiers(statement) ?? []).some((m) => m.kind === ts.SyntaxKind.DefaultKeyword);
+    return isDefault ? [`${path}: export default`] : [];
+  });
+}
+
 /** Exported functions of a module: `export async function x`, and `export const x = …` arrows or calls. */
 function exportedFunctions(path: string, source: string): ExportedFunction[] {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
@@ -55,6 +71,10 @@ test("every exported server action goes through the authenticated pipeline", () 
       .map(({ name }) => `${path}#${name}`),
   );
   assert.deepEqual(unguarded, [], "Wrap these in runFormAction / runStateAction / adminAction (or record the token they rely on).");
+});
+
+test("action files define their actions in place, with no re-export or default export", () => {
+  assert.deepEqual(actionFiles().flatMap((path) => opaqueExports(path, read(path))), []);
 });
 
 test("every allow-listed token action still exists", () => {

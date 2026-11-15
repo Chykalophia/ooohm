@@ -18,6 +18,7 @@ const probes: Record<string, string> = {
   [`src/lib/${PROBE}/a.ts`]: `import { b } from "./b";\nexport const a = () => b;\n`,
   [`src/lib/${PROBE}/b.ts`]: `import { a } from "./a";\nexport const b = () => a;\n`,
   [`src/lib/${PROBE}/vendor.ts`]: `import nodemailer from "nodemailer";\nexport const probe = nodemailer;\n`,
+  [`src/server/services/${PROBE}/concrete.ts`]: `import { env } from "@/lib/env";\nexport const probe = env;\n`,
 };
 
 type Cruise = { summary: { totalCruised: number; violations: { rule: { name: string }; from: string; to: string }[] } };
@@ -51,6 +52,7 @@ test("each dependency rule reports a planted violation", () => {
   assert.ok(fired("components-not-to-server", "reaches-server.ts"), "component → server not reported");
   assert.ok(fired("no-circular", "a.ts") || fired("no-circular", "b.ts"), "cycle not reported");
   assert.ok(fired("vendor-sdk-only-in-infrastructure", "vendor.ts"), "vendor SDK outside infrastructure not reported");
+  assert.ok(fired("application-not-to-concrete-infrastructure", "concrete.ts"), "use case → concrete infrastructure not reported");
 });
 
 test("the cruise covers the whole source tree", () => {

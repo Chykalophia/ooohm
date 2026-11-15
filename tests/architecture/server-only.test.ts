@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { hasDirective, listFiles, read } from "./files";
+import { listFiles, read } from "./files";
 
 /**
  * F5 (docs/architecture-plan/04-fitness-functions.md): every server file imports
@@ -32,7 +32,7 @@ function serverFiles(): string[] {
 const importsServerOnly = (source: string) => /^import\s+["']server-only["'];?$/m.test(source);
 
 test("every server file imports server-only, apart from the recorded baseline", () => {
-  const missing = serverFiles().filter((path) => !importsServerOnly(read(path)) && !hasDirective(read(path), "use server"));
+  const missing = serverFiles().filter((path) => !importsServerOnly(read(path)));
   const unexpected = missing.filter((path) => !MISSING_SERVER_ONLY.has(path));
   assert.deepEqual(unexpected, [], `Add import "server-only" to these new server files:\n${unexpected.join("\n")}`);
 });

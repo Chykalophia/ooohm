@@ -93,9 +93,8 @@ export function DatePicker({
   const [focus, setFocus] = useState<CalendarDate>("");
   const [today, setToday] = useState<CalendarDate>("");
   const [typed, setTyped] = useState("");
-  const root = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const popup = useRef<HTMLSpanElement>(null);
+  const { root, popup } = usePopup(open, setOpen, trigger);
   const typedField = useRef<HTMLInputElement>(null);
   const prevButton = useRef<HTMLButtonElement>(null);
   const nextButton = useRef<HTMLButtonElement>(null);
@@ -108,48 +107,11 @@ export function DatePicker({
   const typedInvalid = typed.length > 0 && !(typedDate && isSelectable(typedDate, min));
   const todayAllowed = today !== "" && isSelectable(today, min);
 
-  // A pointer-down anywhere else closes it, leaving the value as it was.
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: PointerEvent) => {
-      if (root.current?.contains(e.target as Node)) return;
-      setOpen(false);
-      trigger.current?.focus();
-    };
-    document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
-  }, [open]);
-
   useEffect(() => {
     if (!open || !focusGrid.current) return;
     focusGrid.current = false;
     popup.current?.querySelector<HTMLElement>(`[data-date="${focus}"]`)?.focus();
-  }, [open, focus]);
-
-  // Under the trigger, kept inside the viewport; on phones, the sentence card's width and left edge.
-  useLayoutEffect(() => {
-    if (!open) return;
-    const place = () => {
-      const wrap = root.current;
-      const panel = popup.current;
-      if (!wrap || !panel) return;
-      const viewport = document.documentElement.clientWidth;
-      const anchor = wrap.getBoundingClientRect().left;
-      const phone = !window.matchMedia("(min-width: 40rem)").matches;
-      // Phones: exactly the card's box (the nearest section), never wider than the viewport.
-      const card = phone ? (wrap.closest("section") ?? wrap.closest("form")) : null;
-      const box = card?.getBoundingClientRect();
-      const width = box ? Math.min(box.width, viewport) : 0;
-      panel.style.width = box ? `${width}px` : "";
-      const left = box
-        ? Math.max(0, Math.min(box.left, viewport - width))
-        : Math.max(EDGE, Math.min(anchor, viewport - EDGE - panel.offsetWidth));
-      panel.style.left = `${left - anchor}px`;
-    };
-    place();
-    window.addEventListener("resize", place);
-    return () => window.removeEventListener("resize", place);
-  }, [open]);
+  }, [open, focus, popup]);
 
   function show() {
     const now = localToday();
@@ -232,16 +194,7 @@ export function DatePicker({
         {value ? formatShortDay(value) : "pick a date"}
         {adornment}
       </button>
-      {/* The posted value. A real (invisible) input, so `required` still blocks an empty submit. */}
-      <input
-        name={name}
-        value={value}
-        required
-        tabIndex={-1}
-        aria-hidden
-        onChange={() => {}}
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
-      />
+      <PostedValue name={name} value={value} />
       {open && month && (
         <span
           ref={popup}
@@ -258,93 +211,237 @@ export function DatePicker({
             "text-left text-base leading-normal font-normal tracking-normal whitespace-normal text-foreground",
           )}
         >
-          <span className="mb-3 flex flex-wrap items-baseline gap-x-2">
-            <label htmlFor={`${id}-typed`} className="text-xs tracking-[0.06em] text-muted uppercase">
-              {pickerLabel}
-            </label>
-            <input
-              ref={typedField}
-              id={`${id}-typed`}
-              value={typed}
-              onChange={(e) => onType(e.target.value)}
-              placeholder="YYYY-MM-DD"
-              autoComplete="off"
-              spellCheck={false}
-              aria-invalid={typedInvalid || undefined}
-              aria-describedby={typedInvalid ? `${id}-error` : undefined}
-              className={cx(
-                "min-w-0 flex-1 rounded-none border-0 border-b border-field bg-transparent px-0 py-0.5 text-base tabular-nums outline-none sm:text-sm",
-                "focus:border-b-2 focus:border-accent-ink aria-[invalid=true]:border-danger",
-              )}
-            />
-            {typedInvalid && (
-              <span id={`${id}-error`} className={cx("basis-full text-xs", errorText)}>
-                Use YYYY-MM-DD{min ? `, on or after ${formatShortDay(min)}` : ""}.
-              </span>
-            )}
-          </span>
+          <TypedDate id={id} label={pickerLabel} inputRef={typedField} typed={typed} invalid={typedInvalid} min={min} onType={onType} />
 
-          <span className="mb-2 flex items-center justify-between">
-            <span
-              aria-live="polite"
-              style={{ fontFamily: "var(--display-font)" }}
-              className="text-2xl leading-tight font-semibold tracking-[-0.01em] max-sm:text-xl"
-            >
-              {monthName(month)} <span className="font-normal text-muted">{year}</span>
-            </span>
-            <span className="flex">
-              <NavButton ref={prevButton} label="Previous month" onClick={() => turnMonth(-1)} direction={-1} />
-              <NavButton ref={nextButton} label="Next month" onClick={() => turnMonth(1)} direction={1} />
-            </span>
-          </span>
+          <MonthHeading month={month} year={year} prevRef={prevButton} nextRef={nextButton} onTurn={turnMonth} />
 
-          <span role="grid" aria-label={`${monthName(month)} ${year}`} onKeyDown={onGridKey} className="block">
-            <span role="row" className="grid grid-cols-7 py-1 text-center text-[0.6875rem] tracking-[0.06em] text-muted uppercase">
-              {WEEKDAYS.map(([short, full]) => (
-                <span key={short} role="columnheader" aria-label={full}>
-                  <abbr title={full} className="no-underline">
-                    {short}
-                  </abbr>
-                </span>
-              ))}
-            </span>
-            {Array.from({ length: 6 }, (_, row) => (
-              <span key={row} role="row" className="grid grid-cols-7">
-                {days
-                  .slice(row * 7, row * 7 + 7)
-                  .map((day) => (
-                    <DayCell
-                      key={day.date}
-                      date={day.date}
-                      inMonth={day.inMonth}
-                      selected={day.date === value}
-                      isToday={day.date === today}
-                      disabled={!isSelectable(day.date, min)}
-                      focused={day.date === focus}
-                      onPick={() => pick(day.date)}
-                    />
-                  ))}
-              </span>
-            ))}
-          </span>
+          <MonthDays
+            label={`${monthName(month)} ${year}`}
+            days={days}
+            value={value}
+            today={today}
+            focus={focus}
+            min={min}
+            onKeyDown={onGridKey}
+            onPick={pick}
+          />
 
-          <span className="mt-2 flex border-t border-dashed border-border pt-2">
-            <button
-              ref={todayButton}
-              type="button"
-              disabled={!todayAllowed}
-              onClick={() => pick(today)}
-              className={cx(
-                "-ml-1.5 cursor-pointer rounded-md px-1.5 py-1 text-sm font-medium text-accent-ink underline-offset-4 hover:underline",
-                "disabled:cursor-default disabled:no-underline disabled:opacity-60",
-                focusRing,
-              )}
-            >
-              Today <span className="text-muted">· {formatShortDay(today)}</span>
-            </button>
-          </span>
+          <TodayButton ref={todayButton} today={today} disabled={!todayAllowed} onPick={() => pick(today)} />
         </span>
       )}
+    </span>
+  );
+}
+
+/** The posted value. A real (invisible) input, so `required` still blocks an empty submit. */
+function PostedValue({ name, value }: { name: string; value: string }) {
+  return (
+    <input
+      name={name}
+      value={value}
+      required
+      tabIndex={-1}
+      aria-hidden
+      onChange={() => {}}
+      className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+    />
+  );
+}
+
+function TodayButton({ ref, today, disabled, onPick }: { ref: React.Ref<HTMLButtonElement>; today: CalendarDate; disabled: boolean; onPick: () => void }) {
+  return (
+    <span className="mt-2 flex border-t border-dashed border-border pt-2">
+      <button
+        ref={ref}
+        type="button"
+        disabled={disabled}
+        onClick={onPick}
+        className={cx(
+          "-ml-1.5 cursor-pointer rounded-md px-1.5 py-1 text-sm font-medium text-accent-ink underline-offset-4 hover:underline",
+          "disabled:cursor-default disabled:no-underline disabled:opacity-60",
+          focusRing,
+        )}
+      >
+        Today <span className="text-muted">· {formatShortDay(today)}</span>
+      </button>
+    </span>
+  );
+}
+
+/** The month on show, and the buttons to the months either side. */
+function MonthHeading({
+  month,
+  year,
+  prevRef,
+  nextRef,
+  onTurn,
+}: {
+  month: string;
+  year: string;
+  prevRef: React.Ref<HTMLButtonElement>;
+  nextRef: React.Ref<HTMLButtonElement>;
+  onTurn: (step: 1 | -1) => void;
+}) {
+  return (
+    <span className="mb-2 flex items-center justify-between">
+      <span
+        aria-live="polite"
+        style={{ fontFamily: "var(--display-font)" }}
+        className="text-2xl leading-tight font-semibold tracking-[-0.01em] max-sm:text-xl"
+      >
+        {monthName(month)} <span className="font-normal text-muted">{year}</span>
+      </span>
+      <span className="flex">
+        <NavButton ref={prevRef} label="Previous month" onClick={() => onTurn(-1)} direction={-1} />
+        <NavButton ref={nextRef} label="Next month" onClick={() => onTurn(1)} direction={1} />
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The popup's refs and behaviour while open: a pointer-down anywhere else closes it
+ * (focus back on the trigger), and it sits under the trigger, kept inside the viewport;
+ * on phones, the sentence card's width and left edge.
+ */
+function usePopup(open: boolean, setOpen: (open: boolean) => void, trigger: React.RefObject<HTMLButtonElement | null>) {
+  const root = useRef<HTMLSpanElement>(null);
+  const popup = useRef<HTMLSpanElement>(null);
+
+  // A pointer-down anywhere else closes it, leaving the value as it was.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (root.current?.contains(e.target as Node)) return;
+      setOpen(false);
+      trigger.current?.focus();
+    };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [open, setOpen, trigger]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const wrap = root.current;
+      const panel = popup.current;
+      if (!wrap || !panel) return;
+      const viewport = document.documentElement.clientWidth;
+      const anchor = wrap.getBoundingClientRect().left;
+      const phone = !window.matchMedia("(min-width: 40rem)").matches;
+      // Phones: exactly the card's box (the nearest section), never wider than the viewport.
+      const card = phone ? (wrap.closest("section") ?? wrap.closest("form")) : null;
+      const box = card?.getBoundingClientRect();
+      const width = box ? Math.min(box.width, viewport) : 0;
+      panel.style.width = box ? `${width}px` : "";
+      const left = box
+        ? Math.max(0, Math.min(box.left, viewport - width))
+        : Math.max(EDGE, Math.min(anchor, viewport - EDGE - panel.offsetWidth));
+      panel.style.left = `${left - anchor}px`;
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open]);
+  return { root, popup };
+}
+
+/** The dialog's typed `YYYY-MM-DD` field, with why a typed date can't be used. */
+function TypedDate({
+  id,
+  label,
+  inputRef,
+  typed,
+  invalid,
+  min,
+  onType,
+}: {
+  id: string;
+  label: string;
+  inputRef: React.Ref<HTMLInputElement>;
+  typed: string;
+  invalid: boolean;
+  min?: CalendarDate;
+  onType: (text: string) => void;
+}) {
+  return (
+    <span className="mb-3 flex flex-wrap items-baseline gap-x-2">
+      <label htmlFor={`${id}-typed`} className="text-xs tracking-[0.06em] text-muted uppercase">
+        {label}
+      </label>
+      <input
+        ref={inputRef}
+        id={`${id}-typed`}
+        value={typed}
+        onChange={(e) => onType(e.target.value)}
+        placeholder="YYYY-MM-DD"
+        autoComplete="off"
+        spellCheck={false}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${id}-error` : undefined}
+        className={cx(
+          "min-w-0 flex-1 rounded-none border-0 border-b border-field bg-transparent px-0 py-0.5 text-base tabular-nums outline-none sm:text-sm",
+          "focus:border-b-2 focus:border-accent-ink aria-[invalid=true]:border-danger",
+        )}
+      />
+      {invalid && (
+        <span id={`${id}-error`} className={cx("basis-full text-xs", errorText)}>
+          Use YYYY-MM-DD{min ? `, on or after ${formatShortDay(min)}` : ""}.
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** The month's Monday-first grid of days: six rows of seven. */
+function MonthDays({
+  label,
+  days,
+  value,
+  today,
+  focus,
+  min,
+  onKeyDown,
+  onPick,
+}: {
+  label: string;
+  days: ReturnType<typeof pickerGrid>;
+  value: CalendarDate | "";
+  today: CalendarDate;
+  focus: CalendarDate;
+  min?: CalendarDate;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  onPick: (date: CalendarDate) => void;
+}) {
+  return (
+    <span role="grid" aria-label={label} onKeyDown={onKeyDown} className="block">
+      <span role="row" className="grid grid-cols-7 py-1 text-center text-[0.6875rem] tracking-[0.06em] text-muted uppercase">
+        {WEEKDAYS.map(([short, full]) => (
+          <span key={short} role="columnheader" aria-label={full}>
+            <abbr title={full} className="no-underline">
+              {short}
+            </abbr>
+          </span>
+        ))}
+      </span>
+      {Array.from({ length: 6 }, (_, row) => (
+        <span key={row} role="row" className="grid grid-cols-7">
+          {days
+            .slice(row * 7, row * 7 + 7)
+            .map((day) => (
+              <DayCell
+                key={day.date}
+                date={day.date}
+                inMonth={day.inMonth}
+                selected={day.date === value}
+                isToday={day.date === today}
+                disabled={!isSelectable(day.date, min)}
+                focused={day.date === focus}
+                onPick={() => onPick(day.date)}
+              />
+            ))}
+        </span>
+      ))}
     </span>
   );
 }

@@ -1740,6 +1740,7 @@ backup retention is what bounds how long a deleted person's data survives ([host
 | `pnpm test` | Unit tests in `tests/unit/` (domain rules incl. manager loops and the last-admin guard, settings validation, allowance policy, year split, federal holidays, calendar grid, ICS writer, audit summaries, change sources and their labels, email templates, formatting, TimeOff's balance rules and the import mapping, which read a synthetic TimeOff SQLite file built at test time; the hosting pieces: database and background-mode configuration, pooler detection, trimmed env values, the embedded directory lock, the cron route's authorization and the tick scheduler; the past-year cancel rule; deleting people: tombstone names and emails, the guards, the confirmation, payload redaction and CSV escaping) | nothing |
 | `pnpm test:integration` | Service tests in `tests/integration/` against real Postgres, including every admin service (happy path, non-admin refused, another company's ids not found, audit and outbox rows) and the audit viewer's paging, filters, query count and plan; the integration layer: dispatch fan-out, two concurrent workers, retries and backoff on a fake clock and transport, redelivery, ping, rotation, API auth, rate limits, pagination, company scoping, query counts, OpenAPI coverage, the adapter seam, scheduled jobs and retention; the TimeOff import: dry run untouched, apply reconciled to zero, re-run refused (same file, or any later export into an imported company, even with `--force`), the fixture carried forward to a later year reconciling, mismatch rolled back, admin guard, non-empty company, the `--actor` admin (unknown or non-admin refused with nothing written), audit rows and the single `import.completed` attributed to that admin via `timeoff_import`; past-year leave refused for the requester and an admin, in the company's time zone, including an imported 2025 request; the background tick: inline after a change (and not after a refused one), a due retry, three ticks at once, the budget, daily jobs; deleting people (`person-deletion.test.ts`): both modes (exactly which rows go and stay, the counts in the one audit row, the one `user.deleted` event), every guard, the grace option (scheduled, undo, the daily job, attribution), re-inviting a released address, a kept-records delete withdrawing their pending request, outbox, delivery, import and settings-label redaction including a pending delivery that must not leak and one in flight when the delete commits, a namesake untouched (free text included), the CSV export, and a no-trace scan of every text, varchar, json(b) and text[] column of every table (read from `information_schema`, so new tables are covered) for the name parts and email after a full scrub | `TEST_DATABASE_URL` |
 | `pnpm test:integration:embedded` | The same suites on embedded PGlite (`TEST_DATABASE_URL=pglite:memory`: an in-memory database per file, migrated as embedded mode migrates). Two tests that need two connections at once are skipped (`needsServer`) | nothing |
+| `pnpm test:components` | Component tests in `tests/components/` (React Testing Library on jsdom): the request form's preview and half-day rules, the decision form and approval card (decide, collapse, where focus goes), the date picker, cancel with undo, the delete-person dialog and the email editor | nothing |
 
 The unit suite also covers the integration layer's pure parts (HMAC vector, headers and verification, backoff,
 IPv4/IPv6 range checks including mapped forms, URL rules, envelope, encryption round trip and tamper detection,
@@ -1756,6 +1757,19 @@ statements (no N+1) and none needed a new index: the only sequential scans were 
 Both run with Node's test runner through `tsx --conditions=react-server`. The `react-server` condition makes
 `import "server-only"` resolve to its empty module, the same way Next.js resolves it on the server, so tests
 can import server modules (for example the logger) unchanged. `tsx` also resolves the `@/` path alias.
+
+Component tests (`pnpm test:components`, ADR-0007) run on the same runner, without `react-server`: client
+components get React's browser build, as in the app. `tests/components/setup.ts` is preloaded with `--import`. It
+creates a jsdom window (`global-jsdom`), puts jsdom's `FormData`, `Event` and `CustomEvent` in place of Node's,
+stands in for `next/navigation` (a router that counts `refresh()` calls, in `router`) and `server-only`, and cleans
+up after each test. A component that imports its server actions gets them replaced first: call
+`stubModule("@/app/.../actions", { ... })` at the top of the file (it uses `mock.module`, behind
+`--experimental-test-module-mocks`), then load the component with `await import(...)` in a `before` hook, since a
+static import would load the real actions first. Stub `fetch` on `globalThis` for client fetches. For countdowns
+and delays, `mock.timers.enable({ apis: ["setTimeout"] })` drives both `setTimeout` and `window.setTimeout`; drive
+the component with `fireEvent` inside `act` there, because Testing Library's async helpers and `user-event` wait on
+real timers. Elsewhere use `userEvent.setup()`. Query by role, label and text, and assert what a person sees and
+where focus is.
 
 Integration tests: point `TEST_DATABASE_URL` at a Postgres 17 server where the user may create databases.
 Each test file creates `ooohm_test_<random>`, runs the Drizzle migrations from `drizzle/`, and drops it at

@@ -48,6 +48,7 @@ pnpm job:rollover   # idempotent year rollover (carryover + new-year allowances)
 pnpm worker         # outbox worker: webhooks, adapter deliveries, daily rollover + retention
 pnpm import:timeoff -- --file <x.sqlite> --company <id> --actor <admin email> [--apply]   # one-time TimeOff import (dry run by default)
 pnpm test           # unit tests + tests/architecture (no database)
+pnpm test:components # component tests in tests/components (React Testing Library on jsdom; docs/architecture.md#testing)
 pnpm arch           # dependency rules (.dependency-cruiser.cjs); fails on violations not in the baseline
 pnpm madge          # import cycles (none allowed)
 pnpm test:integration  # service tests; set TEST_DATABASE_URL (see docs/architecture.md#testing)
@@ -83,7 +84,7 @@ Layered; dependencies point downward only. Full rules in `docs/architecture.md`.
 - `site/`: the marketing landing page, a static site deployed apart from the app (no build step). `site/demo/` records its videos from the real app with demo data. See `site/README.md`.
 - `docs/guide/`: the product guide, screen by screen, with every setting and email; `site/docs/` is built from it (`node site/demo/build-docs.mjs`) and its screenshots come from `site/demo/docs-screens.mjs`. Update the page (and its shot) with any change to a screen, a setting or an email. See `site/README.md`.
 - `docs/api.md`: the public integration reference (auth, endpoints, events and payloads, webhooks, signatures). Update it with any event or API change.
-- `tests/unit/**` (`pnpm test`) and `tests/integration/**` (`pnpm test:integration`, needs `TEST_DATABASE_URL`; fresh database per file). Both run under `--conditions=react-server` so `server-only` modules load.
+- `tests/unit/**` (`pnpm test`) and `tests/integration/**` (`pnpm test:integration`, needs `TEST_DATABASE_URL`; fresh database per file). Both run under `--conditions=react-server` so `server-only` modules load. `tests/components/**` (`pnpm test:components`) runs client components on jsdom without that condition; `tests/components/setup.ts` stubs `next/navigation` and, per file, the server actions a component imports.
 
 ## License
 

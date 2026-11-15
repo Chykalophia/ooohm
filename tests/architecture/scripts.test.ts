@@ -11,15 +11,31 @@ import { ROOT, read } from "./files";
  */
 const scripts: Record<string, string> = JSON.parse(read("package.json")).scripts;
 
+/**
+ * The component tests are the one exception: they load client components, which must get
+ * React's browser build, not the server one. Their setup stands in for `server-only`.
+ */
+const CLIENT_SUITES = ["test:components"];
+
 test("every tsx command in package.json runs with --conditions=react-server", () => {
-  const missing = Object.entries(scripts).flatMap(([name, command]) =>
-    command
-      .split("&&")
-      .map((part) => part.trim())
-      .filter((part) => /^tsx\b/.test(part) && !part.includes("--conditions=react-server"))
-      .map((part) => `${name}: ${part}`),
-  );
+  const missing = Object.entries(scripts)
+    .filter(([name]) => !CLIENT_SUITES.includes(name))
+    .flatMap(([name, command]) =>
+      command
+        .split("&&")
+        .map((part) => part.trim())
+        .filter((part) => /^tsx\b/.test(part) && !part.includes("--conditions=react-server"))
+        .map((part) => `${name}: ${part}`),
+    );
   assert.deepEqual(missing, []);
+});
+
+test("the component tests run without react-server, through their setup", () => {
+  for (const name of CLIENT_SUITES) {
+    const command = scripts[name] ?? "";
+    assert.doesNotMatch(command, /react-server/, name);
+    assert.match(command, /--import \.\/tests\/components\/setup\.ts/, name);
+  }
 });
 
 test("the Vercel build's migrate and seed steps load every module they import", () => {

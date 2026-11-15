@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { COMPANY_NAME_MAX_LENGTH } from "@/domain/company-settings";
 import { formatRecountOutcome } from "@/lib/format";
-import { updateCompanySettings } from "@/server/services/admin-company";
+import { updateCompanySettings } from "@/server/services/company-settings";
+import { map } from "@/shared/lib/result";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -26,11 +27,11 @@ export async function updateCompanyAction(_prev: FormState, formData: FormData):
     "company_update",
     { ...Object.fromEntries(formData), workingDays: formData.getAll("workingDays") },
     companySchema,
-    async (ctx, actor, input) => {
-      const { recount } = await updateCompanySettings(ctx, actor, input);
-      const changes = formatRecountOutcome(recount);
-      return changes ? `Saved. ${changes}` : "Saved.";
-    },
+    async (ctx, actor, input) =>
+      map(await updateCompanySettings(ctx, actor, input), ({ recount }) => {
+        const changes = formatRecountOutcome(recount);
+        return changes ? `Saved. ${changes}` : "Saved.";
+      }),
     { invalid_input: "Give the company a name, pick a time zone from the list, tick at least one working day, and choose how time off is approved." },
   );
 }

@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { connection } from "next/server";
 import { OHM_OFFSET, OHM_PATH, OHM_SCALE, OHM_STROKE_WIDTH, appearanceAccent, markColors } from "@/lib/brand-mark";
 import { serviceContext } from "@/server/runtime";
-import { getAppearance } from "@/server/services/appearance";
+import { getAppearance } from "@/modules/organisation";
 
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";

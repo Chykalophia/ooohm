@@ -6,7 +6,7 @@ import { isDomainError } from "@/domain/errors";
 import { DARKEST_LIGHT_GROUND, accentHover, accentTokens, htmlAppearance } from "@/lib/appearance";
 import { contrastRatio } from "@/lib/color";
 import type { ServiceContext } from "@/server/context";
-import { getAppearance } from "@/server/services/appearance";
+import { getAppearance } from "@/modules/organisation";
 
 const invalid = (fn: () => unknown) => assert.throws(fn, (err) => isDomainError(err, "invalid_input"));
 

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { MAX_OFF_LIMIT } from "@/domain/coverage";
 import { DEPARTMENT_NAME_MAX_LENGTH } from "@/domain/people";
 import { formatCount } from "@/lib/format";
-import { listDepartmentManagerChoices, listDepartmentsForAdmin } from "@/server/services/admin-departments";
+import { listDepartmentManagerChoices, listDepartmentsForAdmin } from "@/modules/organisation";
+import { unwrap } from "@/shared/lib/result";
 import { AdminShell } from "@/app/admin/admin-shell";
 import { requireAdminPage } from "@/app/_lib/page-context";
 import { Card, Item, ItemList } from "@/components/ui/card";
@@ -24,7 +25,7 @@ export const metadata: Metadata = { title: "Departments · Admin · OOOhm" };
 
 export default async function DepartmentsPage() {
   const { actor, ctx, nav } = await requireAdminPage();
-  const [departments, people] = await Promise.all([listDepartmentsForAdmin(ctx, actor), listDepartmentManagerChoices(ctx, actor)]);
+  const [departments, people] = await Promise.all([listDepartmentsForAdmin(ctx, actor).then(unwrap), listDepartmentManagerChoices(ctx, actor).then(unwrap)]);
   const managerOptions = [{ value: "", label: "No department manager" }, ...people.map((p) => ({ value: p.id, label: p.label }))];
 
   return (

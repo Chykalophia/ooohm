@@ -23,8 +23,8 @@ import { teamLabel } from "@/domain/person";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { findCalendarViewer, findCompanySettings, listHolidays, listPersonalEntries, listTeamEntries } from "@/server/repositories/calendar";
-import { listDepartments } from "@/server/repositories/departments";
-import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { listDepartments } from "@/modules/organisation";
+import { listActiveLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { scopeOf } from "./calendar-scope";
 
 /** Where a month view sits and where its links go. */

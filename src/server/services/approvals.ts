@@ -20,7 +20,7 @@ import {
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
 import { findCompanySettings } from "@/server/repositories/calendar";
-import { findLeaveType } from "@/server/repositories/leave-types";
+import { findLeaveType } from "@/modules/organisation";
 import { findMember } from "@/server/repositories/users";
 import { loadApprovalContext } from "./approval-routing";
 import { alsoOffFor } from "./also-off";

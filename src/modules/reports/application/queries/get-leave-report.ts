@@ -8,9 +8,8 @@ import { teamLabel } from "@/domain/person";
 import { todayInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { listHolidayDates } from "@/server/repositories/calendar";
-import { findCompany } from "@/server/repositories/companies";
-import { listDepartments } from "@/server/repositories/departments";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { findCompany, listDepartments } from "@/modules/organisation";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { loadBalances } from "@/server/services/balances";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import {

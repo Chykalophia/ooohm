@@ -21,7 +21,8 @@ import { listBalanceSubjects, listLeaveRequestsPage, listUsersPage } from "@/ser
 import { listAllowances, sumBookedDays } from "@/server/repositories/balances";
 import { findCompanySettings } from "@/server/repositories/calendar";
 import { listHolidayRows } from "@/server/repositories/holidays";
-import { listAllLeaveTypes, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { listAllLeaveTypes } from "@/modules/organisation";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { companyEventExists, listCompanyEvents } from "@/server/repositories/outbox";
 import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "./balances";
 

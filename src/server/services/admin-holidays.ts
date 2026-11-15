@@ -24,7 +24,8 @@ import { assertHolidayDate, holidayRangeDates, isHolidayYear, normalizeHolidayNa
 import { isUuid } from "@/domain/ids";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
-import { findCompany, lockCompany } from "@/server/repositories/companies";
+import { findCompany } from "@/modules/organisation";
+import { lockCompany } from "@/shared/lib/db/company-lock";
 import { isUniqueViolation } from "@/shared/lib/db/errors";
 import {
   deleteHolidays as deleteHolidayRows,

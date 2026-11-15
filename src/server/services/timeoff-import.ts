@@ -65,8 +65,16 @@ import type { TimeOffSnapshot } from "@/domain/timeoff/source";
 import { todayInTimeZone, yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { type AuditEntry, recordChange } from "@/shared/lib/db/change-log";
-import { type CompanyRow, lockCompany, updateCompany } from "@/server/repositories/companies";
-import { insertDepartment } from "@/server/repositories/departments";
+import {
+  addDepartment as insertDepartment,
+  addLeaveType as insertLeaveType,
+  applyCompanyChanges as updateCompany,
+  applyLeaveTypeChanges as updateLeaveType,
+  type CompanyDTO as CompanyRow,
+  type LeaveTypeSettingsDTO as LeaveTypeRow,
+  listAllLeaveTypes,
+  lockCompanyForChange as lockCompany,
+} from "@/modules/organisation";
 import { insertHolidays, listHolidayRows } from "@/server/repositories/holidays";
 import {
   countCompanyLeaveRequests,
@@ -89,7 +97,6 @@ import {
   updateImportedAccount,
   upsertAllowances,
 } from "@/server/repositories/imports";
-import { insertLeaveType, type LeaveTypeRow, listAllLeaveTypes, updateLeaveType } from "@/server/repositories/leave-types";
 import { findMembers, lockMember } from "@/server/repositories/users";
 import { loadApprovalContexts } from "./approval-routing";
 import { loadBalances } from "./balances";

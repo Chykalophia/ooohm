@@ -21,8 +21,7 @@ import { type AllowanceEdit, assertAllowanceYear, normalizeAllowanceEdit } from 
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
 import { type AllowanceRow, findAllowance, writeAllowanceOverride } from "@/server/repositories/balances";
-import { type CompanyRow, findCompany } from "@/server/repositories/companies";
-import { findLeaveTypeForAdmin, type LeaveTypeRow } from "@/server/repositories/leave-types";
+import { type CompanyDTO, findCompany, findLeaveTypeForAdmin, type LeaveTypeSettingsDTO } from "@/modules/organisation";
 import { lockMember } from "@/server/repositories/users";
 import { assertActiveAdmin } from "@/shared/lib/admin-access";
 import { recordAllowanceChange } from "./allowance-changes";
@@ -105,10 +104,10 @@ export async function setAllowanceOverride(ctx: ServiceContext, actor: Actor, in
 export async function writeAllowance(
   tx: Transaction,
   job: {
-    company: CompanyRow;
+    company: CompanyDTO;
     currentYear: number;
     member: { id: string; isActive: boolean; createdAt: Date };
-    leaveType: LeaveTypeRow;
+    leaveType: LeaveTypeSettingsDTO;
     year: number;
     days: number;
     adjustmentDays: number;

@@ -23,7 +23,7 @@ import { listAllowanceRules, listPlacements } from "@/server/repositories/allowa
 import { type AllowanceRow, listAllowances, sumBookedDays } from "@/server/repositories/balances";
 import { findCompanySettings, listHolidayDates, listHolidays } from "@/server/repositories/calendar";
 import { listActiveRequestsInRange } from "@/server/repositories/leave-requests";
-import { findActiveLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { findActiveLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 
 /** The date and type part of a leave request, before it is stored. */
 export interface LeaveDraft {

@@ -4,15 +4,15 @@ import { DomainError } from "@/domain/errors";
 import { ADMIN_EVENT_TYPES } from "@/domain/events";
 import { isUuid } from "@/domain/ids";
 import type { ServiceContext } from "@/server/context";
-import { lockCompany } from "@/server/repositories/companies";
+import { lockCompany } from "@/shared/lib/db/company-lock";
 import { countLevelMembers } from "@/server/repositories/users";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
-import { removeRulesOf } from "@/server/services/allowance-rule-removal";
+import { removeRulesOf } from "@/modules/organisation/application/allowance-rule-removal";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import { deleteLevel as deleteLevelRow, lockLevel } from "../../infrastructure/drizzle-levels.repository";
-import { levelPayload } from "../level-changes";
-import { canManageLevels } from "../policies";
+import { deleteLevel as deleteLevelRow, lockLevel } from "@/modules/organisation/infrastructure/drizzle-levels.repository";
+import { levelPayload } from "@/modules/organisation/application/level-changes";
+import { canManageLevels } from "@/modules/organisation/application/policies";
 
 /**
  * Deletes a level nobody is at. Its allowance rules go with it, each recorded as

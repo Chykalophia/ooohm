@@ -8,10 +8,10 @@ import type { ServiceContext } from "@/server/context";
 import { assertActiveAdmin, recordAdminChange } from "@/shared/lib/admin-access";
 import { inTransaction } from "@/shared/lib/unit-of-work";
 import { attempt, err, type ServiceResult } from "@/shared/lib/result";
-import { findLevelByName, lockLevel, renameLevel as renameLevelRow } from "../../infrastructure/drizzle-levels.repository";
-import { type LevelDTO, toLevelDTO } from "../dto";
-import { levelPayload, withUniqueName } from "../level-changes";
-import { canManageLevels } from "../policies";
+import { findLevelByName, lockLevel, renameLevel as renameLevelRow } from "@/modules/organisation/infrastructure/drizzle-levels.repository";
+import { type LevelDTO, toLevelDTO } from "@/modules/organisation/application/dto";
+import { levelPayload, withUniqueName } from "@/modules/organisation/application/level-changes";
+import { canManageLevels } from "@/modules/organisation/application/policies";
 
 /**
  * Renames a level; the same name again changes nothing. Fails with `forbidden`,

@@ -43,7 +43,7 @@ import type { ServiceContext } from "@/server/context";
 import { listAllowances, listRequestDays, replaceRequestDays, sumBookedDays } from "@/server/repositories/balances";
 import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
 import { type LeaveRequestRow, lockActiveRequestsOnDates, updateRequestDays } from "@/server/repositories/leave-requests";
-import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { findContacts } from "@/server/repositories/users";
 import { allowanceYearsFor, balanceInputs, loadAllowanceDefaults } from "./balances";
 import { recordRecount, summarize } from "./leave-changes";

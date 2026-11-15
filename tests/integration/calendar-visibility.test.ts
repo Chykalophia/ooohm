@@ -6,12 +6,18 @@ import type { Database } from "@/db/types";
 import type { Actor } from "@/domain/actor";
 import type { ColleagueVisibility } from "@/domain/calendar-visibility";
 import { isDomainError } from "@/domain/errors";
-import { getCompanySettings, updateCompanySettings } from "@/server/services/admin-company";
 import { getMonthCalendar, getTeamCalendar } from "@/server/services/calendar";
 import { issueCalendarFeed, renderCalendarFeed } from "@/server/services/calendar-feeds";
 import { getTeamMember } from "@/server/services/team-member";
 import { companyAudit, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as organisation from "@/modules/organisation";
+import * as companySettings from "@/server/services/company-settings";
+import { unwrap } from "@/shared/lib/result";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const getCompanySettings = (...args: Parameters<typeof organisation.getCompanySettings>) => organisation.getCompanySettings(...args).then(unwrap);
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
 
 // The test clock is 2026-11-01 15:00 UTC: Nov 1 in Chicago, so "this month" is 2026-11.
 

@@ -15,7 +15,7 @@ import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { insertRequestDays } from "@/server/repositories/balances";
 import { findCompanySettings, listHolidayDates } from "@/server/repositories/calendar";
-import { shareLockCompany } from "@/server/repositories/companies";
+import { shareLockCompany } from "@/shared/lib/db/company-lock";
 import {
   countRecentRequests,
   lockLeaveRequest,
@@ -26,8 +26,8 @@ import {
   medianDecisionHours,
   updateStatusIfCurrent,
 } from "@/server/repositories/leave-requests";
-import { findLeaveType, listLeaveTypesWithAllowance } from "@/server/repositories/leave-types";
-import { findDepartment } from "@/server/repositories/departments";
+import { findDepartment, findLeaveType } from "@/modules/organisation";
+import { listLeaveTypesWithAllowance } from "@/server/repositories/leave-type-allowances";
 import { findPerson, lockMember } from "@/server/repositories/users";
 import { loadApprovalContext } from "./approval-routing";
 import { currentApprover } from "./approvals";

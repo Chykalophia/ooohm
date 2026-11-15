@@ -30,7 +30,8 @@ import {
 import { normalizeWebhookUrl, urlOrigin } from "@/domain/webhook-target";
 import { generateWebhookSecret } from "@/lib/integration-crypto";
 import type { ServiceContext } from "@/server/context";
-import { findCompany, lockCompany } from "@/server/repositories/companies";
+import { findCompany } from "@/modules/organisation";
+import { lockCompany } from "@/shared/lib/db/company-lock";
 import {
   cancelPendingDeliveries,
   countLiveEndpoints,

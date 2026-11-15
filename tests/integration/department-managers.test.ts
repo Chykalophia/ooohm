@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { createDepartment, listDepartmentsForAdmin, setDepartmentManager } from "@/server/services/admin-departments";
 import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
 import { deletePerson } from "@/server/services/admin-people-deletion";
 import { decideLeaveRequest } from "@/server/services/approvals";
@@ -12,6 +11,14 @@ import { getTeamMember } from "@/server/services/team-member";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, decidable, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as organisation from "@/modules/organisation";
+import * as departmentManager from "@/server/services/department-manager";
+import { unwrap } from "@/shared/lib/result";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);
+const listDepartmentsForAdmin = (...args: Parameters<typeof organisation.listDepartmentsForAdmin>) => organisation.listDepartmentsForAdmin(...args).then(unwrap);
+const setDepartmentManager = (...args: Parameters<typeof departmentManager.setDepartmentManager>) => departmentManager.setDepartmentManager(...args).then(unwrap);
 
 const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
 const NOW = new Date("2026-11-03T09:00:00Z");

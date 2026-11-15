@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { env, googleEnabled } from "@/lib/env";
 import { serviceContext } from "@/server/runtime";
-import { getDeploymentLogo } from "@/server/services/appearance";
+import { getDeploymentLogo } from "@/modules/organisation";
 import { installStatus } from "@/server/services/install";
 import { textLink } from "@/components/ui/styles";
 import { SignInForm } from "./sign-in-form";

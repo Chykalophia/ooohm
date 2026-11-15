@@ -7,7 +7,7 @@ import { formatShortDay } from "@/lib/format";
 import { teamLabel } from "@/domain/person";
 import { canSeeOnCalendar } from "@/domain/calendar-visibility";
 import { findCompanySettings, listHolidays, listTeamEntries } from "@/server/repositories/calendar";
-import { findDepartment, findDepartmentLimits } from "@/server/repositories/departments";
+import { findDepartment, findDepartmentLimits } from "@/modules/organisation";
 import { findPerson } from "@/server/repositories/users";
 import { loadCalendarScope } from "./calendar-scope";
 

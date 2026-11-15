@@ -2,11 +2,17 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { getCompanySettings, updateCompanySettings } from "@/server/services/admin-company";
 import { cancelLeaveRequest, getDashboard, submitLeaveRequest } from "@/server/services/leave-requests";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, auditFor, companyAudit, companyEvents, decidable, eventsFor, requestsOf, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import * as organisation from "@/modules/organisation";
+import * as companySettings from "@/server/services/company-settings";
+import { unwrap } from "@/shared/lib/result";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const getCompanySettings = (...args: Parameters<typeof organisation.getCompanySettings>) => organisation.getCompanySettings(...args).then(unwrap);
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
 
 // Heads-up time off: an admin turns approval off for the whole company, so people tell
 // the company they're off instead of asking. Dates: 2026-11-02 is a Monday.

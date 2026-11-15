@@ -2,7 +2,7 @@ import "server-only";
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
 import { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent } from "@/lib/email-layout";
-import { findCompany } from "@/server/repositories/companies";
+import { findCompany } from "@/modules/organisation";
 
 /**
  * The company's email look (accent and logo), read once on first use and shared by every email built

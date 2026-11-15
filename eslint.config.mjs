@@ -53,7 +53,13 @@ const layers = [
   {
     // Use cases: the old services, the shared unit of work and admin checks, and the
     // application layer of the modules whose old service sat here.
-    files: ["src/server/services/**/*.ts", "src/shared/lib/unit-of-work.ts", "src/shared/lib/admin-access.ts", "src/modules/audit/application/**/*.ts"],
+    files: [
+      "src/server/services/**/*.ts",
+      "src/shared/lib/unit-of-work.ts",
+      "src/shared/lib/admin-access.ts",
+      "src/modules/audit/application/**/*.ts",
+      "src/modules/organisation/application/**/*.ts",
+    ],
     paths: [
       ...next,
       pool,
@@ -65,7 +71,13 @@ const layers = [
     patterns: [drizzle, relative, nextSub, upward("Services never import presentation.")],
   },
   {
-    files: ["src/server/repositories/**/*.ts", "src/shared/lib/db/**/*.ts", "src/modules/notifications/infrastructure/**/*.ts", "src/modules/audit/infrastructure/**/*.ts"],
+    files: [
+      "src/server/repositories/**/*.ts",
+      "src/shared/lib/db/**/*.ts",
+      "src/modules/notifications/infrastructure/**/*.ts",
+      "src/modules/audit/infrastructure/**/*.ts",
+      "src/modules/organisation/infrastructure/**/*.ts",
+    ],
     paths: [...next, pool, { name: "@/lib/env", message: "Repositories take everything they need as arguments." }],
     patterns: [
       upward("Repositories never import presentation."),

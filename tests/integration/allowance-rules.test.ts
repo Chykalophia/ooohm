@@ -3,7 +3,6 @@ import { after, before, describe, test } from "node:test";
 import { and, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { listAllowanceRulesForAdmin, removeAllowanceRule, setAllowanceRule } from "@/server/services/admin-allowance-rules";
-import { createDepartment, deleteDepartment } from "@/server/services/admin-departments";
 import * as organisation from "@/modules/organisation";
 import { unwrap } from "@/shared/lib/result";
 import { deactivatePerson, updatePerson } from "@/server/services/admin-people";
@@ -14,6 +13,10 @@ import { runYearRollover } from "@/server/services/rollover";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, allowancesOf, companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const createDepartment = (...args: Parameters<typeof organisation.createDepartment>) => organisation.createDepartment(...args).then(unwrap);
+const deleteDepartment = (...args: Parameters<typeof organisation.deleteDepartment>) => organisation.deleteDepartment(...args).then(unwrap);
 
 // The level use cases return a ServiceResult; these unwrap it, so a failure rejects as before.
 const createLevel = (...args: Parameters<typeof organisation.createLevel>) => organisation.createLevel(...args).then(unwrap);

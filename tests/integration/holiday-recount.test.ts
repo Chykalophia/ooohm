@@ -4,7 +4,6 @@ import { messageForError } from "@/app/_lib/run-action";
 import { isDomainError } from "@/domain/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { updateCompanySettings } from "@/server/services/admin-company";
 import { addHoliday, addUsFederalHolidays, deleteHoliday } from "@/server/services/admin-holidays";
 import { decideLeaveRequest } from "@/server/services/approvals";
 import { getBalanceSummary } from "@/server/services/balances";
@@ -12,6 +11,11 @@ import { cancelLeaveRequest, submitLeaveRequest } from "@/server/services/leave-
 import { rejectsWith } from "./assertions";
 import { addLeaveType, auditFor, decidable, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, needsServer, skip, type TestDatabase } from "./harness";
+import * as companySettings from "@/server/services/company-settings";
+import { unwrap } from "@/shared/lib/result";
+
+// These use cases return a ServiceResult; the wrappers unwrap it, so a failure rejects as before.
+const updateCompanySettings = (...args: Parameters<typeof companySettings.updateCompanySettings>) => companySettings.updateCompanySettings(...args).then(unwrap);
 
 // The test clock is 2026-11-01, so 2026 is the open year and 2025 is closed.
 // 2026-12-21 is a Monday; the fixture's only holiday is 2026-11-26 ("Thanksgiving").

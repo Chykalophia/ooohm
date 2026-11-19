@@ -259,6 +259,7 @@ ${doc.html}
         <a href="${REPO}docs/hosting.md">Hosting</a>
         <a href="${REPO}docs/api.md">API</a>
         <a href="${REPO}LICENSE.md">License</a>
+        <a href="../privacy.html">Privacy</a>
       </nav>
       <p class="fine">© 2026 Chykalophia Group, LLC. Source-available under FSL-1.1-ALv2.</p>
     </div>

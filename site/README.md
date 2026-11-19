@@ -137,3 +137,10 @@ email changes, update its page in `docs/guide/`, retake its shot, and rebuild.
 
 Instrument Sans and JetBrains Mono, both under the SIL Open Font License 1.1, are served from `fonts/`
 so the page makes no third-party requests.
+
+## Privacy page
+
+`privacy.html` says what the site collects: nothing beyond the host's request logs, no cookies, and
+one session-storage flag for the paused examples. Nothing needs consent, so there is no cookie
+banner. Before adding analytics, update that page in the same change. A cookieless tool such as
+Plausible still needs no banner; anything that sets cookies or tracks across sites does.

@@ -52,9 +52,16 @@ export function fieldClass(size: FieldSize = "md"): string {
 
 export const field = fieldClass("md");
 
+/**
+ * A select's height, matching a text field's: one line, the vertical padding and the border.
+ * Chrome draws a native select at `line-height: normal` whatever it inherits, so without a
+ * height it sits 4px shorter than the field beside it. `1lh` is still the inherited line height.
+ */
+const SELECT_HEIGHT: Record<FieldSize, string> = { md: "h-[calc(1lh+1rem+2px)]", sm: "h-[calc(1lh+0.75rem+2px)]" };
+
 /** The classes of a select: a field's, with room on the right for its chevron. */
 export function selectClass(size: FieldSize = "md"): string {
-  return cx(fieldBase(size), SELECT_INLINE[size]);
+  return cx(fieldBase(size), SELECT_INLINE[size], SELECT_HEIGHT[size]);
 }
 
 /**
@@ -73,7 +80,7 @@ export type ButtonVariant = "primary" | "accent" | "outline" | "danger";
 export type ButtonSize = "md" | "sm";
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-accent-foreground",
+  primary: "bg-accent text-accent-foreground hover:bg-accent-hover",
   accent: "border border-accent text-accent-ink hover:bg-accent/10",
   outline: "border border-border text-foreground hover:bg-background",
   danger: "border border-danger text-danger hover:bg-danger-soft",
@@ -84,11 +91,19 @@ const BUTTON_SIZE: Record<ButtonSize, string> = {
   sm: "px-3 py-1.5 text-sm",
 };
 
+/**
+ * A button sinks a little while pressed, so a click is felt before the result arrives.
+ * Not while disabled, and not with reduced motion; colours still change on hover.
+ */
+const buttonPress =
+  "transition-[scale,background-color,color,border-color] duration-150 ease-out motion-safe:not-disabled:not-aria-disabled:active:scale-[0.97]";
+
 /** The classes of a button-shaped control. */
 export function buttonClass(variant: ButtonVariant, size: ButtonSize = "md"): string {
   return cx(
     // Corners follow the company theme (`--button-radius`, Admin → Appearance).
     "inline-flex items-center justify-center rounded-(--button-radius) font-medium disabled:opacity-60 aria-disabled:opacity-60",
+    buttonPress,
     BUTTON_VARIANT[variant],
     BUTTON_SIZE[size],
     focusRing,

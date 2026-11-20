@@ -16,6 +16,21 @@ Work one milestone at a time and keep each PR to a single milestone.
 - **Audit everything.** Every request decision and every balance change writes an `audit_log` row, naming who or what made it (a person, a person through a sync or import, their API key, or a system process). Nothing is anonymous.
 - **Day counts are numeric with one decimal place** (half days = 0.5). Weekends and company holidays never count.
 
+## Architecture standard (in transition)
+
+OOOhm is moving to Chykalophia's *SaaS Layered Architecture Reference*: a modular monolith of feature modules
+(`src/modules/<m>/{ui,application,domain,infrastructure,index.ts}`), with Tier 3 for leave, approvals and balances
+and Tier 2 for everything else. Read `ARCHITECTURE.md` first. The plan is in `docs/architecture-plan/` (phases
+A0–A8) and the decisions are in `docs/adr/`.
+
+- Architecture PRs keep behaviour unchanged and cover one phase each. Never mix them with feature work.
+- A move is a rename: moves, import rewrites and a temporary re-export, nothing else.
+- New code goes into `src/modules/<m>` when that module exists. Otherwise it follows the layout below.
+- Write the failing test or fitness check first. The existing integration and email snapshot suites are the safety
+  net, so don't edit their assertions in a move.
+- Before a PR, check: is the code in the right layer? Is auth inside the action pipeline and the use case? Is a DTO
+  returned, not a row? Is the dependency direction allowed? Does the change need an ADR?
+
 ## Stack and commands
 
 Next.js 16 (App Router, `output: "standalone"`, Cache Components **off**), TypeScript, Postgres + Drizzle,

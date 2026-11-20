@@ -5,7 +5,7 @@
  */
 import { type Appearance, followsDarkMode } from "@/domain/appearance";
 import { type ColorMode, DEFAULT_COLOR_MODE } from "@/domain/color-mode";
-import { contrastRatio, normalizeHexColor } from "./color";
+import { contrastRatio, normalizeHexColor, relativeLuminance } from "./color";
 
 /** WCAG AA for normal text. */
 const TEXT_CONTRAST = 4.5;
@@ -16,10 +16,29 @@ const TEXT_CONTRAST = 4.5;
  */
 export const DARKEST_LIGHT_GROUND = "#eef2f8";
 
-function mixWithBlack(hex: string, amount: number): string {
+function mixWith(hex: string, target: 0 | 255, amount: number): string {
   const n = normalizeHexColor(hex).slice(1);
-  const parts = [0, 2, 4].map((i) => Math.round(parseInt(n.slice(i, i + 2), 16) * (1 - amount)));
+  const parts = [0, 2, 4].map((i) => {
+    const c = parseInt(n.slice(i, i + 2), 16);
+    return Math.round(c + (target - c) * amount);
+  });
   return `#${parts.map((p) => p.toString(16).padStart(2, "0")).join("")}`;
+}
+
+const mixWithBlack = (hex: string, amount: number) => mixWith(hex, 0, amount);
+
+/**
+ * An accent fill under the pointer: 10% further from its text colour (darker under light
+ * text, lighter under dark text), which can only raise the contrast. A fill already near
+ * black or white barely changes that way, so it moves 10% toward the text instead, as
+ * long as the text keeps 4.5:1.
+ */
+export function accentHover(accent: string, foreground: string): string {
+  const darkText = contrastRatio(foreground, "#ffffff") > contrastRatio(foreground, "#000000");
+  const away = mixWith(accent, darkText ? 255 : 0, 0.1);
+  if (Math.abs(relativeLuminance(away) - relativeLuminance(accent)) >= 0.005) return away;
+  const toward = mixWith(accent, darkText ? 0 : 255, 0.1);
+  return contrastRatio(toward, foreground) >= TEXT_CONTRAST ? toward : away;
 }
 
 export interface AccentTokens {
@@ -29,6 +48,8 @@ export interface AccentTokens {
   accentForeground: string;
   /** The accent as text and focus rings on light surfaces: darkened until it reaches 4.5:1 on every theme's light grounds. */
   accentInk: string;
+  /** The main button's fill on hover ({@link accentHover}). */
+  accentHover: string;
 }
 
 /** Colour tokens for a custom accent. A pale accent such as yellow keeps its fill and gets a darker ink for text. */
@@ -46,7 +67,7 @@ export function accentTokens(color: string): AccentTokens {
   for (let step = 1; step <= 10 && contrastRatio(accentInk, DARKEST_LIGHT_GROUND) < TEXT_CONTRAST; step++) {
     accentInk = mixWithBlack(accent, step / 10);
   }
-  return { accent, accentForeground, accentInk };
+  return { accent, accentForeground, accentInk, accentHover: accentHover(accent, accentForeground) };
 }
 
 export interface HtmlAppearance {
@@ -74,7 +95,12 @@ export function htmlAppearance(
   const style: Record<string, string> = {};
   if (appearance.accentColor) {
     const t = accentTokens(appearance.accentColor);
-    Object.assign(style, { "--accent": t.accent, "--accent-foreground": t.accentForeground, "--accent-ink": t.accentInk });
+    Object.assign(style, {
+      "--accent": t.accent,
+      "--accent-foreground": t.accentForeground,
+      "--accent-ink": t.accentInk,
+      "--accent-hover": t.accentHover,
+    });
   }
   return { attributes, style };
 }

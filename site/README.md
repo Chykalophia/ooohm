@@ -27,6 +27,9 @@ the project, not in a `vercel.json`, because the app's `vercel.json` sits at the
   when there is no earlier deployment to compare with).
   A branch without `site/` never deploys, so to retire the site, remove the domain or the Vercel project
   rather than deleting the folder.
+- Response headers (nosniff, `X-Frame-Options`, referrer and permissions policies, a framing-only CSP)
+  come from the root `vercel.json`, which this project reads too. A change there alone does not
+  redeploy the site, because of the Ignored Build Step above; touch something under `site/` to ship it.
 
 Any other static host works too: serve the folder as is.
 

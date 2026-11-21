@@ -21,7 +21,7 @@ export async function revokeApiKey(ctx: ServiceContext, actor: Actor, id: string
   if (!canManageApiKeys(actor)) return err("forbidden");
   if (!isUuid(id)) return err("not_found");
   return attempt(() =>
-    inTransaction(ctx, async (tx) => {
+    inTransaction(ctx, actor.companyId, async (tx) => {
       await assertActiveAdmin(tx, actor);
       const before = await lockApiKey(tx, actor.companyId, id);
       if (!before) throw new DomainError("not_found");

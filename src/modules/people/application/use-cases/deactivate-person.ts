@@ -81,7 +81,7 @@ export async function deactivatePerson(ctx: ServiceContext, actor: Actor, userId
 async function signOut(ctx: ServiceContext, tx: Transaction, actor: Actor, before: PersonRow) {
   const after = await updatePersonRow(tx, actor.companyId, before.id, { isActive: false });
   const sessionsRevoked = await deleteSessionsOf(tx, before.id);
-  const feedsRevoked = await revokeFeedsOnDeactivation(tx, before.id, actor.source, ctx.now());
+  const feedsRevoked = await revokeFeedsOnDeactivation(tx, actor.companyId, before.id, actor.source, ctx.now());
   return { after, sessionsRevoked, feedsRevoked };
 }
 

@@ -19,6 +19,7 @@ export async function removeCompanyLogo(ctx: ServiceContext, actor: Actor): Prom
   return attempt(() =>
     inTransaction(
       ctx,
+      actor.companyId,
       async (tx) =>
         (await changeCompany(tx, actor, () => ({ logo: null, logoSha256: null, logoType: null, logoWidth: null, logoHeight: null }))).after,
     ),

@@ -7,8 +7,8 @@ empty at A8.
 **Status after A8:** every baseline is empty and gone. There is no `.dependency-cruiser-known-violations.json` and
 no `pnpm arch:baseline`; `pnpm arch` runs without `--ignore-known`, so any violation fails it
 (`tests/architecture/baselines.test.ts`). The server-only check (F5) has no allow-list. F17 is part of
-`pnpm typecheck` (`tsconfig.src.json`, `tests/architecture/strict-typescript.test.ts`); tests and scripts stay on
-the base config.
+`pnpm typecheck` (the base `tsconfig.json`, `tests/architecture/strict-typescript.test.ts`), for tests and scripts
+as well as `src`.
 
 ## 4.1 The checks
 
@@ -30,7 +30,7 @@ the base config.
 | F14 | Tenant isolation for every repository function | `tests/integration/tenancy.test.ts` | A8 | A8 |
 | F15 | No drift between `schema.ts` and committed migrations (`drizzle-kit generate` produces nothing); live Neon drift by a scheduled `pg_dump --schema-only` comparison | integration test + CI step; scheduled job | A8 | A8 |
 | F16 | No secret reaches the client bundle (`grep` `.next/static` for `BETTER_AUTH_SECRET`, `WEBHOOK_ENCRYPTION_KEY`, `CRON_SECRET` values set to sentinels in the CI build) | CI step | A0 | A0 |
-| F17 | `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` in `src` | `tsc -p tsconfig.src.json` | A8 | A8 |
+| F17 | `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` across the repository | `tsc --noEmit` (`tsconfig.json`) | A8 | A8 |
 | F18 | Better Auth `cookieCache` stays off unless an ADR says otherwise | `tests/unit/auth-config.test.ts` | A0 | A0 |
 
 ## 4.2 CI pipeline (A0)
@@ -38,7 +38,7 @@ the base config.
 `.github/workflows/ci.yml`, required on `main`:
 
 1. `pnpm install --frozen-lockfile`
-2. `pnpm typecheck` (from A8 also `tsc -p tsconfig.src.json`, F17)
+2. `pnpm typecheck` (with the strict flags for the whole repository from A8, F17)
 3. `pnpm lint` (includes the size warnings; errors from A7)
 4. `pnpm arch` (dependency-cruiser; with `--ignore-known` until A8 emptied the baseline, without it since) (cycles are enforced here); from A1 also `pnpm madge`, which has no baseline and runs once the cycles are gone
 5. `pnpm test` (unit + `tests/architecture`)

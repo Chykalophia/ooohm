@@ -73,18 +73,6 @@ export async function revokeApiKey(tx: Transaction, id: string, at: Date): Promi
   return returnedRow(rows);
 }
 
-/**
- * The live key with this hash, or `undefined`: one probe on the unique hash index.
- * Returns the stored hash too, so the caller can compare it in constant time.
- */
-export async function findLiveKeyByHash(ex: Executor, keyHash: string) {
-  const [row] = await ex
-    .select({ id: apiKeys.id, companyId: apiKeys.companyId, scopes: apiKeys.scopes, keyHash: apiKeys.keyHash, lastUsedAt: apiKeys.lastUsedAt })
-    .from(apiKeys)
-    .where(and(eq(apiKeys.keyHash, keyHash), isNull(apiKeys.revokedAt)));
-  return row;
-}
-
 /** Sets `last_used_at` unless it is already newer than `staleBefore`, so a busy key writes at most once a window. */
 export async function stampKeyUsed(ex: Executor, id: string, at: Date, staleBefore: Date): Promise<void> {
   await ex

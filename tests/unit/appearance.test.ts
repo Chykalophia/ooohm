@@ -7,6 +7,7 @@ import { DARKEST_LIGHT_GROUND, accentHover, accentTokens, htmlAppearance } from 
 import { contrastRatio } from "@/lib/color";
 import type { ServiceContext } from "@/server/context";
 import { getAppearance } from "@/modules/organisation";
+import { at, present, take } from "../support/present";
 
 const invalid = (fn: () => unknown) => assert.throws(fn, (err) => isDomainError(err, "invalid_input"));
 
@@ -97,17 +98,17 @@ test("accent hover: the main button's label keeps 4.5:1 and the fill visibly cha
 
 test("accent hover: every theme's --accent-hover in globals.css follows the rule and keeps 4.5:1", () => {
   const css = readFileSync(new URL("../../src/app/globals.css", import.meta.url), "utf8");
-  const blocks = [...css.matchAll(/\[data-ui="([a-z]+)"\] \{([^}]*)\}/g)].filter(([, , body]) => body.includes("--accent:"));
+  const blocks = [...css.matchAll(/\[data-ui="([a-z]+)"\] \{([^}]*)\}/g)].filter(([, , body]) => present(body).includes("--accent:"));
   assert.deepEqual(blocks.map(([, theme]) => theme).sort(), [...THEME_KEYS].sort(), "one accent block per theme");
   for (const [, theme, body] of blocks) {
-    const token = (name: string) => new RegExp(`--${name}:\\s*([^;]+);`).exec(body)?.[1]?.trim() ?? "";
+    const token = (name: string) => new RegExp(`--${name}:\\s*([^;]+);`).exec(present(body))?.[1]?.trim() ?? "";
     // Classic writes light-dark() pairs; check each half.
     const halves = (v: string) => (v.startsWith("light-dark(") ? v.slice(11, -1).split(",").map((s) => s.trim()) : [v]);
-    const [accents, foregrounds, hovers] = ["accent", "accent-foreground", "accent-hover"].map((n) => halves(token(n)));
+    const [accents, foregrounds, hovers] = take(["accent", "accent-foreground", "accent-hover"].map((n) => halves(token(n))), 3);
     assert.equal(hovers.length, accents.length, `${theme}: --accent-hover is set`);
     accents.forEach((accent, i) => {
-      assert.equal(hovers[i], accentHover(accent, foregrounds[i]), `${theme}[${i}]: matches accentHover()`);
-      assert.ok(contrastRatio(hovers[i], foregrounds[i]) >= 4.5, `${theme}[${i}]: label on the hover fill`);
+      assert.equal(hovers[i], accentHover(accent, at(foregrounds, i)), `${theme}[${i}]: matches accentHover()`);
+      assert.ok(contrastRatio(at(hovers, i), at(foregrounds, i)) >= 4.5, `${theme}[${i}]: label on the hover fill`);
     });
   }
 });

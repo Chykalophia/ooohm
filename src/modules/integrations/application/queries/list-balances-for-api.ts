@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import { DomainError } from "@/shared/kernel/errors";
 import { yearInTimeZone } from "@/lib/dates";
 import type { ServiceContext } from "@/server/context";
@@ -59,6 +60,7 @@ export async function listBalancesForApi(
   client: ApiClient,
   q: { year?: number | undefined; userId?: string | undefined },
 ): Promise<ServiceResult<{ year: number; data: ApiBalance[] }>> {
+  ctx = forTenant(ctx, client.companyId);
   return attempt(async () => {
     assertScope(client, "read");
     const [settings, types, people] = await Promise.all([

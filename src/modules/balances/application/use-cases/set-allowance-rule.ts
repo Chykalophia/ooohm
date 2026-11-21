@@ -33,7 +33,7 @@ export async function setAllowanceRule(deps: BalancesDeps, actor: Actor, input: 
     const rule = normalizeAllowanceRule(input);
     for (const id of [input.leaveTypeId, rule.departmentId, rule.levelId]) if (id !== null && !isUuid(id)) throw new DomainError("not_found");
     try {
-      return await deps.unitOfWork(async (store) => {
+      return await deps.unitOfWork(actor.companyId, async (store) => {
         const year = await thisYear(store, deps.clock, actor);
         const [type, department, level] = await Promise.all([
           store.directory.leaveTypeForAdmin(actor.companyId, input.leaveTypeId),

@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { isEmptyBalance, summarizeBalances } from "@/modules/balances";
 import { entriesCostingDaysIn } from "@/shared/kernel/calendar";
@@ -45,6 +46,7 @@ const AHEAD_DAYS = 365;
  */
 export async function getTeamMember(ctx: ServiceContext, actor: Actor, userId: string): Promise<ServiceResult<TeamMemberDTO>> {
   if (!isUuid(userId)) return err("not_found");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(() => teamMemberOf(ctx, actor, userId));
 }
 

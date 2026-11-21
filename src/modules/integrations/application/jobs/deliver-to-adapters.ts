@@ -9,6 +9,8 @@ import { retryDelayMs } from "@/modules/integrations/domain/integrations";
 import { log } from "@/lib/log";
 import { describeTransportError } from "@/lib/safe-fetch";
 import type { ServiceContext } from "@/server/context";
+import { dueAdapterCompanies } from "@/shared/lib/db/pre-tenant";
+import { forTenant } from "@/shared/lib/tenant";
 import {
   type AdapterOutcome,
   type ClaimedAdapterDelivery,
@@ -108,6 +110,18 @@ async function callAdapter(
  * is never called after the stop. An interrupted call may still have reached the other
  * system, so it is delivered again (at least once).
  */
+/**
+ * Claims the next due delivery: its company is a pre-tenant read, and the claim, like
+ * everything recorded about it, runs for that company (row-level security's tenant).
+ */
+async function claimNext(ctx: ServiceContext, start: Date) {
+  const [next] = await dueAdapterCompanies(ctx.db, start, 1);
+  if (!next) return undefined;
+  const { db } = forTenant(ctx, next.companyId);
+  const [claim] = await claimDueAdapterDeliveries(db, { now: start, leaseUntil: new Date(start.getTime() + ADAPTER_LEASE_MS), limit: 1 });
+  return claim && { claim, db };
+}
+
 export async function deliverDueAdapterEvents(ctx: ServiceContext, deps: AdapterDeliveryDeps = {}): Promise<AdapterRunResult> {
   const now = deps.now ?? ctx.now;
   const random = deps.random ?? Math.random;
@@ -116,9 +130,9 @@ export async function deliverDueAdapterEvents(ctx: ServiceContext, deps: Adapter
   const result: AdapterRunResult = { attempted: 0, delivered: 0, retried: 0, failed: 0 };
 
   while (result.attempted < limit && !deps.signal?.aborted) {
-    const start = now();
-    const [claim] = await claimDueAdapterDeliveries(ctx.db, { now: start, leaseUntil: new Date(start.getTime() + ADAPTER_LEASE_MS), limit: 1 });
-    if (!claim) break;
+    const claimed = await claimNext(ctx, now());
+    if (!claimed) break;
+    const { claim, db } = claimed;
     result.attempted++;
 
     const fields = { deliveryId: claim.id, adapterId: claim.adapterId, eventId: claim.event.id, eventType: claim.event.type, attempt: claim.attempts };
@@ -126,7 +140,7 @@ export async function deliverDueAdapterEvents(ctx: ServiceContext, deps: Adapter
     if (error === STOPPED) {
       result.attempted--;
       try {
-        const released = await releaseAdapterClaim(ctx.db, claim, now());
+        const released = await releaseAdapterClaim(db, claim, now());
         log.info({ ...fields, released }, "adapter_delivery_released");
       } catch (err) {
         // Its lease runs out instead, and that costs it one attempt.
@@ -143,7 +157,7 @@ export async function deliverDueAdapterEvents(ctx: ServiceContext, deps: Adapter
       outcome = { status: delay === null ? "failed" : "pending", at, nextAttemptAt: new Date(at.getTime() + (delay ?? 0)), error };
     }
     try {
-      if (!(await recordAdapterOutcome(ctx.db, claim, outcome))) log.warn(fields, "adapter_delivery_outcome_dropped");
+      if (!(await recordAdapterOutcome(db, claim, outcome))) log.warn(fields, "adapter_delivery_outcome_dropped");
     } catch (err) {
       log.error({ ...fields, err }, "adapter_delivery_record_failed");
       continue;

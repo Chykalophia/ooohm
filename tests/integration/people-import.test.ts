@@ -12,6 +12,7 @@ import { unwrap } from "@/shared/lib/result";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
 const importPeople = (...args: Parameters<typeof importPeopleResult>) => importPeopleResult(...args).then(unwrap);
@@ -94,7 +95,7 @@ describe("admin: people import from CSV", { skip }, () => {
     }
     const events = await companyEvents(t.db, co.companyId, "user.created");
     assert.equal(events.length, 3);
-    assert.deepEqual((events[0].payload as { actor: unknown }).actor, { type: "user", id: co.people.boss.id, via: CHANGE_PROCESSES.peopleImport });
+    assert.deepEqual((first(events).payload as { actor: unknown }).actor, { type: "user", id: co.people.boss.id, via: CHANGE_PROCESSES.peopleImport });
 
     assert.equal(ctx.sent.length, 0);
     await ctx.settle();
@@ -120,7 +121,7 @@ describe("admin: people import from CSV", { skip }, () => {
     const result = await importPeople(ctx, co.people.boss, { csv, sendInvites: false });
 
     assert.deepEqual(result, { added: 1, skipped: 2, departmentsCreated: 0 });
-    const [stranger] = await t.db.select().from(schema.user).where(eq(schema.user.email, other.people.elsewhere.email));
+    const stranger = first(await t.db.select().from(schema.user).where(eq(schema.user.email, other.people.elsewhere.email)));
     assert.equal(stranger.companyId, other.companyId);
   });
 
@@ -177,7 +178,7 @@ describe("admin: people import from CSV", { skip }, () => {
     await importPeople(ctx, co.people.boss, { csv: "email,name,role\nsecond@example.com,Second,admin\n", sendInvites: false });
 
     const second = (await peopleOf(t.db, co.companyId)).get("second@example.com")!;
-    const [after] = await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, request.id));
+    const after = first(await t.db.select().from(schema.leaveRequests).where(eq(schema.leaveRequests.id, request.id)));
     assert.equal(after.approverId, second.id);
   });
 

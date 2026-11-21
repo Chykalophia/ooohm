@@ -1,7 +1,7 @@
 import "server-only";
 import { parseLogoFile } from "@/shared/kernel/company-logo";
 import type { ServiceContext } from "@/server/context";
-import { findLogoFile } from "@/modules/organisation/infrastructure/drizzle-companies.repository";
+import { findLogoFile } from "@/shared/lib/db/pre-tenant";
 
 /**
  * The stored logo a URL names (`<sha256>.<ext>`), or null when none is stored under it

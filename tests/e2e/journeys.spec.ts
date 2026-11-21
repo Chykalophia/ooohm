@@ -147,7 +147,7 @@ describe("journeys", { timeout: 300_000 }, () => {
   test("the manager approves it from Approvals, and the employee's balance counts it as used", async () => {
     manager = await signIn(MANAGER.email);
     await manager.goto(`${app.url}/approvals`);
-    const item = manager.getByRole("group", { name: new RegExp(EMPLOYEE.name.split(" ")[0]) }).first();
+    const item = manager.getByRole("group", { name: new RegExp(EMPLOYEE.name.split(" ")[0] ?? EMPLOYEE.name) }).first();
     await item.getByRole("button", { name: "Approve" }).click();
     await item.getByRole("status").filter({ hasText: /approved/i }).waitFor();
     const balance = await ptoBalance(employee);

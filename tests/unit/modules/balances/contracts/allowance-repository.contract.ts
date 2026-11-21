@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { AllowanceRepository } from "@/modules/balances/application/ports";
 import type { Allowance } from "@/modules/balances/domain/allowance";
 import type { LeaveStatus } from "@/shared/kernel/leave-range";
+import { first } from "../../../../support/present";
 
 /**
  * The people and leave types a contract case stores allowances for: they exist in the
@@ -43,8 +44,8 @@ export function allowanceRepositoryContract(name: string, make: () => Promise<Al
   test(`${name}: inserts only missing rows, with nothing carried or adjusted, and finds them by person, type and year`, async () => {
     const { fixture: f, use } = await make();
     await use(async (repo) => {
-      const [first] = await repo.insertMissing([{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 20 }]);
-      assert.deepEqual(amounts([first]), [{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 20, carriedOverDays: 0, adjustmentDays: 0 }]);
+      const inserted = first(await repo.insertMissing([{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 20 }]));
+      assert.deepEqual(amounts([inserted]), [{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 20, carriedOverDays: 0, adjustmentDays: 0 }]);
       const again = await repo.insertMissing([
         { userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 99 },
         { userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2027, days: 20, carriedOverDays: 3 },
@@ -113,7 +114,7 @@ export function allowanceRepositoryContract(name: string, make: () => Promise<Al
   test(`${name}: an override sets days and adjustment, keeps the carry, and creates a missing row with none`, async () => {
     const { fixture: f, use } = await make();
     await use(async (repo) => {
-      const [row] = await repo.insertMissing([{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 20, carriedOverDays: 4 }]);
+      const row = first(await repo.insertMissing([{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 20, carriedOverDays: 4 }]));
       const edited = await repo.writeOverride({ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 18, adjustmentDays: -1.5 });
       assert.equal(edited.id, row.id);
       assert.deepEqual([edited.days, edited.carriedOverDays, edited.adjustmentDays], [18, 4, -1.5]);
@@ -125,7 +126,7 @@ export function allowanceRepositoryContract(name: string, make: () => Promise<Al
   test(`${name}: sets carried-over days and days of one row`, async () => {
     const { fixture: f, use } = await make();
     await use(async (repo) => {
-      const [row] = await repo.insertMissing([{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 20 }]);
+      const row = first(await repo.insertMissing([{ userId: f.userId, leaveTypeId: f.leaveTypeId, year: 2026, days: 20 }]));
       assert.equal((await repo.setCarriedOverDays(row.id, 2.5)).carriedOverDays, 2.5);
       const after = await repo.setDays(row.id, 25);
       assert.deepEqual([after.days, after.carriedOverDays], [25, 2.5]);

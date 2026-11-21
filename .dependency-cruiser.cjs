@@ -89,7 +89,7 @@ module.exports = {
         path: "^src/",
         pathNot: [
           "^src/db/",
-          "^src/lib/(auth|auth-client|auth-handler)\\.ts$",
+          "^src/lib/(auth|auth-adapter|auth-client|auth-handler)\\.ts$",
           "^src/lib/mail/smtp\\.ts$",
           "^src/server/(runtime\\.ts$|admin/|identity/)",
           // The shared repository helpers (recordChange, keyset pages, driver errors) are infrastructure too.

@@ -218,6 +218,20 @@
       "when": 1794717827867,
       "tag": "0030_audit_erasure_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794769934830,
+      "tag": "0031_row_level_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794775292007,
+      "tag": "0032_tenant_references",
+      "breakpoints": true
     }
   ]
 }

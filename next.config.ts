@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Self-contained server bundle for the Docker image. Embedded mode serves the same build
   // with `next start` from the checkout (`pnpm start:embedded`), which standalone does not.
-  output: process.env.OOOHM_DB === "embedded" ? undefined : "standalone",
+  ...(process.env.OOOHM_DB === "embedded" ? {} : { output: "standalone" }),
   // Cache Components is off for v1: almost every page is per-user and per-request,
   // so the simpler fully-dynamic model is easier to reason about. Revisit after v1.
   cacheComponents: false,

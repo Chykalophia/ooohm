@@ -19,6 +19,7 @@ import path from "node:path";
 import { buildImportPlan } from "@/modules/import/domain/timeoff/mapping";
 import { readTimeOffSqlite } from "@/modules/import/infrastructure/timeoff-sqlite-reader";
 import { buildTimeOffFixture, type FixtureData } from "./timeoff-fixture";
+import { first } from "./present";
 
 /** The last year the default fixture has data for. */
 export const FIXTURE_LAST_YEAR = 2026;
@@ -42,7 +43,7 @@ export function buildTimeOffFixtureThrough(file: string, throughYear: number, mu
         const step = path.join(scratch, `${year}.sqlite`);
         const data = buildTimeOffFixture(step, withCarry);
         const snapshot = readTimeOffSqlite(step);
-        const company = snapshot.companies[0];
+        const company = first(snapshot.companies);
         const plan = buildImportPlan(snapshot, { mergePoolTypes: true, currentYear: year, today: `${year}-01-01` });
         const has = new Set(data.adjustments.map((a) => `${a.user_id}|${a.year}`));
         for (const person of plan.people.filter((p) => p.isActive)) {

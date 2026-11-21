@@ -8,6 +8,8 @@ import { webhookRequestHeaders } from "@/lib/integration-crypto";
 import { log } from "@/lib/log";
 import { describeTransportError, MAX_RESPONSE_BYTES, type WebhookFetch } from "@/lib/safe-fetch";
 import type { ServiceContext } from "@/server/context";
+import { dueWebhookCompanies } from "@/shared/lib/db/pre-tenant";
+import { forTenant } from "@/shared/lib/tenant";
 import { type ClaimedWebhookDelivery, claimDueDeliveries, type DeliveryOutcome, recordDeliveryOutcome, releaseDeliveryClaims } from "@/modules/integrations/infrastructure/drizzle-webhooks.repository";
 
 /** Deliveries claimed per batch. */
@@ -147,11 +149,7 @@ export async function deliverDueWebhooks(ctx: ServiceContext, deps: DeliveryDeps
   const random = deps.random ?? Math.random;
   if (deps.signal?.aborted) return { attempted: 0, delivered: 0, retried: 0, failed: 0 };
   const start = now();
-  const claims = await claimDueDeliveries(ctx.db, {
-    now: start,
-    leaseUntil: new Date(start.getTime() + DELIVERY_LEASE_MS),
-    limit: deps.limit ?? DELIVERY_BATCH_SIZE,
-  });
+  const claims = await claimDue(ctx, start, deps.limit ?? DELIVERY_BATCH_SIZE);
   const result: DeliveryRunResult = { attempted: claims.length, delivered: 0, retried: 0, failed: 0 };
   const run = { fetch: deps.fetch, timeoutMs: deps.timeoutMs ?? DELIVERY_TIMEOUT_MS };
 
@@ -164,6 +162,20 @@ export async function deliverDueWebhooks(ctx: ServiceContext, deps: DeliveryDeps
     await releaseUnstarted(ctx, unstarted, now());
   }
   return result;
+}
+
+/**
+ * Claims up to `limit` due deliveries, oldest due first: each company's share in its own
+ * statement, for that company (row-level security's tenant). Which companies hold the
+ * first `limit`, and how many each, is a pre-tenant read.
+ */
+async function claimDue(ctx: ServiceContext, start: Date, limit: number): Promise<ClaimedWebhookDelivery[]> {
+  const leaseUntil = new Date(start.getTime() + DELIVERY_LEASE_MS);
+  const claims: ClaimedWebhookDelivery[] = [];
+  for (const share of await dueWebhookCompanies(ctx.db, start, limit)) {
+    claims.push(...(await claimDueDeliveries(forTenant(ctx, share.companyId).db, { now: start, leaseUntil, limit: share.count })));
+  }
+  return claims;
 }
 
 type AttemptOutcome = Awaited<ReturnType<typeof attempt>>;
@@ -187,7 +199,7 @@ function outcomeToRecord(claim: ClaimedWebhookDelivery, outcome: AttemptOutcome,
 async function keepOutcome(ctx: ServiceContext, claim: ClaimedWebhookDelivery, recorded: DeliveryOutcome, result: DeliveryRunResult) {
   const fields = { deliveryId: claim.id, endpointId: claim.endpointId, eventId: claim.eventId, eventType: claim.eventType, attempt: claim.attempts };
   try {
-    const kept = await recordDeliveryOutcome(ctx.db, claim, recorded);
+    const kept = await recordDeliveryOutcome(forTenant(ctx, claim.companyId).db, claim, recorded);
     if (!kept) log.warn(fields, "webhook_delivery_outcome_dropped");
   } catch (err) {
     // The lease runs out and another attempt follows: at least once, never lost.
@@ -211,7 +223,14 @@ async function keepOutcome(ctx: ServiceContext, claim: ClaimedWebhookDelivery, r
 /** Hands claims never attempted back, due at once, without spending an attempt. */
 async function releaseUnstarted(ctx: ServiceContext, unstarted: readonly ClaimedWebhookDelivery[], now: Date) {
   try {
-    const released = await releaseDeliveryClaims(ctx.db, unstarted, now);
+    let released = 0;
+    for (const companyId of new Set(unstarted.map((c) => c.companyId))) {
+      released += await releaseDeliveryClaims(
+        forTenant(ctx, companyId).db,
+        unstarted.filter((c) => c.companyId === companyId),
+        now,
+      );
+    }
     log.info({ released }, "webhook_deliveries_released");
   } catch (err) {
     // Their leases run out instead; each costs one attempt.

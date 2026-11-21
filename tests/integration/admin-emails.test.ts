@@ -9,6 +9,7 @@ import { invitePerson as invitePersonResult } from "@/modules/people";
 import { rejectsWith } from "./assertions";
 import { companyAudit, companyEvents, seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { first } from "../support/present";
 
 const invitePerson = (...args: Parameters<typeof invitePersonResult>) => invitePersonResult(...args).then(unwrap);
 
@@ -45,7 +46,7 @@ describe("admin: email copy", { skip }, () => {
     const ctx = createTestContext(t.db);
     const { boss } = co.people;
     const list = await listEmailsForAdmin(ctx, boss);
-    assert.equal(list[0].type, "leave.requested");
+    assert.equal(first(list).type, "leave.requested");
     assert.ok(list.some((e) => e.type === "invite"));
     assert.ok(list.every((e) => !e.customized && e.label && e.description));
 
@@ -81,7 +82,7 @@ describe("admin: email copy", { skip }, () => {
     );
     const events = await companyEvents(t.db, co.companyId, "email_template.");
     assert.deepEqual(events.map((e) => e.type), ["email_template.updated", "email_template.reset"]);
-    assert.deepEqual(events[0].payload, {
+    assert.deepEqual(first(events).payload, {
       notificationType: "leave.approved",
       subject: "Enjoy, {{requester}}!",
       message: null,

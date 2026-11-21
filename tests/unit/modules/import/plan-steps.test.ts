@@ -19,6 +19,7 @@ import type {
   TimeOffSnapshot,
   TimeOffUser,
 } from "@/modules/import/domain/timeoff/source";
+import { at, first } from "../../../support/present";
 
 /** Each planning step on hand-made TimeOff records: what it maps, and what it warns about. */
 
@@ -119,7 +120,7 @@ describe("planning step: company", () => {
       leaveTypes: [leaveType(2, { sortOrder: 5 }), leaveType(1, { sortOrder: 1 }), leaveType(3, { companyId: 2 })],
       leaves: [leave(1), leave(2), leave(3, { userId: 200 })],
     });
-    const scope = companyScope(s, s.companies[0]);
+    const scope = companyScope(s, first(s.companies));
     assert.deepEqual([scope.users.map((u) => u.id), scope.leaveTypes.map((t) => t.id), scope.leaves.map((l) => l.id)], [[100], [1, 2], [1, 2]]);
     assert.equal(scope.leaveCount.get(100), 2);
   });
@@ -176,7 +177,7 @@ describe("planning step: people", () => {
         user(104, { departmentId: 10, activated: false, startDate: "2027-03-01" }),
       ],
     });
-    const scope = companyScope(s, s.companies[0]);
+    const scope = companyScope(s, first(s.companies));
     const plan = planPeople(scope, planDepartments(s, 1, () => {}), "2026-11-01", w.warn, conflicts);
     assert.deepEqual(conflicts.map((c) => [c.code, c.timeoffId]), [["invalid_email", 103], ["duplicate_email", 102]]);
     assert.equal(plan.skippedUsers, 2);
@@ -189,8 +190,8 @@ describe("planning step: people", () => {
       ],
     );
     assert.equal(plan.personOf.get(102), 100);
-    assert.equal(plan.people[2].createdAt, "2026-11-01T12:00:00.000Z");
-    assert.equal(plan.people[0].createdAt, "2020-01-01T12:00:00.000Z");
+    assert.equal(at(plan.people, 2).createdAt, "2026-11-01T12:00:00.000Z");
+    assert.equal(first(plan.people).createdAt, "2020-01-01T12:00:00.000Z");
     assert.deepEqual(w.codes(), ["manager_cycle", "never_signed_in"]);
   });
 });
@@ -248,7 +249,7 @@ describe("planning steps: calendars, requests and allowances", () => {
       leave(6, { status: 4, dateStart: "2026-03-10", dateEnd: "2026-03-10" }),
     ],
   });
-  const scope = companyScope(s, s.companies[0]);
+  const scope = companyScope(s, first(s.companies));
   const people = planPeople(scope, planDepartments(s, 1, () => {}), "2026-11-01", () => {}, []);
   const types = planLeaveTypes(scope.leaveTypes, s.departments, plannedCompany, { mergePoolTypes: true }, () => {});
 
@@ -273,7 +274,7 @@ describe("planning steps: calendars, requests and allowances", () => {
   };
 
   test("a leave with half-day ends becomes a request per part; another pool type keeps its name in the note", () => {
-    const parts = leaveParts(scope.leaves[0], context.companyCalendar);
+    const parts = leaveParts(first(scope.leaves), context.companyCalendar);
     assert.deepEqual(parts.map((p) => [p.range.startDate, p.range.dayPortion, p.days]), [["2026-03-02", "pm", 0.5], ["2026-03-03", "full", 1], ["2026-03-04", "am", 0.5]]);
     const w = collect();
     const plan = planRequests(context, w.warn);

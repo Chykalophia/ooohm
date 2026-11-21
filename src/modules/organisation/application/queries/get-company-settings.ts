@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { ALLOWANCE_POLICY_KEYS } from "@/shared/kernel/allowance-policy-keys";
 import { supportedTimeZones } from "@/shared/kernel/company-settings";
@@ -15,6 +16,7 @@ import { canManageCompanySettings } from "@/modules/organisation/application/pol
  */
 export async function getCompanySettings(ctx: ServiceContext, actor: Actor): Promise<ServiceResult<CompanySettingsFormDTO>> {
   if (!canManageCompanySettings(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   const company = await findCompany(ctx.db, actor.companyId);
   if (!company) return err("no_company");
   const zones = [...supportedTimeZones()];

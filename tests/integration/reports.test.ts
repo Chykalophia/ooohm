@@ -8,6 +8,7 @@ import { exportLeaveReport as exportLeaveReportResult, getLeaveReport as getLeav
 import { unwrap } from "@/shared/lib/result";
 import { addLeaveType, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { at, first } from "../support/present";
 
 // The queries return a ServiceResult; these unwrap it, so a failure rejects as before.
 const getLeaveReport = (...args: Parameters<typeof getLeaveReportResult>) => getLeaveReportResult(...args).then(unwrap);
@@ -27,7 +28,7 @@ describe("reports", { skip }, () => {
   type Leave = { userId: string; leaveTypeId: string; start: string; end: string; status?: "approved" | "pending" | "rejected" | "cancelled"; split: [number, number][] };
 
   async function addLeave(db: Database, companyId: string, l: Leave) {
-    const [row] = await db
+    const row = first(await db
       .insert(schema.leaveRequests)
       .values({
         companyId,
@@ -39,7 +40,7 @@ describe("reports", { skip }, () => {
         status: l.status ?? "approved",
         note: "private note",
       })
-      .returning();
+      .returning());
     await db.insert(schema.leaveRequestDays).values(l.split.map(([year, days]) => ({ requestId: row.id, year, days })));
     return row.id;
   }
@@ -54,7 +55,7 @@ describe("reports", { skip }, () => {
       gone: { isActive: false, managerKey: "mo" },
     });
     const { ana, bo, cy, gone } = co.people;
-    const [dev] = await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Dev" }).returning();
+    const dev = first(await t.db.insert(schema.departments).values({ companyId: co.companyId, name: "Dev" }).returning());
     await t.db.update(schema.user).set({ departmentId: dev.id }).where(eq(schema.user.id, ana.id));
     const sick = await addLeaveType(t.db, co.companyId, { code: "SICK" });
     await t.db.update(schema.leaveTypes).set({ defaultAllowanceDays: 20 }).where(eq(schema.leaveTypes.id, co.pto));
@@ -80,10 +81,10 @@ describe("reports", { skip }, () => {
     assert.equal(report.totals.pendingDays, 2);
     assert.equal(report.totals.requests.rejected, 1);
     assert.equal(report.totals.headcount, 5);
-    assert.equal(report.months[2].total, 5, "March");
-    assert.equal(report.months[9].total, 2, "Oct 29 and 30");
-    assert.equal(report.months[10].total, 2, "Nov 2 and 3");
-    assert.equal(report.months[0].total, 2, "Jan 1 and 2");
+    assert.equal(at(report.months, 2).total, 5, "March");
+    assert.equal(at(report.months, 9).total, 2, "Oct 29 and 30");
+    assert.equal(at(report.months, 10).total, 2, "Nov 2 and 3");
+    assert.equal(first(report.months).total, 2, "Jan 1 and 2");
     assert.equal(report.previousYearMonths[6], 2, "gone's July 2025 still counts in history");
     assert.deepEqual(
       report.trend.map((y) => y.days),

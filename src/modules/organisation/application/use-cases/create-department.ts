@@ -21,7 +21,7 @@ export async function createDepartment(ctx: ServiceContext, actor: Actor, rawNam
   return attempt(async () => {
     const name = normalizeDepartmentName(rawName);
     return withUniqueDepartmentName(() =>
-      inTransaction(ctx, async (tx) => {
+      inTransaction(ctx, actor.companyId, async (tx) => {
         await assertActiveAdmin(tx, actor);
         if (await findDepartmentByName(tx, actor.companyId, name)) throw new DomainError("already_exists");
         const row = await insertDepartment(tx, { companyId: actor.companyId, name });

@@ -6,6 +6,7 @@ import { decideLeaveRequest } from "@/modules/approvals/application/use-cases/de
 import { readEmailApproval } from "@/modules/approvals/application/queries/read-email-approval";
 import { unwrap } from "@/shared/lib/result";
 import { type ApprovalKit, approvalKit } from "../fakes/ports";
+import { first } from "../../../../support/present";
 
 const ANA = "00000000-0000-4000-8000-0000000000b1";
 const MO = "00000000-0000-4000-8000-0000000000b2";
@@ -31,7 +32,7 @@ test("the assigned approver approves: one decision recorded, the requester email
   assert.equal(r.status, "approved");
   assert.deepEqual(r.decidedAt, kit.clock.now());
   assert.deepEqual(kit.changes.kinds(), ["approved"]);
-  assert.deepEqual(kit.changes.written[0].source, { kind: "user", userId: MO });
+  assert.deepEqual(first(kit.changes.written).source, { kind: "user", userId: MO });
   assert.deepEqual(kit.sent.map((m) => [m.type, m.to]), [["leave.approved", "ana@example.test"]]);
 });
 
@@ -90,7 +91,7 @@ test("approve from the email: a valid, unexpired link approves as the approver, 
   assert.equal(kit.changes.written.length, 0);
   const done = unwrap(await approveFromEmail(kit.deps, token));
   assert.equal(done.state, "approved");
-  assert.deepEqual(kit.changes.written[0].source, { kind: "user", userId: MO, via: "email_link" });
+  assert.deepEqual(first(kit.changes.written).source, { kind: "user", userId: MO, via: "email_link" });
   assert.equal(unwrap(await approveFromEmail(kit.deps, token)).state, "decided", "a second press changes nothing");
 });
 

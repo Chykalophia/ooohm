@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError } from "@/shared/kernel/errors";
 import { isUuid } from "@/shared/kernel/uuid";
@@ -23,6 +24,7 @@ const DELIVERY_KEY = [isCursorInstant, isUuid] as const;
 export async function getWebhookEndpoint(ctx: ServiceContext, actor: Actor, id: string, page?: PageCursor): Promise<ServiceResult<WebhookEndpointPageDTO>> {
   if (!canManageWebhooks(actor)) return err("forbidden");
   if (!isUuid(id)) return err("not_found");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const [company, row] = await Promise.all([findCompany(ctx.db, actor.companyId), findEndpoint(ctx.db, actor.companyId, id)]);
     if (!row) throw new DomainError("not_found");

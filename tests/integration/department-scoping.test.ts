@@ -14,6 +14,7 @@ import { createTestContext, createTestDatabase, skip, type TestDatabase } from "
 import * as organisation from "@/modules/organisation";
 import * as companySettings from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
+import { first, take } from "../support/present";
 
 const getTeamMember = (...args: Parameters<typeof getTeamMemberResult>) => getTeamMemberResult(...args).then(unwrap);
 
@@ -60,20 +61,20 @@ describe("department scoping: people see only their departments", { skip }, () =
       ned: { managerKey: "boss" },
     });
     const p = co.people;
-    const [dev, creative] = await t.db
+    const [dev, creative] = take(await t.db
       .insert(schema.departments)
       .values([
         { companyId: co.companyId, name: "Dev", managerId: p.mo.id },
         { companyId: co.companyId, name: "Creative", managerId: p.cara.id },
       ])
-      .returning();
-    const place = (keys: string[], departmentId: string) =>
+      .returning(), 2);
+    const place = (keys: (keyof typeof p)[], departmentId: string) =>
       Promise.all(keys.map((k) => t.db.update(schema.user).set({ departmentId }).where(eq(schema.user.id, p[k].id))));
     await place(["mo", "ana", "dan"], dev.id);
     await place(["cara", "cy", "kid"], creative.id);
 
     await t.db.insert(schema.leaveRequests).values(
-      Object.keys(p).map((key) => ({
+      (Object.keys(p) as (keyof typeof p)[]).map((key) => ({
         companyId: co.companyId,
         userId: p[key].id,
         leaveTypeId: co.pto,
@@ -101,19 +102,19 @@ describe("department scoping: people see only their departments", { skip }, () =
   test("off by default: nothing changes until an admin turns it on", async () => {
     const { p, ctx } = await seeded();
     assert.equal((await getCompanySettings(ctx, p.boss)).company.departmentScoping, false);
-    for (const key of ["mo", "ana", "cy"]) assert.deepEqual(names((await whoIsOut(t.db, p[key])).people), everybody, key);
+    for (const key of ["mo", "ana", "cy"] as const) assert.deepEqual(names((await whoIsOut(t.db, p[key])).people), everybody, key);
   });
 
   test("the setting is the admin's, saved, audited and sent as an event", async () => {
     const { co, p, ctx, setScoping } = await seeded();
     await setScoping(true);
     assert.equal((await getCompanySettings(ctx, p.boss)).company.departmentScoping, true);
-    const [row] = await companyAudit(t.db, co.companyId, "company.");
+    const row = first(await companyAudit(t.db, co.companyId, "company."));
     assert.deepEqual(
       [(row.before as { departmentScoping: boolean }).departmentScoping, (row.after as { departmentScoping: boolean }).departmentScoping],
       [false, true],
     );
-    const [event] = await companyEvents(t.db, co.companyId, "company.updated");
+    const event = first(await companyEvents(t.db, co.companyId, "company.updated"));
     assert.equal((event.payload as { departmentScoping: boolean }).departmentScoping, true);
     const { company } = await getCompanySettings(ctx, p.boss);
     await assert.rejects(updateCompanySettings(ctx, p.mo, { ...company, departmentScoping: false }), (e) => isDomainError(e, "forbidden"));
@@ -164,8 +165,8 @@ describe("department scoping: people see only their departments", { skip }, () =
   test("on: a teammate's page outside the viewer's departments is not found", async () => {
     const { p, ctx, setScoping } = await seeded();
     await setScoping(true);
-    for (const key of ["ana", "dan", "kid"]) assert.ok(await getTeamMember(ctx, p.mo, p[key].id), key);
-    for (const key of ["cy", "cara", "ned", "boss"]) {
+    for (const key of ["ana", "dan", "kid"] as const) assert.ok(await getTeamMember(ctx, p.mo, p[key].id), key);
+    for (const key of ["cy", "cara", "ned", "boss"] as const) {
       await assert.rejects(getTeamMember(ctx, p.mo, p[key].id), (e) => isDomainError(e, "not_found"), key);
     }
     assert.ok(await getTeamMember(ctx, p.boss, p.cy.id), "admins still open anyone");

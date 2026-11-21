@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { ServiceContext } from "@/server/context";
 import { attempt, type ServiceResult } from "@/shared/lib/result";
 import { type ApiClient, assertScope } from "@/modules/integrations/domain/integrations";
@@ -22,6 +23,7 @@ export interface ApiUser {
  * company reads as absent. Fails with `forbidden` or `invalid_input` (a bad cursor).
  */
 export async function listUsersForApi(ctx: ServiceContext, client: ApiClient, q: { cursor?: string | undefined; limit: number }): Promise<ServiceResult<Page<ApiUser>>> {
+  ctx = forTenant(ctx, client.companyId);
   return attempt(async () => {
     assertScope(client, "read");
     const after = q.cursor ? decodeCursor(q.cursor, ["id"]).id : undefined;

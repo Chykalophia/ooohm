@@ -148,8 +148,10 @@ export interface Clock {
 /** Everything a balances use case runs against. */
 export interface BalancesDeps {
   clock: Clock;
-  /** Ports for reads outside a unit of work. */
+  /** Ports for reads outside a unit of work, for the company the dependencies are for ({@link tenant}). */
   read: BalancesStore;
-  /** Runs `work` in one transaction with ports bound to it. A thrown `DomainError` rolls everything back. */
-  unitOfWork<T>(work: (store: BalancesStore) => Promise<T>): Promise<T>;
+  /** Runs `work` in one transaction of `companyId` with ports bound to it. A thrown `DomainError` rolls everything back. */
+  unitOfWork<T>(companyId: string, work: (store: BalancesStore) => Promise<T>): Promise<T>;
+  /** The same dependencies, reading for `companyId` (row-level security's tenant): for a job that loops over companies. */
+  tenant(companyId: string): BalancesDeps;
 }

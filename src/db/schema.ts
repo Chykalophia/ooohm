@@ -640,7 +640,9 @@ export const eventsOutbox = pgTable(
   "events_outbox",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     payload: jsonb("payload").notNull(),
     /** Unused: retries are counted per delivery. Kept, as columns are never dropped from a public table. */

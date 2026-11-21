@@ -11,6 +11,7 @@ import {
   serializeCalendar,
 } from "@/shared/kernel/ics";
 import { only, parseIcs, unescapeText } from "../support/ics-parser";
+import { first, take } from "../support/present";
 
 const generatedAt = new Date("2026-11-01T15:04:05.678Z");
 
@@ -61,7 +62,7 @@ describe("line folding", () => {
       assert.ok(Buffer.byteLength(part) <= 75);
       if (i > 0) assert.ok(part.startsWith(" "), "continuation lines start with a space");
     }
-    assert.equal(folded[0].length, 75, "the first line is filled to the limit");
+    assert.equal(first(folded).length, 75, "the first line is filled to the limit");
     assert.equal(folded.map((p, i) => (i === 0 ? p : p.slice(1))).join(""), line);
   });
 
@@ -102,7 +103,7 @@ describe("all-day events", () => {
     const vcal = parseIcs(
       serializeCalendar(calendar([event(), event({ uid: "b@ooohm", startDate: "2026-12-28", endDate: "2027-01-04" })])),
     );
-    const [day, range] = vcal.components;
+    const [day, range] = take(vcal.components, 2);
     assert.deepEqual(only(day, "DTSTART"), { name: "DTSTART", params: { VALUE: "DATE" }, value: "20261102" });
     assert.deepEqual(only(day, "DTEND"), { name: "DTEND", params: { VALUE: "DATE" }, value: "20261103" });
     assert.equal(only(range, "DTSTART").value, "20261228");
@@ -131,7 +132,7 @@ describe("the calendar document", () => {
     assert.equal(only(vcal, "X-PUBLISHED-TTL").value, "PT1H");
 
     assert.equal(vcal.components.length, 1);
-    const vevent = vcal.components[0];
+    const vevent = first(vcal.components);
     assert.equal(vevent.name, "VEVENT");
     assert.equal(only(vevent, "UID").value, "4b0d6a0e-3c0b-4b8a-9d55-0d1c7a1f2e3b@ooohm");
     assert.equal(only(vevent, "DTSTAMP").value, "20261101T150405Z", "UTC, whole seconds");
@@ -151,20 +152,20 @@ describe("the calendar document", () => {
     const name = "OOOhm: Who's out at Smith, Jones; Partners";
     const vcal = parseIcs(serializeCalendar(calendar([event({ summary })], name)));
     assert.equal(unescapeText(only(vcal, "X-WR-CALNAME").value), name);
-    assert.equal(unescapeText(only(vcal.components[0], "SUMMARY").value), summary);
+    assert.equal(unescapeText(only(first(vcal.components), "SUMMARY").value), summary);
   });
 
   test("UIDs are stable: the same request gives the same UID on every refresh", () => {
     const entry = personalEntry();
-    const first = parseIcs(serializeCalendar(buildFeedCalendar({ kind: "personal", calendarName: "x", entries: [entry] }, generatedAt)));
+    const firstCal = parseIcs(serializeCalendar(buildFeedCalendar({ kind: "personal", calendarName: "x", entries: [entry] }, generatedAt)));
     const later = parseIcs(
       serializeCalendar(
         buildFeedCalendar({ kind: "personal", calendarName: "x", entries: [{ ...entry, status: "approved" }] }, new Date("2027-01-01T00:00:00Z")),
       ),
     );
-    assert.equal(only(first.components[0], "UID").value, `${entry.id}@ooohm`);
-    assert.equal(only(later.components[0], "UID").value, only(first.components[0], "UID").value);
-    assert.notEqual(only(later.components[0], "DTSTAMP").value, only(first.components[0], "DTSTAMP").value);
+    assert.equal(only(first(firstCal.components), "UID").value, `${entry.id}@ooohm`);
+    assert.equal(only(first(later.components), "UID").value, only(first(firstCal.components), "UID").value);
+    assert.notEqual(only(first(later.components), "DTSTAMP").value, only(first(firstCal.components), "DTSTAMP").value);
     assert.equal(feedEventUid(entry.id), `${entry.id}@ooohm`);
   });
 });

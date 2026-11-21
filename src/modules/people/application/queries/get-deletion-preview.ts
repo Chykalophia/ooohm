@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError } from "@/shared/kernel/errors";
 import type { ServiceContext } from "@/server/context";
@@ -48,6 +49,7 @@ export interface DeletionPreview {
  */
 export async function getDeletionPreview(ctx: ServiceContext, actor: Actor, userId: string): Promise<ServiceResult<DeletionPreview>> {
   if (!canDeletePeople(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const [person, company] = await Promise.all([findPerson(ctx.db, actor.companyId, userId), findCompany(ctx.db, actor.companyId)]);
     if (!person) throw new DomainError("not_found");

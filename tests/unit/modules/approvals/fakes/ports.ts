@@ -185,6 +185,7 @@ export function approvalKit(now = new Date("2026-11-02T10:00:00Z")): ApprovalKit
     appUrl: "https://ooohm.test",
     now: () => clock.now(),
     read: store,
+    tenant: () => deps,
     unitOfWork: async (_companyId, work) => {
       units.run++;
       const rows = new Map(requests.rows);

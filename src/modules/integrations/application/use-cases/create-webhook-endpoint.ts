@@ -36,7 +36,7 @@ export async function createWebhookEndpoint(
     const id = ctx.ids.next();
     const secret = generateWebhookSecret();
     const secretCiphertext = ctx.secrets.seal(secret, id);
-    const row = await inTransaction(ctx, async (tx) => {
+    const row = await inTransaction(ctx, actor.companyId, async (tx) => {
       await assertActiveAdmin(tx, actor);
       if (!(await lockCompany(tx, actor.companyId))) throw new DomainError("no_company");
       if ((await countLiveEndpoints(tx, actor.companyId)) >= MAX_WEBHOOK_ENDPOINTS) throw new DomainError("limit_reached");

@@ -1,46 +1,11 @@
 import "server-only";
 import { and, asc, eq, isNull, lt, or } from "drizzle-orm";
-import { calendarFeedTokens, companies, user } from "@/db/schema";
+import { calendarFeedTokens } from "@/db/schema";
 import type { Executor, Transaction } from "@/db/types";
 import type { FeedKind } from "@/shared/kernel/calendar-feed";
 import { returnedRow } from "@/db/rows";
 
 export type CalendarFeedRow = typeof calendarFeedTokens.$inferSelect;
-
-/**
- * The live feed a token hash names, with what rendering it needs, or `undefined` when
- * the hash is unknown, the link was revoked, or its owner is inactive or no longer in
- * the feed's company. One lookup on the unique `token_hash` index.
- */
-export async function findLiveFeedByHash(ex: Executor, tokenHash: string) {
-  const [row] = await ex
-    .select({
-      id: calendarFeedTokens.id,
-      userId: calendarFeedTokens.userId,
-      companyId: calendarFeedTokens.companyId,
-      kind: calendarFeedTokens.kind,
-      lastUsedAt: calendarFeedTokens.lastUsedAt,
-      companyName: companies.name,
-      timezone: companies.timezone,
-      ownerRole: user.role,
-      ownerManagerId: user.managerId,
-      ownerDepartmentId: user.departmentId,
-      colleagueVisibility: companies.colleagueVisibility,
-      departmentScoping: companies.departmentScoping,
-    })
-    .from(calendarFeedTokens)
-    .innerJoin(user, eq(user.id, calendarFeedTokens.userId))
-    .innerJoin(companies, eq(companies.id, calendarFeedTokens.companyId))
-    .where(
-      and(
-        eq(calendarFeedTokens.tokenHash, tokenHash),
-        isNull(calendarFeedTokens.revokedAt),
-        eq(user.isActive, true),
-        eq(user.companyId, calendarFeedTokens.companyId),
-      ),
-    );
-  return row;
-}
 
 /**
  * Stamps the feed as fetched `at`, unless its stamp is already at or after

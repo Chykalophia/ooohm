@@ -46,7 +46,7 @@ export async function deletePerson(
   const mode = input.mode;
   if (!isDeletionMode(mode)) return err("invalid_input", "Unknown delete mode.");
   return attempt(() =>
-    inTransaction(ctx, async (tx): Promise<DeletionOutcome> => {
+    inTransaction(ctx, actor.companyId, async (tx): Promise<DeletionOutcome> => {
       const company = await beginAdminChange(tx, actor);
       const person = await lockPerson(tx, actor.companyId, userId);
       if (!person) throw new DomainError("not_found");

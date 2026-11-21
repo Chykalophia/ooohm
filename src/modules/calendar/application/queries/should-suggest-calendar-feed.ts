@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { hasApprovedRequest } from "@/shared/lib/db/leave-requests";
@@ -11,6 +12,7 @@ import { hasLiveFeedIn } from "@/modules/calendar/infrastructure/drizzle-calenda
  * doesn't count, since it serves nothing here. Two queries; never fails.
  */
 export async function shouldSuggestCalendarFeed(ctx: ServiceContext, actor: Actor): Promise<boolean> {
+  ctx = forTenant(ctx, actor.companyId);
   const [approved, linked] = await Promise.all([hasApprovedRequest(ctx.db, actor.companyId, actor.id), hasLiveFeedIn(ctx.db, actor.companyId, actor.id)]);
   return approved && !linked;
 }

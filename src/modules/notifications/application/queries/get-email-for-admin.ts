@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import type { ServiceContext } from "@/server/context";
 import { findEmailTemplate } from "@/modules/notifications/infrastructure/drizzle-email-templates.repository";
@@ -17,6 +18,7 @@ import { canEditEmailCopy } from "@/modules/notifications/application/policies";
  */
 export async function getEmailForAdmin(ctx: ServiceContext, actor: Actor, type: string): Promise<ServiceResult<EmailEditorDTO>> {
   if (!canEditEmailCopy(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const kind = kindOf(type);
     const row = await findEmailTemplate(ctx.db, actor.companyId, kind);

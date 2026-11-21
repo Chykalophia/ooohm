@@ -12,6 +12,7 @@ import {
   type ReportingLine,
 } from "@/modules/people/domain/people";
 import { normalizeDepartmentName, normalizeEmail, normalizePersonName } from "@/shared/kernel/names";
+import { at as entryAt } from "../support/present";
 
 function throwsCode(fn: () => unknown, code: DomainErrorCode) {
   assert.throws(fn, (err) => isDomainError(err, code));
@@ -182,7 +183,7 @@ test("reassignment falls back to the longest-standing other admin, then the requ
   const inactiveManager = { id: "gone", isActive: false, createdAt: at("2025-01-01") };
   assert.equal(reassignApprover(rule, { requester, manager: inactiveManager, departmentManager: null, admins }), "a1");
   assert.equal(
-    reassignApprover(rule, { requester: { ...requester, id: "a1", role: "admin" }, manager: inactiveManager, departmentManager: null, admins: [admins[1]] }),
+    reassignApprover(rule, { requester: { ...requester, id: "a1", role: "admin" }, manager: inactiveManager, departmentManager: null, admins: [entryAt(admins, 1)] }),
     "a1",
     "an admin with no other admin left decides their own",
   );

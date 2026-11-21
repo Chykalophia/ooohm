@@ -46,6 +46,7 @@ import { pngImage } from "../support/images";
 import { API_ROUTES_COVERED, COVERED } from "../support/tenancy-coverage";
 import { addLeaveType, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+import { at, first, present } from "../support/present";
 
 type Person = Actor & { email: string; name: string };
 
@@ -85,8 +86,9 @@ async function seedTenant(t: TestDatabase, label: string, holidayDate: string): 
   });
   const ctx = createTestContext(t.db, { webhookTargets: { allowInsecure: true, allowPrivate: true } });
   await t.db.update(schema.companies).set({ name: `${token} Inc` }).where(eq(schema.companies.id, co.companyId));
-  const named: Record<string, Person> = {};
-  for (const [key, p] of Object.entries(co.people)) {
+  const named = {} as Record<keyof typeof co.people, Person>;
+  for (const key of Object.keys(co.people) as (keyof typeof co.people)[]) {
+    const p = co.people[key];
     const name = `${token} ${key}`;
     await t.db.update(schema.user).set({ name }).where(eq(schema.user.id, p.id));
     named[key] = { ...p, name };
@@ -153,7 +155,7 @@ async function seedTenant(t: TestDatabase, label: string, holidayDate: string): 
 function feedToken(url: string): string {
   const match = /\/api\/ics\/([^/.?]+)\.ics/.exec(url);
   assert.ok(match, `a feed URL: ${url}`);
-  return match[1];
+  return present(match[1], "the feed token");
 }
 
 // ---------------------------------------------------------------------------------------
@@ -524,7 +526,7 @@ const CASES: Case[] = [
       await calendar.listHolidayRows(t.db, a.companyId, "2026-01-01", "2026-12-31"),
       await calendar.listHolidayDates(t.db, a.companyId, "2026-01-01", "2026-12-31"),
     ],
-    check: (value) => assert.ok(!(value as string[][])[3].includes("2026-12-23"), "Bravo's holiday date is not Alpha's"),
+    check: (value) => assert.ok(!at(value as string[][], 3).includes("2026-12-23"), "Bravo's holiday date is not Alpha's"),
   },
   {
     covers: ["calendar:listTeamEntries", "calendar:listPersonalEntries", "calendar:listPersonLeave"],
@@ -1126,14 +1128,14 @@ describe("tenant isolation", { skip }, () => {
   test("the checks catch a leak: Bravo's own reads, and a write to Bravo, are flagged", async () => {
     assert.notDeepEqual(leaks(serialize(await organisation.listDepartments(t.db, w.b.companyId)), markers), []);
     assert.notDeepEqual(leaks(serialize(unwrap(await leave.getDashboard(w.b.ctx, w.b.emp))), markers), []);
-    const [holiday] = await t.db.select().from(schema.holidays).where(eq(schema.holidays.id, w.b.holiday));
+    const holiday = first(await t.db.select().from(schema.holidays).where(eq(schema.holidays.id, w.b.holiday)));
     await t.db.update(schema.holidays).set({ name: "Touched" }).where(eq(schema.holidays.id, w.b.holiday));
     try {
       await assert.rejects(assertIsolated("a write to Bravo"), /Bravo's holidays changed/);
     } finally {
       await t.db.update(schema.holidays).set(holiday).where(eq(schema.holidays.id, w.b.holiday));
     }
-    const [pal] = await t.db.select().from(schema.user).where(eq(schema.user.id, w.a.pal.id));
+    const pal = first(await t.db.select().from(schema.user).where(eq(schema.user.id, w.a.pal.id)));
     await t.db.update(schema.user).set({ departmentId: w.b.department }).where(eq(schema.user.id, w.a.pal.id));
     try {
       await assert.rejects(assertIsolated("a link to Bravo"), /Alpha's rows now mention Bravo's/);

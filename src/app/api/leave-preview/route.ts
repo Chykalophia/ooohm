@@ -9,6 +9,7 @@ import { serviceContext } from "@/server/runtime";
 import { previewLeaveRequest } from "@/modules/balances";
 import { draftCoverage, previewLeaveFor } from "@/modules/leave";
 import { unwrap } from "@/shared/lib/result";
+import { forTenant } from "@/shared/lib/tenant";
 import { type LeavePreviewResponse, leaveDraftSchema, readDraftFields } from "@/app/_lib/leave-input";
 import { addForMessages } from "@/app/_lib/leave-for-messages";
 import { messageFor, messageForError } from "@/app/_lib/run-action";
@@ -50,7 +51,8 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (!parsed.success) return reply({ ok: false, message: messageFor("invalid_input") }, 400);
 
   const forUserId = request.nextUrl.searchParams.get("for");
-  const ctx = serviceContext();
+  // The actor's company: the coverage lookup below reads through `ctx.db`.
+  const ctx = forTenant(serviceContext(), actor.companyId);
   // A department over its coverage limit only ever warns: the warning follows the cost.
   // It is advisory, so a failed lookup keeps the cost line rather than failing the preview.
   const withCoverage = async (message: string, userId: string) => {

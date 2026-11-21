@@ -4,6 +4,7 @@ import { drizzleAllowanceRepository } from "@/modules/balances/infrastructure/dr
 import { allowanceRepositoryContract } from "../../../unit/modules/balances/contracts/allowance-repository.contract";
 import { addLeaveType, seedCompany } from "../../fixtures";
 import { createTestDatabase, skip, type TestDatabase } from "../../harness";
+import { first } from "../../../support/present";
 
 describe("the Drizzle allowance repository", { skip }, () => {
   let t: TestDatabase;
@@ -40,10 +41,10 @@ describe("the Drizzle allowance repository", { skip }, () => {
           // The request row holds a whole day; its per-year split carries the amount the sums read.
           work(drizzleAllowanceRepository(tx), async ({ userId, leaveTypeId, year, days, status }) => {
             const date = `${year}-03-${String(++day).padStart(2, "0")}`;
-            const [request] = await tx
+            const request = first(await tx
               .insert(schema.leaveRequests)
               .values({ companyId: companyOf.get(userId) ?? co.companyId, userId, leaveTypeId, startDate: date, endDate: date, days: 1, status })
-              .returning({ id: schema.leaveRequests.id });
+              .returning({ id: schema.leaveRequests.id }));
             await tx.insert(schema.leaveRequestDays).values({ requestId: request.id, year, days });
           }),
         ),

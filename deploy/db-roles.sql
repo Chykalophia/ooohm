@@ -4,7 +4,9 @@
 --                        the seed and the TimeOff import connect as it (DATABASE_ADMIN_URL).
 --   app   (ooohm_app)    what the app, the cron route and the worker connect as (DATABASE_URL):
 --                        SELECT, INSERT, UPDATE and DELETE on every table, no DDL, and only
---                        SELECT and INSERT on audit_log.
+--                        SELECT and INSERT on audit_log. Row-level security holds it to one
+--                        company per transaction (ADR-0004); the `<table>_owner` policies the
+--                        migrations make for whoever ran them are pointed at the owner here.
 --
 -- Idempotent. `pnpm db:roles` runs it (the compose `migrate` service does, before migrating),
 -- and every `pnpm db:migrate` runs it again in grants-only mode as the owner, after the
@@ -121,6 +123,16 @@ BEGIN
     EXECUTE format('GRANT USAGE ON SCHEMA public TO %I', app_role);
   END IF;
 
+  -- Row-level security (drizzle/0031): each tenant table's `<table>_owner` policy lets its
+  -- owner see every row. A migration names the role that ran it; point them at the owner,
+  -- in case another role migrated before the tables were handed over.
+  FOR r IN
+    SELECT p.schemaname, p.tablename, p.policyname FROM pg_policies p
+    WHERE p.schemaname = 'public' AND p.policyname = p.tablename || '_owner' AND p.roles <> ARRAY[owner_role]::name[]
+  LOOP
+    EXECUTE format('ALTER POLICY %I ON %I.%I TO %I', r.policyname, r.schemaname, r.tablename, owner_role);
+  END LOOP;
+
   -- What the app role may do today: rows on every table, but the audit log only grows.
   EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO %I', app_role);
   IF to_regclass('public.audit_log') IS NOT NULL THEN
@@ -128,6 +140,21 @@ BEGIN
     EXECUTE format('GRANT SELECT, INSERT ON public.audit_log TO %I', app_role);
   END IF;
   EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %I', app_role);
+  -- Views: a view reads its tables as its owner, past row security, unless it is
+  -- security_invoker (a materialized view always does). The app role gets no rights on one
+  -- that reads as its owner, and writes through none (ADR-0004).
+  FOR r IN
+    SELECT c.oid::regclass AS rel,
+           coalesce((SELECT o.option_value::boolean FROM pg_options_to_table(c.reloptions) o WHERE o.option_name = 'security_invoker'), false) AS invoker
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')
+  LOOP
+    IF r.invoker THEN
+      EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON %s FROM %I', r.rel, app_role);
+    ELSE
+      EXECUTE format('REVOKE ALL ON %s FROM %I', r.rel, app_role);
+    END IF;
+  END LOOP;
   -- Functions run only for the roles granted them; the audit erasure functions are the app's
   -- one way to remove or redact audit rows (Admin -> People -> Delete).
   REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;

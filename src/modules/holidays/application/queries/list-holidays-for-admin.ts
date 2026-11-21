@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError } from "@/shared/kernel/errors";
 import { yearInTimeZone } from "@/lib/dates";
@@ -16,6 +17,7 @@ import { canManageHolidays } from "@/modules/holidays/application/policies";
  */
 export async function listHolidaysForAdmin(ctx: ServiceContext, actor: Actor, year?: number): Promise<ServiceResult<HolidayYearDTO>> {
   if (!canManageHolidays(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     let shown = year;
     if (shown === undefined) {

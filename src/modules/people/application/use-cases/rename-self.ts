@@ -20,7 +20,7 @@ import { inTransaction } from "@/shared/lib/unit-of-work";
 export async function renameSelf(ctx: ServiceContext, actor: Actor, rawName: string): Promise<ServiceResult<string>> {
   return attempt(async () => {
     const name = normalizePersonName(rawName);
-    return inTransaction(ctx, async (tx) => {
+    return inTransaction(ctx, actor.companyId, async (tx) => {
       const member = await lockMember(tx, actor.companyId, actor.id);
       if (!member?.isActive) throw new DomainError("forbidden");
       const before = await findPerson(tx, actor.companyId, actor.id);

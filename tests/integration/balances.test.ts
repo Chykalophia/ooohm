@@ -14,6 +14,7 @@ import * as balancesModule from "@/modules/balances";
 import { rejectsWith } from "./assertions";
 import { addLeaveType, eventsFor, requestDaysOf, requestsOf, seedCompany, setAllowance } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestContext, type TestDatabase } from "./harness";
+import { at, first } from "../support/present";
 
 const getPersonDetail = (...args: Parameters<typeof getPersonDetailResult>) => getPersonDetailResult(...args).then(unwrap);
 
@@ -129,7 +130,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
 
     await t.db.insert(schema.holidays).values({ companyId: co.companyId, date: "2026-12-31", name: "Added later" });
     assert.deepEqual([await pendingIn(2026), await pendingIn(2027)], [1, 1]);
-    assert.equal((await requestsOf(t.db, co.people.ana.id))[0].days, 2);
+    assert.equal(first(await requestsOf(t.db, co.people.ana.id)).days, 2);
   });
 
   test("submit refuses what a tracked balance can't cover, counting pending as spent; nothing is written", async () => {
@@ -346,10 +347,10 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     const weekdays = (month: string, days: number[]) => days.map((d) => `2026-${month}-${String(d).padStart(2, "0")}`);
     const book = async (leaveTypeId: string, dates: string[]) => {
       for (const date of dates) {
-        const [req] = await t.db
+        const req = first(await t.db
           .insert(schema.leaveRequests)
           .values({ companyId: co.companyId, userId: boss.id, leaveTypeId, startDate: date, endDate: date, days: 1, status: "approved", approverId: boss.id })
-          .returning();
+          .returning());
         await t.db.insert(schema.leaveRequestDays).values({ requestId: req.id, year: 2026, days: 1 });
       }
     };
@@ -374,7 +375,7 @@ describe("balances: counting, enforcement and the live preview", { skip }, () =>
     assert.equal(eve.dash.balances?.year, 2026);
     const newYear = await queriesFor(new Date("2027-01-01T07:00:00Z"));
     assert.equal(newYear.dash.balances?.year, 2027);
-    assert.equal(newYear.dash.balances?.items[1].balance.used, 0);
+    assert.equal(at(newYear.dash.balances?.items, 1).balance.used, 0);
   });
 
   test("submitting records the leave events as before; balances add no event of their own", async () => {

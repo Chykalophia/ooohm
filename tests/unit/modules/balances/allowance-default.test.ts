@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type AllowanceRule, allowanceDefaultsFrom, defaultAllowanceFor, typeDefaults } from "@/modules/balances/domain/allowance-rules";
+import { at } from "../../../support/present";
 
 const vacation = { id: "vac", defaultAllowanceDays: 20 };
 const rules: AllowanceRule[] = [
@@ -9,7 +10,7 @@ const rules: AllowanceRule[] = [
   { leaveTypeId: "vac", departmentId: "dev", levelId: "senior", days: 28 },
 ];
 // Listed in every order, so the winner never depends on which rule came first.
-const orders = [rules, [...rules].reverse(), [rules[2], rules[0], rules[1]]];
+const orders = [rules, [...rules].reverse(), [at(rules, 2), at(rules, 0), at(rules, 1)]];
 
 test("a department and level rule beats a level rule, which beats a department rule, which beats the type's default", () => {
   for (const list of orders) {

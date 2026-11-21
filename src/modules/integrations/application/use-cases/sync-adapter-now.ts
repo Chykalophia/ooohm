@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError } from "@/shared/kernel/errors";
 import { log } from "@/lib/log";
@@ -23,6 +24,7 @@ import { SYNC_READ_TIMEOUT_MS } from "@/modules/integrations/application/schemas
  */
 export async function syncAdapterNow(ctx: ServiceContext, actor: Actor, adapterId: string): Promise<ServiceResult<InboundSyncResult>> {
   if (!canManageAdapters(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     await assertActiveAdmin(ctx.db, actor);
     const adapter = ctx.adapters.get(adapterId);

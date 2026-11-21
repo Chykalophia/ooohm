@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { isUuid } from "@/shared/kernel/uuid";
 import type { ServiceContext } from "@/server/context";
@@ -11,6 +12,7 @@ import { canManageLeaveTypes } from "@/modules/organisation/application/policies
 export async function getLeaveTypeForAdmin(ctx: ServiceContext, actor: Actor, id: string): Promise<ServiceResult<LeaveTypeSettingsDTO>> {
   if (!canManageLeaveTypes(actor)) return err("forbidden");
   if (!isUuid(id)) return err("not_found");
+  ctx = forTenant(ctx, actor.companyId);
   const row = await findLeaveTypeForAdmin(ctx.db, actor.companyId, id);
   return row ? ok(toLeaveTypeSettingsDTO(row)) : err("not_found");
 }

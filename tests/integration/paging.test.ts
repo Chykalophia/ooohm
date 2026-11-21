@@ -11,6 +11,7 @@ import { createWebhookEndpoint as createWebhookEndpointResult, DELIVERIES_PAGE_S
 import { rejectsWith } from "./assertions";
 import { seedCompany } from "./fixtures";
 import { createTestContext, createTestDatabase, skip, type TestDatabase } from "./harness";
+import { at, first } from "../support/present";
 
 const listPeople = (...args: Parameters<typeof listPeopleResult>) => listPeopleResult(...args).then(unwrap);
 
@@ -74,7 +75,7 @@ describe("long lists page by their keys", { skip }, () => {
       Array.from({ length: 2 * PEOPLE_PAGE_SIZE + 7 }, (_, i) => ({
         id: randomUUID(),
         companyId: co.companyId,
-        name: names[i % names.length],
+        name: at(names, i % names.length),
         email: `p${String(i).padStart(3, "0")}-${randomUUID().slice(0, 4)}@paging.test`,
       })),
     );
@@ -182,17 +183,17 @@ describe("long lists page by their keys", { skip }, () => {
     );
 
     // A request opens for its owner, with whether it can be cancelled; nobody else's does.
-    const mine = await getMyRequest(ctx, co.people.bo, few[0].id);
+    const mine = await getMyRequest(ctx, co.people.bo, first(few).id);
     assert.deepEqual(
       [mine.request.id, mine.request.cancellable, mine.timezone],
-      [few[0].id, true, "America/Chicago"],
+      [first(few).id, true, "America/Chicago"],
       "with the company's zone for its dates",
     );
-    await rejectsWith(getMyRequest(ctx, co.people.ana, few[0].id), "not_found");
-    await rejectsWith(getMyRequest(ctx, other.people.cy, few[0].id), "not_found");
+    await rejectsWith(getMyRequest(ctx, co.people.ana, first(few).id), "not_found");
+    await rejectsWith(getMyRequest(ctx, other.people.cy, first(few).id), "not_found");
     await rejectsWith(getMyRequest(ctx, co.people.bo, "not-an-id"), "not_found");
-    await cancelLeaveRequest(ctx, co.people.bo, few[0].id);
-    const cancelled = await getMyRequest(ctx, co.people.bo, few[0].id);
+    await cancelLeaveRequest(ctx, co.people.bo, first(few).id);
+    const cancelled = await getMyRequest(ctx, co.people.bo, first(few).id);
     assert.deepEqual([cancelled.request.status, cancelled.request.cancellable], ["cancelled", false]);
   });
 

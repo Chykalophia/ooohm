@@ -1,4 +1,5 @@
 import "server-only";
+import { forTenant } from "@/shared/lib/tenant";
 import type { Actor } from "@/shared/kernel/actor";
 import { DomainError } from "@/shared/kernel/errors";
 import { RECORDS_EXPORTED_AUDIT_ACTION } from "@/shared/kernel/events";
@@ -28,6 +29,7 @@ import { inTransaction } from "@/shared/lib/unit-of-work";
  */
 export async function exportPersonRecords(ctx: ServiceContext, actor: Actor, userId: string): Promise<ServiceResult<{ fileName: string; csv: string }>> {
   if (!canDeletePeople(actor)) return err("forbidden");
+  ctx = forTenant(ctx, actor.companyId);
   return attempt(async () => {
     const personId = await recordExport(ctx, actor, userId);
     const company = await findCompany(ctx.db, actor.companyId);
@@ -46,7 +48,7 @@ export async function exportPersonRecords(ctx: ServiceContext, actor: Actor, use
 
 /** Checks the admin and the person, and writes the export's audit row. @returns The person's id. */
 async function recordExport(ctx: ServiceContext, actor: Actor, userId: string): Promise<string> {
-  return inTransaction(ctx, async (tx) => {
+  return inTransaction(ctx, actor.companyId, async (tx) => {
     await assertActiveAdmin(tx, actor);
     const row = await findPerson(tx, actor.companyId, userId);
     if (!row) throw new DomainError("not_found");

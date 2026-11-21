@@ -4,6 +4,7 @@
  * than by string matching.
  */
 import assert from "node:assert/strict";
+import { first, take } from "./present";
 
 export interface IcsProperty {
   name: string;
@@ -47,7 +48,7 @@ export function parseIcs(text: string): IcsComponent {
   for (const line of logical) {
     const m = CONTENT_LINE.exec(line);
     assert.ok(m, `well-formed content line: ${JSON.stringify(line)}`);
-    const [, name, rawParams, value] = m;
+    const [, name, rawParams, value] = take(m, 4);
     const params = Object.fromEntries(
       rawParams
         .split(";")
@@ -66,7 +67,7 @@ export function parseIcs(text: string): IcsComponent {
   }
   assert.equal(stack.length, 1, "every BEGIN has its END");
   assert.equal(root.components.length, 1, "exactly one VCALENDAR");
-  const vcal = root.components[0];
+  const vcal = first(root.components);
   assert.equal(vcal.name, "VCALENDAR");
   only(vcal, "VERSION");
   only(vcal, "PRODID");
@@ -81,7 +82,7 @@ export function parseIcs(text: string): IcsComponent {
 export function only(component: IcsComponent, name: string): IcsProperty {
   const found = component.properties.filter((p) => p.name === name);
   assert.equal(found.length, 1, `${component.name} has exactly one ${name}`);
-  return found[0];
+  return first(found);
 }
 
 /** Reverses TEXT escaping (RFC 5545 §3.3.11). */

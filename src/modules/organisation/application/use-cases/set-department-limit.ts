@@ -27,7 +27,7 @@ export async function setDepartmentLimit(ctx: ServiceContext, actor: Actor, id: 
   if (!isUuid(id)) return err("not_found");
   if (maxOff !== null && (!Number.isInteger(maxOff) || maxOff < 1 || maxOff > MAX_OFF_LIMIT)) return err("invalid_input");
   return attempt(() =>
-    inTransaction(ctx, async (tx) => {
+    inTransaction(ctx, actor.companyId, async (tx) => {
       await assertActiveAdmin(tx, actor);
       const before = await lockDepartment(tx, actor.companyId, id);
       if (!before) throw new DomainError("not_found");

@@ -79,7 +79,11 @@ export interface ApprovalDirectory {
   leaveTypeName(companyId: string, id: string): Promise<string | undefined>;
   /** Every leave type's name, archived ones too, by id. */
   leaveTypeNames(companyId: string): Promise<Map<string, string>>;
-  linkPerson(userId: string): Promise<LinkPerson | undefined>;
+  /**
+   * The person a signed link names, whichever company they are in (a pre-tenant read),
+   * only while the link's request is assigned to them.
+   */
+  linkPerson(userId: string, requestId: string): Promise<LinkPerson | undefined>;
   timezone(companyId: string): Promise<string | undefined>;
 }
 
@@ -177,4 +181,6 @@ export interface ApprovalDeps extends LinkSigner {
   read: ApprovalStore;
   /** Runs `work` in one transaction with ports bound to it; its emails go out after commit. A thrown `DomainError` rolls it back. */
   unitOfWork<T>(companyId: string, work: (store: ApprovalStore) => Promise<{ result: T; notify: Notification[] }>): Promise<T>;
+  /** The same dependencies, reading for `companyId` (row-level security's tenant): for a link that finds its company first. */
+  tenant(companyId: string): ApprovalDeps;
 }

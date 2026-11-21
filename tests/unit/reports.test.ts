@@ -15,6 +15,7 @@ import {
   reportScopeFor,
   splitLeaveDaysByMonth,
 } from "@/modules/reports/domain/leave-report";
+import { at, first } from "../support/present";
 
 const MON_FRI = [1, 2, 3, 4, 5];
 const calendar = { workingDays: MON_FRI, holidays: ["2026-11-26"] };
@@ -207,7 +208,7 @@ describe("buildLeaveReport", () => {
         ],
       }),
     );
-    const oct = report.months[9];
+    const oct = at(report.months, 9);
     assert.equal(oct.month, "2026-10");
     assert.equal(oct.total, 3);
     assert.deepEqual(oct.byType, [
@@ -215,10 +216,10 @@ describe("buildLeaveReport", () => {
       { leaveTypeId: "sick", days: 1 },
     ]);
     assert.equal(oct.ahead, false);
-    assert.equal(report.months[10].total, 3);
-    assert.equal(report.months[10].ahead, false, "today's month is not ahead");
-    assert.equal(report.months[11].total, 2, "pending leave stays out of the months");
-    assert.equal(report.months[11].ahead, true);
+    assert.equal(at(report.months, 10).total, 3);
+    assert.equal(at(report.months, 10).ahead, false, "today's month is not ahead");
+    assert.equal(at(report.months, 11).total, 2, "pending leave stays out of the months");
+    assert.equal(at(report.months, 11).ahead, true);
   });
 
   test("the previous year's months, for comparison, and the trend by year", () => {
@@ -282,8 +283,8 @@ describe("buildLeaveReport", () => {
         { leaveTypeId: "sick", days: 2, requests: 1 },
       ],
     );
-    assert.equal(report.byType[0].name, "PTO");
-    assert.equal(report.byType[0].color, PTO.color);
+    assert.equal(first(report.byType).name, "PTO");
+    assert.equal(first(report.byType).color, PTO.color);
   });
 
   test("by department: days and days per active person, people without one last", () => {

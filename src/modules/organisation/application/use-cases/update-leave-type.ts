@@ -32,7 +32,7 @@ export async function updateLeaveType(
   return attempt(async () => {
     const settings = normalizeLeaveTypeSettings(input);
     return withUniqueCode(() =>
-      inTransaction(ctx, async (tx) => {
+      inTransaction(ctx, actor.companyId, async (tx) => {
         await assertActiveAdmin(tx, actor);
         const found = await findLeaveTypeForAdmin(tx, actor.companyId, id);
         if (!found) throw new DomainError("not_found");

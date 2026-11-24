@@ -141,6 +141,8 @@ export const auth = betterAuth({
             await sendMail({ to: email, ...renderSignInEmail(url, await signInAccent(existing.companyId)) });
           } catch (err) {
             log.error({ err }, "magic_link_send_failed");
+            // A link that never arrived must not count against the cap once mail recovers.
+            await discardSignInLink(db, token).catch((e) => log.error({ err: e }, "magic_link_discard_failed"));
           }
         });
       },

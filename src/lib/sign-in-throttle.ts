@@ -1,6 +1,7 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { executeRows } from "@/db/rows";
 import type { Executor } from "@/db/types";
+import { verification } from "@/db/schema";
 import { SIGN_IN_LINK_MINUTES } from "./sign-in-email";
 
 /**
@@ -8,8 +9,10 @@ import { SIGN_IN_LINK_MINUTES } from "./sign-in-email";
  * being sent included. Better Auth's own limit counts per client address and, on a
  * serverless host, per instance, so on its own it lets someone spread over a few
  * addresses fill a coworker's inbox. This one counts in the database, per recipient,
- * so it holds across instances and restarts. Invite links count too: an admin who
- * resends an invite a few times uses up the same allowance.
+ * so it holds across instances and restarts. Only links that were sent are counted,
+ * since a refused one is deleted ({@link discardSignInLink}): repeated requests past the
+ * cap never push the window out. Invites are always sent (an admin chose to), but they
+ * count toward the address's allowance.
  */
 export const SIGN_IN_EMAILS_PER_ADDRESS = 5;
 
@@ -36,4 +39,12 @@ export async function countSignInLinksSince(ex: Executor, email: string, since: 
 export async function mayEmailSignInLink(ex: Executor, email: string, now: Date): Promise<boolean> {
   const since = new Date(now.getTime() - SIGN_IN_LINK_MINUTES * 60_000);
   return (await countSignInLinksSince(ex, email, since)) <= SIGN_IN_EMAILS_PER_ADDRESS;
+}
+
+/**
+ * Deletes the link Better Auth just stored for `token` (its plugin keeps it as
+ * `magic-link:<token>`, unhashed), for a link that will not be emailed.
+ */
+export async function discardSignInLink(ex: Executor, token: string): Promise<void> {
+  await ex.delete(verification).where(eq(verification.identifier, `magic-link:${token}`));
 }

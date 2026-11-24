@@ -19,7 +19,7 @@ import { passkeyRelyingParty } from "@/lib/passkey-rp";
 import { sendMail } from "@/lib/mail";
 import { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent } from "@/lib/email-layout";
 import { renderSignInEmail, SIGN_IN_LINK_MINUTES } from "@/lib/sign-in-email";
-import { mayEmailSignInLink } from "@/lib/sign-in-throttle";
+import { discardSignInLink, mayEmailSignInLink } from "@/lib/sign-in-throttle";
 
 /** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
 const linkCapture = createLinkCapture();
@@ -112,7 +112,7 @@ export const auth = betterAuth({
     magicLink({
       disableSignUp: true,
       expiresIn: 60 * SIGN_IN_LINK_MINUTES,
-      sendMagicLink: async ({ email, url, metadata }) => {
+      sendMagicLink: async ({ email, url, token, metadata }) => {
         if (linkCapture.intercept(metadata, url)) return;
         // The API answers 200 for every address, so it can't be used to discover who
         // works here. The lookup and the send both run after the response is sent:
@@ -124,10 +124,16 @@ export const auth = betterAuth({
               .select({ isActive: schema.user.isActive, companyId: schema.user.companyId })
               .from(schema.user)
               .where(eq(schema.user.email, email.toLowerCase()));
-            // Only email people who have an active account, never strangers.
-            if (!existing?.isActive) return;
+            // Only email people who have an active account, never strangers. A link that
+            // is not sent is deleted at once: it can never be used, a stranger's address is
+            // not kept, and a refused request never counts against the cap below.
+            if (!existing?.isActive) {
+              await discardSignInLink(db, token);
+              return;
+            }
             // Per recipient, in the database: Better Auth's own limit is per client and per instance.
             if (!(await mayEmailSignInLink(db, email, new Date()))) {
+              await discardSignInLink(db, token);
               log.warn({}, "magic_link_throttled");
               return;
             }

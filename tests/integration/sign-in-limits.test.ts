@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
-import { eq } from "drizzle-orm";
+import { eq, like, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { SIGN_IN_LINK_MINUTES } from "@/lib/sign-in-email";
-import { countSignInLinksSince, mayEmailSignInLink, SIGN_IN_EMAILS_PER_ADDRESS } from "@/lib/sign-in-throttle";
+import { countSignInLinksSince, discardSignInLink, mayEmailSignInLink, SIGN_IN_EMAILS_PER_ADDRESS } from "@/lib/sign-in-throttle";
 import { pruneExpiredSignIns } from "@/server/services/retention";
 import { DAILY_JOBS } from "@/server/services/scheduled-jobs";
 import { seedCompany } from "./fixtures";
@@ -14,9 +14,9 @@ const MINUTE = 60_000;
 const NOW = new Date("2026-11-24T12:00:00Z");
 
 /** A row as Better Auth's magic-link plugin writes it. */
-const link = (email: string, createdAt: Date) => ({
+const link = (email: string, createdAt: Date, token = randomUUID()) => ({
   id: randomUUID(),
-  identifier: `magic-link:${randomUUID()}`,
+  identifier: `magic-link:${token}`,
   value: JSON.stringify({ type: "magic-link", email }),
   expiresAt: new Date(createdAt.getTime() + SIGN_IN_LINK_MINUTES * MINUTE),
   createdAt,
@@ -53,6 +53,26 @@ describe("sign-in limits and leftovers", { skip }, () => {
     assert.equal(await mayEmailSignInLink(t.db, email, new Date(NOW.getTime() + (SIGN_IN_LINK_MINUTES + 1) * MINUTE)), true, "a window later it does");
   });
 
+  test("a refused link is deleted, so asking again and again never pushes the window out", async () => {
+    const email = `refused-${randomUUID().slice(0, 8)}@example.com`;
+    const sent = new Date(NOW.getTime() - 2 * MINUTE);
+    await t.db.insert(schema.verification).values(Array.from({ length: SIGN_IN_EMAILS_PER_ADDRESS }, () => link(email, sent)));
+    // Someone keeps asking every two minutes: each request is refused and its link discarded.
+    for (let minutes = 0; minutes <= 12; minutes += 2) {
+      const at = new Date(NOW.getTime() + minutes * MINUTE);
+      const token = randomUUID();
+      await t.db.insert(schema.verification).values(link(email, at, token));
+      assert.equal(await mayEmailSignInLink(t.db, email, at), false);
+      await discardSignInLink(t.db, token);
+    }
+    const [kept] = await t.db.select({ n: sql<number>`count(*)` }).from(schema.verification).where(like(schema.verification.value, `%${email}%`));
+    assert.equal(Number(kept.n), SIGN_IN_EMAILS_PER_ADDRESS, "only the links that went out are left");
+    // Fifteen minutes after the sent ones, the address gets a link again.
+    const later = new Date(sent.getTime() + (SIGN_IN_LINK_MINUTES + 1) * MINUTE);
+    await t.db.insert(schema.verification).values(link(email, later));
+    assert.equal(await mayEmailSignInLink(t.db, email, later), true);
+  });
+
   test("the daily retention job deletes sign-in links and sessions a day past expiry, and keeps the rest", async () => {
     const co = await seedCompany(t.db, { ana: {} });
     const userId = co.people.ana.id;
@@ -77,8 +97,13 @@ describe("sign-in limits and leftovers", { skip }, () => {
     assert.deepEqual(sessions.map((s) => s.id), [liveSession.id]);
     assert.notEqual(oldSession.id, liveSession.id);
 
+    // The daily job runs the same prune.
+    const [later] = await t.db.insert(schema.verification).values(verification(longGone)).returning();
+    const [laterSession] = await t.db.insert(schema.session).values(session(longGone)).returning();
     const summary = await DAILY_JOBS.integration_retention(createTestContext(t.db, { now: NOW }));
-    assert.equal(summary.verifications, 0, "the daily job runs the same prune");
-    assert.equal(summary.sessions, 0);
+    assert.equal(summary.verifications, 1);
+    assert.equal(summary.sessions, 1);
+    assert.equal((await t.db.select().from(schema.verification).where(eq(schema.verification.id, later.id))).length, 0);
+    assert.equal((await t.db.select().from(schema.session).where(eq(schema.session.id, laterSession.id))).length, 0);
   });
 });

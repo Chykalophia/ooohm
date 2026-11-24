@@ -1443,6 +1443,8 @@ under its locks, that the person is still scheduled and due), so the rare overla
 **Retention** (`pruneIntegrationData`): finished webhook and adapter deliveries last changed more than 90 days
 ago, then dispatched outbox events written more than 90 days ago (unless an adapter still has one pending), in
 batches of 1,000. Pending deliveries and undispatched events are never pruned. The audit log is never pruned.
+The same job deletes what Better Auth leaves behind (`pruneExpiredSignIns`): sign-in links, passkey challenges and
+sessions that expired more than a day ago. Unused links name every address typed on the sign-in page.
 
 ### Webhooks
 

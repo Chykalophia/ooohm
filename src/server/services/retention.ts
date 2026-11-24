@@ -1,9 +1,15 @@
 /**
- * Retention of integration data. The audit log is never pruned; only the delivery
- * machinery is.
+ * Retention of integration data and of expired sign-in rows. The audit log is never
+ * pruned; only the delivery machinery and what Better Auth leaves behind are.
  */
 import type { ServiceContext } from "@/server/context";
-import { pruneDispatchedEvents, pruneFinishedAdapterDeliveries, pruneFinishedWebhookDeliveries } from "@/server/repositories/retention";
+import {
+  pruneDispatchedEvents,
+  pruneExpiredSessions,
+  pruneExpiredVerifications,
+  pruneFinishedAdapterDeliveries,
+  pruneFinishedWebhookDeliveries,
+} from "@/server/repositories/retention";
 
 /** Days kept of finished deliveries and of dispatched outbox events (which `/api/v1/events` replays). */
 export const RETENTION_DAYS = 90;
@@ -38,4 +44,24 @@ export async function pruneIntegrationData(ctx: ServiceContext, options: { now?:
   const adapterDeliveries = await drain((n) => pruneFinishedAdapterDeliveries(ctx.db, before, n));
   const events = await drain((n) => pruneDispatchedEvents(ctx.db, before, n));
   return { webhookDeliveries, adapterDeliveries, events };
+}
+
+/** A day past expiry, so a link or session that has only just run out is never deleted under a request using it. */
+export const SIGN_IN_GRACE_MS = 86_400_000;
+
+export interface SignInPruneResult {
+  verifications: number;
+  sessions: number;
+}
+
+/**
+ * Deletes, in batches of 1,000, sign-in links, passkey challenges and sessions that
+ * expired more than a day ago. They can never be used again, and the links name every
+ * address typed on the sign-in page, a member's or not.
+ */
+export async function pruneExpiredSignIns(ctx: ServiceContext, options: { now?: Date } = {}): Promise<SignInPruneResult> {
+  const before = new Date((options.now ?? ctx.now()).getTime() - SIGN_IN_GRACE_MS);
+  const verifications = await drain((n) => pruneExpiredVerifications(ctx.db, before, n));
+  const sessions = await drain((n) => pruneExpiredSessions(ctx.db, before, n));
+  return { verifications, sessions };
 }

@@ -19,6 +19,7 @@ import { passkeyRelyingParty } from "@/lib/passkey-rp";
 import { sendMail } from "@/lib/mail";
 import { DEFAULT_EMAIL_ACCENT, type EmailAccent, emailAccent } from "@/lib/email-layout";
 import { renderSignInEmail, SIGN_IN_LINK_MINUTES } from "@/lib/sign-in-email";
+import { mayEmailSignInLink } from "@/lib/sign-in-throttle";
 
 /** Sign-in links requested by `issueSignInLink`, handed back instead of emailed. */
 const linkCapture = createLinkCapture();
@@ -125,6 +126,11 @@ export const auth = betterAuth({
               .where(eq(schema.user.email, email.toLowerCase()));
             // Only email people who have an active account, never strangers.
             if (!existing?.isActive) return;
+            // Per recipient, in the database: Better Auth's own limit is per client and per instance.
+            if (!(await mayEmailSignInLink(db, email, new Date()))) {
+              log.warn({}, "magic_link_throttled");
+              return;
+            }
 
             await sendMail({ to: email, ...renderSignInEmail(url, await signInAccent(existing.companyId)) });
           } catch (err) {

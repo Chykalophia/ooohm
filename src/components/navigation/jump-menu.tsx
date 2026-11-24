@@ -38,6 +38,13 @@ export function JumpMenu({ items }: { items: JumpItem[] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Focus stays in the filter box, so the browser won't scroll the list to the active row
+  // itself: past about eight rows (an admin has more) it would move out of sight.
+  const activeHref = matches[active]?.href;
+  useEffect(() => {
+    if (activeHref) document.getElementById(`jump-${activeHref}`)?.scrollIntoView({ block: "nearest" });
+  }, [activeHref]);
+
   function go(item: JumpItem | undefined) {
     if (!item) return;
     dialog.current?.close();

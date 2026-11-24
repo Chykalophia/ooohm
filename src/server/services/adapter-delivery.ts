@@ -141,7 +141,11 @@ export async function deliverDueAdapterEvents(ctx: ServiceContext, deps: Adapter
       outcome = { status: delay === null ? "failed" : "pending", at, nextAttemptAt: new Date(at.getTime() + (delay ?? 0)), error };
     }
     try {
-      if (!(await recordAdapterOutcome(ctx.db, claim, outcome))) log.warn(fields, "adapter_delivery_outcome_dropped");
+      // Dropped: another worker took the delivery over, and its attempt is the one that counts.
+      if (!(await recordAdapterOutcome(ctx.db, claim, outcome))) {
+        log.warn(fields, "adapter_delivery_outcome_dropped");
+        continue;
+      }
     } catch (err) {
       log.error({ ...fields, err }, "adapter_delivery_record_failed");
       continue;

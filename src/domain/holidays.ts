@@ -108,9 +108,12 @@ function observed(date: CalendarDate): { date: CalendarDate; moved: boolean } {
   return { date, moved: false };
 }
 
+/** Juneteenth has been a federal holiday since 2021 (Pub. L. 117-17). */
+const JUNETEENTH_FIRST_YEAR = 2021;
+
 /**
  * The eleven US federal holidays observed in `year` (5 U.S.C. 6103), on the day they
- * are observed: a fixed-date holiday on a Saturday is observed the Friday before and
+ * are observed (ten before 2021, when Juneteenth became one): a fixed-date holiday on a Saturday is observed the Friday before and
  * on a Sunday the Monday after, and is then named "(observed)". New Year's Day of the
  * next year belongs here when it is observed on Dec 31; this year's belongs to the
  * year before when it is.
@@ -125,7 +128,7 @@ export function usFederalHolidays(year: number): HolidayDraft[] {
     { date: nthWeekday(year, 1, 1, 3), name: "Birthday of Martin Luther King, Jr." },
     { date: nthWeekday(year, 2, 1, 3), name: "Washington's Birthday" },
     { date: nthWeekday(year, 5, 1, -1), name: "Memorial Day" },
-    fixed(ymd(year, 6, 19), "Juneteenth National Independence Day"),
+    ...(year >= JUNETEENTH_FIRST_YEAR ? [fixed(ymd(year, 6, 19), "Juneteenth National Independence Day")] : []),
     fixed(ymd(year, 7, 4), "Independence Day"),
     { date: nthWeekday(year, 9, 1, 1), name: "Labor Day" },
     { date: nthWeekday(year, 10, 1, 2), name: "Columbus Day" },

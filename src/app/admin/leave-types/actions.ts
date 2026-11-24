@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { LEAVE_TYPE_CODE_MAX_LENGTH, LEAVE_TYPE_NAME_MAX_LENGTH } from "@/domain/leave-type-settings";
-import { createLeaveType, reorderLeaveTypes, setLeaveTypeArchived, updateLeaveType } from "@/server/services/admin-leave-types";
+import { createLeaveType, REORDER_MAX, reorderLeaveTypes, setLeaveTypeArchived, updateLeaveType } from "@/server/services/admin-leave-types";
 import type { FormState } from "@/components/forms/form-state";
 import { adminAction } from "@/app/admin/admin-action";
 import { formFields } from "@/app/_lib/form-fields";
@@ -71,7 +71,7 @@ export async function reorderLeaveTypesAction(order: string[]): Promise<FormStat
   return adminAction(
     "leave_type_reorder",
     { order },
-    z.object({ order: z.array(formFields.id).min(1).max(200) }),
+    z.object({ order: z.array(formFields.id).min(1).max(REORDER_MAX) }),
     async (ctx, actor, { order }) => ((await reorderLeaveTypes(ctx, actor, order)) ? "Order saved." : "Already in that order."),
     {
       ...MESSAGES,

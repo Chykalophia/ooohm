@@ -173,8 +173,12 @@ export async function deliverDueWebhooks(ctx: ServiceContext, deps: DeliveryDeps
     }
     const fields = { deliveryId: claim.id, endpointId: claim.endpointId, eventId: claim.eventId, eventType: claim.eventType, attempt: claim.attempts };
     try {
-      const kept = await recordDeliveryOutcome(ctx.db, claim, recorded);
-      if (!kept) log.warn(fields, "webhook_delivery_outcome_dropped");
+      // Dropped: the lease ran out and another worker took the delivery over; its attempt
+      // is the one that counts, so this one is neither tallied nor logged as an outcome.
+      if (!(await recordDeliveryOutcome(ctx.db, claim, recorded))) {
+        log.warn(fields, "webhook_delivery_outcome_dropped");
+        return;
+      }
     } catch (err) {
       // The lease runs out and another attempt follows: at least once, never lost.
       log.error({ ...fields, err }, "webhook_delivery_record_failed");

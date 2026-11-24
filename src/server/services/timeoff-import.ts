@@ -93,6 +93,7 @@ import { insertLeaveType, type LeaveTypeRow, listAllLeaveTypes, updateLeaveType 
 import { findMembers, lockMember } from "@/server/repositories/users";
 import { loadApprovalContexts } from "./approval-routing";
 import { loadBalances } from "./balances";
+import { inTransaction } from "./notify";
 import { recarryMemberLeaveType } from "./rollover";
 
 /** `audit_log.after.source` and `import_runs.source` of this importer. */
@@ -215,7 +216,7 @@ export async function importTimeOff(ctx: ServiceContext, input: TimeOffImportInp
   // Before any work: a typo here should not cost a whole dry run.
   actorEmailOf(input.actorEmail);
   try {
-    return await ctx.db.transaction(async (tx) => {
+    return await inTransaction(ctx, async (tx) => {
       const report = await runImport(ctx, tx, input);
       if (report.outcome !== "applied") throw new RollBack(report);
       return report;

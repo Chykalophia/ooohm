@@ -137,7 +137,8 @@ export function SortableList({
     }
     setError(null);
     startSaving(async () => {
-      const result = await reorder(to);
+      // A save that never reached the server (offline, a failed deploy) reads as a refusal.
+      const result = await reorder(to).catch((): FormState => ({ status: "error", message: "That order couldn't be saved. Try again." }));
       if (result.status === "error") {
         setOrder(from);
         setError(result.message);

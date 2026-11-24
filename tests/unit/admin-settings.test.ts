@@ -154,3 +154,14 @@ test("allowances are editable from last year on: older years are closed, the rol
   for (const year of [2025, 2026, 2027, ALLOWANCE_YEAR_MAX]) assert.doesNotThrow(() => assertAllowanceYear(year, 2026), String(year));
   for (const year of [2024, 2000, ALLOWANCE_YEAR_MAX + 1, 2026.5, Number.NaN]) throwsCode(() => assertAllowanceYear(year, 2026), "invalid_input");
 });
+
+test("Juneteenth is a federal holiday from 2021 on, not before", () => {
+  const juneteenth = (year: number) => usFederalHolidays(year).some((h) => h.name.startsWith("Juneteenth"));
+  assert.equal(juneteenth(2020), false);
+  assert.equal(usFederalHolidays(2020).filter((h) => h.date.startsWith("2020")).length, 10);
+  assert.deepEqual(
+    usFederalHolidays(2021).find((h) => h.name.startsWith("Juneteenth")),
+    { date: "2021-06-18", name: "Juneteenth National Independence Day (observed)" },
+    "Saturday moves to Friday",
+  );
+});

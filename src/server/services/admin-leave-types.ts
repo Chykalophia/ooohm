@@ -172,7 +172,7 @@ export async function setLeaveTypeArchived(ctx: ServiceContext, actor: Actor, id
 }
 
 /** The most active leave types a reorder takes: far more than any company has. */
-const REORDER_MAX = 200;
+export const REORDER_MAX = 200;
 
 /**
  * Puts the active leave types in the request form in `order` (their ids, first to last),

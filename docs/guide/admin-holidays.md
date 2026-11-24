@@ -27,5 +27,5 @@ those dates may count them as working days again.
 
 ## US company?
 
-**Add the US federal holidays for the year** adds the eleven federal holidays, on the days they're
-observed. Dates you already have are left alone.
+**Add the US federal holidays for the year** adds the eleven federal holidays (ten before 2021, when Juneteenth
+became one), on the days they're observed. Dates you already have are left alone.

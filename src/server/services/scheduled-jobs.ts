@@ -10,6 +10,7 @@
  */
 import { log } from "@/lib/log";
 import type { ServiceContext } from "@/server/context";
+import { databaseErrorCode } from "@/server/repositories/errors";
 import { claimJob, finishJob } from "@/server/repositories/scheduled-jobs";
 import { runDueScrubs } from "./admin-people-deletion";
 import { pruneIntegrationData } from "./retention";
@@ -52,9 +53,11 @@ export async function runDueJobs(ctx: ServiceContext, jobs = DAILY_JOBS): Promis
       log.info({ job: name, ...summary }, "scheduled_job_done");
     } catch (err) {
       log.error({ job: name, err }, "scheduled_job_failed");
-      // Name and code only: a query error's message carries its bound parameters.
-      const code = err instanceof Error ? (err as Error & { code?: unknown }).code : undefined;
-      const message = err instanceof Error ? `${err.name}${typeof code === "string" ? ` (${code})` : ""}`.slice(0, 100) : "failed";
+      // Name and code only: a query error's message carries its bound parameters. Drizzle
+      // keeps the SQLSTATE on the driver error it wraps, so look down the cause chain too.
+      const own = err instanceof Error ? (err as Error & { code?: unknown }).code : undefined;
+      const code = typeof own === "string" ? own : databaseErrorCode(err);
+      const message = err instanceof Error ? `${err.name}${code ? ` (${code})` : ""}`.slice(0, 100) : "failed";
       const failedAt = ctx.now();
       await finishJob(ctx.db, name, { at: failedAt, nextRunAt: new Date(failedAt.getTime() + JOB_RETRY_MS), error: message }).catch((e) =>
         log.error({ job: name, err: e }, "scheduled_job_record_failed"),

@@ -11,5 +11,8 @@ import type { Executor } from "./types";
 export async function executeRows<T extends Record<string, unknown>>(ex: Executor, query: SQL): Promise<T[]> {
   const result: unknown = await ex.execute(query);
   if (Array.isArray(result)) return result as T[];
-  return ((result as { rows?: T[] }).rows ?? []) as T[];
+  const rows = (result as { rows?: unknown } | null)?.rows;
+  // Anything else is a driver this file doesn't know: an empty answer would hide it.
+  if (!Array.isArray(rows)) throw new Error("executeRows: the driver returned neither rows nor { rows }.");
+  return rows as T[];
 }

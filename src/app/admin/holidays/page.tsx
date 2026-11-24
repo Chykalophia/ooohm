@@ -100,7 +100,7 @@ export default async function HolidaysPage({ searchParams }: { searchParams: Pro
           pendingLabel="Adding…"
           variant="outline"
         />
-        <p className="text-sm text-muted">The eleven federal holidays, on the days they&apos;re observed. Dates you already have are left alone.</p>
+        <p className="text-sm text-muted">The federal holidays of {year}, on the days they&apos;re observed. Dates you already have are left alone.</p>
       </Section>
     </AdminShell>
   );

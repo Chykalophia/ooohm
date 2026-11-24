@@ -391,6 +391,33 @@ describe("adapter seam", { skip }, () => {
     assert.deepEqual(events[0].actor, { type: "user", id: co.people.boss.id, via: "adapter_sync:fakehr" });
   });
 
+  test("inbound: a missing days amount is skipped as invalid, and a null adjustment counts as omitted", async () => {
+    const co = await company();
+    const ctx = createTestContext(t.db, { now: T0 });
+    await setAllowance(t.db, { userId: co.people.ana.id, leaveTypeId: co.pto, year: 2026, days: 10, adjustmentDays: 2 });
+    // Adapters hand over parsed JSON, so nulls and blanks arrive whatever the type says.
+    const loose = (row: Record<string, unknown>) => row as unknown as InboundBalance;
+    const result = await applyInboundSync(ctx, {
+      companyId: co.companyId,
+      adapterId: "fakehr",
+      trigger: { kind: "admin", actor: co.people.boss },
+      balances: [
+        loose({ email: co.people.ana.email, leaveTypeCode: "PTO", year: 2026, days: null }),
+        loose({ email: co.people.ana.email, leaveTypeCode: "PTO", year: 2026, days: "" }),
+        loose({ email: co.people.ana.email, leaveTypeCode: "PTO", year: 2026, days: 12, adjustmentDays: null }),
+      ],
+    });
+    assert.deepEqual(
+      result.balances.skipped.map((s) => s.reason),
+      ["invalid", "invalid"],
+    );
+    assert.deepEqual(
+      (await allowancesOf(t.db, co.people.ana.id)).map((a) => [a.year, a.days, a.adjustmentDays]),
+      [[2026, 12, 2]],
+      "the existing adjustment stays",
+    );
+  });
+
   test("inbound: the same sync names the admin through it when they press Sync now, and the system when scheduled", async () => {
     // Ana joined before last year, so last year's remaining carries.
     const co = await seedCompany(t.db, { boss: { role: "admin" }, ana: { managerKey: "boss", createdAt: "2025-01-01T00:00:00Z" } });

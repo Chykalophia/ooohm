@@ -12,7 +12,7 @@ import { SignInForm } from "./sign-in-form";
 
 export const metadata: Metadata = { title: "Sign in · OOOhm" };
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string; setup?: string; email?: string }> }) {
+export default async function SignInPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // Read runtime config (Google on/off) per request, not at build time.
   await connection();
   // Better Auth sends failed or expired links back here with ?error=...; setup sends the new admin here.
@@ -36,7 +36,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
                 OOOhm is set up. Send yourself a sign-in link to finish.
               </p>
             )}
-            <SignInForm googleEnabled={googleEnabled} linkFailed={Boolean(error)} initialEmail={email?.slice(0, 320) ?? ""} />
+            <SignInForm googleEnabled={googleEnabled} linkFailed={Boolean(error)} initialEmail={typeof email === "string" ? email.slice(0, 320) : ""} />
           </>
         ) : status === "open" ? (
           <p className="text-sm">

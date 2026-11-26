@@ -10,7 +10,7 @@ import { TransportError, type WebhookFetch } from "@/lib/safe-fetch";
 import { claimDueDeliveries, recordDeliveryOutcome } from "@/server/repositories/webhooks";
 import { submitLeaveRequest } from "@/server/services/leave-requests";
 import { dispatchOutboxBatch } from "@/server/services/outbox-dispatch";
-import { deliverDueWebhooks } from "@/server/services/webhook-delivery";
+import { DELIVERY_LEASE_MS, deliverDueWebhooks } from "@/server/services/webhook-delivery";
 import {
   createWebhookEndpoint,
   deleteWebhookEndpoint,
@@ -383,6 +383,23 @@ describe("outbox dispatch and webhook delivery", { skip }, () => {
     assert.equal(await recordDeliveryOutcome(t.db, second, delivered), true);
     const [row] = await t.db.select().from(schema.webhookDeliveries).where(and(eq(schema.webhookDeliveries.endpointId, e.id)));
     assert.equal(row.status, "delivered");
+  });
+
+  test("a run whose outcome is dropped does not count or log it as its own", async () => {
+    const co = await company();
+    await endpoint(co.people.boss, ["leave.requested"]);
+    await submit(co);
+    await dispatchOutboxBatch(ctx);
+    const { fetch } = recorder(async () => {
+      // This attempt outlives its lease, and another worker claims the delivery meanwhile.
+      clock.now = new Date(T0.getTime() + DELIVERY_LEASE_MS + 1_000);
+      const taken = await claimDueDeliveries(t.db, { now: clock.now, leaseUntil: new Date(clock.now.getTime() + DELIVERY_LEASE_MS), limit: 10 });
+      assert.equal(taken.length, 1);
+      return new Response(null, { status: 204 });
+    });
+    const run = await deliverDueWebhooks(ctx, { fetch });
+    assert.equal(run.attempted, 1);
+    assert.deepEqual([run.delivered, run.retried, run.failed], [0, 0, 0], "the other worker's attempt is the one that counts");
   });
 
   test("shutdown mid-batch: the attempt in flight finishes, the rest is released unattempted and due at once", async () => {

@@ -179,6 +179,12 @@ async function syncUsers(ctx: ServiceContext, input: InboundSyncInput, result: I
   });
 }
 
+/** A day amount from an adapter: a number or a numeric string, else `NaN`, which the range check refuses. */
+function dayNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  return typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+}
+
 async function syncBalances(ctx: ServiceContext, input: InboundSyncInput, result: InboundSyncResult): Promise<void> {
   const balances = input.balances ?? [];
   if (balances.length === 0) return;
@@ -195,8 +201,10 @@ async function syncBalances(ctx: ServiceContext, input: InboundSyncInput, result
     let adjustment: number | undefined;
     try {
       email = normalizeEmail(String(raw.email ?? ""));
-      days = normalizeDayAmount(Number(raw.days), { min: 0, max: MAX_ALLOWANCE_DAYS });
-      adjustment = raw.adjustmentDays === undefined ? undefined : normalizeDayAmount(Number(raw.adjustmentDays), { min: -MAX_ALLOWANCE_DAYS, max: MAX_ALLOWANCE_DAYS });
+      // Adapters hand over parsed JSON: a missing or blank `days` is invalid, never 0, and a
+      // null adjustment means omitted, as the contract says, never a correction to 0.
+      days = normalizeDayAmount(dayNumber(raw.days), { min: 0, max: MAX_ALLOWANCE_DAYS });
+      adjustment = raw.adjustmentDays == null ? undefined : normalizeDayAmount(dayNumber(raw.adjustmentDays), { min: -MAX_ALLOWANCE_DAYS, max: MAX_ALLOWANCE_DAYS });
     } catch (err) {
       if (!isDomainError(err)) throw err;
       skip("invalid");

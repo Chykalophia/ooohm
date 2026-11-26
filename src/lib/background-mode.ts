@@ -16,10 +16,6 @@
 export const BACKGROUND_MODES = ["worker", "inline", "cron"] as const;
 export type BackgroundMode = (typeof BACKGROUND_MODES)[number];
 
-export function isBackgroundMode(value: string): value is BackgroundMode {
-  return (BACKGROUND_MODES as readonly string[]).includes(value);
-}
-
 /**
  * @param configured `OOOHM_BACKGROUND`, if set.
  * @throws Error for `worker` in embedded mode, where no second process may open the database.

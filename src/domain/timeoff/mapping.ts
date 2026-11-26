@@ -28,7 +28,7 @@ import { addDays } from "@/domain/allowance-policy";
 import type { Role } from "@/domain/actor";
 import { type CalendarDate, fromEpochDay, isCalendarDate, toEpochDay } from "@/domain/calendar-date";
 import { isSupportedTimeZone } from "@/domain/company-settings";
-import { DomainError, isDomainError } from "@/domain/errors";
+import { DomainError } from "@/domain/errors";
 import { normalizeHolidayName } from "@/domain/holidays";
 import { splitLeaveDaysByYear, type YearDays } from "@/domain/leave-days";
 import { type DayPortion, type LeaveRange, type LeaveStatus, MAX_REQUEST_SPAN_DAYS, NOTE_MAX_LENGTH } from "@/domain/leave-request";
@@ -842,9 +842,4 @@ export function buildImportPlan(snapshot: TimeOffSnapshot, options: ImportPlanOp
     conflicts,
     skipped: { users: skippedUsers, leaves: skippedLeaves },
   };
-}
-
-/** Whether `err` is the planner's refusal (as opposed to a bug). */
-export function isImportRefusal(err: unknown): err is DomainError {
-  return isDomainError(err, "import_refused");
 }

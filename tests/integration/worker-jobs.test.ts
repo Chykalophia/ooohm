@@ -70,6 +70,18 @@ describe("worker jobs and retention", { skip }, () => {
     assert.equal((await findJob(t.db, "flaky"))?.lastError, null);
   });
 
+  test("a failed query records the database's code from the driver error it wraps", async () => {
+    const ctx = createTestContext(t.db);
+    ctx.now = () => T0;
+    const driver = Object.assign(new Error("duplicate key value"), { code: "23505" });
+    await runDueJobs(ctx, {
+      wrapped: async () => {
+        throw new Error("Failed query: insert into ... params: secret", { cause: driver });
+      },
+    });
+    assert.equal((await findJob(t.db, "wrapped"))?.lastError, "Error (23505)");
+  });
+
   test("the worker's daily jobs are the year rollover, retention and scheduled scrubs, and all run", async () => {
     assert.deepEqual(Object.keys(DAILY_JOBS), ["year_rollover", "integration_retention", "scheduled_scrub"]);
     const co = await seedCompany(t.db, { boss: { role: "admin" } });

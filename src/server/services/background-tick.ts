@@ -151,14 +151,21 @@ export function createTickScheduler(run: () => Promise<void>): { request(): Prom
         again = true;
         return current;
       }
+      // `current` clears in the same step that leaves the loop: a request in between would
+      // otherwise join a loop that has already decided to stop. `pass` turns a `run` that
+      // throws at once into a rejection, so the loop always awaits before it can clear
+      // `current`, and never clears it before it is set.
+      const pass = async () => run();
       current = (async () => {
-        do {
-          again = false;
-          await run();
-        } while (again);
-      })().finally(() => {
-        current = null;
-      });
+        try {
+          do {
+            again = false;
+            await pass();
+          } while (again);
+        } finally {
+          current = null;
+        }
+      })();
       return current;
     },
     idle: () => current ?? Promise.resolve(),

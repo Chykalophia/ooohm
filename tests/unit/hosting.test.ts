@@ -183,3 +183,31 @@ describe("tick scheduler", () => {
     assert.equal(runs, 3, "an idle scheduler starts a new pass");
   });
 });
+
+describe("tick scheduler, at the end of a pass", () => {
+  test("a request made as a pass finishes gets a pass of its own", async () => {
+    let runs = 0;
+    let passEnded!: () => void;
+    const ended = new Promise<void>((r) => (passEnded = r));
+    const scheduler = createTickScheduler(async () => {
+      runs++;
+      // Something the pass did (an email sent, say) lets a caller ask again just as it ends.
+      if (runs === 1) passEnded();
+    });
+    void scheduler.request();
+    await ended.then(() => scheduler.request());
+    assert.equal(runs, 2, "the late request is not folded into the pass that had already stopped");
+  });
+
+  test("a run that throws at once does not leave the scheduler stuck", async () => {
+    let runs = 0;
+    const scheduler = createTickScheduler(() => {
+      runs++;
+      if (runs === 1) throw new Error("boom");
+      return Promise.resolve();
+    });
+    await assert.rejects(scheduler.request(), /boom/);
+    await scheduler.request();
+    assert.equal(runs, 2);
+  });
+});

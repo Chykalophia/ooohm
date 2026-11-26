@@ -14,6 +14,11 @@ function driverError(err: unknown): DriverError | undefined {
   return undefined;
 }
 
+/** The Postgres error code (SQLSTATE, e.g. `23505`) somewhere in `err`'s cause chain, if any. */
+export function databaseErrorCode(err: unknown): string | undefined {
+  return driverError(err)?.code as string | undefined;
+}
+
 /** The constraint a query violated (unique, check, foreign key), when the error names one. */
 export function violatedConstraint(err: unknown): string | undefined {
   const e = driverError(err);

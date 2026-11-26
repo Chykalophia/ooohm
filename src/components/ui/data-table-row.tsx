@@ -60,7 +60,8 @@ export function DataTableRow({
 }) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
-  const opens = detail !== null && detail !== undefined;
+  // `cond && <Detail />` gives `false` when there is nothing to show: no chevron for that.
+  const opens = detail !== null && detail !== undefined && detail !== false && detail !== "";
 
   function onRowClick(e: React.MouseEvent<HTMLTableRowElement>) {
     if (!opens || (e.target as Element).closest(OWN_CLICK)) return;

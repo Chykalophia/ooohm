@@ -9,7 +9,7 @@
  * rule already keeps notes between a person and their approver.
  */
 import { resolveAllowancePolicy } from "@/domain/allowance-policy";
-import type { CalendarDate } from "@/domain/calendar-date";
+import { type CalendarDate, isCalendarDate } from "@/domain/calendar-date";
 import { DomainError } from "@/domain/errors";
 import { isUuid } from "@/domain/ids";
 import { type ApiClient, assertScope, buildEnvelope, type EventEnvelope } from "@/domain/integrations";
@@ -139,7 +139,8 @@ export async function listLeaveRequestsForApi(ctx: ServiceContext, client: ApiCl
   let after: { startDate: string; id: string } | undefined;
   if (q.cursor) {
     const c = decodeCursor(q.cursor, ["s", "i"]);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(c.s) || !isUuid(c.i)) throw new DomainError("invalid_input", "That cursor is not valid.");
+    // A real date, not only its shape: Postgres refuses `2026-02-30` with a 500.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(c.s) || !isCalendarDate(c.s) || !isUuid(c.i)) throw new DomainError("invalid_input", "That cursor is not valid.");
     after = { startDate: c.s, id: c.i };
   }
   const rows = await listLeaveRequestsPage(ctx.db, { companyId: client.companyId, ...q, after });

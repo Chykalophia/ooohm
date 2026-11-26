@@ -1120,7 +1120,7 @@ with the same `summarizeBalances` the dashboard uses.
 
 ### Holidays
 
-List by year (2000 to 2100), add (one per date), rename, delete, and add the eleven US federal holidays for a
+List by year (2000 to 2100), add (one per date), rename, delete, and add the eleven US federal holidays (ten before 2021) for a
 year on their observed dates (`usFederalHolidays`, `src/domain/holidays.ts`: Saturday → Friday, Sunday → Monday,
 so a Saturday New Year's Day belongs to Dec 31 of the year before), skipping dates that already have one. Adding
 or deleting holidays recounts the requests on those dates in open years

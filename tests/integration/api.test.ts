@@ -197,6 +197,8 @@ describe("REST API v1", { skip }, () => {
     assert.equal((await call("/api/v1/leave-requests", key, { from: "2026-12-01", to: "2026-11-01" })).status, 400);
     assert.equal((await call("/api/v1/leave-requests", key, { from: "2026-13-01" })).status, 400);
     assert.equal((await call("/api/v1/leave-requests", key, { status: "lost" })).status, 400);
+    const impossible = Buffer.from(JSON.stringify({ s: "2026-02-30", i: early.id })).toString("base64url");
+    assert.equal((await call("/api/v1/leave-requests", key, { cursor: impossible })).status, 400, "a cursor on a date that doesn't exist");
   });
 
   test("balances match what the dashboard shows each person; holidays come by year", async () => {

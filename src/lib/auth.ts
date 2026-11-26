@@ -132,7 +132,7 @@ export const auth = betterAuth({
               return;
             }
             // Per recipient, in the database: Better Auth's own limit is per client and per instance.
-            if (!(await mayEmailSignInLink(db, email, new Date()))) {
+            if (!(await mayEmailSignInLink(db, email, token, new Date()))) {
               await discardSignInLink(db, token);
               log.warn({}, "magic_link_throttled");
               return;

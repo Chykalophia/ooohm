@@ -14,7 +14,7 @@ const MINUTE = 60_000;
 const NOW = new Date("2026-11-24T12:00:00Z");
 
 /** A row as Better Auth's magic-link plugin writes it. */
-const link = (email: string, createdAt: Date, token = randomUUID()) => ({
+const link = (email: string, createdAt: Date, token: string = randomUUID()) => ({
   id: randomUUID(),
   identifier: `magic-link:${token}`,
   value: JSON.stringify({ type: "magic-link", email }),
@@ -46,11 +46,25 @@ describe("sign-in limits and leftovers", { skip }, () => {
     assert.equal(await countSignInLinksSince(t.db, email, new Date(NOW.getTime() - SIGN_IN_LINK_MINUTES * MINUTE)), SIGN_IN_EMAILS_PER_ADDRESS - 1);
 
     // The row for the link being sent is written before the email goes, so it counts.
-    await t.db.insert(schema.verification).values(link(email, NOW));
-    assert.equal(await mayEmailSignInLink(t.db, email, NOW), true, "the fifth link goes out");
-    await t.db.insert(schema.verification).values(link(email, NOW));
-    assert.equal(await mayEmailSignInLink(t.db, email, NOW), false, "the sixth does not");
-    assert.equal(await mayEmailSignInLink(t.db, email, new Date(NOW.getTime() + (SIGN_IN_LINK_MINUTES + 1) * MINUTE)), true, "a window later it does");
+    await t.db.insert(schema.verification).values(link(email, NOW, "fifth"));
+    assert.equal(await mayEmailSignInLink(t.db, email, "fifth", NOW), true, "the fifth link goes out");
+    const sixthAt = new Date(NOW.getTime() + 1000);
+    await t.db.insert(schema.verification).values(link(email, sixthAt, "sixth"));
+    assert.equal(await mayEmailSignInLink(t.db, email, "sixth", sixthAt), false, "the sixth does not");
+    await discardSignInLink(t.db, "sixth");
+    const later = new Date(NOW.getTime() + (SIGN_IN_LINK_MINUTES + 1) * MINUTE);
+    await t.db.insert(schema.verification).values(link(email, later, "later"));
+    assert.equal(await mayEmailSignInLink(t.db, email, "later", later), true, "a window later it does");
+    assert.equal(await mayEmailSignInLink(t.db, email, "never-stored", later), false, "a link whose row is gone is never sent");
+  });
+
+  test("requests checked at the same moment are admitted in the order they were stored", async () => {
+    const email = `burst-${randomUUID().slice(0, 8)}@example.com`;
+    const tokens = Array.from({ length: SIGN_IN_EMAILS_PER_ADDRESS + 2 }, () => randomUUID());
+    // Every row is stored before any check runs, as with requests arriving together.
+    await t.db.insert(schema.verification).values(tokens.map((token, i) => link(email, new Date(NOW.getTime() + i), token)));
+    const admitted = await Promise.all(tokens.map((token) => mayEmailSignInLink(t.db, email, token, NOW)));
+    assert.deepEqual(admitted, tokens.map((_, i) => i < SIGN_IN_EMAILS_PER_ADDRESS));
   });
 
   test("a refused link is deleted, so asking again and again never pushes the window out", async () => {
@@ -62,15 +76,15 @@ describe("sign-in limits and leftovers", { skip }, () => {
       const at = new Date(NOW.getTime() + minutes * MINUTE);
       const token = randomUUID();
       await t.db.insert(schema.verification).values(link(email, at, token));
-      assert.equal(await mayEmailSignInLink(t.db, email, at), false);
+      assert.equal(await mayEmailSignInLink(t.db, email, token, at), false);
       await discardSignInLink(t.db, token);
     }
     const [kept] = await t.db.select({ n: sql<number>`count(*)` }).from(schema.verification).where(like(schema.verification.value, `%${email}%`));
     assert.equal(Number(kept.n), SIGN_IN_EMAILS_PER_ADDRESS, "only the links that went out are left");
     // Fifteen minutes after the sent ones, the address gets a link again.
     const later = new Date(sent.getTime() + (SIGN_IN_LINK_MINUTES + 1) * MINUTE);
-    await t.db.insert(schema.verification).values(link(email, later));
-    assert.equal(await mayEmailSignInLink(t.db, email, later), true);
+    await t.db.insert(schema.verification).values(link(email, later, "after"));
+    assert.equal(await mayEmailSignInLink(t.db, email, "after", later), true);
   });
 
   test("the daily retention job deletes sign-in links and sessions a day past expiry, and keeps the rest", async () => {

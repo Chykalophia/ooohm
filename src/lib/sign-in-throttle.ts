@@ -21,8 +21,18 @@ export const SIGN_IN_EMAILS_PER_ADDRESS = 5;
  * rows Better Auth's magic-link plugin writes (`identifier` `magic-link:<token>`,
  * `value` JSON naming the email). Other verification rows (passkey challenges) are
  * skipped before their value is read, since theirs is not JSON.
+ *
+ * With `upToToken`, only links stored no later than that token's own row count (ties
+ * broken by identifier), so requests checked at the same moment are admitted in the
+ * order they were stored, as if one after another, instead of each counting the
+ * others and all being refused.
  */
-export async function countSignInLinksSince(ex: Executor, email: string, since: Date): Promise<number> {
+export async function countSignInLinksSince(ex: Executor, email: string, since: Date, upToToken?: string): Promise<number> {
+  const upTo = upToToken
+    ? sql`and (created_at, identifier) <= (
+        select v.created_at, v.identifier from verification v where v.identifier = ${`magic-link:${upToToken}`}
+      )`
+    : sql``;
   const [row] = await executeRows<{ n: unknown }>(
     ex,
     sql`
@@ -30,15 +40,21 @@ export async function countSignInLinksSince(ex: Executor, email: string, since: 
     where identifier like 'magic-link:%'
       and created_at >= ${since.toISOString()}::timestamptz
       and lower(case when identifier like 'magic-link:%' then value::jsonb ->> 'email' end) = lower(${email})
+      ${upTo}
   `,
   );
   return Number(row?.n ?? 0);
 }
 
-/** Whether another sign-in link may go to `email` now: fewer than the cap in the last window, this one included. */
-export async function mayEmailSignInLink(ex: Executor, email: string, now: Date): Promise<boolean> {
+/**
+ * Whether the link for `token` may be emailed to `email` now: it is among the first
+ * {@link SIGN_IN_EMAILS_PER_ADDRESS} stored for the address in the last window, itself
+ * included. A token whose row is already gone (used or discarded) is never sent.
+ */
+export async function mayEmailSignInLink(ex: Executor, email: string, token: string, now: Date): Promise<boolean> {
   const since = new Date(now.getTime() - SIGN_IN_LINK_MINUTES * 60_000);
-  return (await countSignInLinksSince(ex, email, since)) <= SIGN_IN_EMAILS_PER_ADDRESS;
+  const position = await countSignInLinksSince(ex, email, since, token);
+  return position >= 1 && position <= SIGN_IN_EMAILS_PER_ADDRESS;
 }
 
 /**

@@ -53,3 +53,34 @@ export async function pruneDispatchedEvents(ex: Executor, before: Date, batch: n
   );
   return rows.length;
 }
+
+/**
+ * Sign-in leftovers that expired before `before`: Better Auth's verification rows
+ * (unused sign-in links, which name the address typed, member or not, and passkey
+ * challenges) and sessions. Better Auth deletes a row only when someone presents it, so
+ * these would otherwise stay for good.
+ */
+export async function pruneExpiredVerifications(ex: Executor, before: Date, batch: number): Promise<number> {
+  const rows = await executeRows(
+    ex,
+    sql`
+    delete from verification where id in (
+      select id from verification where expires_at < ${before.toISOString()}::timestamptz limit ${batch}
+    ) returning id
+  `,
+  );
+  return rows.length;
+}
+
+/** Sessions that expired before `before`; each holds the IP address and browser it was opened from. */
+export async function pruneExpiredSessions(ex: Executor, before: Date, batch: number): Promise<number> {
+  const rows = await executeRows(
+    ex,
+    sql`
+    delete from session where id in (
+      select id from session where expires_at < ${before.toISOString()}::timestamptz limit ${batch}
+    ) returning id
+  `,
+  );
+  return rows.length;
+}

@@ -1,6 +1,6 @@
 /**
  * Daily jobs the outbox worker runs, so a host cron is optional: the year rollover,
- * integration retention, and full-scrub deletes whose grace period has ended.
+ * integration retention (with expired sign-in links and sessions), and full-scrub deletes whose grace period has ended.
  *
  * Each job is claimed with a compare-and-set on its `scheduled_jobs` row before it runs,
  * so however many workers there are, exactly one runs it per day, and a restart does not
@@ -13,7 +13,7 @@ import type { ServiceContext } from "@/server/context";
 import { databaseErrorCode } from "@/server/repositories/errors";
 import { claimJob, finishJob } from "@/server/repositories/scheduled-jobs";
 import { runDueScrubs } from "./admin-people-deletion";
-import { pruneIntegrationData } from "./retention";
+import { pruneExpiredSignIns, pruneIntegrationData } from "./retention";
 import { runYearRollover } from "./rollover";
 
 const HOUR = 3_600_000;
@@ -23,7 +23,7 @@ export const JOB_RETRY_MS = HOUR;
 
 export const DAILY_JOBS: Readonly<Record<string, (ctx: ServiceContext) => Promise<Record<string, number>>>> = {
   year_rollover: async (ctx) => ({ ...(await runYearRollover(ctx)) }),
-  integration_retention: async (ctx) => ({ ...(await pruneIntegrationData(ctx)) }),
+  integration_retention: async (ctx) => ({ ...(await pruneIntegrationData(ctx)), ...(await pruneExpiredSignIns(ctx)) }),
   scheduled_scrub: async (ctx) => ({ ...(await runDueScrubs(ctx)) }),
 };
 

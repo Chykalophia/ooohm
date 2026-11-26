@@ -250,8 +250,9 @@ appears in it, and it can't be reworded.
 
 Subject: `Your OOOhm sign-in link`. The link works once and expires in 15 minutes; if they didn't ask
 for it, they can ignore it. An address without an active account gets no email, and the sign-in page answers the same either
-way, so it can't be used to find out who works there. One address gets at most five sign-in links in 15 minutes
-(invites always go out, and count toward the five); more requests in that time send nothing.
+way, so it can't be used to find out who works there. One address can have at most five unused sign-in links from
+the last 15 minutes (invites always go out, and count toward the five); more requests send nothing until
+one is used or ages out.
 
 ![The sign-in email](../../site/docs/images/email-sign-in.webp)
 
